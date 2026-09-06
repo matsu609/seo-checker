@@ -11,6 +11,40 @@ import { SiteReport } from "./SiteReport";
 /** ページ単位（1 URL）か、サイト単位（複数ページの集計）か */
 type Mode = "page" | "site";
 
+/**
+ * 印刷ダイアログで「PDF に保存」したときの既定ファイル名は document.title
+ * から作られる。既定のままだとどの診断結果も同じ名前になるので、
+ * 印刷の間だけ「AIO診断_ホスト名_日付」に差し替える。
+ */
+function pdfTitle(mode: Mode, target: string, at: string): string {
+  let host = target;
+  try {
+    host = new URL(target).hostname || target;
+  } catch {
+    // URL として解釈できないときは入力値をそのまま使う
+  }
+  const d = new Date(at);
+  const stamp = Number.isNaN(d.getTime())
+    ? ""
+    : `_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(
+        d.getDate(),
+      ).padStart(2, "0")}`;
+  return `AIO診断${mode === "site" ? "_サイト全体" : ""}_${host}${stamp}`;
+}
+
+function printAsPdf(title: string) {
+  const original = document.title;
+  const restore = () => {
+    document.title = original;
+    window.removeEventListener("afterprint", restore);
+  };
+  window.addEventListener("afterprint", restore);
+  document.title = title;
+  window.print();
+  // afterprint が発火しないブラウザ向けの保険
+  setTimeout(restore, 10_000);
+}
+
 type State =
   | { phase: "idle" }
   | { phase: "loading"; mode: Mode }
@@ -144,18 +178,27 @@ export function Checker() {
 
       {state.phase === "done" && (
         <div className="mt-6 space-y-6">
-          <div className="no-print flex items-center justify-end gap-3">
+          <div className="no-print flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
             {state.cached && (
               <span className="text-xs text-muted">直近の診断結果を表示しています</span>
             )}
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() =>
+                printAsPdf(
+                  state.mode === "site"
+                    ? pdfTitle("site", state.result.origin, state.result.fetchedAt)
+                    : pdfTitle("page", state.result.page.finalUrl, state.result.page.fetchedAt),
+                )
+              }
               className="inline-flex items-center gap-2 rounded-xl border border-line bg-panel px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-surface"
             >
               <Printer className="h-4 w-4" />
               PDFで保存
             </button>
+            <p className="w-full text-right text-xs text-muted">
+              印刷ダイアログが開きます。送信先（プリンター）を「PDFに保存」にして保存してください。
+            </p>
           </div>
           {state.mode === "page" ? (
             <>

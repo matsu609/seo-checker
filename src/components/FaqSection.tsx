@@ -108,7 +108,7 @@ export function FaqSection({ result, enabled }: { result: AnalysisResult; enable
 
   return (
     <>
-      <section className="print-card rounded-2xl bg-accent-soft p-5 ring-1 ring-accent/10 sm:p-6">
+      <section className="no-print rounded-2xl bg-accent-soft p-5 ring-1 ring-accent/10 sm:p-6">
         <div className="flex gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent text-white">
             <Sparkle className="h-6 w-6" />
@@ -173,7 +173,7 @@ export function FaqSection({ result, enabled }: { result: AnalysisResult; enable
           <ul className="mt-4 space-y-3">
             {faqs.map((f) => (
               <li key={f.id} className="rounded-xl border border-line p-3 sm:p-4">
-                <div className="flex items-center justify-between">
+                <div className="no-print flex items-center justify-between">
                   <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted">
                     <input
                       type="checkbox"
@@ -196,15 +196,20 @@ export function FaqSection({ result, enabled }: { result: AnalysisResult; enable
                   value={f.question}
                   onChange={(e) => update(f.id, { question: e.target.value })}
                   placeholder="質問"
-                  className="mt-3 w-full rounded-lg border border-line px-3 py-2 text-base font-medium outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="no-print mt-3 w-full rounded-lg border border-line px-3 py-2 text-base font-medium outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
                 <textarea
                   value={f.answer}
                   onChange={(e) => update(f.id, { answer: e.target.value })}
                   placeholder="回答"
                   rows={3}
-                  className="mt-2 w-full resize-y rounded-lg border border-line px-3 py-2 text-base leading-relaxed outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="no-print mt-2 w-full resize-y rounded-lg border border-line px-3 py-2 text-base leading-relaxed outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
+                {/* 入力欄は高さが固定で印刷すると途中で切れるため、紙にはテキストで出す */}
+                <div className="print-only">
+                  <div className="font-bold">Q. {f.question}</div>
+                  <div className="mt-1 leading-relaxed text-muted">A. {f.answer}</div>
+                </div>
               </li>
             ))}
           </ul>
