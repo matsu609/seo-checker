@@ -29,6 +29,45 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   「PDFでダウンロード」用。画面外に作った複製にだけ当たるスタイル。
+   印刷（下の @media print）と違い、こちらは画面の見た目をそのまま画像に
+   するので、カードの背景や枠は残したままにする。
+   ───────────────────────────────────────────────────────────── */
+.pdf-capture {
+  background: var(--color-surface);
+}
+.pdf-capture main {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.pdf-capture .no-print {
+  display: none !important;
+}
+.pdf-capture .print-only {
+  display: block !important;
+}
+/* 画面では横スクロール・高さ制限で隠れている部分も、PDF には全部出す */
+.pdf-capture .overflow-x-auto {
+  overflow: visible !important;
+}
+.pdf-capture table {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.pdf-capture pre {
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: pre-wrap !important;
+  word-break: break-all;
+}
+.pdf-capture .line-clamp-2 {
+  -webkit-line-clamp: unset !important;
+  display: block !important;
+  overflow: visible !important;
+}
+
+/* ─────────────────────────────────────────────────────────────
    PDF で保存 ＝ ブラウザの印刷ダイアログから「PDF に保存」する。
    画面用のレイアウトのまま印刷すると、1 ページ目がほぼ空白になる／
    表やコードが途中で切れる／背景色が出ない、といった問題が起きるので

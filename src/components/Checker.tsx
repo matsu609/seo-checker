@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import type { AnalysisResult, SiteAnalysisResult } from "@/lib/analyzer/types";
+import { downloadPdf } from "@/lib/pdf/download";
 import { CheckList } from "./CheckList";
 import { FaqSection } from "./FaqSection";
-import { Printer, Search, Sparkle } from "./Icons";
+import { Download, Printer, Search, Sparkle } from "./Icons";
 import { ScoreCard } from "./ScoreCard";
 import { SiteReport } from "./SiteReport";
 
@@ -12,24 +13,27 @@ import { SiteReport } from "./SiteReport";
 type Mode = "page" | "site";
 
 /**
- * 印刷ダイアログで「PDF に保存」したときの既定ファイル名は document.title
- * から作られる。既定のままだとどの診断結果も同じ名前になるので、
- * 印刷の間だけ「AIO診断_ホスト名_日付」に差し替える。
+ * PDF のファイル名。ダウンロード時のファイル名と、印刷して「PDF に保存」
+ * したときの既定ファイル名（document.title から作られる）の両方に使う。
+ *
+ * 日本語を含めると、ブラウザによっては <a download> の名前が捨てられて
+ * "download" というファイルになってしまうため、ASCII だけで組み立てる。
  */
-function pdfTitle(mode: Mode, target: string, at: string): string {
+function reportFileName(mode: Mode, target: string, at: string): string {
   let host = target;
   try {
     host = new URL(target).hostname || target;
   } catch {
     // URL として解釈できないときは入力値をそのまま使う
   }
+  const safeHost = host.replace(/[^\w.-]/g, "-").replace(/^[-.]+|[-.]+$/g, "") || "site";
   const d = new Date(at);
   const stamp = Number.isNaN(d.getTime())
     ? ""
     : `_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(
         d.getDate(),
       ).padStart(2, "0")}`;
-  return `AIO診断${mode === "site" ? "_サイト全体" : ""}_${host}${stamp}`;
+  return `aio-report${mode === "site" ? "-site" : ""}_${safeHost}${stamp}`;
 }
 
 function printAsPdf(title: string) {
@@ -57,6 +61,8 @@ export function Checker() {
   const [mode, setMode] = useState<Mode>("page");
   const [state, setState] = useState<State>({ phase: "idle" });
   const [faqEnabled, setFaqEnabled] = useState(false);
+  const [pdf, setPdf] = useState<"idle" | "working" | "failed">("idle");
+  const reportRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     fetch("/api/faq")
@@ -69,6 +75,7 @@ export function Checker() {
     e.preventDefault();
     if (!url.trim()) return;
     const current = mode;
+    setPdf("idle");
     setState({ phase: "loading", mode: current });
     try {
       const res = await fetch(current === "site" ? "/api/site" : "/api/analyze", {
@@ -89,8 +96,27 @@ export function Checker() {
     }
   }
 
+  async function onDownloadPdf(fileName: string) {
+    const element = reportRef.current;
+    if (!element) return;
+    setPdf("working");
+    try {
+      await downloadPdf({ element, fileName });
+      setPdf("idle");
+    } catch {
+      setPdf("failed");
+    }
+  }
+
+  const fileName =
+    state.phase !== "done"
+      ? ""
+      : state.mode === "site"
+        ? reportFileName("site", state.result.origin, state.result.fetchedAt)
+        : reportFileName("page", state.result.page.finalUrl, state.result.page.fetchedAt);
+
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
+    <main ref={reportRef} className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
       <header className="flex items-start gap-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-white shadow-sm">
           <Sparkle className="h-7 w-7" />
@@ -178,27 +204,32 @@ export function Checker() {
 
       {state.phase === "done" && (
         <div className="mt-6 space-y-6">
-          <div className="no-print flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          <div className="no-print flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
             {state.cached && (
               <span className="text-xs text-muted">直近の診断結果を表示しています</span>
             )}
             <button
               type="button"
-              onClick={() =>
-                printAsPdf(
-                  state.mode === "site"
-                    ? pdfTitle("site", state.result.origin, state.result.fetchedAt)
-                    : pdfTitle("page", state.result.page.finalUrl, state.result.page.fetchedAt),
-                )
-              }
+              onClick={() => onDownloadPdf(fileName)}
+              disabled={pdf === "working"}
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"
+            >
+              <Download className="h-4 w-4" />
+              {pdf === "working" ? "PDFを作成中…" : "PDFでダウンロード"}
+            </button>
+            <button
+              type="button"
+              onClick={() => printAsPdf(fileName)}
               className="inline-flex items-center gap-2 rounded-xl border border-line bg-panel px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-surface"
             >
               <Printer className="h-4 w-4" />
-              PDFで保存
+              印刷
             </button>
-            <p className="w-full text-right text-xs text-muted">
-              印刷ダイアログが開きます。送信先（プリンター）を「PDFに保存」にして保存してください。
-            </p>
+            {pdf === "failed" && (
+              <p className="w-full text-right text-xs text-fail">
+                PDFを作成できませんでした。「印刷」から、送信先を「PDFに保存」にしてお試しください。
+              </p>
+            )}
           </div>
           {state.mode === "page" ? (
             <>
