@@ -4,18 +4,35 @@ import { assertPublicHost, FetchError, fetchText, normalizeUrl } from "./fetch";
 import { checkHeadings, extractHeadings } from "./headings";
 import { checkStructuredData, extractJsonLd } from "./jsonld";
 import { checkMeta, extractMeta } from "./meta";
-import { checkCrawlers } from "./robots";
+import { checkCrawlers, fetchSiteFiles, type SiteFiles } from "./robots";
 import { buildCategories, overallScore } from "./scoring";
 import type { AnalysisResult, CheckResult } from "./types";
 
 export { FetchError } from "./fetch";
+export { fetchSiteFiles, type SiteFiles } from "./robots";
 export * from "./types";
+
+export interface AnalyzeOptions {
+  /**
+   * robots.txt / llms.txt の取得結果。サイト診断で複数ページを回すとき、
+   * オリジン共通のファイルを毎ページ取り直さないために渡す。
+   */
+  siteFiles?: SiteFiles;
+}
 
 /**
  * URL を受け取り、ルールベースの AIO 診断を実行する。
  * AI は一切使わない（API 費用ゼロ）。
+ *
+ * 診断対象は渡された URL の 1 ページだけで、サイト全体ではない。
+ * 同じサイトでもページが違えば HTML が違うため、構造化データ・メタ情報・
+ * 見出し・コンテンツのスコアはページごとに変わる。サイト全体を見るには
+ * `analyzeSite()` を使う。
  */
-export async function analyze(input: string): Promise<AnalysisResult> {
+export async function analyze(
+  input: string,
+  options: AnalyzeOptions = {},
+): Promise<AnalysisResult> {
   const url = normalizeUrl(input);
   await assertPublicHost(url);
 
@@ -43,8 +60,10 @@ export async function analyze(input: string): Promise<AnalysisResult> {
   const headings = extractHeadings($);
   const jsonLd = extractJsonLd($);
 
+  const siteFiles = options.siteFiles ?? (await fetchSiteFiles(finalUrl.origin));
+
   const checks: CheckResult[] = [
-    ...(await checkCrawlers(finalUrl, $, page.headers)),
+    ...checkCrawlers(finalUrl, $, page.headers, siteFiles),
     ...checkStructuredData($),
     ...checkMeta($),
     ...checkHeadings($),

@@ -3,6 +3,8 @@
 URL を入れると、AI検索（AIO）対策の状況を **ルールベースで診断** し、  
 本文から **想定FAQを AI が提案** → 承認したものだけを **FAQPage 構造化データ + HTML** に変換するツールです。
 
+診断は **「このページ」** と **「サイト全体」** の 2 モードがあります。
+
 診断部分は AI を使わないため API 費用ゼロで動きます。AI を使うのは FAQ 生成だけです。
 
 ## できること
@@ -17,10 +19,22 @@ URL を入れると、AI検索（AIO）対策の状況を **ルールベース�
 | 総合スコア | 各項目に配点（pass=満点 / warn=半分 / fail=0、info は対象外）→ カテゴリ点 → 重み付き平均 | 0 |
 | FAQ 生成 | 本文（先頭 1 万文字）を Claude に渡し、構造化出力で質問・回答を JSON 取得 | 従量（既定は Haiku） |
 | FAQ 出力 | 承認・編集した FAQ から FAQPage JSON-LD と `details/summary` の HTML を生成、コピー可 | 0 |
+| サイト全体診断 | robots.txt の Sitemap → sitemap.xml → トップの内部リンク の順にページを集め、主要ページ（既定 5、最大 10）をまとめて診断。カテゴリごとの平均・最小・最大と、項目ごとのページ間のばらつきを出す | 0 |
 | 下書き保存 | ブラウザの localStorage に URL 単位で保存 | 0 |
 | PDF で保存 | ブラウザ印刷（入力欄・ボタンは非表示） | 0 |
 
 判定基準はすべて `src/lib/analyzer/` に明文化されており、画面には判定根拠（evidence）と改善方法（advice）を併記します。
+
+### ページ単位とサイト単位
+
+`analyze(url)` が見るのは **その URL 1 ページの HTML だけ** です。robots.txt と llms.txt はオリジン共通ですが、構造化データ・メタ情報・見出し・コンテンツはページごとの中身で決まります。したがって **同じサイトでもトップと下層ページでスコアは変わります**。たとえば下層ページには `BreadcrumbList` があるがトップには無い、トップには `WebSite` があるが下層には無い、といった差がそのまま点差になります（配点 1 の項目が 1 つ pass↔warn すると総合が 1.25 点、配点 2 なら 2.5 点動きます）。
+
+「サイトとしてどうか」「どのページが足を引っ張っているか」を見るには **サイト全体モード**（`analyzeSite(url)` / `POST /api/site`）を使ってください。項目ごとに
+
+- **uniform**（全ページ同じ判定）… 共通テンプレートやサイト設定の問題。1 箇所直せば全ページ直る
+- **mixed**（ページで判定が分かれる）… そのページだけの問題。**ページ間でスコアが変わる原因はここに出ます**
+
+を出し分けます。
 
 ## セットアップ
 
@@ -57,12 +71,14 @@ npm test           # vitest（診断ロジックのユニットテスト）
 src/
   app/
     page.tsx                 # 画面
-    api/analyze/route.ts     # POST { url } → 診断結果（10 分キャッシュ）
+    api/analyze/route.ts     # POST { url } → 1 ページの診断結果（10 分キャッシュ）
+    api/site/route.ts        # POST { url, maxPages? } → サイト全体の診断結果（10 分キャッシュ）
     api/faq/route.ts         # GET → 有効可否 / POST { url, mainText, ... } → FAQ 配列（1 時間キャッシュ）
-  components/                # Checker / ScoreCard / CheckList / FaqSection / FaqOutput
+  components/                # Checker / ScoreCard / CheckList / SiteReport / FaqSection / FaqOutput
   lib/
     analyzer/
-      index.ts               # analyze(url): 取得 → 解析 → 採点
+      index.ts               # analyze(url): 取得 → 解析 → 採点（1 ページ）
+      site.ts                # analyzeSite(url): URL 収集 → 複数ページ診断 → 集計
       fetch.ts               # タイムアウト・サイズ上限・SSRF ガード・文字コード判定
       robots.ts  jsonld.ts  meta.ts  headings.ts  content.ts   # 各カテゴリの判定
       scoring.ts             # カテゴリ点・総合点
@@ -79,9 +95,12 @@ src/
 `src/lib/analyzer/types.ts` の `CATEGORY_WEIGHTS` がカテゴリ間の重み、各 `check({ weight })` が項目ごとの配点です。  
 `optionalCheck` で作った項目（SearchAction / Article / Product / llms-full.txt）は「あれば表示が変わるがスコアに影響しない」任意項目です。
 
+**採点対象の項目は、どのページでも同じ顔ぶれで出してください。** ページの状態によって項目を出したり出さなかったりすると、カテゴリの配点合計（＝分母）がページごとに変わり、中身が同じでもスコアがずれます。たとえば画像 alt の判定は画像が 0 枚のページでも `pass` として必ず出しています。例外は `js-rendering` と `jsonld-parse-error` で、これらは「壊れているときだけ出る減点項目」です。
+
 ## 既知の制限と今後
 
 - **JavaScript で描画されるページ（SPA）** は fetch した HTML に本文がないため低スコアになります。ヘッドレスブラウザによるフォールバックは未実装で、代わりに「JS描画依存の可能性」として警告を出します。
+- **サイト全体モードで診断するのは最大 10 ページ**です。sitemap から階層の浅い順に選ぶため、深い記事ページは対象外になります。全ページを網羅したい場合はクロール設計から作り直しが必要です。
 - **キャッシュはプロセス内**です。Vercel 等のサーバーレスではインスタンスごとに独立します。永続化したい場合は Supabase 等に置き換えてください。
 - **認証・クレジット管理は未実装**です。公開運用する場合は、FAQ 生成 API（`/api/faq`）の前に認証と回数制限を入れてください。
 - 対象サイトには `SEOChecker/0.1` の User-Agent でアクセスします。

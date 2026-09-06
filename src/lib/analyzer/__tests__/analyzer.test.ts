@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { describe, expect, it } from "vitest";
-import { checkContent, extractContent } from "../content";
+import { checkContent, extractContent, shouldUseFallback } from "../content";
 import { normalizeUrl } from "../fetch";
 import { checkHeadings, findLevelSkips } from "../headings";
 import { checkStructuredData, extractJsonLd } from "../jsonld";
@@ -8,6 +8,15 @@ import { checkMeta } from "../meta";
 import { evaluateRobots } from "../robots";
 import { buildCategories, overallScore, scoreCategory } from "../scoring";
 import { check, optionalCheck } from "../check";
+import { extractSitemaps } from "../robots";
+import {
+  canonicalizeUrl,
+  extractSitemapLocs,
+  pickPages,
+  summarizeCategories,
+  summarizeChecks,
+} from "../site";
+import type { AnalysisResult, CategoryId, SitePageResult } from "../types";
 
 describe("normalizeUrl", () => {
   it("補完: スキーム無しは https を付ける", () => {
@@ -169,6 +178,48 @@ describe("content", () => {
     expect(info.images).toBe(3);
     expect(info.imagesWithoutAlt).toBe(2);
   });
+
+  // 画像の有無でカテゴリの満点（分母）が変わると、同じサイトのページ同士を
+  // 比べたときに本文量が同じでもスコアがずれる
+  it("画像が 0 枚でも image-alt を pass として必ず出す", () => {
+    const html = page("日本語の本文です。".repeat(250));
+    const info = extractContent(html, "https://example.com/", cheerio.load(html));
+    const alt = checkContent(info).find((r) => r.id === "image-alt");
+    expect(alt).toBeDefined();
+    expect(alt!.status).toBe("pass");
+    expect(alt!.weight).toBe(1);
+  });
+
+  it("画像の有無でコンテンツカテゴリの配点合計が変わらない", () => {
+    const body = "日本語の本文です。".repeat(60); // content-length が warn になる程度
+    const withoutImages = page(body);
+    const withImages = page(body).replace("</main>", '<img src="a.png" alt="A"></main>');
+
+    const totals = [withoutImages, withImages].map((html) => {
+      const info = extractContent(html, "https://example.com/", cheerio.load(html));
+      return checkContent(info).reduce((sum, c) => sum + c.weight, 0);
+    });
+    expect(totals[0]).toBe(totals[1]);
+
+    // 配点が揃うので、alt が完備なら両ページのカテゴリ点も一致する
+    const scores = [withoutImages, withImages].map((html) => {
+      const info = extractContent(html, "https://example.com/", cheerio.load(html));
+      return scoreCategory(checkContent(info));
+    });
+    expect(scores[0]).toBe(scores[1]);
+  });
+});
+
+describe("shouldUseFallback", () => {
+  it("抽出結果が 300 文字未満ならフォールバック", () => {
+    expect(shouldUseFallback(0)).toBe(true);
+    expect(shouldUseFallback(299)).toBe(true);
+  });
+
+  it("300 文字以上あればフォールバックしない", () => {
+    expect(shouldUseFallback(300)).toBe(false);
+    expect(shouldUseFallback(2000)).toBe(false);
+  });
 });
 
 describe("scoring", () => {
@@ -193,5 +244,176 @@ describe("scoring", () => {
     ]);
     // crawlers 0点 (重み20), 他 4 カテゴリは 100 点 (重み合計80) → 80
     expect(overallScore(categories)).toBe(80);
+  });
+});
+
+describe("extractSitemaps", () => {
+  it("robots.txt の Sitemap 行を集める", () => {
+    const txt = [
+      "User-agent: *",
+      "Disallow: /admin/",
+      "Sitemap: https://example.com/sitemap.xml",
+      "sitemap:https://example.com/news-sitemap.xml",
+      "Sitemap: https://example.com/sitemap.xml",
+    ].join("\n");
+    expect(extractSitemaps(txt)).toEqual([
+      "https://example.com/sitemap.xml",
+      "https://example.com/news-sitemap.xml",
+    ]);
+  });
+
+  it("robots.txt が無ければ空", () => {
+    expect(extractSitemaps(null)).toEqual([]);
+  });
+});
+
+describe("extractSitemapLocs", () => {
+  it("<loc> を取り出して実体参照を戻す", () => {
+    const xml = `<urlset><url><loc>https://example.com/</loc></url>
+      <url><loc>https://example.com/company</loc></url>
+      <url><loc>https://example.com/s?a=1&amp;b=2</loc></url></urlset>`;
+    expect(extractSitemapLocs(xml)).toEqual([
+      "https://example.com/",
+      "https://example.com/company",
+      "https://example.com/s?a=1&b=2",
+    ]);
+  });
+});
+
+describe("canonicalizeUrl", () => {
+  it("クエリ・フラグメント・末尾スラッシュを揃える", () => {
+    expect(canonicalizeUrl("https://example.com/company/")).toBe("https://example.com/company");
+    expect(canonicalizeUrl("https://example.com/company?utm=1#a")).toBe(
+      "https://example.com/company",
+    );
+    // トップのスラッシュは残す
+    expect(canonicalizeUrl("https://example.com/")).toBe("https://example.com/");
+  });
+
+  it("相対 URL を base で解決する", () => {
+    expect(canonicalizeUrl("/company", "https://example.com/top")).toBe(
+      "https://example.com/company",
+    );
+  });
+
+  it("http/https 以外は捨てる", () => {
+    expect(canonicalizeUrl("mailto:a@example.com")).toBeNull();
+    expect(canonicalizeUrl("javascript:void(0)")).toBeNull();
+  });
+});
+
+describe("pickPages", () => {
+  it("入力 URL を先頭にし、残りは階層の浅い順", () => {
+    const picked = pickPages(
+      "https://example.com/company",
+      [
+        "https://example.com/blog/2024/01/deep-article",
+        "https://example.com/",
+        "https://example.com/company",
+        "https://example.com/service",
+      ],
+      3,
+    );
+    expect(picked).toEqual([
+      "https://example.com/company",
+      "https://example.com/",
+      "https://example.com/service",
+    ]);
+  });
+});
+
+// --- サイト集計 --------------------------------------------------------------
+
+function fakeAnalysis(
+  url: string,
+  checks: { id: string; category: CategoryId; status: "pass" | "warn" | "fail" }[],
+): { url: string; result: AnalysisResult } {
+  const built = checks.map((c) =>
+    check({ ...c, weight: 1, label: `${c.id}:${c.status}`, advice: "こう直す" }),
+  );
+  return {
+    url,
+    result: {
+      page: {
+        url,
+        finalUrl: url,
+        status: 200,
+        title: null,
+        description: null,
+        lang: null,
+        mainText: "",
+        mainTextLength: 0,
+        rawTextLength: 0,
+        jsonLdTypes: [],
+        h1Count: 1,
+        fetchedAt: "2026-01-01T00:00:00.000Z",
+      },
+      overall: 0,
+      categories: buildCategories(built),
+      notes: [],
+    },
+  };
+}
+
+describe("summarizeChecks", () => {
+  const analyses = [
+    fakeAnalysis("https://example.com/", [
+      { id: "jsonld-breadcrumb", category: "structuredData", status: "warn" },
+      { id: "jsonld-website", category: "structuredData", status: "pass" },
+      { id: "llms-txt", category: "crawlers", status: "warn" },
+    ]),
+    fakeAnalysis("https://example.com/company", [
+      { id: "jsonld-breadcrumb", category: "structuredData", status: "pass" },
+      { id: "jsonld-website", category: "structuredData", status: "pass" },
+      { id: "llms-txt", category: "crawlers", status: "warn" },
+    ]),
+  ];
+
+  it("ページで判定が分かれた項目を mixed にする", () => {
+    const byId = Object.fromEntries(summarizeChecks(analyses).map((s) => [s.id, s]));
+    expect(byId["jsonld-breadcrumb"].spread).toBe("mixed");
+    expect(byId["jsonld-breadcrumb"].counts).toMatchObject({ pass: 1, warn: 1 });
+    expect(byId["jsonld-breadcrumb"].affected.map((a) => a.url)).toEqual(["https://example.com/"]);
+  });
+
+  it("全ページ同じ判定なら uniform", () => {
+    const byId = Object.fromEntries(summarizeChecks(analyses).map((s) => [s.id, s]));
+    expect(byId["llms-txt"].spread).toBe("uniform");
+    expect(byId["llms-txt"].affected).toHaveLength(2);
+    expect(byId["jsonld-website"].spread).toBe("uniform");
+    expect(byId["jsonld-website"].affected).toEqual([]);
+  });
+
+  it("ばらついた項目を先頭に並べる", () => {
+    expect(summarizeChecks(analyses)[0].id).toBe("jsonld-breadcrumb");
+  });
+});
+
+describe("summarizeCategories", () => {
+  const pages: SitePageResult[] = [
+    {
+      url: "https://example.com/",
+      overall: 80,
+      scores: { crawlers: 70, structuredData: 90, meta: 100, headings: 100, content: 100 },
+      page: fakeAnalysis("https://example.com/", []).result.page,
+    },
+    {
+      url: "https://example.com/company",
+      overall: 60,
+      scores: { crawlers: 70, structuredData: 60, meta: 80, headings: 100, content: 50 },
+      page: fakeAnalysis("https://example.com/company", []).result.page,
+    },
+  ];
+
+  it("平均・最小・最大と最低点のページを出す", () => {
+    const byId = Object.fromEntries(summarizeCategories(pages).map((c) => [c.id, c]));
+    expect(byId.structuredData).toMatchObject({
+      score: 75,
+      min: 60,
+      max: 90,
+      worstUrl: "https://example.com/company",
+    });
+    // 全ページ同点のカテゴリは幅が出ない
+    expect(byId.crawlers).toMatchObject({ score: 70, min: 70, max: 70 });
   });
 });

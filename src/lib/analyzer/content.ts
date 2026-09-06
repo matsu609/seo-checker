@@ -16,6 +16,30 @@ export interface ContentInfo {
   scripts: number;
 }
 
+/** Readability の抽出結果がこれ未満なら、本文を取り逃したとみなしてフォールバックする */
+const MIN_MAIN_TEXT_CHARS = 300;
+
+/**
+ * Readability の抽出結果を捨てて、ナビ等を除いた body 全体（フォールバック）を使うか。
+ *
+ * 以前はここに「フォールバックの 30% 未満しか残っていなければ本文を取り逃している」
+ * という相対条件も書かれていたが、`Math.min(300, fallback.length * 0.3)` という
+ * 書き方のせいで閾値が 300 文字で頭打ちになり、実際には一度も発動していなかった。
+ *
+ * 相対条件を有効にすべきか実際の HTML で確かめたところ、有効にしない方が正しい:
+ *   - 会社概要のような table / dl 中心のページでは、Readability は本文をほぼ
+ *     取りこぼさない（抽出結果はフォールバックの 88〜100%）。相対条件の出番がない。
+ *   - 相対条件が効くのは「本文が短く、関連記事リストなどが大量にあるページ」で、
+ *     そこで拾えるのはリンクの羅列＝ボイラープレート。フォールバックに切り替えると
+ *     本文量を水増しして評価してしまう。しかもその手のページは抽出結果自体が
+ *     300 文字未満になるため、下の絶対条件で既に拾えている。
+ *
+ * よって判定は「抽出結果が絶対量として短すぎるか」だけにする。
+ */
+export function shouldUseFallback(mainTextLength: number): boolean {
+  return mainTextLength < MIN_MAIN_TEXT_CHARS;
+}
+
 /** 空白を潰し、長さの比較に使える形へ */
 export function normalizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
@@ -61,9 +85,7 @@ export function extractContent(html: string, url: string, $: cheerio.CheerioAPI)
   $clone("script, style, noscript, template, svg, nav, header, footer, aside, form").remove();
   const fallback = normalizeText($clone("body").text());
 
-  // Readability が本文の大半を捨ててしまうケース（会社概要のような表組みページ）では
-  // フォールバックの方が実態に近い。極端に短い場合はフォールバックを採用する
-  if (!readable || mainText.length < Math.min(300, fallback.length * 0.3)) {
+  if (!readable || shouldUseFallback(mainText.length)) {
     mainText = fallback;
     readable = false;
   }
@@ -134,25 +156,32 @@ export function checkContent(info: ContentInfo): CheckResult[] {
   );
 
   // --- 画像 alt ---------------------------------------------------------------
-  if (info.images > 0) {
-    const ratio = info.imagesWithoutAlt / info.images;
-    const altStatus = ratio === 0 ? "pass" : ratio <= 0.3 ? "warn" : "fail";
-    results.push(
-      check({
-        id: "image-alt",
-        category: "content",
-        status: altStatus,
-        weight: 1,
-        label:
-          altStatus === "pass"
+  // 画像が 0 枚のページでもこの項目は必ず出す。条件付きで省くとカテゴリの満点
+  // （配点の合計 = 分母）がページごとに変わってしまい、本文量が同じでも
+  // 「画像があるページ」と「画像がないページ」でスコアがずれる。
+  // 画像が無いページは alt の問題が存在しないので pass 扱いにする。
+  const ratio = info.images > 0 ? info.imagesWithoutAlt / info.images : 0;
+  const altStatus = ratio === 0 ? "pass" : ratio <= 0.3 ? "warn" : "fail";
+  results.push(
+    check({
+      id: "image-alt",
+      category: "content",
+      status: altStatus,
+      weight: 1,
+      label:
+        info.images === 0
+          ? "画像がないため alt の問題はない"
+          : altStatus === "pass"
             ? "画像に alt 属性が設定されている"
             : "alt 属性のない画像がある",
-        evidence: `画像 ${info.images} 枚のうち alt なし ${info.imagesWithoutAlt} 枚`,
-        advice:
-          "alt 属性は画像の内容を文字で説明するものです。AI は画像そのものより alt テキストから内容を読み取るため、装飾以外の画像には「何が写っているか」を短く記述してください。",
-      }),
-    );
-  }
+      evidence:
+        info.images === 0
+          ? "画像 0 枚"
+          : `画像 ${info.images} 枚のうち alt なし ${info.imagesWithoutAlt} 枚`,
+      advice:
+        "alt 属性は画像の内容を文字で説明するものです。AI は画像そのものより alt テキストから内容を読み取るため、装飾以外の画像には「何が写っているか」を短く記述してください。",
+    }),
+  );
 
   return results;
 }
