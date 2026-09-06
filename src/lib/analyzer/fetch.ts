@@ -1,0 +1,198 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
+export const USER_AGENT =
+  "Mozilla/5.0 (compatible; SEOChecker/0.1; +https://github.com/wolf-ookami/seo-checker)";
+
+const DEFAULT_TIMEOUT_MS = 12_000;
+const MAX_BYTES = 3 * 1024 * 1024; // 3MB
+
+export class FetchError extends Error {
+  constructor(
+    message: string,
+    public readonly code:
+      | "invalid_url"
+      | "blocked_host"
+      | "timeout"
+      | "network"
+      | "too_large",
+  ) {
+    super(message);
+    this.name = "FetchError";
+  }
+}
+
+/** 入力 URL を正規化する。スキーム省略時は https を補う */
+export function normalizeUrl(input: string): URL {
+  const trimmed = input.trim();
+  if (!trimmed) throw new FetchError("URLを入力してください", "invalid_url");
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    throw new FetchError("URLの形式が正しくありません", "invalid_url");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new FetchError("http / https のURLのみ診断できます", "invalid_url");
+  }
+  url.hash = "";
+  return url;
+}
+
+function isPrivateIPv4(ip: string): boolean {
+  const [a, b] = ip.split(".").map(Number);
+  return (
+    a === 10 ||
+    a === 127 ||
+    a === 0 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127)
+  );
+}
+
+function isPrivateIPv6(ip: string): boolean {
+  const lower = ip.toLowerCase();
+  if (lower === "::1" || lower === "::") return true;
+  if (lower.startsWith("fe80:") || lower.startsWith("fc") || lower.startsWith("fd"))
+    return true;
+  // IPv4-mapped (::ffff:127.0.0.1)
+  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return isPrivateIPv4(mapped[1]);
+  return false;
+}
+
+/**
+ * SSRF 対策: localhost / プライベートアドレスへの到達を拒否する。
+ * サーバー側でユーザー指定のURLを fetch するツールでは必須。
+ */
+export async function assertPublicHost(url: URL): Promise<void> {
+  // ローカル開発中に手元のサイト（localhost:3000 など）を診断したいときだけ許可する
+  if (process.env.ALLOW_PRIVATE_HOSTS === "1") return;
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) {
+    throw new FetchError("ローカルホストは診断できません", "blocked_host");
+  }
+  const ipVersion = isIP(host);
+  const addresses: string[] = [];
+  if (ipVersion) {
+    addresses.push(host);
+  } else {
+    try {
+      const results = await lookup(host, { all: true });
+      addresses.push(...results.map((r) => r.address));
+    } catch {
+      throw new FetchError("ホスト名を解決できませんでした", "network");
+    }
+  }
+  for (const address of addresses) {
+    const v = isIP(address);
+    if ((v === 4 && isPrivateIPv4(address)) || (v === 6 && isPrivateIPv6(address))) {
+      throw new FetchError("内部ネットワークのアドレスは診断できません", "blocked_host");
+    }
+  }
+}
+
+export interface FetchedText {
+  ok: boolean;
+  status: number;
+  finalUrl: string;
+  contentType: string;
+  body: string;
+  headers: Headers;
+}
+
+/**
+ * テキスト系リソースを取得する。タイムアウトとサイズ上限付き。
+ * ネットワーク例外は投げず `ok: false, status: 0` として返す（robots.txt 等の任意ファイル向け）。
+ */
+export async function fetchText(
+  url: string,
+  options: { timeoutMs?: number; maxBytes?: number } = {},
+): Promise<FetchedText> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const maxBytes = options.maxBytes ?? MAX_BYTES;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "user-agent": USER_AGENT,
+        accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
+        "accept-language": "ja,en;q=0.8",
+      },
+      redirect: "follow",
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    const reader = res.body?.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    if (reader) {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        received += value.byteLength;
+        if (received > maxBytes) {
+          reader.cancel().catch(() => {});
+          throw new FetchError("ページサイズが大きすぎます", "too_large");
+        }
+        chunks.push(value);
+      }
+    }
+    const merged = new Uint8Array(received);
+    let offset = 0;
+    for (const c of chunks) {
+      merged.set(c, offset);
+      offset += c.byteLength;
+    }
+    const contentType = res.headers.get("content-type") ?? "";
+    const body = decodeBody(merged, contentType);
+
+    return {
+      ok: res.ok,
+      status: res.status,
+      finalUrl: res.url || url,
+      contentType,
+      body,
+      headers: res.headers,
+    };
+  } catch (err) {
+    if (err instanceof FetchError) throw err;
+    if ((err as Error).name === "AbortError") {
+      throw new FetchError("ページの取得がタイムアウトしました", "timeout");
+    }
+    return {
+      ok: false,
+      status: 0,
+      finalUrl: url,
+      contentType: "",
+      body: "",
+      headers: new Headers(),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Content-Type / meta charset を見て文字コードを決めてデコードする */
+function decodeBody(bytes: Uint8Array, contentType: string): string {
+  const fromHeader = /charset=([\w-]+)/i.exec(contentType)?.[1];
+  let charset = fromHeader?.toLowerCase();
+  if (!charset) {
+    // 先頭 2KB を ASCII として読んで meta charset を探す
+    const head = new TextDecoder("latin1").decode(bytes.subarray(0, 2048));
+    charset =
+      /<meta[^>]+charset=["']?\s*([\w-]+)/i.exec(head)?.[1]?.toLowerCase() ??
+      "utf-8";
+  }
+  try {
+    return new TextDecoder(charset).decode(bytes);
+  } catch {
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+}
