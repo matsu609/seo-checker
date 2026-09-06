@@ -79,3 +79,73 @@ export const CATEGORY_WEIGHTS: Record<CategoryId, number> = {
   headings: 15,
   content: 20,
 };
+
+// ---------------------------------------------------------------------------
+// サイト単位の診断
+//
+// analyze() は 1 ページだけを見るため、トップと下層ページでスコアが変わる。
+// これは仕様だが、「サイトとしてどうなのか」「どのページが足を引っ張っているのか」
+// を知りたい場面では役に立たない。以下の型はその集計結果を表す。
+// ---------------------------------------------------------------------------
+
+/** ページごとの診断結果（サイト診断の 1 行分） */
+export interface SitePageResult {
+  url: string;
+  overall: number;
+  /** カテゴリ ID → スコア */
+  scores: Record<CategoryId, number>;
+  page: PageSnapshot;
+}
+
+/** 診断できなかったページ */
+export interface SitePageFailure {
+  url: string;
+  message: string;
+}
+
+/** カテゴリごとの、ページ横断の集計 */
+export interface SiteCategoryScore {
+  id: CategoryId;
+  label: string;
+  /** 全ページの平均 */
+  score: number;
+  min: number;
+  max: number;
+  /** 最低点のページ */
+  worstUrl: string;
+}
+
+/**
+ * 診断項目ごとの、ページ横断の集計。
+ * `spread` が "uniform" ならサイト全体の問題（テンプレートを 1 箇所直せば全ページ直る）、
+ * "mixed" なら特定ページだけの問題。ページ間でスコアが変わる理由はここに出る。
+ */
+export interface SiteCheckSummary {
+  id: string;
+  category: CategoryId;
+  label: string;
+  advice?: string;
+  /** 状態ごとのページ数 */
+  counts: Record<CheckStatus, number>;
+  spread: "uniform" | "mixed";
+  /** pass 以外だったページ */
+  affected: { url: string; status: CheckStatus; evidence?: string }[];
+}
+
+export interface SiteAnalysisResult {
+  /** 入力された URL */
+  entryUrl: string;
+  origin: string;
+  /** 実際に診断したページ（入力 URL を先頭に含む） */
+  pages: SitePageResult[];
+  failures: SitePageFailure[];
+  /** 全ページの総合スコアの平均 */
+  overall: number;
+  categories: SiteCategoryScore[];
+  /** ページ間でばらついた項目を先頭にした一覧 */
+  checks: SiteCheckSummary[];
+  /** URL をどうやって集めたか */
+  discovery: "sitemap" | "links" | "entry-only";
+  notes: string[];
+  fetchedAt: string;
+}

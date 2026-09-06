@@ -40,25 +40,73 @@ export function evaluateRobots(robotsTxt: string | null, pageUrl: string, robots
   return { exists: true, blocked, allowed };
 }
 
-export async function checkCrawlers(
-  pageUrl: URL,
-  $: cheerio.CheerioAPI,
-  pageHeaders: Headers,
-): Promise<CheckResult[]> {
-  const origin = pageUrl.origin;
-  const robotsUrl = `${origin}/robots.txt`;
+/**
+ * オリジン単位で共通のファイル。ページごとに変わらないため、サイト診断では
+ * 1 度だけ取得して全ページで使い回す。
+ */
+export interface SiteFiles {
+  origin: string;
+  /** robots.txt の中身。取得できなければ null */
+  robotsTxt: string | null;
+  /** robots.txt 内の Sitemap: 行 */
+  sitemaps: string[];
+  llmsTxt: { present: boolean; length: number; status: number };
+  llmsFullTxt: { present: boolean; length: number };
+}
 
+/** robots.txt / llms.txt / llms-full.txt をまとめて取得する */
+export async function fetchSiteFiles(origin: string): Promise<SiteFiles> {
   const [robotsRes, llmsRes, llmsFullRes] = await Promise.all([
-    fetchText(robotsUrl, { timeoutMs: 8000 }),
+    fetchText(`${origin}/robots.txt`, { timeoutMs: 8000 }),
     fetchText(`${origin}/llms.txt`, { timeoutMs: 8000 }),
     fetchText(`${origin}/llms-full.txt`, { timeoutMs: 8000 }),
   ]);
 
+  const robotsTxt = robotsRes.ok && !looksLikeHtml(robotsRes) ? robotsRes.body : null;
+  const llmsOk = llmsRes.ok && !looksLikeHtml(llmsRes) && llmsRes.body.trim().length > 0;
+  const llmsFullOk =
+    llmsFullRes.ok && !looksLikeHtml(llmsFullRes) && llmsFullRes.body.trim().length > 0;
+
+  return {
+    origin,
+    robotsTxt,
+    sitemaps: extractSitemaps(robotsTxt),
+    llmsTxt: {
+      present: llmsOk,
+      length: llmsOk ? llmsRes.body.trim().length : 0,
+      status: llmsRes.status,
+    },
+    llmsFullTxt: {
+      present: llmsFullOk,
+      length: llmsFullOk ? llmsFullRes.body.trim().length : 0,
+    },
+  };
+}
+
+/** robots.txt の `Sitemap: <url>` 行を集める */
+export function extractSitemaps(robotsTxt: string | null): string[] {
+  if (!robotsTxt) return [];
+  const urls: string[] = [];
+  for (const line of robotsTxt.split(/\r?\n/)) {
+    const m = /^\s*sitemap\s*:\s*(\S+)/i.exec(line);
+    if (m) urls.push(m[1]);
+  }
+  return [...new Set(urls)];
+}
+
+export function checkCrawlers(
+  pageUrl: URL,
+  $: cheerio.CheerioAPI,
+  pageHeaders: Headers,
+  files: SiteFiles,
+): CheckResult[] {
+  const origin = pageUrl.origin;
+  const robotsUrl = `${origin}/robots.txt`;
+
   const results: CheckResult[] = [];
 
   // --- robots.txt による AI クローラ許可 -------------------------------------
-  const robotsTxt = robotsRes.ok && !looksLikeHtml(robotsRes) ? robotsRes.body : null;
-  const info = evaluateRobots(robotsTxt, pageUrl.toString(), robotsUrl);
+  const info = evaluateRobots(files.robotsTxt, pageUrl.toString(), robotsUrl);
 
   if (info.blocked.length === 0) {
     results.push(
@@ -121,7 +169,7 @@ export async function checkCrawlers(
   );
 
   // --- llms.txt --------------------------------------------------------------
-  const hasLlms = llmsRes.ok && !looksLikeHtml(llmsRes) && llmsRes.body.trim().length > 0;
+  const hasLlms = files.llmsTxt.present;
   results.push(
     check({
       id: "llms-txt",
@@ -130,15 +178,14 @@ export async function checkCrawlers(
       weight: 2,
       label: hasLlms ? "llms.txt が設置されている" : "llms.txt が設置されていない",
       evidence: hasLlms
-        ? `${origin}/llms.txt（${llmsRes.body.trim().length} 文字）`
-        : `${origin}/llms.txt → HTTP ${llmsRes.status || "取得失敗"}`,
+        ? `${origin}/llms.txt（${files.llmsTxt.length} 文字）`
+        : `${origin}/llms.txt → HTTP ${files.llmsTxt.status || "取得失敗"}`,
       advice:
         "llms.txt は、サイトの概要と主要ページの一覧を AI に向けて Markdown で提供するファイルです。サイトのルートに /llms.txt を置き、サイト名・一行説明・重要ページへのリンク一覧を記載すると、AI がサイト構造を理解しやすくなります。",
     }),
   );
 
-  const hasLlmsFull =
-    llmsFullRes.ok && !looksLikeHtml(llmsFullRes) && llmsFullRes.body.trim().length > 0;
+  const hasLlmsFull = files.llmsFullTxt.present;
   results.push(
     optionalCheck({
       id: "llms-full-txt",
@@ -146,7 +193,7 @@ export async function checkCrawlers(
       present: hasLlmsFull,
       label: hasLlmsFull ? "/llms-full.txt がある" : "/llms-full.txt がない",
       evidence: hasLlmsFull
-        ? `${origin}/llms-full.txt（${llmsFullRes.body.trim().length} 文字）`
+        ? `${origin}/llms-full.txt（${files.llmsFullTxt.length} 文字）`
         : undefined,
       advice:
         "llms-full.txt は、サイトの主要コンテンツ全文を 1 ファイルにまとめたものです（設定は任意）。ドキュメントやサービス説明が多いサイトでは、AI が一度に全体を読めるようになるため効果的です。",

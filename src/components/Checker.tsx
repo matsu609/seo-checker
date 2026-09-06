@@ -1,20 +1,26 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import type { AnalysisResult } from "@/lib/analyzer/types";
+import type { AnalysisResult, SiteAnalysisResult } from "@/lib/analyzer/types";
 import { CheckList } from "./CheckList";
 import { FaqSection } from "./FaqSection";
 import { Printer, Search, Sparkle } from "./Icons";
 import { ScoreCard } from "./ScoreCard";
+import { SiteReport } from "./SiteReport";
+
+/** ページ単位（1 URL）か、サイト単位（複数ページの集計）か */
+type Mode = "page" | "site";
 
 type State =
   | { phase: "idle" }
-  | { phase: "loading" }
+  | { phase: "loading"; mode: Mode }
   | { phase: "error"; message: string }
-  | { phase: "done"; result: AnalysisResult; cached: boolean };
+  | { phase: "done"; mode: "page"; result: AnalysisResult; cached: boolean }
+  | { phase: "done"; mode: "site"; result: SiteAnalysisResult; cached: boolean };
 
 export function Checker() {
   const [url, setUrl] = useState("");
+  const [mode, setMode] = useState<Mode>("page");
   const [state, setState] = useState<State>({ phase: "idle" });
   const [faqEnabled, setFaqEnabled] = useState(false);
 
@@ -28,16 +34,22 @@ export function Checker() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!url.trim()) return;
-    setState({ phase: "loading" });
+    const current = mode;
+    setState({ phase: "loading", mode: current });
     try {
-      const res = await fetch("/api/analyze", {
+      const res = await fetch(current === "site" ? "/api/site" : "/api/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "診断に失敗しました");
-      setState({ phase: "done", result: data.result, cached: Boolean(data.cached) });
+      const cached = Boolean(data.cached);
+      setState(
+        current === "site"
+          ? { phase: "done", mode: "site", result: data.result, cached }
+          : { phase: "done", mode: "page", result: data.result, cached },
+      );
     } catch (err) {
       setState({ phase: "error", message: (err as Error).message });
     }
@@ -77,6 +89,30 @@ export function Checker() {
             className="w-full rounded-xl border border-line py-3.5 pr-4 pl-12 text-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
         </div>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="診断の範囲">
+          {(
+            [
+              { value: "page", label: "このページ", hint: "入力したURL 1 ページ" },
+              { value: "site", label: "サイト全体", hint: "主要ページをまとめて" },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={mode === opt.value}
+              onClick={() => setMode(opt.value)}
+              className={`rounded-xl border px-3 py-2.5 text-left ${
+                mode === opt.value
+                  ? "border-accent bg-accent/5 ring-1 ring-accent/30"
+                  : "border-line bg-surface hover:bg-panel"
+              }`}
+            >
+              <span className="block text-sm font-semibold">{opt.label}</span>
+              <span className="block text-xs text-muted">{opt.hint}</span>
+            </button>
+          ))}
+        </div>
         <button
           type="submit"
           disabled={state.phase === "loading"}
@@ -86,12 +122,17 @@ export function Checker() {
         </button>
         <p className="mt-2 text-xs text-muted">
           診断はルールベースで行うため無料です。FAQ生成のみAIを使用します。
+          {mode === "page"
+            ? "「このページ」は入力したURL 1 ページだけを評価します。同じサイトでもページが違えば内容が違うため、点数は変わります。"
+            : "「サイト全体」は sitemap または内部リンクから主要ページを最大 5 ページ選んで診断し、平均とページごとの差を出します。"}
         </p>
       </form>
 
       {state.phase === "loading" && (
         <div className="mt-6 rounded-2xl bg-panel p-6 text-center text-sm text-muted shadow-sm ring-1 ring-line">
-          ページ・robots.txt・llms.txt を取得して解析しています…
+          {state.mode === "site"
+            ? "サイト内の主要ページを順に取得して解析しています。1 分ほどかかることがあります…"
+            : "ページ・robots.txt・llms.txt を取得して解析しています…"}
         </div>
       )}
 
@@ -116,13 +157,19 @@ export function Checker() {
               PDFで保存
             </button>
           </div>
-          <ScoreCard result={state.result} />
-          <CheckList result={state.result} />
-          <FaqSection
-            key={state.result.page.finalUrl}
-            result={state.result}
-            enabled={faqEnabled}
-          />
+          {state.mode === "page" ? (
+            <>
+              <ScoreCard result={state.result} />
+              <CheckList result={state.result} />
+              <FaqSection
+                key={state.result.page.finalUrl}
+                result={state.result}
+                enabled={faqEnabled}
+              />
+            </>
+          ) : (
+            <SiteReport result={state.result} />
+          )}
         </div>
       )}
     </main>
