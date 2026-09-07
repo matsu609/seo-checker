@@ -1,246 +1,197 @@
-import { analyze } from "./index";
+import { crawlSite, PAGE_TIMEOUT_MS, resolveMaxPages } from "@/lib/crawl/crawler";
+import type { CrawlProgress } from "@/lib/crawl/types";
+import { canonicalizeUrl, pathDepth } from "@/lib/crawl/url";
+import { analyzeFetched, assertHtmlPage } from "./index";
 import { assertPublicHost, FetchError, fetchText, normalizeUrl } from "./fetch";
-import { fetchSiteFiles, type SiteFiles } from "./robots";
+import { fetchSiteFiles } from "./robots";
 import {
   CATEGORY_LABELS,
   type AnalysisResult,
   type CategoryId,
   type CheckStatus,
+  type PageSnapshot,
   type SiteAnalysisResult,
   type SiteCategoryScore,
   type SiteCheckSummary,
+  type SiteDiscovery,
   type SitePageFailure,
   type SitePageResult,
+  type SiteProgress,
 } from "./types";
 
-/** 既定で診断するページ数。対象サイトへの負荷とレスポンス時間の折り合い */
-export const DEFAULT_MAX_PAGES = 5;
-export const MAX_PAGES_LIMIT = 10;
-/** 同時に何ページ取得するか。相手サーバーに優しく */
-const CONCURRENCY = 2;
-
-/** 明らかに HTML ではない URL を弾く */
-const NON_HTML_EXT =
-  /\.(pdf|jpe?g|png|gif|webp|avif|svg|ico|css|js|mjs|json|xml|zip|gz|mp[34]|mov|webm|woff2?|ttf|eot|docx?|xlsx?|pptx?)$/i;
+// URL の正規化・サイトマップ解析は crawl/ に移した。既存の利用側とテストのために再輸出する
+export { canonicalizeUrl, extractSitemapLocs, NON_HTML_EXT } from "@/lib/crawl/url";
+export { DEFAULT_MAX_PAGES, HARD_MAX_PAGES as MAX_PAGES_LIMIT, resolveMaxPages } from "@/lib/crawl/crawler";
 
 /**
- * URL を「同じページ」と見なす形に揃える。
- * 末尾スラッシュとクエリ・フラグメントの差で同じページを二重に診断しないため。
+ * サイト診断の応答に載せるページ概要。
+ *
+ * 本文（`mainText`）は含めない（design-spec §9.1）。数百ページ分を積むと応答が
+ * 数 MB になり、レポートが使うのは `mainTextLength` だけ。本文が要る FAQ 生成は
+ * page モード専用。項目を列挙しているのは、PageSnapshot に項目が増えたときに
+ * 型検査でここに気付けるようにするため。
  */
-export function canonicalizeUrl(input: string, base?: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(input, base);
-  } catch {
-    return null;
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-  url.hash = "";
-  url.search = "";
-  if (url.pathname !== "/" && url.pathname.endsWith("/")) {
-    url.pathname = url.pathname.replace(/\/+$/, "");
-  }
-  return url.toString();
-}
-
-/** sitemap.xml / sitemapindex から <loc> を取り出す */
-export function extractSitemapLocs(xml: string): string[] {
-  const locs: string[] = [];
-  for (const m of xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)) {
-    locs.push(decodeXmlEntities(m[1]));
-  }
-  return locs;
-}
-
-function decodeXmlEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'");
-}
-
-/** <loc> がサイトマップ索引を指しているか（1 段だけ辿る） */
-function isSitemapUrl(url: string): boolean {
-  return /sitemap[^/]*\.xml(\.gz)?$/i.test(url);
-}
-
-/**
- * 同一オリジンの HTML ページ URL を集める。
- * robots.txt の Sitemap → sitemap.xml → 見つからなければトップページの内部リンク。
- */
-export async function discoverUrls(
-  origin: string,
-  entryUrl: string,
-  files: SiteFiles,
-  limit: number,
-): Promise<{ urls: string[]; discovery: SiteAnalysisResult["discovery"] }> {
-  const sameOrigin = (u: string) => {
-    try {
-      return new URL(u).origin === origin;
-    } catch {
-      return false;
-    }
+function siteSnapshot(page: PageSnapshot): SitePageResult["page"] {
+  return {
+    url: page.url,
+    finalUrl: page.finalUrl,
+    status: page.status,
+    title: page.title,
+    description: page.description,
+    lang: page.lang,
+    mainTextLength: page.mainTextLength,
+    rawTextLength: page.rawTextLength,
+    jsonLdTypes: page.jsonLdTypes,
+    h1Count: page.h1Count,
+    fetchedAt: page.fetchedAt,
   };
-
-  // --- 1. sitemap ------------------------------------------------------------
-  const sitemapCandidates = files.sitemaps.length > 0 ? files.sitemaps : [`${origin}/sitemap.xml`];
-  const fromSitemap: string[] = [];
-  for (const sitemapUrl of sitemapCandidates.slice(0, 3)) {
-    if (!sameOrigin(sitemapUrl)) continue;
-    const res = await fetchText(sitemapUrl, { timeoutMs: 8000 });
-    if (!res.ok || !res.body.includes("<loc")) continue;
-    const locs = extractSitemapLocs(res.body);
-    // サイトマップ索引なら 1 段だけ中を見る
-    const nested = locs.filter(isSitemapUrl).slice(0, 2);
-    if (nested.length > 0 && locs.every(isSitemapUrl)) {
-      for (const child of nested) {
-        if (!sameOrigin(child)) continue;
-        const childRes = await fetchText(child, { timeoutMs: 8000 });
-        if (childRes.ok) fromSitemap.push(...extractSitemapLocs(childRes.body));
-      }
-    } else {
-      fromSitemap.push(...locs.filter((u) => !isSitemapUrl(u)));
-    }
-    if (fromSitemap.length > 0) break;
-  }
-
-  const usable = (list: string[]) =>
-    dedupe(
-      list
-        .map((u) => canonicalizeUrl(u))
-        .filter((u): u is string => Boolean(u) && sameOrigin(u!) && !NON_HTML_EXT.test(u!)),
-    );
-
-  const sitemapUrls = usable(fromSitemap);
-  if (sitemapUrls.length > 0) {
-    return { urls: pickPages(entryUrl, sitemapUrls, limit), discovery: "sitemap" };
-  }
-
-  // --- 2. トップページの内部リンク -------------------------------------------
-  const home = await fetchText(origin + "/", { timeoutMs: 10_000 });
-  if (home.ok && home.body) {
-    const hrefs: string[] = [];
-    for (const m of home.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
-      const abs = canonicalizeUrl(m[1], home.finalUrl || origin);
-      if (abs) hrefs.push(abs);
-    }
-    const linkUrls = usable(hrefs);
-    if (linkUrls.length > 0) {
-      return { urls: pickPages(entryUrl, linkUrls, limit), discovery: "links" };
-    }
-  }
-
-  return { urls: [entryUrl], discovery: "entry-only" };
-}
-
-function dedupe(list: string[]): string[] {
-  return [...new Set(list)];
 }
 
 /**
  * 入力 URL を必ず先頭に置き、残りは階層の浅い順に選ぶ。
- * 深い記事ページより、トップ・会社概要・サービスといった主要ページを見たいため。
+ * クロールの種の並び順（トップ・会社概要・サービス → 記事）に使う。
  */
 export function pickPages(entryUrl: string, candidates: string[], limit: number): string[] {
-  const depth = (u: string) => new URL(u).pathname.split("/").filter(Boolean).length;
   const rest = candidates
     .filter((u) => u !== entryUrl)
-    .sort((a, b) => depth(a) - depth(b) || a.length - b.length);
+    .sort((a, b) => pathDepth(a) - pathDepth(b) || a.length - b.length);
   return [entryUrl, ...rest].slice(0, limit);
 }
 
-/** 配列を n 件ずつ並列に処理する */
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  n: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(n, items.length) }, async () => {
-    for (;;) {
-      const i = cursor++;
-      if (i >= items.length) return;
-      results[i] = await fn(items[i]);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
-
 export interface AnalyzeSiteOptions {
+  /** ページ数の上限。省略時は SITE_MAX_PAGES（既定 300、最大 1000） */
   maxPages?: number;
+  /** クロール全体の時間予算（ミリ秒）。既定 240 秒 */
+  timeBudgetMs?: number;
+  /** 同時取得数。既定 4 */
+  concurrency?: number;
+  /** クライアント切断などで中断する */
+  signal?: AbortSignal;
+  /** 1 ページ処理するごとに呼ばれる */
+  onProgress?: (progress: SiteProgress) => void;
 }
 
 /**
- * サイト単位の診断。複数ページを診断して集計する。
+ * サイト単位の診断。サイト全体をクロールして全ページを診断し、集計する。
  *
  * サイト共通の項目（robots.txt / llms.txt）は 1 度だけ取得して全ページで共有し、
  * ページ固有の項目（構造化データ・メタ・見出し・コンテンツ）はページごとに評価して
  * 平均とばらつきを出す。「どのページが原因で点が下がっているか」が分かる。
+ *
+ * ページの集め方: サイトマップ（robots.txt の Sitemap 行 → 定番の場所、索引は再帰展開）
+ * を種にして、取得した各ページの内部リンクを幅優先で辿る。上限（maxPages /
+ * timeBudgetMs）に達したら打ち切り、その旨を `crawl.truncated` と `notes` に残す。
  */
 export async function analyzeSite(
   input: string,
   options: AnalyzeSiteOptions = {},
 ): Promise<SiteAnalysisResult> {
+  const startedAt = Date.now();
   const entry = normalizeUrl(input);
   await assertPublicHost(entry);
+  const maxPages = resolveMaxPages(options.maxPages);
 
-  const limit = Math.min(Math.max(options.maxPages ?? DEFAULT_MAX_PAGES, 1), MAX_PAGES_LIMIT);
-  const origin = entry.origin;
-  const entryUrl = canonicalizeUrl(entry.toString()) ?? entry.toString();
+  // 入力ページを先に取得する。サイトに到達できるかを早く判定し、
+  // www 有無や http→https のリダイレクトを踏まえた「本当のオリジン」をここで確定する
+  const entryPage = await fetchText(entry.toString(), { timeoutMs: PAGE_TIMEOUT_MS });
+  assertHtmlPage(entryPage);
+  const finalEntry = new URL(entryPage.finalUrl);
+  const notes: string[] = [];
+  if (finalEntry.origin !== entry.origin) {
+    await assertPublicHost(finalEntry);
+    notes.push(`リダイレクト先 ${finalEntry.origin} を診断しました`);
+  }
+  const origin = finalEntry.origin;
+  const entryUrl = canonicalizeUrl(finalEntry.toString()) ?? finalEntry.toString();
 
   const files = await fetchSiteFiles(origin);
-  const { urls, discovery } = await discoverUrls(origin, entryUrl, files, limit);
 
-  const notes: string[] = [];
-  if (discovery === "entry-only") {
-    notes.push(
-      "sitemap.xml も内部リンクも見つからなかったため、入力された 1 ページだけを診断しました",
-    );
-  } else if (urls.length === 1) {
-    notes.push("同一サイト内に他のページが見つからなかったため、1 ページだけを診断しました");
-  }
+  const analyses: { url: string; result: AnalysisResult }[] = [];
+  const progress = (p: CrawlProgress) => {
+    options.onProgress?.({ ...p, analyzed: analyses.length });
+  };
 
-  type Settled =
-    | { ok: true; url: string; result: AnalysisResult }
-    | { ok: false; url: string; message: string };
-
-  const settled = await mapWithConcurrency<string, Settled>(urls, CONCURRENCY, async (url) => {
-    try {
-      return { ok: true, url, result: await analyze(url, { siteFiles: files }) };
-    } catch (err) {
-      const message =
-        err instanceof FetchError ? err.message : "診断中に予期しないエラーが発生しました";
-      return { ok: false, url, message };
-    }
+  const crawl = await crawlSite({
+    entryUrl,
+    origin,
+    siteFiles: files,
+    entryPage,
+    maxPages,
+    timeBudgetMs: options.timeBudgetMs,
+    concurrency: options.concurrency,
+    signal: options.signal,
+    onProgress: progress,
+    visit: (page, url) => {
+      const result = analyzeFetched(page, files, { requestedUrl: url });
+      // 本文（mainText）は落として積む（design-spec §9.1）。
+      // 集計に使うのは categories と PageSnapshot の数値だけで、数百ページ分の本文を
+      // リクエスト中ずっと抱えると数十 MB になるため。
+      analyses.push({ url, result: { ...result, page: { ...result.page, mainText: "" } } });
+    },
   });
 
-  const pages: SitePageResult[] = [];
-  const failures: SitePageFailure[] = [];
-  const analyses: { url: string; result: AnalysisResult }[] = [];
+  const pages: SitePageResult[] = analyses.map(({ result }) => ({
+    url: result.page.finalUrl,
+    overall: result.overall,
+    scores: Object.fromEntries(
+      result.categories.map((c) => [c.id, c.score]),
+    ) as Record<CategoryId, number>,
+    page: siteSnapshot(result.page),
+  }));
 
-  for (const item of settled) {
-    if (!item.ok) {
-      failures.push({ url: item.url, message: item.message });
-      continue;
-    }
-    analyses.push({ url: item.url, result: item.result });
-    pages.push({
-      url: item.result.page.finalUrl,
-      overall: item.result.overall,
-      scores: Object.fromEntries(
-        item.result.categories.map((c) => [c.id, c.score]),
-      ) as Record<CategoryId, number>,
-      page: item.result.page,
-    });
+  // 入力ページを先頭に（並列取得で順序が前後するため）
+  const entryIndex = pages.findIndex((p) => canonicalizeUrl(p.url) === entryUrl);
+  if (entryIndex > 0) {
+    const [entryResult] = pages.splice(entryIndex, 1);
+    pages.unshift(entryResult);
   }
+
+  const failures: SitePageFailure[] = crawl.failures.map((f) => ({
+    url: f.url,
+    message: f.message,
+  }));
 
   if (pages.length === 0) {
     throw new FetchError("サイト内のどのページも診断できませんでした", "network");
   }
+
+  const discovery: SiteDiscovery =
+    crawl.sitemapCount > 0 && crawl.linkCount > 0
+      ? "sitemap+links"
+      : crawl.sitemapCount > 0
+        ? "sitemap"
+        : crawl.linkCount > 0
+          ? "links"
+          : "entry-only";
+
+  const fmt = (n: number) => n.toLocaleString("ja-JP");
+
+  if (discovery === "entry-only") {
+    notes.push(
+      "sitemap.xml も内部リンクも見つからなかったため、入力された 1 ページだけを診断しました",
+    );
+  } else if (pages.length === 1 && crawl.discovered === 1) {
+    notes.push("同一サイト内に他のページが見つからなかったため、1 ページだけを診断しました");
+  }
+
+  if (crawl.truncated?.reason === "max-pages") {
+    notes.push(
+      `上限 ${fmt(crawl.truncated.limit)} ページで打ち切りました（見つかった URL は ${fmt(crawl.discovered)} 件）。SITE_MAX_PAGES で変更できます`,
+    );
+  } else if (crawl.truncated?.reason === "time-budget") {
+    notes.push(
+      `制限時間（${fmt(Math.round(crawl.truncated.limit / 1000))} 秒）に達したため ${fmt(pages.length)} ページで打ち切りました（見つかった URL は ${fmt(crawl.discovered)} 件）`,
+    );
+  }
+  if (failures.length > 0) {
+    notes.push(`${fmt(failures.length)} ページは取得できなかったため集計から除きました`);
+  }
+  if (crawl.skipped > 0) {
+    notes.push(
+      `${fmt(crawl.skipped)} 件は HTML 以外・別サイトへの転送・重複のため診断対象外にしました`,
+    );
+  }
+  notes.push(...crawl.notes);
 
   return {
     entryUrl: entry.toString(),
@@ -251,6 +202,18 @@ export async function analyzeSite(
     categories: summarizeCategories(pages),
     checks: summarizeChecks(analyses),
     discovery,
+    crawl: {
+      discovered: crawl.discovered,
+      fetched: crawl.fetched,
+      analyzed: pages.length,
+      failed: failures.length,
+      skipped: crawl.skipped,
+      durationMs: Date.now() - startedAt,
+      truncated: crawl.truncated,
+      sitemapCount: crawl.sitemapCount,
+      linkCount: crawl.linkCount,
+      maxPages,
+    },
     notes,
     fetchedAt: new Date().toISOString(),
   };
@@ -275,6 +238,12 @@ export function summarizeCategories(pages: SitePageResult[]): SiteCategoryScore[
     };
   });
 }
+
+/**
+ * 項目ごとに残す「該当ページ」の実例の上限。
+ * 画面は 8 件しか出さず（DetailSection）、残りは counts から件数で示す。
+ */
+export const MAX_AFFECTED_SAMPLES = 50;
 
 /**
  * 項目ごとにページ横断で集計する。
@@ -307,7 +276,11 @@ export function summarizeChecks(
         if (c.advice && !entry.advice) entry.advice = c.advice;
         if (c.status !== "pass") {
           entry.label = c.label; // 問題があるときの文言を代表にする
-          entry.affected.push({ url, status: c.status, evidence: c.evidence });
+          // 該当ページの実例は上限まで（件数は counts が持つ）。
+          // 300 ページ × 数十項目のとき、ここが応答とキャッシュの大半を占めるため。
+          if (entry.affected.length < MAX_AFFECTED_SAMPLES) {
+            entry.affected.push({ url, status: c.status, evidence: c.evidence });
+          }
         }
       }
     }

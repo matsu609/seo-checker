@@ -1,0 +1,8 @@
+{
+  "search_metadata": { "id": "test-3", "status": "Success" },
+  "search_parameters": { "engine": "google", "q": "AI 検索 最適化", "device": "desktop" },
+  "ai_overview": {
+    "text_blocks": [{ "type": "paragraph", "snippet": "AI 検索最適化は、生成 AI の回答に取り上げられるための取り組みです。" }]
+  },
+  "organic_results": [{ "position": 1, "title": "他社の記事", "link": "https://other.jp/ai" }]
+}

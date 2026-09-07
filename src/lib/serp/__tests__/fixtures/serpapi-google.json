@@ -1,0 +1,131 @@
+{
+  "search_metadata": {
+    "id": "abc123",
+    "status": "Success",
+    "created_at": "2026-09-01 00:00:00 UTC",
+    "google_url": "https://www.google.com/search?q=LLMO+%E3%81%A8%E3%81%AF&hl=ja&gl=jp"
+  },
+  "search_parameters": {
+    "engine": "google",
+    "q": "LLMO とは",
+    "google_domain": "google.com",
+    "hl": "ja",
+    "gl": "jp",
+    "device": "desktop",
+    "num": "100"
+  },
+  "search_information": {
+    "query_displayed": "LLMO とは",
+    "total_results": 1230000,
+    "time_taken_displayed": 0.41,
+    "organic_results_state": "Results for exact spelling"
+  },
+  "ai_overview": {
+    "text_blocks": [
+      {
+        "type": "paragraph",
+        "snippet": "LLMO（大規模言語モデル最適化）とは、ChatGPT などの生成 AI の回答で自社のコンテンツが引用・言及されやすくするための施策です。",
+        "snippet_highlighted_words": ["LLMO"],
+        "reference_indexes": [0, 1]
+      },
+      {
+        "type": "heading",
+        "snippet": "主な施策"
+      },
+      {
+        "type": "list",
+        "list": [
+          { "title": "構造化データ", "snippet": "FAQ や Organization の JSON-LD を追加する", "reference_indexes": [0] },
+          { "snippet": "llms.txt を設置する", "reference_indexes": [1] }
+        ]
+      },
+      {
+        "type": "expandable",
+        "title": "SEO との違い",
+        "text_blocks": [
+          { "type": "paragraph", "snippet": "SEO は検索順位、LLMO は AI の回答への引用を目的とします。", "reference_indexes": [1] }
+        ]
+      },
+      {
+        "type": "table",
+        "table": [
+          ["観点", "SEO", "LLMO"],
+          ["目的", "順位", "引用"]
+        ]
+      }
+    ],
+    "references": [
+      {
+        "title": "LLMO とは？AI 時代の最適化を解説",
+        "link": "https://example.com/blog/llmo",
+        "snippet": "LLMO は大規模言語モデル最適化の略で…",
+        "source": "example.com",
+        "index": 0
+      },
+      {
+        "title": "生成 AI 検索対策ガイド",
+        "link": "https://rival.jp/guide/ai-search",
+        "snippet": "llms.txt の設置手順",
+        "source": "rival.jp",
+        "index": 1
+      }
+    ]
+  },
+  "knowledge_graph": {
+    "title": "LLMO",
+    "type": "用語"
+  },
+  "organic_results": [
+    {
+      "position": 1,
+      "title": "LLMO とは？AI 時代の最適化を解説",
+      "link": "https://example.com/blog/llmo",
+      "displayed_link": "https://example.com › blog › llmo",
+      "snippet": "LLMO は大規模言語モデル最適化の略で、AI の回答に引用されるための施策です。",
+      "date": "2026年3月1日",
+      "sitelinks": {
+        "inline": [
+          { "title": "料金", "link": "https://example.com/pricing" },
+          { "title": "事例", "link": "https://example.com/cases" }
+        ]
+      }
+    },
+    {
+      "position": 2,
+      "title": "生成 AI 検索対策ガイド",
+      "link": "https://rival.jp/guide/ai-search",
+      "displayed_link": "https://rival.jp › guide",
+      "snippet": "llms.txt の設置手順と構造化データの書き方。"
+    },
+    {
+      "position": 3,
+      "title": "壊れた項目（link 無し）",
+      "snippet": "この項目は読み飛ばされる"
+    },
+    {
+      "position": 4,
+      "title": "LLMO と SEO の違い",
+      "link": "https://another.example.org/llmo-vs-seo",
+      "snippet": "目的と評価軸の違いを整理。"
+    }
+  ],
+  "related_questions": [
+    {
+      "question": "LLMO と SEO の違いは何ですか？",
+      "snippet": "SEO は検索順位を上げる施策、LLMO は AI の回答に引用される施策です。",
+      "title": "LLMO と SEO の違い",
+      "link": "https://another.example.org/llmo-vs-seo"
+    },
+    {
+      "question": "llms.txt とは？",
+      "snippet": "AI クローラ向けにサイトの概要を書くテキストファイルです。",
+      "title": "llms.txt の書き方",
+      "link": "https://rival.jp/guide/llms-txt"
+    }
+  ],
+  "related_searches": [
+    { "query": "LLMO 対策", "link": "https://www.google.com/search?q=LLMO+%E5%AF%BE%E7%AD%96" },
+    { "query": "LLMO SEO 違い", "link": "https://www.google.com/search?q=LLMO+SEO+%E9%81%95%E3%81%84" },
+    { "query": "LLMO 対策", "link": "https://www.google.com/search?q=LLMO+%E5%AF%BE%E7%AD%96&dup=1" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "search_metadata": { "id": "test-2", "status": "Success" },
+  "search_parameters": { "engine": "google", "q": "順位計測 ツール", "device": "mobile" },
+  "search_information": { "total_results": 5000 },
+  "organic_results": [
+    { "position": 1, "title": "他社の記事", "link": "https://other.jp/tool" },
+    { "position": 2, "title": "競合の記事", "link": "https://rival.co.jp/tool" }
+  ],
+  "related_searches": [{ "query": "順位計測 無料" }]
+}

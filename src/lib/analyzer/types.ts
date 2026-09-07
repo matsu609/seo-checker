@@ -94,7 +94,12 @@ export interface SitePageResult {
   overall: number;
   /** カテゴリ ID → スコア */
   scores: Record<CategoryId, number>;
-  page: PageSnapshot;
+  /**
+   * ページの概要。サイト診断では全ページ分を返すため、本文そのもの（`mainText`）は
+   * 含めない（レポートは `mainTextLength` しか使わず、数百ページ分では数 MB になる）。
+   * FAQ 生成に本文が要るのは page モードだけ。
+   */
+  page: Omit<PageSnapshot, "mainText">;
 }
 
 /** 診断できなかったページ */
@@ -145,7 +150,67 @@ export interface SiteAnalysisResult {
   /** ページ間でばらついた項目を先頭にした一覧 */
   checks: SiteCheckSummary[];
   /** URL をどうやって集めたか */
-  discovery: "sitemap" | "links" | "entry-only";
+  discovery: SiteDiscovery;
+  /** クロールの統計（何件見つけ、何件取得し、どこで打ち切ったか） */
+  crawl: SiteCrawlStats;
   notes: string[];
   fetchedAt: string;
+}
+
+/**
+ * URL の集め方。
+ * - "sitemap" … サイトマップだけで全ページが揃った
+ * - "links" … サイトマップが無く、内部リンクを辿って集めた
+ * - "sitemap+links" … サイトマップに加えて、内部リンクからだけ見つかったページもあった
+ * - "entry-only" … 入力された 1 ページ以外見つからなかった
+ */
+export type SiteDiscovery = "sitemap" | "links" | "sitemap+links" | "entry-only";
+
+/** どの上限でクロールを打ち切ったか */
+export interface SiteCrawlTruncation {
+  reason: "max-pages" | "time-budget";
+  /** max-pages ならページ数、time-budget ならミリ秒 */
+  limit: number;
+}
+
+/** サイト診断のクロール統計 */
+export interface SiteCrawlStats {
+  /** 見つかった一意な URL 数（取得しなかったものも含む） */
+  discovered: number;
+  /** 取得を試みたページ数 */
+  fetched: number;
+  /** 診断できたページ数（= pages.length） */
+  analyzed: number;
+  /** 取得・診断に失敗したページ数（= failures.length） */
+  failed: number;
+  /** HTML 以外・別サイトへの転送・重複で対象外にした数 */
+  skipped: number;
+  durationMs: number;
+  truncated: SiteCrawlTruncation | null;
+  /** サイトマップ由来の URL 数 */
+  sitemapCount: number;
+  /** 内部リンクからだけ見つかった URL 数 */
+  linkCount: number;
+  /** 今回の上限ページ数（SITE_MAX_PAGES とリクエストから決まる） */
+  maxPages: number;
+}
+
+/** サイト診断の進捗（/api/site が NDJSON の progress 行で流す） */
+export interface SiteProgress {
+  /** "discover" = サイトマップ展開中 / "crawl" = ページ取得・診断中 */
+  phase: "discover" | "crawl";
+  /** 取得を試みたページ数 */
+  fetched: number;
+  /** 未取得の待ち行列の長さ */
+  queued: number;
+  /** これまでに見つかった一意な URL 数 */
+  discovered: number;
+  /** 診断が終わったページ数 */
+  analyzed: number;
+  /** 取得・診断に失敗したページ数 */
+  failed: number;
+  /** 直近に処理した URL */
+  url?: string;
+  /** 開始からの経過ミリ秒 */
+  elapsedMs: number;
 }

@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { SiteProgress } from "../types";
 import { analyze } from "../index";
 import { analyzeSite } from "../site";
 
@@ -79,8 +80,18 @@ const SERVICE_HTML = `<!doctype html><html lang="ja">${HEAD("サービス | ダ�
     <main><h1>サービス</h1><h2>詳細</h2><p>${PARAGRAPH}</p></main>
   </body></html>`;
 
+/** サイトマップには無く、/service からだけリンクされている記事 */
+const ARTICLE_HTML = `<!doctype html><html lang="ja">${HEAD("記事 | ダミー社", COMPANY_JSONLD)}
+  <body>
+    <nav><a href="/">ホーム</a></nav>
+    <main><h1>記事</h1><h2>本文</h2><p>${PARAGRAPH}</p></main>
+  </body></html>`;
+
 let server: Server;
 let origin: string;
+/** "/" から別オリジン（server）へ転送するだけのサイト */
+let redirector: Server;
+let redirectorOrigin: string;
 
 beforeAll(async () => {
   process.env.ALLOW_PRIVATE_HOSTS = "1";
@@ -96,7 +107,9 @@ beforeAll(async () => {
       case "/company":
         return send(COMPANY_HTML);
       case "/service":
-        return send(SERVICE_HTML);
+        return send(SERVICE_HTML.replace("</main>", `<a href="/blog/article">記事</a></main>`));
+      case "/blog/article":
+        return send(ARTICLE_HTML);
       case "/robots.txt":
         return send(`User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml`, "text/plain");
       case "/sitemap.xml":
@@ -113,11 +126,19 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+  redirector = createServer((req, res) => {
+    res.writeHead(302, { location: `${origin}${req.url ?? "/"}` });
+    res.end();
+  });
+  await new Promise<void>((resolve) => redirector.listen(0, "127.0.0.1", resolve));
+  redirectorOrigin = `http://127.0.0.1:${(redirector.address() as AddressInfo).port}`;
 });
 
 afterAll(async () => {
   delete process.env.ALLOW_PRIVATE_HOSTS;
   await new Promise<void>((resolve) => server.close(() => resolve()));
+  await new Promise<void>((resolve) => redirector.close(() => resolve()));
 });
 
 describe("ページ単位の診断", () => {
@@ -156,20 +177,46 @@ describe("ページ単位の診断", () => {
       r.categories.find((c) => c.id === "content")!.checks.reduce((s, c) => s + c.weight, 0);
     expect(total(company)).toBe(total(top));
   });
+
+  it("入力 URL は page.url に、転送先は finalUrl に残る", async () => {
+    const r = await analyze(`${redirectorOrigin}/company`);
+    expect(r.page.url).toBe(`${redirectorOrigin}/company`);
+    expect(r.page.finalUrl).toBe(`${origin}/company`);
+    expect(r.notes.some((n) => n.includes("リダイレクト先"))).toBe(true);
+  });
 });
 
 describe("analyzeSite", () => {
-  it("sitemap からページを集めて集計する", async () => {
+  it("sitemap のページに加えて、内部リンクだけのページも全部集めて集計する", async () => {
     const site = await analyzeSite(`${origin}/`);
 
-    expect(site.discovery).toBe("sitemap");
+    expect(site.discovery).toBe("sitemap+links");
     expect(site.pages.map((p) => new URL(p.url).pathname).sort()).toEqual([
       "/",
+      "/blog/article",
       "/company",
       "/service",
     ]);
+    // 入力 URL が先頭
+    expect(new URL(site.pages[0].url).pathname).toBe("/");
     expect(site.failures).toEqual([]);
     expect(site.overall).toBeGreaterThan(0);
+    expect(site.crawl).toMatchObject({
+      discovered: 4,
+      fetched: 4,
+      analyzed: 4,
+      failed: 0,
+      skipped: 0,
+      sitemapCount: 2, // 入力 URL "/" 以外の sitemap 掲載ページ
+      linkCount: 1,
+      truncated: null,
+    });
+    expect(site.crawl.durationMs).toBeGreaterThanOrEqual(0);
+    // 全ページ分の本文そのものは返さない（長さの数字だけ残す）
+    for (const p of site.pages) {
+      expect(p.page).not.toHaveProperty("mainText");
+    }
+    expect(site.pages[0].page.mainTextLength).toBeGreaterThan(2000);
   });
 
   it("ページ間で差がある項目を mixed として拾う", async () => {
@@ -183,19 +230,54 @@ describe("analyzeSite", () => {
 
     // robots.txt はサイト共通なので全ページ同じ
     expect(byId["ai-crawlers-allowed"].spread).toBe("uniform");
-    expect(byId["ai-crawlers-allowed"].counts.pass).toBe(3);
+    expect(byId["ai-crawlers-allowed"].counts.pass).toBe(4);
     // llms.txt はどのページでも無い = テンプレートではなくサイト側の問題
     expect(byId["llms-txt"].spread).toBe("uniform");
-    expect(byId["llms-txt"].counts.warn).toBe(3);
+    expect(byId["llms-txt"].counts.warn).toBe(4);
 
     // ばらついた項目が先頭に並ぶ
     expect(site.checks[0].spread).toBe("mixed");
   });
 
-  it("maxPages でページ数を絞れる", async () => {
+  it("maxPages で打ち切ると truncated と注記が付く", async () => {
     const site = await analyzeSite(`${origin}/company`, { maxPages: 2 });
     expect(site.pages).toHaveLength(2);
-    // 入力した URL が必ず含まれる
-    expect(site.pages.map((p) => new URL(p.url).pathname)).toContain("/company");
+    // 入力した URL が必ず先頭に含まれる
+    expect(new URL(site.pages[0].url).pathname).toBe("/company");
+    expect(site.crawl.truncated).toEqual({ reason: "max-pages", limit: 2 });
+    expect(site.crawl.maxPages).toBe(2);
+    expect(site.notes.some((n) => n.includes("上限 2 ページ") && n.includes("SITE_MAX_PAGES"))).toBe(
+      true,
+    );
+  });
+
+  it("進捗を 1 ページごとに通知する", async () => {
+    const progress: SiteProgress[] = [];
+    const site = await analyzeSite(`${origin}/`, { onProgress: (p) => progress.push(p) });
+    expect(progress[0].phase).toBe("discover");
+    const crawl = progress.filter((p) => p.phase === "crawl");
+    expect(crawl).toHaveLength(site.crawl.fetched);
+    const last = crawl[crawl.length - 1];
+    expect(last.fetched).toBe(4);
+    expect(last.analyzed).toBe(4);
+    expect(last.queued).toBe(0);
+    expect(last.elapsedMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("別オリジンへ転送される入力は、転送先のサイトとして診断する", async () => {
+    const site = await analyzeSite(`${redirectorOrigin}/`);
+    expect(site.entryUrl).toBe(`${redirectorOrigin}/`);
+    expect(site.origin).toBe(origin);
+    expect(site.pages.map((p) => new URL(p.url).pathname).sort()).toEqual([
+      "/",
+      "/blog/article",
+      "/company",
+      "/service",
+    ]);
+    expect(site.notes.some((n) => n.includes("リダイレクト先"))).toBe(true);
+  });
+
+  it("入力ページが取得できなければ、クロールせずにエラーにする", async () => {
+    await expect(analyzeSite(`${origin}/missing`)).rejects.toThrow("HTTP 404");
   });
 });

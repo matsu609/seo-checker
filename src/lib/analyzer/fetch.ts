@@ -106,9 +106,68 @@ export interface FetchedText {
   headers: Headers;
 }
 
+/** 追跡してよいリダイレクトの回数 */
+const MAX_REDIRECTS = 5;
+
+const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * リダイレクトを自分で追う。
+ *
+ * `redirect: "follow"` に任せると転送先のホストを検査できず、
+ * 外部サイトが内部アドレス（169.254.169.254 / 10.x / 127.0.0.1 など）へ
+ * 302 するだけでサーバーを踏み台にできてしまう。
+ *
+ * 検査は「接続する直前」に毎回行う。最初のホップも例外ではない：
+ * 呼び出し側が渡す URL には、取得したページの canonical や llms.txt の
+ * リンクなど第三者が書いた値が混ざるため、ここで止めないと内部ホストの
+ * 到達性やポートの開閉を調べる踏み台（SSRF）になってしまう。
+ */
+async function fetchFollowingRedirects(
+  url: string,
+  init: RequestInit,
+): Promise<{ res: Response; finalUrl: string }> {
+  let current = url;
+  for (let hop = 0; ; hop++) {
+    // ここを通ってから初めてそのホストへ接続する（1 ホップ目を含む）
+    let target: URL;
+    try {
+      target = new URL(current);
+    } catch {
+      throw new FetchError("URLの形式が正しくありません", "invalid_url");
+    }
+    if (target.protocol !== "http:" && target.protocol !== "https:") {
+      throw new FetchError("http / https のURLのみ診断できます", "blocked_host");
+    }
+    await assertPublicHost(target);
+
+    const res = await fetch(current, { ...init, redirect: "manual" });
+    const location = res.headers.get("location");
+    if (!REDIRECT_STATUS.has(res.status) || !location) {
+      return { res, finalUrl: res.url || current };
+    }
+    if (hop >= MAX_REDIRECTS) {
+      res.body?.cancel().catch(() => {});
+      throw new FetchError("リダイレクトが多すぎます", "network");
+    }
+    let next: URL;
+    try {
+      next = new URL(location, current);
+    } catch {
+      res.body?.cancel().catch(() => {});
+      throw new FetchError("転送先のURLの形式が正しくありません", "invalid_url");
+    }
+    res.body?.cancel().catch(() => {});
+    next.hash = "";
+    current = next.toString();
+  }
+}
+
 /**
  * テキスト系リソースを取得する。タイムアウトとサイズ上限付き。
  * ネットワーク例外は投げず `ok: false, status: 0` として返す（robots.txt 等の任意ファイル向け）。
+ * リダイレクトは自分で追い、最初のホップを含めて毎回 `assertPublicHost` を通す
+ * （内部アドレスは接続前に `blocked_host` の FetchError になる）。
  */
 export async function fetchText(
   url: string,
@@ -118,13 +177,12 @@ export async function fetchText(
   const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const maxBytes = options.maxBytes ?? MAX_BYTES;
   try {
-    const res = await fetch(url, {
+    const { res, finalUrl } = await fetchFollowingRedirects(url, {
       headers: {
         "user-agent": USER_AGENT,
         accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
         "accept-language": "ja,en;q=0.8",
       },
-      redirect: "follow",
       signal: controller.signal,
       cache: "no-store",
     });
@@ -156,7 +214,7 @@ export async function fetchText(
     return {
       ok: res.ok,
       status: res.status,
-      finalUrl: res.url || url,
+      finalUrl: finalUrl || url,
       contentType,
       body,
       headers: res.headers,

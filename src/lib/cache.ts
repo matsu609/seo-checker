@@ -39,10 +39,15 @@ export class TtlCache<T> {
   }
 }
 
-/** Next.js の dev ホットリロードでキャッシュが消えないよう globalThis に置く */
-export function globalCache<T>(name: string, ttlMs: number): TtlCache<T> {
+/**
+ * Next.js の dev ホットリロードでキャッシュが消えないよう globalThis に置く。
+ *
+ * `maxEntries` は 1 件あたりのサイズに合わせて呼び出し側で決める
+ * （サイト診断の結果は 1 件で 1 MB 近くなるため既定値のままでは重い）。
+ */
+export function globalCache<T>(name: string, ttlMs: number, maxEntries?: number): TtlCache<T> {
   const g = globalThis as unknown as Record<string, TtlCache<T> | undefined>;
   const key = `__seo_checker_cache_${name}`;
-  if (!g[key]) g[key] = new TtlCache<T>(ttlMs);
+  if (!g[key]) g[key] = new TtlCache<T>(ttlMs, maxEntries);
   return g[key];
 }
