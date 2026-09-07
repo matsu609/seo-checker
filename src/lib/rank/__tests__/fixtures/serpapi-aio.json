@@ -1,0 +1,54 @@
+{
+  "search_metadata": { "id": "test-1", "status": "Success" },
+  "search_parameters": { "engine": "google", "q": "AIO 対策", "gl": "jp", "hl": "ja", "device": "desktop" },
+  "search_information": { "total_results": 1234000 },
+  "ai_overview": {
+    "text_blocks": [
+      { "type": "paragraph", "snippet": "AIO 対策とは、AI による概要に引用されやすくするための施策です。" },
+      { "type": "heading", "snippet": "主な施策" },
+      {
+        "type": "list",
+        "list": [
+          { "title": "構造化データ", "snippet": "FAQ の JSON-LD を追加する" },
+          { "title": "llms.txt", "snippet": "設置してクローラに読ませる" }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "index": 0,
+        "title": "AIO 対策の基本",
+        "link": "https://www.example.com/blog/aio",
+        "snippet": "AIO 対策の全体像",
+        "source": "example.com"
+      },
+      {
+        "index": 1,
+        "title": "競合による解説",
+        "link": "https://rival.co.jp/column/aio",
+        "source": "rival.co.jp"
+      },
+      {
+        "index": 2,
+        "title": "ニュース記事",
+        "link": "https://news.other.jp/articles/1",
+        "source": "other.jp"
+      },
+      {
+        "index": 3,
+        "title": "重複した参照",
+        "link": "https://www.example.com/blog/aio/",
+        "source": "example.com"
+      }
+    ]
+  },
+  "organic_results": [
+    { "position": 1, "title": "他社の記事", "link": "https://other.jp/1" },
+    { "position": 2, "title": "競合の記事", "link": "https://rival.co.jp/column/aio" },
+    { "position": 3, "title": "自社ブログ", "link": "https://blog.example.com/aio" },
+    { "position": 7, "title": "自社トップ", "link": "https://www.example.com/" },
+    { "position": 105, "title": "100 位より下", "link": "https://deep.example.org/x" }
+  ],
+  "related_questions": [{ "question": "AIO 対策とは何ですか？", "snippet": "AI による概要への対策です。" }],
+  "related_searches": [{ "query": "AIO 対策 とは" }]
+}

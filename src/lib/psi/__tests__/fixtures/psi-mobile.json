@@ -1,0 +1,105 @@
+{
+  "captchaResult": "CAPTCHA_NOT_NEEDED",
+  "id": "https://example.co.jp/",
+  "loadingExperience": {
+    "id": "https://example.co.jp/",
+    "metrics": {
+      "LARGEST_CONTENTFUL_PAINT_MS": { "percentile": 3120, "category": "AVERAGE" },
+      "INTERACTION_TO_NEXT_PAINT": { "percentile": 168, "category": "FAST" },
+      "CUMULATIVE_LAYOUT_SHIFT_SCORE": { "percentile": 12, "category": "AVERAGE" }
+    },
+    "overall_category": "AVERAGE"
+  },
+  "lighthouseResult": {
+    "requestedUrl": "https://example.co.jp/",
+    "finalUrl": "https://example.co.jp/",
+    "fetchTime": "2026-09-06T12:34:56.789Z",
+    "categories": {
+      "performance": { "id": "performance", "title": "パフォーマンス", "score": 0.62 },
+      "accessibility": { "id": "accessibility", "title": "ユーザー補助", "score": 0.88 },
+      "seo": { "id": "seo", "title": "SEO", "score": 1 }
+    },
+    "audits": {
+      "largest-contentful-paint": {
+        "id": "largest-contentful-paint",
+        "title": "Largest Contentful Paint",
+        "score": 0.41,
+        "scoreDisplayMode": "numeric",
+        "displayValue": "3.4 秒",
+        "numericValue": 3421.5,
+        "description": "LCP は、最大のコンテンツが表示されるまでの時間です。[詳細](https://example.com/lcp)"
+      },
+      "cumulative-layout-shift": {
+        "id": "cumulative-layout-shift",
+        "title": "Cumulative Layout Shift",
+        "score": 0.75,
+        "scoreDisplayMode": "numeric",
+        "displayValue": "0.11",
+        "numericValue": 0.114,
+        "description": "CLS は表示のずれの量です。"
+      },
+      "first-contentful-paint": {
+        "id": "first-contentful-paint",
+        "title": "First Contentful Paint",
+        "score": 0.95,
+        "scoreDisplayMode": "numeric",
+        "displayValue": "1.2 秒",
+        "numericValue": 1180,
+        "description": "FCP は最初の描画までの時間です。"
+      },
+      "total-blocking-time": {
+        "id": "total-blocking-time",
+        "title": "Total Blocking Time",
+        "score": 0.55,
+        "scoreDisplayMode": "numeric",
+        "displayValue": "420 ミリ秒",
+        "numericValue": 418,
+        "description": "TBT は操作をブロックした合計時間です。"
+      },
+      "uses-responsive-images": {
+        "id": "uses-responsive-images",
+        "title": "適切なサイズの画像",
+        "score": 0.2,
+        "scoreDisplayMode": "numeric",
+        "displayValue": "推定転送量 320 KiB",
+        "description": "表示サイズに合った画像を配信してください。"
+      },
+      "unminified-css": {
+        "id": "unminified-css",
+        "title": "CSS の最小化",
+        "score": 0.88,
+        "scoreDisplayMode": "numeric",
+        "displayValue": "推定転送量 12 KiB",
+        "description": "CSS を最小化すると転送量が減ります。"
+      },
+      "network-requests": {
+        "id": "network-requests",
+        "title": "ネットワーク リクエスト",
+        "score": null,
+        "scoreDisplayMode": "informative",
+        "description": "計測中に発行されたリクエストの一覧です。"
+      },
+      "canonical": {
+        "id": "canonical",
+        "title": "有効な rel=canonical",
+        "score": 1,
+        "scoreDisplayMode": "binary",
+        "description": "canonical が正しく設定されています。"
+      },
+      "is-crawlable": {
+        "id": "is-crawlable",
+        "title": "インデックス登録が可能",
+        "score": 0,
+        "scoreDisplayMode": "binary",
+        "description": "noindex が指定されています。"
+      },
+      "structured-data": {
+        "id": "structured-data",
+        "title": "構造化データが有効",
+        "score": null,
+        "scoreDisplayMode": "manual",
+        "description": "手動での確認が必要です。"
+      }
+    }
+  }
+}

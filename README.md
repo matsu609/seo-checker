@@ -1,59 +1,122 @@
-# SEO Checker — AIO診断・FAQ生成ツール
+# SEO Checker — 無料 AIO 診断 + SEO/LLMO ツール
 
-URL を入れると、AI検索（AIO）対策の状況を **ルールベースで診断** し、  
-本文から **想定FAQを AI が提案** → 承認したものだけを **FAQPage 構造化データ + HTML** に変換するツールです。
+URL を入れるだけで AI 検索（AIO）への対応状況を採点する**無料診断**と、SEO / LLMO の運用に使う**12 種のツール**をひとつにまとめた Next.js アプリです。
 
-診断は **「このページ」** と **「サイト全体」** の 2 モードがあります。
-
-診断部分は AI を使わないため API 費用ゼロで動きます。AI を使うのは FAQ 生成だけです。
-
-## できること
-
-| 機能 | 仕組み | 費用 |
-|---|---|---|
-| AIクローラ可否 | `/robots.txt` を `robots-parser` で解析し、GPTBot / ClaudeBot / PerplexityBot 等 8 種の可否を判定。noindex、`/llms.txt`、`/llms-full.txt` の有無 | 0 |
-| 構造化データ | `<script type="application/ld+json">` を再帰走査（`@graph`・入れ子・配列 `@type` 対応）し Organization / WebSite / SearchAction / BreadcrumbList / FAQPage / sameAs / Article / Product を判定 | 0 |
-| メタ情報 | title / meta description（長さも判定）/ OGP / canonical / lang | 0 |
-| 見出し | h1 がちょうど 1 つか、h2/h3 があり階層が飛んでいないか | 0 |
-| コンテンツ | `@mozilla/readability` で本文抽出 → 文字数、画像 alt、JS 描画依存（SPA）の疑い | 0 |
-| 総合スコア | 各項目に配点（pass=満点 / warn=半分 / fail=0、info は対象外）→ カテゴリ点 → 重み付き平均 | 0 |
-| FAQ 生成 | 本文（先頭 1 万文字）を Claude に渡し、構造化出力で質問・回答を JSON 取得 | 従量（既定は Haiku） |
-| FAQ 出力 | 承認・編集した FAQ から FAQPage JSON-LD と `details/summary` の HTML を生成、コピー可 | 0 |
-| サイト全体診断 | robots.txt の Sitemap → sitemap.xml → トップの内部リンク の順にページを集め、主要ページ（既定 5、最大 10）をまとめて診断。カテゴリごとの平均・最小・最大と、項目ごとのページ間のばらつきを出す | 0 |
-| 下書き保存 | ブラウザの localStorage に URL 単位で保存 | 0 |
-| PDF でダウンロード | 画面の診断結果をブラウザ内で A4 の PDF にして保存。ダイアログは開かず、そのままファイルが落ちてくる | 0 |
-| 印刷 | ブラウザの印刷ダイアログ（送信先に「PDFに保存」を選べば文字を選択できる PDF になる）。A4 用の印刷スタイルで、入力欄やボタンは非表示、表やコードは切らずに全部出す | 0 |
-
-判定基準はすべて `src/lib/analyzer/` に明文化されており、画面には判定根拠（evidence）と改善方法（advice）を併記します。
-
-### ページ単位とサイト単位
-
-`analyze(url)` が見るのは **その URL 1 ページの HTML だけ** です。robots.txt と llms.txt はオリジン共通ですが、構造化データ・メタ情報・見出し・コンテンツはページごとの中身で決まります。したがって **同じサイトでもトップと下層ページでスコアは変わります**。たとえば下層ページには `BreadcrumbList` があるがトップには無い、トップには `WebSite` があるが下層には無い、といった差がそのまま点差になります（配点 1 の項目が 1 つ pass↔warn すると総合が 1.25 点、配点 2 なら 2.5 点動きます）。
-
-「サイトとしてどうか」「どのページが足を引っ張っているか」を見るには **サイト全体モード**（`analyzeSite(url)` / `POST /api/site`）を使ってください。項目ごとに
-
-- **uniform**（全ページ同じ判定）… 共通テンプレートやサイト設定の問題。1 箇所直せば全ページ直る
-- **mixed**（ページで判定が分かれる）… そのページだけの問題。**ページ間でスコアが変わる原因はここに出ます**
-
-を出し分けます。
-
-## セットアップ
+左のサイドバーで両者を明確に分けています。無料診断はログインも API キーも不要で、そのまま報告書として PDF に出せます。ツール群は用途に応じて外部 API を設定して使います。
 
 ```bash
 npm install
-cp .env.example .env.local   # FAQ 生成を使う場合のみ ANTHROPIC_API_KEY を設定
-npm run dev
+cp .env.example .env.local   # 使いたい機能に応じてキーを設定（無料診断は不要）
+npm run dev                  # http://localhost:3000
 ```
 
-http://localhost:3000 を開いて URL を入力してください。
+---
 
-### 環境変数
+## 無料 AIO 診断（`/`）
 
-| 変数 | 必須 | 説明 |
+見込み顧客にそのまま渡せる報告書を出すことを目的にした、**API 費用ゼロ**の診断です。判定はすべてルールベースで、生成 AI は使っていません（想定 FAQ の生成のみ任意で AI を使います）。
+
+### 2 つの診断範囲
+
+| 範囲 | 対象 |
+|---|---|
+| このページ | 入力した URL 1 ページ |
+| サイト全体（全ページ） | sitemap（索引の再帰展開）と内部リンクの幅優先探索で**サイトの全ページ**を収集して診断 |
+
+サイト全体モードは進捗を配信しながらクロールし、取得数 / 発見数・現在の URL・経過時間を表示します。途中で中止できます。上限は `SITE_MAX_PAGES`（既定 300、最大 1000）と時間予算で制御します。
+
+### レポートの構成
+
+表紙（サイト名・対象 URL・診断範囲・日時・所要時間・診断ページ数・グレード印）に続いて
+
+1. **総合評価** — ドーナツ、A〜E のグレード、3 行の講評、優先改善 TOP3（見込み効果つき）、判定数の内訳
+2. **カテゴリ別スコア** — 横棒グラフ（50 / 80 の目盛）と配点・最低〜最高の表
+3. **判定の内訳とページ別スコア分布** — ドーナツとヒストグラム
+4. **ページ × カテゴリ 一覧** — スコアで色分けしたヒートテーブル（低い順）※サイト全体モードのみ
+5. **改善提案** — 全ページ共通の問題 / ページによって差がある項目
+6. **想定 FAQ** — 本文から AI が下書きし、承認したものを FAQPage の JSON-LD と HTML に変換 ※ページモードのみ
+7. **付録** — 診断ページ一覧、配点と判定基準、クロール統計
+
+講評と優先度は `src/lib/report/summary.ts` の純関数で導出しています（生成 AI 不使用）。
+
+### 採点
+
+| カテゴリ | 重み | 見るもの |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | FAQ 生成時のみ | 未設定でも診断は動作し、FAQ ボタンが無効になります |
-| `FAQ_MODEL` | 任意 | 既定 `claude-haiku-4-5`。精度重視なら `claude-sonnet-5` 等 |
-| `ALLOW_PRIVATE_HOSTS` | 開発時のみ | `1` にすると localhost / LAN 内の URL も診断可能。**本番では設定しない**（SSRF 対策が外れます） |
+| AI クローラ可否 | 20 | robots.txt での GPTBot / ClaudeBot / PerplexityBot などの可否、noindex、llms.txt |
+| 構造化データ | 25 | Organization / WebSite / SearchAction / BreadcrumbList / FAQPage / sameAs / Article / Product |
+| メタ情報 | 20 | title、meta description（長さ）、OGP、canonical、lang |
+| 見出し | 15 | h1 がちょうど 1 つか、h2 / h3 の階層が飛んでいないか |
+| コンテンツ | 20 | 本文の文字数、画像の alt、JS 描画依存（SPA）の疑い |
+
+各項目は pass（満点）/ warn（半分）/ fail（0 点）で採点し、info は採点対象外です。配点は `src/lib/analyzer/types.ts` の `CATEGORY_WEIGHTS` と各 `check({ weight })` で変えられます。
+
+### 出力
+
+- **PDF でダウンロード** — 画面をブラウザ内で A4 の PDF にします（画像なので文字は選択できません）
+- **印刷** — 印刷ダイアログから「PDF に保存」を選ぶと、文字を選択・検索できる PDF になります
+
+---
+
+## ツール（`/tools/*`）
+
+競合ツールの機能調査（`docs/reference/`）をもとに実装した 12 種です。各ツールの見出しには機能カタログの ID（A1 / B4 など）を表示しています。
+
+### 診断
+
+| ツール | ID | 内容 | 必要なキー |
+|---|---|---|---|
+| [サイト診断（テクニカル SEO）](src/lib/audit) | A1 | 全ページをクロールし、約 45 のルールで課題を検出。10 カテゴリの件数、前回との差分、CSV 出力 | 不要（要約のみ任意で AI） |
+| [ページ最適化レポート](src/lib/page-report) | A2 / A3 | 1 URL の AI フレンドリー度を 0〜100 で採点。項目ごとの測定値・理由・改善提案。AI クローラの robots.txt 判定。表示速度と Core Web Vitals | 不要（PSI は任意） |
+| [ページ診断](src/lib/page-diagnosis) | A4 | 対策キーワードの上位 10 件と自社ページを比較し、検索意図・不足要素・title / description 案を提案。診断結果を踏まえたチャット | SerpApi または Anthropic |
+| [AIO 頻出トピック](src/lib/aio-topics) | A5 | AI Overviews の本文からトピックを抽出し、出現割合・傾向・優先度と自社の不足トピックを表示 | SerpApi + Anthropic |
+
+### 計測
+
+| ツール | ID | 内容 | 必要なキー |
+|---|---|---|---|
+| [順位計測・AI Overviews 引用](src/lib/rank) | B1-B3 | 登録キーワードの順位・変化・ランディング URL、その場で測るリアルタイム計測、AI Overviews の引用を 5 区分（自社のみ / 競合のみ / 両方 / なし / AIO 表示なし）で集計 | SerpApi |
+| [LLMO モニタリング・LLM リサーチ](src/lib/llmo) | B4 / B8 | 登録プロンプトを複数の LLM に投げ、ブランド言及率・ドメイン引用率・回答原文・引用元を記録。LLM が内部で発行した検索クエリ（ファンアウト）も保存 | Anthropic（OpenAI / Gemini / Perplexity は任意） |
+| [プロンプト拡張](src/lib/llmo) | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
+| [生成 AI 流入分析](src/lib/ai-traffic) | B6 | GA4 の参照元から生成 AI の流入を切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベント | GA4 |
+| [サイトレポート](src/lib/site-report) | E8 | GA4 の KPI の前期比、チャネル別流入と登録キーワードの平均順位・ファインダビリティスコア、自社・競合の最新順位表 | GA4 + SerpApi |
+
+### 調査・生成
+
+| ツール | ID | 内容 | 必要なキー |
+|---|---|---|---|
+| [キーワード調査](src/lib/keywords) | C1 | Google サジェスト・関連キーワードの展開と検索意図の分類 | 不要（意図分類のみ任意で AI） |
+| [AI ライティング・エディター](src/lib/writing) | D1-D4 | 構成案 → 本文のストリーミング生成、企画書モード（PDF 添付可）、範囲選択リライトと差分、ファクト / コピペ / 薬機法チェック | Anthropic（薬機法チェックは辞書のみで動作） |
+| [llms.txt 生成](src/lib/llms-txt) | D6 | 6 ステップのウィザードで llms.txt を生成。既存 llms.txt の検証 | 不要 |
+
+### 設定（`/settings`）
+
+プロジェクト（ドメイン）と競合の登録、外部連携の設定状況、データの JSON エクスポート / インポート。
+
+**キーが未設定のツールは、必要な環境変数を明示したうえで実行操作だけを無効化します。** 画面の説明や登録済みデータの閲覧はそのまま使えます。存在しないデータを補って表示することはしません。
+
+---
+
+## 環境変数
+
+無料診断はどれも不要です。
+
+| 変数 | 用途 |
+|---|---|
+| `ANTHROPIC_API_KEY` | FAQ 生成、各種サマリー、LLMO（Claude）、プロンプト拡張、AI ライティング |
+| `LLM_MODEL` | 分析・生成のモデル（既定 `claude-opus-5`） |
+| `LLM_FAST_MODEL` | 分類など大量処理のモデル（既定 `claude-haiku-4-5`） |
+| `FAQ_MODEL` | FAQ 生成のモデル（既定 `claude-haiku-4-5`） |
+| `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO モニタリングの対象を増やす |
+| `SERPAPI_KEY` | 順位計測、AI Overviews の引用チェック、ページ診断の上位 10 件 |
+| `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
+| `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート |
+| `SITE_MAX_PAGES` | クロール上限（既定 300、最大 1000） |
+| `ALLOW_PRIVATE_HOSTS` | 開発時のみ。localhost / LAN 内を診断可能にする。**本番では設定しない** |
+
+キーはすべてサーバー側でのみ読み、ブラウザには渡しません。画面が知るのは「設定されているか」の真偽値だけです（`GET /api/integrations`）。
+
+---
 
 ## コマンド
 
@@ -63,51 +126,63 @@ npm run build      # 本番ビルド
 npm run start      # 本番サーバー
 npm run lint       # ESLint
 npm run typecheck  # tsc --noEmit
-npm test           # vitest（診断ロジックのユニットテスト）
+npm test           # vitest
 ```
+
+E2E スモーク（ダミーサイトを立てて無料診断を実行し、スクリーンショットと PDF を出力）:
+
+```bash
+node scripts/e2e/dummy-site.mjs --print-expected   # 診断されるはずのページ一覧
+node scripts/e2e/free-smoke.mjs                    # ダミーサイト + dev サーバーを起動して検証
+```
+
+---
 
 ## 構成
 
 ```
 src/
   app/
-    page.tsx                 # 画面
-    api/analyze/route.ts     # POST { url } → 1 ページの診断結果（10 分キャッシュ）
-    api/site/route.ts        # POST { url, maxPages? } → サイト全体の診断結果（10 分キャッシュ）
-    api/faq/route.ts         # GET → 有効可否 / POST { url, mainText, ... } → FAQ 配列（1 時間キャッシュ）
-  components/                # Checker / ScoreCard / CheckList / SiteReport / FaqSection / FaqOutput
+    page.tsx                  # 無料診断
+    tools/<id>/page.tsx       # 各ツール（Server Component。PageHeader + クライアント画面）
+    settings/                 # プロジェクト・競合・外部連携
+    api/                      # Route Handler（nodejs runtime）
+  components/
+    shell/                    # AppShell / Sidebar / TopBar
+    ui/                       # Card / PageHeader / Button / DataTable / SetupNotice など
+    charts/                   # 依存なしの SVG（Donut / HBar / Pie / Histogram / StackedBar / Sparkline / HeatCell）
+    free/                     # 無料診断のレポート
+    <tool>/                   # 各ツールの画面
   lib/
-    analyzer/
-      index.ts               # analyze(url): 取得 → 解析 → 採点（1 ページ）
-      site.ts                # analyzeSite(url): URL 収集 → 複数ページ診断 → 集計
-      fetch.ts               # タイムアウト・サイズ上限・SSRF ガード・文字コード判定
-      robots.ts  jsonld.ts  meta.ts  headings.ts  content.ts   # 各カテゴリの判定
-      scoring.ts             # カテゴリ点・総合点
-      types.ts               # 結果の型と配点
-    faq/
-      generate.ts            # Claude API 呼び出し（構造化出力）
-      render.ts              # FAQPage JSON-LD / HTML の生成（純関数）
-      schema.ts              # zod スキーマ
-    pdf/
-      download.ts            # 画面を画像化して A4 の PDF にする（ダウンロード用）
-    cache.ts                 # プロセス内 TTL キャッシュ
+    analyzer/                 # 無料診断の判定ルール（fetch.ts の assertPublicHost + fetchText が唯一の取得経路）
+    crawl/                    # 全ページクロール（sitemap 展開 + 内部リンク BFS）
+    report/                   # レポートの導出（グレード・講評・優先改善）
+    audit/ page-report/ rank/ llmo/ keywords/ writing/ ga4/ ...   # 各ツールのロジック
+    ui/                       # 色トークンの単一定義（palette.ts / grade.ts）
+    features/registry.ts      # サイドバーと機能の定義
+    store/                    # localStorage への保存（zod で検証）
+    llm/ serp/ export/ tools/ # 共通の外部連携・CSV・API 実行フック
+docs/
+  reference/                  # 競合ツールの機能調査と実装ガイド
+  dev/                        # 設計仕様・Next.js / UI の開発メモ
+scripts/e2e/                  # ダミーサイトとスモークテスト
 ```
 
-## 配点の変え方
+---
 
-`src/lib/analyzer/types.ts` の `CATEGORY_WEIGHTS` がカテゴリ間の重み、各 `check({ weight })` が項目ごとの配点です。  
-`optionalCheck` で作った項目（SearchAction / Article / Product / llms-full.txt）は「あれば表示が変わるがスコアに影響しない」任意項目です。
+## 設計上の約束
 
-**採点対象の項目は、どのページでも同じ顔ぶれで出してください。** ページの状態によって項目を出したり出さなかったりすると、カテゴリの配点合計（＝分母）がページごとに変わり、中身が同じでもスコアがずれます。たとえば画像 alt の判定は画像が 0 枚のページでも `pass` として必ず出しています。例外は `js-rendering` と `jsonld-parse-error` で、これらは「壊れているときだけ出る減点項目」です。
+- **ユーザーが入れた URL をサーバーで取得するときは、必ず `assertPublicHost` → `fetchText`（`src/lib/analyzer/fetch.ts`）を通す。** リダイレクトは自分で追い、初回のホップを含めて毎回ホストを検査します（SSRF 対策）。
+- **色は `src/lib/ui/palette.ts` と `globals.css` の `@theme` トークンだけ**から取ります。JSX に生の hex は書きません。
+- **データを捏造しない。** 測れなかった項目は「未取得」として扱い、0 や「なし」と混同しません。推定値は推定と明示します。
+- **第三者のページ本文やアップロードされた PDF をプロンプトに入れるときは、区切ってデータとして扱うよう明示します**（プロンプトインジェクション対策）。
+- 判定ロジックは純関数として `src/lib/**` に置き、`__tests__` でテストします。
 
-## 既知の制限と今後
+## 既知の制限
 
-- **JavaScript で描画されるページ（SPA）** は fetch した HTML に本文がないため低スコアになります。ヘッドレスブラウザによるフォールバックは未実装で、代わりに「JS描画依存の可能性」として警告を出します。
-- **サイト全体モードで診断するのは最大 10 ページ**です。sitemap から階層の浅い順に選ぶため、深い記事ページは対象外になります。全ページを網羅したい場合はクロール設計から作り直しが必要です。
-- **キャッシュはプロセス内**です。Vercel 等のサーバーレスではインスタンスごとに独立します。永続化したい場合は Supabase 等に置き換えてください。
-- **認証・クレジット管理は未実装**です。公開運用する場合は、FAQ 生成 API（`/api/faq`）の前に認証と回数制限を入れてください。
-- **PDF はすべてブラウザ側で作ります**（サーバー側での PDF 生成はしません）。出力方法は 2 つあります。
-  - **PDFでダウンロード**（`src/lib/pdf/download.ts`）… 画面外の iframe に診断結果を複製し、`html2canvas-pro` で画像にして `jsPDF` で A4 に貼ります。ダイアログは開かず、見た目は画面のままです。**画像なので文字は選択・検索できません**。文字を埋め込む方式にすると和文フォント（数 MB）の同梱が必要になるため、この方式にしています。スマートフォンから実行しても同じ体裁になるよう、複製側のビューポート幅は 1024px に固定しています。
-  - **印刷**… ブラウザの印刷ダイアログを開きます。送信先を「PDFに保存」にすると、**文字を選択・検索できる PDF** になります。用紙サイズと余白は `@page`（A4 / 上下 14mm・左右 12mm）で指定していますが、最終的にはダイアログの設定が優先されます。
-- **PDF のファイル名は ASCII のみ**（`aio-report_example.com_20260906.pdf`）です。日本語を含めると、ブラウザによって `<a download>` の名前が捨てられて `download` というファイルになるためです。
+- **JavaScript で描画されるページ（SPA）** は取得した HTML に本文が無いため低スコアになります。ヘッドレスブラウザによる取得は未実装で、代わりに「JS 描画依存の可能性」として警告を出します。
+- **キャッシュはプロセス内**です。サーバーレスではインスタンスごとに独立します。
+- **登録データはブラウザの localStorage** に保存します。サーバー側の DB はありません。設定画面から JSON で書き出せます。
+- **認証・利用回数の制限は未実装**です。公開運用するときは AI を使う API の手前に認証と制限を入れてください。
+- **薬機法チェックは目安**であり、法令上の適合性を保証するものではありません。
 - 対象サイトには `SEOChecker/0.1` の User-Agent でアクセスします。

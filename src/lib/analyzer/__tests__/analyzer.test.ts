@@ -12,6 +12,7 @@ import { extractSitemaps } from "../robots";
 import {
   canonicalizeUrl,
   extractSitemapLocs,
+  MAX_AFFECTED_SAMPLES,
   pickPages,
   summarizeCategories,
   summarizeChecks,
@@ -281,13 +282,15 @@ describe("extractSitemapLocs", () => {
 });
 
 describe("canonicalizeUrl", () => {
-  it("クエリ・フラグメント・末尾スラッシュを揃える", () => {
+  it("フラグメント・末尾スラッシュ・計測パラメータを揃える", () => {
     expect(canonicalizeUrl("https://example.com/company/")).toBe("https://example.com/company");
     expect(canonicalizeUrl("https://example.com/company?utm=1#a")).toBe(
       "https://example.com/company",
     );
     // トップのスラッシュは残す
     expect(canonicalizeUrl("https://example.com/")).toBe("https://example.com/");
+    // 意味のあるクエリは別ページとして残す
+    expect(canonicalizeUrl("https://example.com/?p=12")).toBe("https://example.com/?p=12");
   });
 
   it("相対 URL を base で解決する", () => {
@@ -386,6 +389,17 @@ describe("summarizeChecks", () => {
 
   it("ばらついた項目を先頭に並べる", () => {
     expect(summarizeChecks(analyses)[0].id).toBe("jsonld-breadcrumb");
+  });
+
+  it("該当ページの実例は上限まで（件数は counts が持つ）", () => {
+    const many = Array.from({ length: MAX_AFFECTED_SAMPLES + 12 }, (_, i) =>
+      fakeAnalysis(`https://example.com/p${i}`, [
+        { id: "llms-txt", category: "crawlers", status: "fail" },
+      ]),
+    );
+    const [summary] = summarizeChecks(many);
+    expect(summary.counts.fail).toBe(MAX_AFFECTED_SAMPLES + 12);
+    expect(summary.affected).toHaveLength(MAX_AFFECTED_SAMPLES);
   });
 });
 

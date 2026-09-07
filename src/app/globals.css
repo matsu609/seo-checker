@@ -1,18 +1,45 @@
 @import "tailwindcss";
 
+/*
+  デザイントークン（docs/dev/design-spec.md §1）。
+  値は hex リテラルで書く。src/lib/ui/palette.ts に同じ値の写しがあり、
+  vitest（src/lib/ui/__tests__/palette.test.ts）が一致を検証する。
+  紫（元ツール #5b4de0）系は定義しない。
+*/
 @theme {
-  --color-surface: #f4f5f9;
+  --color-surface: #eef1f4;
   --color-panel: #ffffff;
-  --color-ink: #1b1d2a;
-  --color-muted: #5b6070;
-  --color-line: #e3e5ec;
-  --color-accent: #5b4de0;
-  --color-accent-strong: #4b3bd6;
-  --color-accent-soft: #eeecfb;
-  --color-pass: #16875f;
-  --color-warn: #d98a12;
-  --color-fail: #d64545;
-  --color-info: #2b8fd6;
+  --color-ink: #142230;
+  --color-muted: #56657a;
+  --color-line: #d3dbe2;
+  --color-brand: #0b3547;
+  --color-on-brand: #ffffff;
+  --color-on-brand-muted: #b5c6d0;
+  --color-accent: #14607a;
+  --color-accent-strong: #0f4a5f;
+  --color-accent-soft: #e2eef3;
+  --color-secondary: #5b7080;
+  --color-pass: #1a7549;
+  --color-pass-soft: #e6f3eb;
+  --color-warn: #8f5a06;
+  --color-warn-soft: #f8eedc;
+  --color-fail: #b3261e;
+  --color-fail-soft: #f8e3e1;
+  --color-info: #3a6f9e;
+  --color-info-soft: #e6eef5;
+  --color-chart-1: #14607a;
+  --color-chart-2: #2b3f6b;
+  --color-chart-3: #4f8fa8;
+  --color-chart-4: #8c6d3f;
+  --color-chart-5: #6f7f92;
+  --color-chart-6: #a06f8c;
+  --color-chart-track: #e6ebef;
+  --color-chart-grid: #d3dbe2;
+  --color-grade-a: #176b45;
+  --color-grade-b: #2f7f47;
+  --color-grade-c: #8f5a06;
+  --color-grade-d: #b5541c;
+  --color-grade-e: #b3261e;
   --font-sans:
     "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic",
     "Meiryo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -36,7 +63,9 @@ body {
 .pdf-capture {
   background: var(--color-surface);
 }
-.pdf-capture main {
+/* 複製されたレポートルート（<main> でも <div ref> でも）の外側余白を外す */
+.pdf-capture main,
+.pdf-capture > * {
   max-width: none !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -100,6 +129,15 @@ body {
     font-size: 14px;
   }
 
+  /* アプリシェル（サイドバー + トップバー + main のグリッド）を通常フローに戻す。
+     グリッド・sticky・h-screen が残ると 1 ページ目で切れる。 */
+  .app-shell {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
   /* 余白は @page 側で取るので、画面用の中央寄せ・パディングは外す */
   main {
     max-width: none !important;
@@ -107,6 +145,7 @@ body {
     padding: 0 !important;
   }
 
+  /* サイドバー・トップバー・ドロワー・フォームなど画面専用の要素 */
   .no-print {
     display: none !important;
   }
@@ -178,5 +217,24 @@ body {
   a {
     color: inherit;
     text-decoration: none;
+  }
+}
+
+/* 進捗バー（不定）の往復アニメーション。no-print 領域でのみ使う */
+@keyframes seo-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(333%);
+  }
+}
+.progress-indeterminate {
+  animation: seo-indeterminate 1.4s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-indeterminate {
+    animation: none;
+    transform: translateX(117%);
   }
 }
