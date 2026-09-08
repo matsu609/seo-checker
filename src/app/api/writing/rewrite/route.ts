@@ -6,6 +6,7 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { requireAuth } from "@/lib/auth/guard";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { MAX_REWRITE_CHARS } from "@/lib/writing/prompt";
 import { streamRewrite } from "@/lib/writing/rewrite";
@@ -34,6 +35,9 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   if (!isAnthropicEnabled()) {
     return Response.json(
       { error: "リライトには ANTHROPIC_API_KEY の設定が必要です。サーバーの .env.local に追加してください" },

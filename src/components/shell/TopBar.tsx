@@ -3,6 +3,7 @@
 import { forwardRef } from "react";
 import { Badge, FeatureIdChips } from "@/components/ui/Badge";
 import type { Feature } from "@/lib/features/registry";
+import { AuthMenu } from "./AuthMenu";
 import { MenuIcon } from "./icons";
 
 export interface TopBarProps {
@@ -11,14 +12,16 @@ export interface TopBarProps {
   onOpenMenu: () => void;
   /** ドロワーの id（aria-controls） */
   drawerId: string;
+  /** Clerk のキーが設定されているか。false ならログイン UI を出さない */
+  authEnabled: boolean;
 }
 
 /**
  * 白いトップバー（sticky）。左 = ハンバーガー（md 未満）+ 現在ページのラベル。
- * PDF / 印刷ボタンはレポート内に置くので右側は空。
+ * PDF / 印刷ボタンはレポート内に置くので、右側はログイン状態だけ。
  */
 export const TopBar = forwardRef<HTMLButtonElement, TopBarProps>(function TopBar(
-  { feature, menuOpen, onOpenMenu, drawerId },
+  { feature, menuOpen, onOpenMenu, drawerId, authEnabled },
   menuRef,
 ) {
   return (
@@ -39,6 +42,11 @@ export const TopBar = forwardRef<HTMLButtonElement, TopBarProps>(function TopBar
         <Badge tone="free">無料</Badge>
       ) : (
         feature && <FeatureIdChips ids={feature.featureIds} className="hidden sm:inline-flex" />
+      )}
+      {authEnabled && (
+        <div className="ml-auto flex shrink-0 items-center">
+          <AuthMenu />
+        </div>
       )}
     </div>
   );

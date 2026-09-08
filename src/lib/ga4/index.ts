@@ -21,6 +21,7 @@ export {
 export {
   GA4_DATA_ENDPOINT,
   createGa4Client,
+  createGa4ClientWithToken,
   dimensionValue,
   getGa4Client,
   headerIndex,

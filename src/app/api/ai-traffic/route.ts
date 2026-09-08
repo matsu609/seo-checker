@@ -11,19 +11,17 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { fetchAiTrafficReport } from "@/lib/ai-traffic/report";
 import { MAX_KEY_EVENT_NAMES, type AiTrafficResponse } from "@/lib/ai-traffic/types";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import {
-  createGa4Client,
   daysInRange,
-  getGa4Client,
   isIsoDate,
-  missingGa4EnvVars,
   normalizePropertyId,
-  serviceAccountFromEnv,
   Ga4Error,
   type Ga4Client,
 } from "@/lib/ga4";
 import { normalizeHost } from "@/lib/ga4/ai-sources";
+import { ga4UnavailableMessage, resolveGa4Client } from "@/lib/google/ga4";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -79,14 +77,9 @@ function cacheKey(
 }
 
 export async function POST(request: NextRequest) {
-  const missing = missingGa4EnvVars();
-  if (missing.length > 0) {
-    return badRequest(
-      `生成 AI 流入分析には ${missing.join(" と ")} の設定が必要です。サーバーの .env.local に追加してください`,
-      503,
-    );
-  }
-
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   let body: unknown;
   try {
     body = await request.json();
@@ -119,24 +112,18 @@ export async function POST(request: NextRequest) {
   const keyEventNames = parsed.data.keyEventNames ?? [];
   const extraSources = parsed.data.extraSources ?? [];
 
+  // 連携しているユーザーは自分の GA4 プロパティを、していなければ
+  // 環境変数のサービスアカウントを使う（src/lib/google/ga4.ts）
   let client: Ga4Client | null;
   try {
-    client = getGa4Client();
-    if (client && requestedProperty && requestedProperty !== client.propertyId) {
-      // 環境変数と別のプロパティを見る（サービスアカウントは同じ。権限が無ければ上流が 403 を返す）
-      const account = serviceAccountFromEnv();
-      client = account ? createGa4Client(requestedProperty, account) : null;
-    }
+    client = (await resolveGa4Client(requestedProperty))?.client ?? null;
   } catch (err) {
     if (err instanceof Ga4Error) return badRequest(err.message, err.status);
     console.error("[ai-traffic] client error", err);
     return badRequest("GA4 の設定を読み込めませんでした", 500);
   }
   if (!client) {
-    return badRequest(
-      "生成 AI 流入分析には GA4_PROPERTY_ID と GOOGLE_SERVICE_ACCOUNT_JSON の設定が必要です",
-      503,
-    );
+    return badRequest(ga4UnavailableMessage("生成 AI 流入分析"), 503);
   }
 
   const key = cacheKey(client.propertyId, startDate, endDate, keyEventNames, extraSources);

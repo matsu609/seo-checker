@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
@@ -65,12 +65,17 @@ function stamp(): string {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
-export function SettingsView() {
+/**
+ * googleSection は Google 連携のカード。サーバーコンポーネントなので、
+ * ここでは受け取って置くだけにする（Clerk 未設定のときは null が来る）。
+ */
+export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-6xl">
       <PageHeader feature={feature} />
       <div className="space-y-6">
         <ProjectsCard />
+        {googleSection}
         <IntegrationsCard />
         <DataCard />
       </div>

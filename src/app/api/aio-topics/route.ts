@@ -8,6 +8,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { extractTopics, MAX_AIO_TEXT, TOPIC_MODEL, type ExtractedTopic } from "@/lib/aio-topics/extract";
 import type { AioTopicsResponse } from "@/lib/aio-topics/types";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { measureAioOverview } from "@/lib/rank/measure";
@@ -46,6 +47,9 @@ function hashKey(parts: string[]): string {
 }
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   const provider = getSerpProvider();
   const missing: string[] = [];
   if (!provider) missing.push("SERPAPI_KEY");

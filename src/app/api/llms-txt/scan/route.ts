@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { FetchError } from "@/lib/analyzer/fetch";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { HARD_MAX_PAGES } from "@/lib/crawl/crawler";
 import { DEFAULT_SCAN_LIMIT, scanSite } from "@/lib/llms-txt/scan";
@@ -64,6 +65,9 @@ function acquireCrawlSlot(client: string): (() => void) | null {
  * 入力の不備は 400、取得できないサイトは 502 で返す。
  */
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   let body: { url?: unknown; includePaths?: unknown; excludePaths?: unknown; limit?: unknown };
   try {
     body = await request.json();

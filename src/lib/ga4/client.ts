@@ -109,9 +109,15 @@ export interface Ga4ClientOptions extends TokenFetchOptions {
   endpoint?: string;
 }
 
-export function createGa4Client(
+/**
+ * アクセストークンの取り方だけを差し替えられる形。
+ *
+ * 環境変数のサービスアカウント（全体共通）と、ログイン中のユーザーが Google
+ * 連携で許可した OAuth トークン（ユーザーごと）のどちらでも同じ経路を使う。
+ */
+export function createGa4ClientWithToken(
   propertyId: string,
-  account: ServiceAccount,
+  getToken: () => Promise<string>,
   options: Ga4ClientOptions = {},
 ): Ga4Client {
   const id = normalizePropertyId(propertyId);
@@ -121,8 +127,8 @@ export function createGa4Client(
   return {
     propertyId: id,
     async runReport(body: Ga4RunReportBody): Promise<Ga4Report> {
-      if (!id) throw new Ga4Error("GA4_PROPERTY_ID が設定されていません", "config");
-      const token = await getAccessToken(account, options);
+      if (!id) throw new Ga4Error("GA4 のプロパティが指定されていません", "config");
+      const token = await getToken();
       let res: Response;
       try {
         res = await fetchImpl(`${endpoint}/properties/${encodeURIComponent(id)}:runReport`, {
@@ -149,6 +155,15 @@ export function createGa4Client(
       return parseRunReport(json);
     },
   };
+}
+
+/** サービスアカウント（環境変数）で認証する GA4 クライアント */
+export function createGa4Client(
+  propertyId: string,
+  account: ServiceAccount,
+  options: Ga4ClientOptions = {},
+): Ga4Client {
+  return createGa4ClientWithToken(propertyId, () => getAccessToken(account, options), options);
 }
 
 /** GA4 が使えるか（GA4_PROPERTY_ID と GOOGLE_SERVICE_ACCOUNT_JSON の両方） */

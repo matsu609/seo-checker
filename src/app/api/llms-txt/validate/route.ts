@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { FetchError, assertPublicHost, fetchText, normalizeUrl } from "@/lib/analyzer/fetch";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { applyLinkStatuses, validateLlmsTxt } from "@/lib/llms-txt/validate";
 import type { ValidationResult } from "@/lib/llms-txt/types";
@@ -23,6 +24,9 @@ const LINK_MAX_BYTES = 64 * 1024;
  * llms.txt の URL でもよい（前者ならオリジンの /llms.txt を見に行く）。
  */
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   let body: { url?: unknown; checkLinks?: unknown };
   try {
     body = await request.json();

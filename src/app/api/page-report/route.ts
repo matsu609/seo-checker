@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { assertHtmlPage } from "@/lib/analyzer";
 import { FetchError, assertPublicHost, fetchText, normalizeUrl } from "@/lib/analyzer/fetch";
 import { fetchSiteFiles } from "@/lib/analyzer/robots";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { buildPageReport } from "@/lib/page-report/analyze";
 import type { PageReport } from "@/lib/page-report/types";
@@ -15,6 +16,9 @@ const cache = globalCache<PageReport>("page-report", 10 * 60 * 1000, 50);
 
 /** 連携状況（画面が「表示速度も取得する」の既定値を決めるのに使う） */
 export async function GET() {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   return Response.json(
     { pagespeedKey: isPagespeedKeyConfigured() },
     { headers: { "Cache-Control": "no-store" } },
@@ -29,6 +33,9 @@ export async function GET() {
  * （未設定でも取得を試み、429 のときは理由を添えて他の項目を返す）。
  */
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   let body: { url?: unknown; psi?: unknown; strategy?: unknown; refresh?: unknown };
   try {
     body = await request.json();

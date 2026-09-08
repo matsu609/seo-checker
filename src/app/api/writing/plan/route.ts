@@ -7,6 +7,7 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { requireAuth } from "@/lib/auth/guard";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { generatePlan, PLAN_MODEL } from "@/lib/writing/plan";
 import { MAX_PLAN_CONTENT_CHARS } from "@/lib/writing/prompt";
@@ -33,6 +34,9 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   if (!isAnthropicEnabled()) {
     return Response.json(
       { error: "企画書の生成には ANTHROPIC_API_KEY の設定が必要です。サーバーの .env.local に追加してください" },
