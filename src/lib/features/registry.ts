@@ -178,6 +178,26 @@ const MEASURE: readonly Feature[] = [
     group: "measure",
   },
   {
+    id: "search-performance",
+    path: "/tools/search-performance",
+    label: "検索パフォーマンス（Search Console）",
+    shortLabel: "検索パフォーマンス",
+    description:
+      "連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を取得します。推定ではなく Google の実測値です。",
+    details: [
+      "期間の合計と前期間との比較（クリック・表示回数・CTR・平均掲載順位）",
+      "日別の推移と、クリックの多いクエリ・ページの一覧",
+      "対象サイトは設定画面で Google アカウントを接続して選びます（ユーザーごと）",
+    ],
+    featureIds: [],
+    icon: "target",
+    status: "beta",
+    // 環境変数ではなく、利用者ごとの Google 連携が必要。
+    // 未連携のときは画面側で接続を案内する
+    requires: [],
+    group: "measure",
+  },
+  {
     id: "llmo",
     path: "/tools/llmo",
     label: "LLMO モニタリング・LLM リサーチ",

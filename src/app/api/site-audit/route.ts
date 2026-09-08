@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { FetchError, assertPublicHost, normalizeUrl } from "@/lib/analyzer/fetch";
 import { runAudit } from "@/lib/audit/run";
 import type { AuditResult, AuditStreamEvent } from "@/lib/audit/types";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { resolveMaxPages } from "@/lib/crawl/crawler";
 
@@ -83,6 +84,9 @@ function statusFor(err: FetchError): number {
  * ストリーム開始後はステータスを変えられないため、途中のエラーは error 行で届く。
  */
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   let body: { url?: unknown; maxPages?: unknown; refresh?: unknown };
   try {
     body = await request.json();

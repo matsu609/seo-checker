@@ -6,10 +6,12 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { expandPrompts } from "@/lib/llmo/expansion/generate";
 import { fetchSiteContext } from "@/lib/llmo/expansion/site-context";
+
 import {
   DEFAULT_COUNT,
   MAX_COUNT,
@@ -44,6 +46,9 @@ function hashKey(parts: string[]): string {
 }
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   if (!isAnthropicEnabled()) {
     return Response.json(
       { error: "プロンプト拡張には ANTHROPIC_API_KEY の設定が必要です。サーバーの .env.local に追加してください" },

@@ -6,6 +6,7 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { measureFromSerp, runPool } from "@/lib/rank/measure";
 import type { RankMeasureItem } from "@/lib/rank/types";
@@ -51,6 +52,9 @@ function cacheKey(keyword: string, device: string, location: string | undefined)
 }
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   const provider = getSerpProvider();
   if (!provider) {
     return Response.json(

@@ -10,6 +10,8 @@ export interface AppShellProps {
   children: ReactNode;
   /** package.json の version（layout.tsx から渡す） */
   version: string;
+  /** Clerk のキーが設定されているか（layout.tsx がサーバー側で判定して渡す） */
+  authEnabled: boolean;
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -23,7 +25,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [ta
  * それを PDF 化の対象にしている。二重の <main> と余白の二重化を避けるため、
  * / ではシェルは素の <div> で包み、ツールページだけシェルの <main> に入れる。
  */
-export function AppShell({ children, version }: AppShellProps) {
+export function AppShell({ children, version, authEnabled }: AppShellProps) {
   const pathname = usePathname() ?? "/";
   const feature = findFeatureByPath(pathname);
   const isFree = pathname === "/";
@@ -92,7 +94,14 @@ export function AppShell({ children, version }: AppShellProps) {
       </aside>
 
       <div className="flex min-h-screen min-w-0 flex-col print:block print:min-h-0">
-        <TopBar ref={menuButtonRef} feature={feature} menuOpen={open} onOpenMenu={() => setOpen(true)} drawerId={drawerId} />
+        <TopBar
+          ref={menuButtonRef}
+          feature={feature}
+          menuOpen={open}
+          onOpenMenu={() => setOpen(true)}
+          drawerId={drawerId}
+          authEnabled={authEnabled}
+        />
         {isFree ? (
           <div className="flex-1">{children}</div>
         ) : (

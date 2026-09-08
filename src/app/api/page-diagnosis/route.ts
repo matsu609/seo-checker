@@ -7,6 +7,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { FetchError } from "@/lib/analyzer/fetch";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { runDiagnosis } from "@/lib/page-diagnosis/run";
@@ -33,6 +34,9 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   const provider = getSerpProvider();
   const anthropicEnabled = isAnthropicEnabled();
   if (!provider && !anthropicEnabled) {

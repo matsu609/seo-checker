@@ -90,8 +90,9 @@ npm run dev                  # http://localhost:3000
 | [順位計測・AI Overviews 引用](src/lib/rank) | B1-B3 | 登録キーワードの順位・変化・ランディング URL、その場で測るリアルタイム計測、AI Overviews の引用を 5 区分（自社のみ / 競合のみ / 両方 / なし / AIO 表示なし）で集計 | SerpApi |
 | [LLMO モニタリング・LLM リサーチ](src/lib/llmo) | B4 / B8 | 登録プロンプトを複数の LLM に投げ、ブランド言及率・ドメイン引用率・回答原文・引用元を記録。LLM が内部で発行した検索クエリ（ファンアウト）も保存 | Anthropic（OpenAI / Gemini / Perplexity は任意） |
 | [プロンプト拡張](src/lib/llmo) | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
-| [生成 AI 流入分析](src/lib/ai-traffic) | B6 | GA4 の参照元から生成 AI の流入を切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベント | GA4 |
-| [サイトレポート](src/lib/site-report) | E8 | GA4 の KPI の前期比、チャネル別流入と登録キーワードの平均順位・ファインダビリティスコア、自社・競合の最新順位表 | GA4 + SerpApi |
+| [検索パフォーマンス](src/lib/google/search-console) | — | 連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を期間比較つきで取得。日別の推移と、クリックの多いクエリ・ページの一覧。推定ではなく Google の実測値 | Google 連携（利用者ごと） |
+| [生成 AI 流入分析](src/lib/ai-traffic) | B6 | GA4 の参照元から生成 AI の流入を切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベント | GA4（利用者ごとの Google 連携でも可） |
+| [サイトレポート](src/lib/site-report) | E8 | GA4 の KPI の前期比、チャネル別流入と登録キーワードの平均順位・ファインダビリティスコア、自社・競合の最新順位表 | GA4（利用者ごとの Google 連携でも可）+ SerpApi |
 
 ### 調査・生成
 
@@ -109,12 +110,56 @@ npm run dev                  # http://localhost:3000
 
 ---
 
+## ログイン（Clerk）
+
+| 範囲 | ログイン | 中身 |
+|---|---|---|
+| `/`、`POST /api/analyze`、`POST /api/site`、`POST /api/faq` | **不要** | 無料 AIO 診断。見込み顧客に試してもらう入口なので公開のまま |
+| `/tools/*`、`/settings`、上記以外の API すべて | **必要** | 外部 API の実費が出るため |
+
+公開範囲の定義は `src/lib/auth/routes.ts` の 1 か所だけにあり、`src/lib/auth/__tests__/routes.test.ts` が固定しています。
+
+**二重に守っています。** 入口は `src/proxy.ts`（Next.js 16 で `middleware.ts` から改名された Proxy）で、各 API ルートの先頭でも `requireAuth()` を呼びます。Next.js のドキュメントが「マッチャの変更やルートの移動で Proxy のカバーが静かに外れることがあるため、認証はハンドラ内でも検証すること」と明記しているためです。
+
+**キーが未設定なら認証は無効**になり、すべてが今までどおり開きます。開発と E2E ではキーを置かないのでこれが正常な状態ですが、本番で未設定のまま起動すると警告をログに出します。
+
+セットアップ:
+
+1. Clerk でアプリケーションを作り、API Keys から `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` と `CLERK_SECRET_KEY` を `.env.local` に入れる
+2. **Clerk の Restrictions で招待制か許可リストにする。** 既定では誰でも登録でき、登録した人はそのまま実費の出るツールを使えます
+3. サーバーを再起動する
+
+---
+
+## Google 連携（Search Console / GA4）
+
+**利用者ごと**に Google アカウントを接続し、見る対象を選びます。管理者が全員分をまとめて設定するのではなく、ログインした人が自分の設定画面から接続します。
+
+| 使うもの | どこで選ぶ | 何に使うか |
+|---|---|---|
+| Search Console のサイト | 設定 → Google 連携 | 検索パフォーマンス画面 |
+| GA4 のプロパティ | 設定 → Google 連携 | 生成 AI 流入分析、サイトレポート |
+
+**データベースは要りません。** アクセストークンは Clerk が保持・更新し（`getUserOauthAccessToken`）、選んだサイト / プロパティは Clerk の `privateMetadata` に入ります（`src/lib/google/settings.ts`）。要求するのは読み取り専用スコープ（`webmasters.readonly` / `analytics.readonly`）だけで、接続時にアプリ側から要求するので Clerk のダッシュボードでスコープを足す必要はありません。
+
+GA4 は**ユーザーの選択が優先**され、選ばれていなければ従来どおり環境変数のサービスアカウント（全体共通）に落ちます（`src/lib/google/ga4.ts`）。Google 連携を使わない運用のままでも壊れません。
+
+準備（1 回だけ、`.env.example` にも同じ手順があります）:
+
+1. Google Cloud で OAuth 2.0 クライアント ID（ウェブ）を作る
+2. Search Console API・Google Analytics Admin API・Google Analytics Data API を有効にする
+3. Clerk の SSO Connections → Google を独自クレデンシャルに切り替え、1 の値を入れる
+4. Google 側の「承認済みのリダイレクト URI」に Clerk が示す URI を追加する
+
+---
+
 ## 環境変数
 
 無料診断はどれも不要です。
 
 | 変数 | 用途 |
 |---|---|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` | ログイン（両方そろったときだけ有効。未設定なら認証しない） |
 | `ANTHROPIC_API_KEY` | FAQ 生成、各種サマリー、LLMO（Claude）、プロンプト拡張、AI ライティング |
 | `LLM_MODEL` | 分析・生成のモデル（既定 `claude-opus-5`） |
 | `LLM_FAST_MODEL` | 分類など大量処理のモデル（既定 `claude-haiku-4-5`） |
@@ -122,7 +167,7 @@ npm run dev                  # http://localhost:3000
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO モニタリングの対象を増やす |
 | `SERPAPI_KEY` | 順位計測、AI Overviews の引用チェック、ページ診断の上位 10 件 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
-| `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート |
+| `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
 | `SITE_MAX_PAGES` | クロール上限（既定 300、最大 1000） |
 | `ALLOW_PRIVATE_HOSTS` | 開発時のみ。localhost / LAN 内を診断可能にする。**本番では設定しない** |
 

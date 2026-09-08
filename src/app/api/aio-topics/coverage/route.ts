@@ -11,6 +11,7 @@ import { judgeCoverage, MAX_PAGE_TEXT, TOPIC_MODEL, type CoverageJudgement } fro
 import { assertHtmlPage } from "@/lib/analyzer";
 import { extractContent } from "@/lib/analyzer/content";
 import { assertPublicHost, FetchError, fetchText, normalizeUrl } from "@/lib/analyzer/fetch";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 
@@ -35,6 +36,9 @@ async function cacheKey(pageUrl: string, topics: readonly string[]): Promise<str
 }
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   if (!isAnthropicEnabled()) {
     return Response.json(
       { error: "カバー判定には ANTHROPIC_API_KEY の設定が必要です" },

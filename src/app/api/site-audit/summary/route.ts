@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { AuditSummaryInputSchema, generateAuditSummary } from "@/lib/audit/summary";
 import type { AuditSummary } from "@/lib/audit/types";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 
@@ -11,6 +12,9 @@ const cache = globalCache<AuditSummary>("site-audit-summary", 30 * 60 * 1000, 50
 
 /** 連携状況だけを返す（画面がボタンの出し分けに使う） */
 export async function GET() {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   return Response.json({ enabled: isAnthropicEnabled() }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -22,6 +26,9 @@ export async function GET() {
  * 未設定なら 503（画面はルール生成のサマリーをそのまま出し続ける）。
  */
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   if (!isAnthropicEnabled()) {
     return Response.json(
       { error: "AI サマリーには ANTHROPIC_API_KEY の設定が必要です。ルールから生成した要約を表示しています" },

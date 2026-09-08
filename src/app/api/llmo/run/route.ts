@@ -6,6 +6,7 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { judgeAnswer } from "@/lib/llmo/judge";
 import { PROVIDERS_META, PROVIDER_IDS, type ProviderId } from "@/lib/llmo/providers/meta";
@@ -84,6 +85,9 @@ function cacheKey(providerId: ProviderId, model: string, prompt: string): string
 }
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   let body: unknown;
   try {
     body = await request.json();

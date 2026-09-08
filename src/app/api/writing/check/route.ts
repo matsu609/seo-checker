@@ -11,6 +11,7 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { requireAuth } from "@/lib/auth/guard";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { llmYakkiJudge, runCopyCheck, runFactCheck, runYakkiCheck } from "@/lib/writing/check";
 import { MAX_CHECK_CHARS } from "@/lib/writing/prompt";
@@ -25,6 +26,9 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   let body: unknown;
   try {
     body = await request.json();

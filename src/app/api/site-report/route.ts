@@ -7,8 +7,9 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
-import { getGa4Client, missingGa4EnvVars } from "@/lib/ga4/client";
+import { ga4UnavailableMessage, resolveGa4Client } from "@/lib/google/ga4";
 import { daysInRange, isIsoDate, previousRange, type DateRange } from "@/lib/ga4/period";
 import { Ga4Error } from "@/lib/ga4/types";
 import { fetchSiteReport } from "@/lib/site-report/report";
@@ -37,6 +38,9 @@ function invalid(message: string): Response {
 }
 
 export async function POST(request: NextRequest) {
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
+  const denied = await requireAuth();
+  if (denied) return denied;
   let body: unknown;
   try {
     body = await request.json();
@@ -79,7 +83,7 @@ export async function POST(request: NextRequest) {
   // GA4 が未設定 / サービスアカウント JSON が壊れている
   let client;
   try {
-    client = getGa4Client();
+    client = (await resolveGa4Client())?.client ?? null;
   } catch (err) {
     if (err instanceof Ga4Error) {
       return Response.json({ error: err.message }, { status: err.status });
@@ -87,15 +91,7 @@ export async function POST(request: NextRequest) {
     throw err;
   }
   if (!client) {
-    const missing = missingGa4EnvVars();
-    return Response.json(
-      {
-        error: `サイトレポートには GA4 の設定が必要です。サーバーに ${
-          missing.length > 0 ? missing.join(" と ") : "GA4_PROPERTY_ID と GOOGLE_SERVICE_ACCOUNT_JSON"
-        } を設定してください`,
-      },
-      { status: 503 },
-    );
+    return Response.json({ error: ga4UnavailableMessage("サイトレポート") }, { status: 503 });
   }
 
   const cacheKey = `${client.propertyId}|${range.startDate}|${range.endDate}|${previous.startDate}|${previous.endDate}`;
