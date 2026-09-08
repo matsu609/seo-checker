@@ -43,13 +43,25 @@ npm run dev                  # http://localhost:3000
 
 | カテゴリ | 重み | 見るもの |
 |---|---|---|
-| AI クローラ可否 | 20 | robots.txt での GPTBot / ClaudeBot / PerplexityBot などの可否、noindex、llms.txt |
-| 構造化データ | 25 | Organization / WebSite / SearchAction / BreadcrumbList / FAQPage / sameAs / Article / Product |
+| AI クローラ可否 | 20 | robots.txt での**検索用**クローラ（OAI-SearchBot / PerplexityBot / Claude-SearchBot など）の可否、noindex |
+| 構造化データ | 25 | JSON-LD の有無と文法、Organization / BreadcrumbList / sameAs、WebSite（トップのみ）、FAQPage（FAQ のあるページのみ） |
 | メタ情報 | 20 | title、meta description（長さ）、OGP、canonical、lang |
 | 見出し | 15 | h1 がちょうど 1 つか、h2 / h3 の階層が飛んでいないか |
-| コンテンツ | 20 | 本文の文字数、画像の alt、JS 描画依存（SPA）の疑い |
+| コンテンツ | 20 | 具体的な情報（数値・日付・組織名・連絡先）の含有、見出しに本文が伴うか、画像の alt、JS 描画依存（SPA）の疑い |
 
 各項目は pass（満点）/ warn（半分）/ fail（0 点）で採点し、info は採点対象外です。配点は `src/lib/analyzer/types.ts` の `CATEGORY_WEIGHTS` と各 `check({ weight })` で変えられます。
+
+**採点しないもの**（状態は参考として表示します）:
+
+- **本文の文字数** — Google は推奨文字数を持たないと明言しています。長さではなく具体的な事実が書かれているかで判定します
+- **llms.txt / llms-full.txt** — 提案段階の仕様で、読み取りを表明した主要な AI クローラはまだありません
+- **学習用 AI クローラ**（GPTBot / ClaudeBot / Google-Extended / CCBot など）の拒否 — 各社が認めている正式な運用で、AI 検索での引用は減りません
+- **SearchAction** — Google がサイトリンク検索ボックスの提供を終了しています
+- そのページに当てはまらない項目 — FAQ の無いページの FAQPage、下層ページの WebSite
+
+スコアはこのツール独自の技術チェック表の達成率です。検索順位・流入・AI の回答への引用を測るものではなく、それらを予測するものでもありません。
+
+**配点はページ間で必ず揃えます。** 該当しないページでは項目を省かず `pass` として出します（`image-alt` / `js-rendering` / `jsonld-parse-error` / `jsonld-website` / `jsonld-faq`）。省くとカテゴリの分母がページごとに変わり、レポートの「改善するとこうなる」の見込み加点が実際の伸びとずれるためです。
 
 ### 出力
 

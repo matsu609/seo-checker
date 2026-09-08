@@ -112,8 +112,8 @@ describe("仕込んである欠陥の検出", () => {
 describe("誤検出していないこと", () => {
   it("robots.txt と sitemap.xml はあるので不足として出さない", () => {
     expect(urlsFor(result, "ROBOTS_MISSING")).toEqual([]);
-    // llms.txt を置いていないダミーサイトなので、サイト単位の課題として出る
-    expect(result.issues.some((i) => i.ruleId === "LLMS_TXT_MISSING" && i.severity === "warning")).toBe(true);
+    // llms.txt を置いていないダミーサイトなので任意項目として出る（警告にはしない）
+    expect(result.issues.some((i) => i.ruleId === "LLMS_TXT_MISSING" && i.severity === "info")).toBe(true);
     expect(result.issues.filter((i) => i.ruleId === "SITEMAP_MISSING" && i.severity === "error")).toEqual([]);
   });
 

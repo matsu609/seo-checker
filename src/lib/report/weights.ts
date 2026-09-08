@@ -15,8 +15,9 @@ import {
 export const CHECK_WEIGHTS: Record<string, number> = {
   // AI クローラ可否
   "ai-crawlers-allowed": 3,
+  "ai-crawlers-training": 0,
   noindex: 2,
-  "llms-txt": 2,
+  "llms-txt": 0,
   "llms-full-txt": 0,
   // 構造化データ
   "jsonld-exists": 3,
@@ -40,7 +41,9 @@ export const CHECK_WEIGHTS: Record<string, number> = {
   "heading-structure": 2,
   // コンテンツ
   "js-rendering": 3,
-  "content-length": 3,
+  "content-specificity": 3,
+  "content-length": 0,
+  "content-heading-body": 1,
   "image-alt": 1,
 };
 
@@ -66,12 +69,14 @@ export function categoryIndex(id: CategoryId): number {
 
 /** 付録 B「診断方法と採点基準」に載せる、カテゴリごとの主な確認内容 */
 export const CATEGORY_CRITERIA: Record<CategoryId, string> = {
-  crawlers: "robots.txt での AI クローラ（GPTBot・ClaudeBot・PerplexityBot など）の許可、noindex の有無、llms.txt の設置",
+  crawlers:
+    "robots.txt での AI 検索用クローラ（OAI-SearchBot・PerplexityBot・Claude-SearchBot など）の許可、noindex の有無。学習用クローラ（GPTBot など）の拒否と llms.txt の有無は参考表示で、採点していません",
   structuredData:
-    "JSON-LD の有無と文法、Organization / WebSite / パンくず / FAQPage の種類、sameAs（公式 SNS 等）",
+    "JSON-LD の有無と文法、Organization / パンくず / sameAs（公式 SNS 等）。WebSite はトップページのみ、FAQPage は画面に FAQ が実在するページのみを採点します",
   meta: "title・meta description の有無と長さ、OGP、canonical、html の lang 属性",
   headings: "h1 の数、h2 / h3 による見出し階層と階層飛び",
-  content: "本文の文字量、JavaScript 描画への依存、画像の alt 属性",
+  content:
+    "AI が引用できる具体的な情報（数値・日付・組織名・連絡先）の有無、見出しに本文が伴っているか、JavaScript 描画への依存、画像の alt 属性。本文の文字数は参考表示で、採点していません",
 };
 
 export { CATEGORY_LABELS, CATEGORY_WEIGHTS };

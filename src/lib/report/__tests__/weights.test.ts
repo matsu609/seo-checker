@@ -222,7 +222,9 @@ describe("buildSiteSummary（analyzer の実出力）", () => {
   it("すべての未対応・改善余地を直すと総合が 100 点になる（丸め誤差の範囲で）", () => {
     const s = buildSiteSummary(site);
     const total = s.overall + s.improvements.reduce((sum, i) => sum + i.gain, 0);
-    expect(Math.abs(100 - total)).toBeLessThan(2);
+    // 条件付きで出す項目を無くしてカテゴリの分母をページ間で揃えたので、
+    // ずれはスコアの丸め（カテゴリごと・総合で各 0.5 点まで）に収まる
+    expect(Math.abs(100 - total)).toBeLessThan(1.5);
   });
 
   it("全ページ共通の未対応と、ページによって差がある項目を分けて数える", () => {

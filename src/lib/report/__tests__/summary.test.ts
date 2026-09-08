@@ -396,8 +396,8 @@ describe("buildSiteSummary", () => {
   ];
   const checks = [
     // 全 4 ページで未対応（テンプレート側の問題）
-    mkSiteCheck("llms-txt", "crawlers", { fail: 4 }, {
-      advice: "llms.txt を置く",
+    mkSiteCheck("noindex", "crawlers", { fail: 4 }, {
+      advice: "noindex を外す",
       affected: pages.map((p) => ({ url: p.url, status: "fail" as const })),
     }),
     // 2 ページだけ未対応
@@ -407,7 +407,7 @@ describe("buildSiteSummary", () => {
         { url: "https://example.com/b", status: "fail" as const },
       ],
     }),
-    mkSiteCheck("noindex", "crawlers", { pass: 4 }),
+    mkSiteCheck("llms-txt", "crawlers", { pass: 4 }),
     // 一部のページにしか現れない項目（全ページ共通とは呼べない）
     mkSiteCheck("jsonld-parse-error", "structuredData", { fail: 2 }),
     mkSiteCheck("jsonld-website", "structuredData", { warn: 1, pass: 3 }, {
@@ -450,44 +450,46 @@ describe("buildSiteSummary", () => {
     // structuredData の Σ配点 = 2(jsonld-parse-error) + 1(jsonld-website) + 0(jsonld-search-action) = 3
     //   jsonld-parse-error: 2 × 2 / 4 / 3 × 25 = 8.333…
     //   jsonld-website:     0.5 × 1 × 1 / 4 / 3 × 25 = 1.041…
-    // crawlers の Σ配点 = 3(ai-crawlers-allowed) + 2(noindex) + 2(llms-txt) = 7
-    //   llms-txt:            2 × 4 / 4 / 7 × 20 = 5.714…
-    //   ai-crawlers-allowed: 3 × 2 / 4 / 7 × 20 = 4.285…（配点は大きいが該当が 2 ページなので下）
+    // crawlers の Σ配点 = 3(ai-crawlers-allowed) + 2(noindex) + 0(llms-txt) = 5
+    //   noindex:             2 × 4 / 4 / 5 × 20 = 8
+    //   ai-crawlers-allowed: 3 × 2 / 4 / 5 × 20 = 6（配点は大きいが該当が 2 ページなので下）
     expect(s.improvements.map((i) => i.id)).toEqual([
       "jsonld-parse-error",
-      "llms-txt",
+      "noindex",
       "ai-crawlers-allowed",
       "jsonld-website",
     ]);
-    expect(s.improvements.map((i) => i.gainLabel)).toEqual(["+8 点", "+6 点", "+4 点", "+1 点"]);
+    expect(s.improvements.map((i) => i.gainLabel)).toEqual(["+8 点", "+8 点", "+6 点", "+1 点"]);
     expect(s.improvements[0].gain).toBeCloseTo(8.333, 3);
-    expect(s.improvements[1].gain).toBeCloseTo(5.714, 3);
+    expect(s.improvements[1].gain).toBeCloseTo(8, 3);
     expect(s.improvements[3].gain).toBeCloseTo(1.042, 3);
-    const llms = s.improvements[1];
-    expect(llms.spread).toBe("uniform");
-    expect(llms.status).toBe("fail");
-    expect(llms.affectedPages).toBe(4);
-    expect(llms.affectedCount).toBe(4);
-    expect(llms.totalPages).toBe(4);
-    expect(llms.advice).toBe("llms.txt を置く");
+    // 配点 0 の項目（llms-txt など参考表示）は改善提案に出さない
+    expect(s.improvements.map((i) => i.id)).not.toContain("llms-txt");
+    const uniformItem = s.improvements[1];
+    expect(uniformItem.spread).toBe("uniform");
+    expect(uniformItem.status).toBe("fail");
+    expect(uniformItem.affectedPages).toBe(4);
+    expect(uniformItem.affectedCount).toBe(4);
+    expect(uniformItem.totalPages).toBe(4);
+    expect(uniformItem.advice).toBe("noindex を外す");
     const ai = s.improvements[2];
     expect(ai.spread).toBe("mixed");
     expect(ai.affectedPages).toBe(2);
     expect(ai.affectedUrls).toEqual(["https://example.com/a", "https://example.com/b"]);
     expect(ai.evidence).toBe("GPTBot が拒否されています");
     // 全ページ合格の項目は優先改善に出さない
-    expect(s.improvements.some((i) => i.id === "noindex")).toBe(false);
+    expect(s.improvements.some((i) => i.id === "llms-txt")).toBe(false);
     expect(s.top3).toHaveLength(3);
-    // 総合 70 点 + TOP3 の 8.33 + 5.71 + 4.29 = 88 点
+    // 総合 70 点 + TOP3 の 8.33 + 8 + 6 = 92 点
     expect(s.overall).toBe(70);
-    expect(s.projected).toBe(88);
-    expect(s.projectedGrade.grade).toBe("B");
+    expect(s.projected).toBe(92);
+    expect(s.projectedGrade.grade).toBe("A");
   });
 
   it("優先改善リストは全ページ共通とページ差を 1 本にまとめる", () => {
     const s = buildSiteSummary(site);
     expect(s.priorities.map((p) => p.id)).toEqual([
-      "llms-txt", // 未対応 4 × 配点 2 = 8
+      "noindex", // 未対応 4 × 配点 2 = 8
       "ai-crawlers-allowed", // 未対応 2 × 配点 3 = 6
       "jsonld-parse-error", // 未対応 2 × 配点 2 = 4
       "jsonld-website", // 改善余地 1 × 配点 1
@@ -499,7 +501,7 @@ describe("buildSiteSummary", () => {
     expect(uniform.affectedCount).toBe(4);
     expect(uniform.totalPages).toBe(4);
     expect(uniform.priority).toBe(8);
-    expect(uniform.advice).toBe("llms.txt を置く");
+    expect(uniform.advice).toBe("noindex を外す");
     const mixed = s.priorities[1];
     expect(mixed.spread).toBe("mixed");
     expect(mixed.secondary).toBe(0);
@@ -510,7 +512,7 @@ describe("buildSiteSummary", () => {
     expect(s.priorities[4].worst).toBe("info");
     expect(s.priorities[4].affectedCount).toBe(4);
     // 全ページ合格の項目は出さない
-    expect(s.priorities.some((p) => p.id === "noindex")).toBe(false);
+    expect(s.priorities.some((p) => p.id === "llms-txt")).toBe(false);
     expect(s.uniformFailCount).toBe(1);
   });
 

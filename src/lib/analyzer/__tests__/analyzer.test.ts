@@ -94,13 +94,57 @@ describe("extractJsonLd", () => {
 });
 
 describe("checkStructuredData", () => {
-  it("JSON-LD が無いと必須項目が fail/warn になる", () => {
-    const results = checkStructuredData(cheerio.load("<html><body></body></html>"));
-    const byId = Object.fromEntries(results.map((r) => [r.id, r]));
+  const run = (html: string, url = "https://example.com/") =>
+    Object.fromEntries(checkStructuredData(cheerio.load(html), url).map((r) => [r.id, r]));
+
+  it("JSON-LD が無いと必須項目が fail になる", () => {
+    const byId = run("<html><body></body></html>");
     expect(byId["jsonld-exists"].status).toBe("fail");
-    expect(byId["jsonld-faq"].status).toBe("warn");
     expect(byId["jsonld-article"].status).toBe("info");
     expect(byId["jsonld-article"].weight).toBe(0);
+  });
+
+  // FAQ の無いページに FAQPage を足させるのは誤った助言なので、減点しない。
+  // 配点（カテゴリの分母）はページ間で揃える必要があるので weight は残す
+  it("FAQ が無いページでは FAQPage の不在を減点しない", () => {
+    const byId = run("<html><body><p>会社概要です。</p></body></html>");
+    expect(byId["jsonld-faq"].status).toBe("pass");
+    expect(byId["jsonld-faq"].weight).toBe(2);
+    expect(byId["jsonld-faq"].label).toContain("FAQPage は不要");
+  });
+
+  it("FAQ があるのに FAQPage が無ければ warn", () => {
+    const html = `<html><body>
+      <h2>よくあるご質問</h2>
+      <h3>料金はいくらですか？</h3><p>月額 1,000 円です。</p>
+      <h3>解約できますか？</h3><p>いつでも解約できます。</p>
+    </body></html>`;
+    const byId = run(html);
+    expect(byId["jsonld-faq"].status).toBe("warn");
+    expect(byId["jsonld-faq"].weight).toBe(2);
+  });
+
+  // 画面に無い内容を構造化データに書くのはガイドライン違反
+  it("FAQ が無いのに FAQPage があれば warn", () => {
+    const html = `<html><body><p>会社概要です。</p>
+      <script type="application/ld+json">{"@type":"FAQPage"}</script></body></html>`;
+    const byId = run(html);
+    expect(byId["jsonld-faq"].status).toBe("warn");
+    expect(byId["jsonld-faq"].label).toContain("画面に FAQ が無いのに");
+  });
+
+  // WebSite はトップページに 1 つあれば足りる
+  it("下層ページでは WebSite の不在を減点しない", () => {
+    const byId = run("<html><body></body></html>", "https://example.com/company/");
+    expect(byId["jsonld-website"].status).toBe("pass");
+    expect(byId["jsonld-website"].weight).toBe(1);
+    expect(byId["jsonld-website"].label).toContain("トップページにあれば足りる");
+  });
+
+  it("トップページでは WebSite が無いと warn", () => {
+    const byId = run("<html><body></body></html>", "https://example.com/");
+    expect(byId["jsonld-website"].status).toBe("warn");
+    expect(byId["jsonld-website"].weight).toBe(1);
   });
 });
 
@@ -154,14 +198,42 @@ describe("content", () => {
     return `<html><head><title>t</title>${s}</head><body><nav>menu menu</nav><main><h1>見出し</h1><p>${bodyText}</p></main><footer>foot</footer></body></html>`;
   }
 
-  it("本文が十分あれば pass", () => {
+  // 文字数そのものは採点しない（Google は推奨文字数を持たないと明言している）。
+  // 参考値として必ず出るが、配点は 0
+  it("本文の分量は参考値で、採点には効かない", () => {
     const html = page("日本語の本文です。".repeat(250));
     const $ = cheerio.load(html);
     const info = extractContent(html, "https://example.com/", $);
     expect(info.mainTextLength).toBeGreaterThanOrEqual(1500);
-    const byId = Object.fromEntries(checkContent(info).map((r) => [r.id, r.status]));
-    expect(byId["content-length"]).toBe("pass");
-    expect(byId["js-rendering"]).toBeUndefined();
+    const len = checkContent(info).find((r) => r.id === "content-length");
+    expect(len?.status).toBe("info");
+    expect(len?.weight).toBe(0);
+  });
+
+  // 長くても具体的な事実が無いページは通さない。逆に短くても具体的なら通す
+  it("長いだけで具体情報が無い本文は content-specificity で fail", () => {
+    const html = page("弊社は価値を提供する会社です。".repeat(250));
+    const info = extractContent(html, "https://example.com/", cheerio.load(html));
+    const spec = checkContent(info).find((r) => r.id === "content-specificity");
+    expect(spec?.status).toBe("fail");
+  });
+
+  it("短くても具体情報があれば content-specificity は pass", () => {
+    const html = page(
+      "お問い合わせは電話 03-1234-5678 までご連絡ください。受付時間は平日 9:00 から 18:00 です。創業は 1998 年です。",
+    );
+    const info = extractContent(html, "https://example.com/", cheerio.load(html));
+    expect(info.mainTextLength).toBeLessThan(1500);
+    const spec = checkContent(info).find((r) => r.id === "content-specificity");
+    expect(spec?.status).toBe("pass");
+  });
+
+  // 一覧・受付など文章がほとんど無いページは fail にしない
+  it("文がほとんど無いページは fail ではなく warn に留める", () => {
+    const html = page("会社案内");
+    const info = extractContent(html, "https://example.com/", cheerio.load(html));
+    const spec = checkContent(info).find((r) => r.id === "content-specificity");
+    expect(spec?.status).toBe("warn");
   });
 
   it("テキストがほぼ無く script が多ければ JS 依存を疑う", () => {
@@ -170,7 +242,28 @@ describe("content", () => {
     const info = extractContent(html, "https://example.com/", $);
     const byId = Object.fromEntries(checkContent(info).map((r) => [r.id, r.status]));
     expect(byId["js-rendering"]).toBe("fail");
-    expect(byId["content-length"]).toBe("fail");
+  });
+
+  it("見出しだけで本文の無いページを拾う", () => {
+    const html = `<html><body><main>
+      <h2>サービス</h2><h2>会社概要</h2><h2>お問い合わせ</h2>
+    </main></body></html>`;
+    const info = extractContent(html, "https://example.com/", cheerio.load(html));
+    expect(info.mainHeadings).toBe(3);
+    expect(info.headingsWithoutBody).toBe(3);
+    const hb = checkContent(info).find((r) => r.id === "content-heading-body");
+    expect(hb?.status).toBe("fail");
+  });
+
+  it("見出しに本文が伴っていれば pass", () => {
+    const html = `<html><body><main>
+      <h2>サービス</h2><p>2015 年から 300 社以上に導入しています。</p>
+      <h2>料金</h2><p>初期費用は 50,000 円、月額は 10,000 円です。</p>
+    </main></body></html>`;
+    const info = extractContent(html, "https://example.com/", cheerio.load(html));
+    expect(info.headingsWithoutBody).toBe(0);
+    const hb = checkContent(info).find((r) => r.id === "content-heading-body");
+    expect(hb?.status).toBe("pass");
   });
 
   it("alt の無い画像を数える", () => {

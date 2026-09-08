@@ -94,9 +94,11 @@
 ## 4. 和文タイポグラフィ
 
 - フォントは `@theme --font-sans`: Hiragino Sans（macOS/iOS）→ Hiragino Kaku Gothic ProN → Noto Sans JP → Yu Gothic（Windows）→ Meiryo → system-ui…。**Web フォントは読み込んでいない**（`next/font` 不使用）ので OS ごとに見た目が変わるのは仕様。`<html lang="ja">` は必須（漢字の字形選択に効く。`download.ts` は iframe にも `lang` を写している）。`html` に `antialiased`。
-- `body { font-feature-settings: "palt" }` で全角文字を詰める（プロポーショナル）。**部品側で `font-feature-settings` を上書きしない**（低レベルプロパティなので `"tnum"` と書いた瞬間に palt が外れる）。数字の等幅は `tabular-nums` ユーティリティ（`font-variant-numeric`）を使う。palt と tnum は別機能なので共存する。
+- `body { font-feature-settings: "palt" }` で全角文字を詰める（プロポーショナル）。**部品側で `font-feature-settings` を上書きしない**（低レベルプロパティなので `"tnum"` と書いた瞬間に palt が外れる）。唯一の例外は globals.css の `.pdf-capture` の打ち消し（下記）。数字の等幅は `tabular-nums` ユーティリティ（`font-variant-numeric`）を使う。palt と tnum は別機能なので共存する。
 - `tabular-nums` の注意:
   - 効くのはフォントに `tnum` があるときだけ。フォールバック先（Hiragino / Noto Sans JP / Yu Gothic / Meiryo）で数字の既定幅も `tnum` の有無も違うので、**数値列は `text-right` で右揃えにし、スペースで桁を揃えない**（既存 `ScoreCard` / `SiteReport` はこの形）。
-  - PDF 化では canvas が `font-variant-numeric` も `palt` も無視し、`Intl.Segmenter` で分割した単語ごとに DOM の実測位置へ描く。行内でサブピクセルのずれが出るので、ピクセル単位で揃う前提の UI（数字とバーの厳密な位置合わせ等）は作らない。数字はバーの外に置く。
+  - **PDF 化（html2canvas-pro）では `.pdf-capture` の中だけ `font-feature-settings` / `font-variant-numeric` を `normal !important` に戻している**（globals.css）。canvas 2D の `font` 文字列に渡せるのは style / variant(normal・small-caps) / weight / size / family だけで、`font-feature-settings` と `font-variant-numeric` は渡らない（`html2canvas-pro/dist/lib/render/canvas/text-renderer.js` の `createFontStyle`）。一方で描画位置は DOM の実測値（`lib/css/layout/text.js` の `parseTextBounds` → `getClientRects`）を使う。打ち消さないと **DOM は palt で詰めた狭い幅で位置を決め、canvas は詰めていない広い字形を描く**という食い違いになり、`（` `）` `・` `。` などの約物が隣の文字に重なる。palt を実装したフォント（Hiragino Sans など）でだけ起きるので、環境によって出たり出なかったりする。打ち消しが当たるのは複製だけで、画面表示は palt のまま。ルールの存在は `src/app/__tests__/pdf-capture-css.test.ts` が守る。
+  - 打ち消した後も、canvas は単語ごとに DOM の実測位置へ描くのでサブピクセルのずれは残る。ピクセル単位で揃う前提の UI（数字とバーの厳密な位置合わせ等）は作らない。数字はバーの外に置く。
+  - `.pdf-capture` で **`font-kerning` は触らない**。canvas の既定はカーニング有効なので、DOM 側だけ `none` にすると逆向きの食い違いを新しく作ることになる。
 - 日本語はどこでも折り返せるが、URL や JSON はそうではない。長い英数字列には `break-all`（または `break-words`）、`<pre>` は印刷・PDF で `pre-wrap` になる前提で書く。
 - 本文は `text-sm` + `leading-relaxed` 程度が読みやすい。`tracking-tight` は和文には使わない（palt と二重に詰まる）。

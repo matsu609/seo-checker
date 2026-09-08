@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { check } from "./check";
-import type { CheckResult } from "./types";
+import type { CheckResult, CheckStatus } from "./types";
 
 export interface ContentInfo {
   /** Readability で抽出した本文（失敗時は body 全体からナビ等を除いたテキスト） */
@@ -14,6 +14,14 @@ export interface ContentInfo {
   images: number;
   imagesWithoutAlt: number;
   scripts: number;
+  /** 具体情報（数値・日付・組織名・連絡先）を含む文の数 */
+  concreteSentences: number;
+  /** 本文の文の総数 */
+  totalSentences: number;
+  /** 本文領域の h2 / h3 の数 */
+  mainHeadings: number;
+  /** そのうち、直後に本文が続かないもの（見出しだけで中身が無い）の数 */
+  headingsWithoutBody: number;
 }
 
 /** Readability の抽出結果がこれ未満なら、本文を取り逃したとみなしてフォールバックする */
@@ -48,6 +56,90 @@ export function normalizeText(text: string): string {
 /** 文字数として数える単位: 空白と記号を除いた長さ */
 export function countChars(text: string): number {
   return normalizeText(text).replace(/[\s\p{P}\p{S}]/gu, "").length;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   本文の「具体性」を測る。
+
+   以前はここが「1,500 文字あるか」だった。Google は推奨文字数を持たないと
+   明言しており、一覧ページ・問い合わせ・短い告知まで一律に減点していたため
+   採点として成立していなかった（水増しを促す方向にも働く）。
+
+   代わりに見るのは「AI が引用できる具体的な事実が書いてあるか」。
+   数値・日付・組織名・連絡先を含む文を数える。短くても具体的なページ
+   （例: 電話番号と受付時間が書かれた問い合わせページ）は通り、長くても
+   抽象的なだけのページは通らない。
+   ───────────────────────────────────────────────────────────── */
+
+/** 数量（単位・助数詞つきの数字） */
+const RE_QUANTITY =
+  /\d+(?:[.,]\d+)?\s*(?:円|万円|億円|%|％|人|名|社|件|個|台|回|点|種|品|室|席|階|坪|畳|㎡|平方メートル|km|m|cm|mm|kg|g|t|L|ml|年|ヶ月|か月|カ月|箇月|月|日|週|時間|分|秒|歳|才|位|倍|割|周年|以上|以下|未満)/;
+/** 日付・年月 */
+const RE_DATE = /\d{4}\s*年|\d{1,2}\s*月\s*\d{1,2}\s*日|令和\s*\d+|平成\s*\d+|\d{4}[-/]\d{1,2}[-/]\d{1,2}/;
+/** 組織・法人格 */
+const RE_ORG =
+  /株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|特定非営利活動法人|NPO法人|独立行政法人|学校法人|医療法人|社会福祉法人/;
+/** 連絡先・所在地 */
+const RE_CONTACT = /〒\s*\d{3}|\d{2,4}-\d{2,4}-\d{4}|\d{1,2}:\d{2}|TEL|Tel|電話番号/;
+
+const CONCRETE_PATTERNS = [RE_QUANTITY, RE_DATE, RE_ORG, RE_CONTACT];
+
+/** 句点で文に割る。空白しか無い断片は落とす */
+export function splitSentences(text: string): string[] {
+  return text
+    .split(/[。！？!?]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
+export interface Specificity {
+  concrete: number;
+  total: number;
+}
+
+/** 具体情報を含む文の数と、文の総数を返す */
+export function measureSpecificity(mainText: string): Specificity {
+  const sentences = splitSentences(mainText);
+  let concrete = 0;
+  for (const sentence of sentences) {
+    if (CONCRETE_PATTERNS.some((re) => re.test(sentence))) concrete += 1;
+  }
+  return { concrete, total: sentences.length };
+}
+
+/**
+ * 本文領域の h2 / h3 のうち、直後に本文が続かないものを数える。
+ *
+ * 見出しだけあって中身が無いページは、AI が「見出しの問いに対する答え」を
+ * 取り出せない。ナビゲーションの見出しを拾わないよう、main / article が
+ * あればその中だけを見て、無ければ body からナビ等を外した範囲を見る。
+ */
+export function measureHeadingBodies($: cheerio.CheerioAPI): {
+  headings: number;
+  withoutBody: number;
+} {
+  const $doc = cheerio.load($.html());
+  $doc("script, style, noscript, template, svg").remove();
+  let scope = $doc("main, article, [role=main]").first();
+  if (scope.length === 0) {
+    $doc("nav, header, footer, aside, form").remove();
+    scope = $doc("body");
+  }
+
+  const headings = scope.find("h2, h3").toArray();
+  let withoutBody = 0;
+  for (const el of headings) {
+    let text = "";
+    let node = $doc(el).next();
+    // 次の見出しに当たるまでの範囲を本文とみなす
+    while (node.length > 0 && !node.is("h1, h2, h3, h4, h5, h6")) {
+      text += node.text();
+      if (countChars(text) >= 10) break;
+      node = node.next();
+    }
+    if (countChars(text) < 10) withoutBody += 1;
+  }
+  return { headings: headings.length, withoutBody };
 }
 
 /**
@@ -100,6 +192,9 @@ export function extractContent(html: string, url: string, $: cheerio.CheerioAPI)
     return alt === undefined || alt.trim() === "";
   }).length;
 
+  const specificity = measureSpecificity(mainText);
+  const headingBodies = measureHeadingBodies($);
+
   return {
     mainText,
     mainTextLength: countChars(mainText),
@@ -108,6 +203,10 @@ export function extractContent(html: string, url: string, $: cheerio.CheerioAPI)
     images,
     imagesWithoutAlt,
     scripts: $("script[src]").length,
+    concreteSentences: specificity.concrete,
+    totalSentences: specificity.total,
+    mainHeadings: headingBodies.headings,
+    headingsWithoutBody: headingBodies.withoutBody,
   };
 }
 
@@ -116,42 +215,102 @@ export function checkContent(info: ContentInfo): CheckResult[] {
   const len = info.mainTextLength;
 
   // --- JS レンダリング依存の検出 ------------------------------------------------
-  // fetch した HTML にテキストがほとんど無く script が多い = SPA の可能性が高い
+  // fetch した HTML にテキストがほとんど無く script が多い = SPA の可能性が高い。
+  //
+  // 問題があるときだけ出す作りだと、カテゴリの配点合計（= 分母）がページごとに
+  // 変わり、レポートの「改善するとこうなる」の見込み加点が実際の伸びとずれる。
+  // image-alt と同じく、該当しないページでは pass として必ず出す。
   const likelySpa = info.rawTextLength < 200 && info.scripts >= 3;
-  if (likelySpa) {
-    results.push(
-      check({
-        id: "js-rendering",
-        category: "content",
-        status: "fail",
-        weight: 3,
-        label: "HTML に本文がほとんど含まれていない（JS描画依存の可能性）",
-        evidence: `HTML内のテキスト ${info.rawTextLength} 文字 / 外部スクリプト ${info.scripts} 個`,
-        advice:
-          "取得した HTML にテキストがほぼ含まれておらず、JavaScript で描画されるページ（SPA）と思われます。多くの AI クローラは JavaScript を実行しないため、内容がまったく読まれない恐れがあります。サーバーサイドレンダリング（SSR）や静的生成（SSG）で、HTML の時点で本文が含まれるようにしてください。",
-      }),
-    );
-  }
+  results.push(
+    check({
+      id: "js-rendering",
+      category: "content",
+      status: likelySpa ? "fail" : "pass",
+      weight: 3,
+      label: likelySpa
+        ? "HTML に本文がほとんど含まれていない（JS描画依存の可能性）"
+        : "HTML の時点で本文が含まれている",
+      evidence: `HTML内のテキスト ${info.rawTextLength} 文字 / 外部スクリプト ${info.scripts} 個`,
+      advice:
+        "取得した HTML にテキストがほぼ含まれておらず、JavaScript で描画されるページ（SPA）と思われます。多くの AI クローラは JavaScript を実行しないため、内容がまったく読まれない恐れがあります。サーバーサイドレンダリング（SSR）や静的生成（SSG）で、HTML の時点で本文が含まれるようにしてください。",
+    }),
+  );
 
-  // --- 本文量 -----------------------------------------------------------------
-  const status = len >= 1500 ? "pass" : len >= 500 ? "warn" : "fail";
+  // --- 具体性 -----------------------------------------------------------------
+  // 旧「本文量」（1,500 文字未満は減点）を置き換えたもの。理由は
+  // measureSpecificity の上のコメントを参照。
+  const concrete = info.concreteSentences;
+  const sentences = info.totalSentences;
+  const concreteRatio = sentences > 0 ? concrete / sentences : 0;
+  // 文がほとんど無いページ（一覧・受付など）は fail にしない。
+  // 文章はあるのに具体的な事実が 1 つも無いページだけを fail とする。
+  const specificityStatus: CheckStatus =
+    concrete === 0
+      ? sentences >= 3
+        ? "fail"
+        : "warn"
+      : concrete >= 2 && concreteRatio >= 0.1
+        ? "pass"
+        : "warn";
+  results.push(
+    check({
+      id: "content-specificity",
+      category: "content",
+      status: specificityStatus,
+      weight: 3,
+      label:
+        specificityStatus === "pass"
+          ? "AI が引用できる具体的な情報がある"
+          : specificityStatus === "warn"
+            ? "具体的な情報がやや少ない"
+            : "具体的な情報が見当たらない",
+      evidence: `数値・日付・組織名・連絡先を含む文 ${concrete} / 全 ${sentences} 文`,
+      advice:
+        concrete === 0 && sentences < 3
+          ? "このページには文章がほとんどありません。一覧や受付などの案内ページであればそのままで問題ありません。AI に引用させたい内容があるページなら、具体的な記述を加えてください。"
+          : specificityStatus === "fail"
+            ? "文章はありますが、数値・日付・料金・実績といった具体的な事実がほとんど含まれていません。AI 検索は「誰が・何を・いつ・どこで・いくらで」が書かれたページを引用します。文字数を増やすのではなく、いま書かれている説明に具体的な数字と固有名詞を加えてください。"
+            : "具体的な事実を含む文が全体に対して少なめです。抽象的な説明を増やすのではなく、実績の件数・対応エリア・料金・所要期間など、確認できる事実を本文に足してください。",
+    }),
+  );
+
+  // 文字数は参考として出すだけ。しきい値による減点はしない
+  // （Google は推奨文字数を持たないと明言している）
   results.push(
     check({
       id: "content-length",
       category: "content",
-      status,
-      weight: 3,
+      status: "info",
+      label: "本文の分量（参考値）",
+      evidence: `本文 約${len.toLocaleString()} 文字 / ${sentences} 文（空白・記号を除く）`,
+    }),
+  );
+
+  // --- 見出しに中身が伴っているか -----------------------------------------------
+  // 画像 alt と同じ理由で、見出しが 0 個のページでも必ず項目を出す
+  // （配点の合計 = 分母をページ間で揃えるため）
+  const emptyHeadingRatio =
+    info.mainHeadings > 0 ? info.headingsWithoutBody / info.mainHeadings : 0;
+  const headingBodyStatus: CheckStatus =
+    emptyHeadingRatio === 0 ? "pass" : emptyHeadingRatio <= 0.5 ? "warn" : "fail";
+  results.push(
+    check({
+      id: "content-heading-body",
+      category: "content",
+      status: headingBodyStatus,
+      weight: 1,
       label:
-        status === "pass"
-          ? "本文の情報量が十分ある"
-          : status === "warn"
-            ? "本文の情報量がやや少ない"
-            : "本文の情報量が不足している",
-      evidence: `本文 約${len.toLocaleString()} 文字（空白・記号を除く）`,
+        info.mainHeadings === 0
+          ? "本文の見出しがないため、この項目の問題はない"
+          : headingBodyStatus === "pass"
+            ? "見出しに本文が伴っている"
+            : "本文の無い見出しがある",
+      evidence:
+        info.mainHeadings === 0
+          ? "本文領域に h2 / h3 がありません"
+          : `h2 / h3 ${info.mainHeadings} 個のうち、直後に本文が無いもの ${info.headingsWithoutBody} 個`,
       advice:
-        status === "warn"
-          ? "本文が 1,500 文字未満です。AI 検索は具体的な情報（誰が・何を・いつ・どこで・いくらで）が揃ったページを引用しやすいため、サービス内容・実績・よくある質問などを加えて情報量を増やしてください。"
-          : "本文が 500 文字未満で、AI が引用できる情報がほとんどありません。ページの目的に沿った説明文を最低でも 1,000 文字以上、できれば 1,500 文字以上になるよう書き足してください。",
+        "見出しだけあって直後に説明が無いと、AI は「その見出しの問いに対する答え」を取り出せません。見出しの直下に、その見出しに答える文を 1〜2 文置いてください。",
     }),
   );
 

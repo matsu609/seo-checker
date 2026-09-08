@@ -235,14 +235,16 @@ export const ruleSiteFiles: CrossRule = (_pages, context) => {
     );
   }
   if (!context.siteFiles.llmsTxt.present) {
+    // 提案段階の仕様で、読み取りを表明した主要な AI クローラはまだ無い。
+    // Google も AI 検索への掲載に専用ファイルは不要としているため info に留める
     issues.push(
       issue(
         "LLMS_TXT_MISSING",
         "基本的な設定",
-        "warning",
+        "info",
         context.origin,
-        `${context.origin}/llms.txt が見つかりません`,
-        "llms.txt は、サイトの概要と主要ページの一覧を AI 向けに Markdown で書くファイルです。サイトのルートに置くと、AI がサイト構造を把握しやすくなります。「llms.txt 生成」ツールで作成できます。",
+        `${context.origin}/llms.txt がありません（任意）`,
+        "llms.txt は、サイトの概要と主要ページの一覧を AI 向けに Markdown で書く提案仕様です。読み取ることを表明した主要な AI クローラはまだ無く、Google も AI 検索への掲載に専用ファイルは不要としています。無くても不利にはなりません。試す場合は「llms.txt 生成」ツールで作成できますが、robots.txt と HTML を整えることが先です。",
       ),
     );
   } else if (!context.siteFiles.llmsFullTxt.present) {

@@ -85,7 +85,7 @@ export function analyzeFetched(
 
   const checks: CheckResult[] = [
     ...checkCrawlers(finalUrl, $, page.headers, siteFiles),
-    ...checkStructuredData($),
+    ...checkStructuredData($, finalUrl.toString()),
     ...checkMeta($),
     ...checkHeadings($),
     ...checkContent(contentInfo),

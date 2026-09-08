@@ -154,9 +154,24 @@ describe("ページ単位の診断", () => {
 
     const sd = (r: Awaited<ReturnType<typeof analyze>>) =>
       r.categories.find((c) => c.id === "structuredData")!.score;
-    // 配点は WebSite 1 点・パンくず 1 点で同じなので、この 2 ページは同点になる。
-    // 差が出るのは「どの項目で失点しているか」であって、採点の分母ではない
-    expect(sd(top)).toBe(sd(company));
+    const checkOf = (r: Awaited<ReturnType<typeof analyze>>, id: string) =>
+      r.categories.flatMap((c) => c.checks).find((c) => c.id === id)!;
+    // WebSite はトップページに 1 つあれば足りるので、下層ページでは減点しない
+    // （配点＝分母は両ページとも同じままにして、判定だけ pass にする）。
+    // その結果、パンくずだけが無いトップの方が点が低くなる
+    expect(checkOf(company, "jsonld-website").status).toBe("pass");
+    expect(checkOf(company, "jsonld-website").weight).toBe(1);
+    expect(checkOf(top, "jsonld-breadcrumb").status).toBe("warn");
+    expect(sd(company)).toBeGreaterThan(sd(top));
+  });
+
+  // FAQ の無いページに「FAQPage を足せ」という助言は出さない
+  // （構造化データは画面に実在する内容だけを書くもの）
+  it("FAQ の無いページでは FAQPage の不在を減点しない", async () => {
+    const company = await analyze(`${origin}/company`);
+    const faq = company.categories.flatMap((c) => c.checks).find((c) => c.id === "jsonld-faq")!;
+    expect(faq.status).toBe("pass");
+    expect(faq.advice).toBeUndefined();
   });
 
   // 会社概要ページのスコアが低いのは本文抽出の取りこぼしではないことの確認。
@@ -223,17 +238,20 @@ describe("analyzeSite", () => {
     const site = await analyzeSite(`${origin}/`);
     const byId = Object.fromEntries(site.checks.map((c) => [c.id, c]));
 
-    // トップだけパンくずが無い / トップだけ WebSite がある
+    // トップだけパンくずが無い
     expect(byId["jsonld-breadcrumb"].spread).toBe("mixed");
     expect(byId["jsonld-breadcrumb"].affected.map((a) => new URL(a.url).pathname)).toEqual(["/"]);
-    expect(byId["jsonld-website"].spread).toBe("mixed");
+    // WebSite はトップに実在し、下層ページは対象外。どこも減点されないので uniform
+    expect(byId["jsonld-website"].spread).toBe("uniform");
+    expect(byId["jsonld-website"].counts.pass).toBe(4);
 
     // robots.txt はサイト共通なので全ページ同じ
     expect(byId["ai-crawlers-allowed"].spread).toBe("uniform");
     expect(byId["ai-crawlers-allowed"].counts.pass).toBe(4);
-    // llms.txt はどのページでも無い = テンプレートではなくサイト側の問題
+    // llms.txt と学習用クローラの状態は参考表示のみ（採点対象外）
     expect(byId["llms-txt"].spread).toBe("uniform");
-    expect(byId["llms-txt"].counts.warn).toBe(4);
+    expect(byId["llms-txt"].counts.info).toBe(4);
+    expect(byId["ai-crawlers-training"].counts.info).toBe(4);
 
     // ばらついた項目が先頭に並ぶ
     expect(site.checks[0].spread).toBe("mixed");

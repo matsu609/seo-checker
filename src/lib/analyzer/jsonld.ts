@@ -109,7 +109,50 @@ function walk(node: unknown, visit: (obj: JsonObject) => void): void {
   }
 }
 
-export function checkStructuredData($: cheerio.CheerioAPI): CheckResult[] {
+/* ─────────────────────────────────────────────────────────────
+   構造化データは「その画面に実在する内容」を記述するもの。
+   FAQ の無いページに FAQPage を、下層ページに WebSite を足させるのは
+   Google の構造化データの general guidelines に反する指示になるため、
+   採点する範囲をページ側の実態で決める。
+   ───────────────────────────────────────────────────────────── */
+
+/** 「よくある質問」らしき見出し・語 */
+const RE_FAQ_LABEL = /よくあるご?質問|FAQ|Q\s*&\s*A|Q\s*＆\s*A|質問と回答/i;
+
+/**
+ * 画面に FAQ 相当の内容が実在するか。
+ * 次のいずれかを満たせば「ある」とみなす:
+ *   - <details><summary> が 2 組以上（アコーディオン型の FAQ）
+ *   - 疑問符で終わる見出しが 2 つ以上
+ *   - 「よくある質問」等の語があり、かつ疑問符で終わる見出し / dt が 1 つ以上
+ */
+export function hasFaqContent($: cheerio.CheerioAPI): boolean {
+  const details = $("details:has(summary)").length;
+  if (details >= 2) return true;
+
+  const endsWithQuestion = (text: string) => /[?？]\s*$/.test(text.trim());
+  const questionHeadings = $("h2, h3, h4, dt, summary")
+    .toArray()
+    .filter((el) => endsWithQuestion($(el).text())).length;
+  if (questionHeadings >= 2) return true;
+
+  const labelled = $("h1, h2, h3, h4")
+    .toArray()
+    .some((el) => RE_FAQ_LABEL.test($(el).text()));
+  return labelled && questionHeadings >= 1;
+}
+
+/** サイトのトップページか（/ と /index.* を同じとみなす） */
+export function isHomePage(pageUrl: string): boolean {
+  try {
+    const { pathname } = new URL(pageUrl);
+    return pathname === "/" || /^\/index\.[a-z0-9]+$/i.test(pathname);
+  } catch {
+    return false;
+  }
+}
+
+export function checkStructuredData($: cheerio.CheerioAPI, pageUrl: string): CheckResult[] {
   const info = extractJsonLd($);
   const has = (...names: string[]) => names.some((n) => info.types.includes(n));
   const results: CheckResult[] = [];
@@ -132,20 +175,25 @@ export function checkStructuredData($: cheerio.CheerioAPI): CheckResult[] {
     }),
   );
 
-  if (info.parseErrors > 0) {
-    results.push(
-      check({
-        id: "jsonld-parse-error",
-        category: "structuredData",
-        status: "fail",
-        weight: 2,
-        label: "JSON-LD に文法エラーがある",
-        evidence: `${info.parseErrors} 個の JSON-LD ブロックがパースできません`,
-        advice:
-          "JSON として読めない JSON-LD は無視されます。末尾カンマ、引用符の不一致、コメントの混入などがないか、Google のリッチリザルトテストや JSON バリデータで確認してください。",
-      }),
-    );
-  }
+  // js-rendering と同じ理由で、エラーが無いページでも pass として必ず出す
+  // （カテゴリの配点合計をページ間で揃え、見込み加点を実際の伸びと一致させる）
+  results.push(
+    check({
+      id: "jsonld-parse-error",
+      category: "structuredData",
+      status: info.parseErrors > 0 ? "fail" : "pass",
+      weight: 2,
+      label: info.parseErrors > 0 ? "JSON-LD に文法エラーがある" : "JSON-LD に文法エラーはない",
+      evidence:
+        info.parseErrors > 0
+          ? `${info.parseErrors} 個の JSON-LD ブロックがパースできません`
+          : info.blocks > 0
+            ? `${info.blocks} 個の JSON-LD ブロックはすべて読み取れました`
+            : "JSON-LD のブロックがありません",
+      advice:
+        "JSON として読めない JSON-LD は無視されます。末尾カンマ、引用符の不一致、コメントの混入などがないか、Google のリッチリザルトテストや JSON バリデータで確認してください。",
+    }),
+  );
 
   const hasOrg = [...ORG_TYPES].some((t) => info.types.includes(t));
   results.push(
@@ -162,15 +210,25 @@ export function checkStructuredData($: cheerio.CheerioAPI): CheckResult[] {
     }),
   );
 
+  // WebSite はトップページに 1 つ置けばよく、全ページに入れる必要はない
+  // （Google のサイト名の仕様がホームページに置くよう明記している）。
+  // 下層ページでは「該当なし」として pass にする。image-alt と同じ考え方で、
+  // 配点（= カテゴリの分母）をページ間で揃えたまま減点だけを外す。
+  const home = isHomePage(pageUrl);
   results.push(
     check({
       id: "jsonld-website",
       category: "structuredData",
-      status: has("WebSite") ? "pass" : "warn",
+      status: !home || has("WebSite") ? "pass" : "warn",
       weight: 1,
-      label: has("WebSite") ? "WebSite 構造化データがある" : "WebSite 構造化データがない",
+      label: !home
+        ? "WebSite 構造化データはトップページにあれば足りる"
+        : has("WebSite")
+          ? "WebSite 構造化データがある"
+          : "トップページに WebSite 構造化データがない",
+      evidence: !home ? "下層ページのため、この項目は対象外です" : undefined,
       advice:
-        "WebSite の構造化データは、サイト名と URL を明示します。サイト名が検索結果や AI の回答で正しく表示されやすくなります。",
+        "WebSite の構造化データは、サイト名と URL を明示します。サイト名が検索結果や AI の回答で正しく表示されやすくなります。トップページに 1 つ置けば足り、下層ページに入れる必要はありません。",
     }),
   );
 
@@ -183,7 +241,7 @@ export function checkStructuredData($: cheerio.CheerioAPI): CheckResult[] {
         ? "サイト内検索（SearchAction）の構造化データがある"
         : "サイト内検索（SearchAction）の構造化データがない",
       advice:
-        "SearchAction は、サイト内検索の使い方を AI に伝える構造化データです（設定は任意）。これがあると、AI が「このサイト内でこう検索できる」と理解し、利用者を目的の情報へ案内しやすくなります。サイト内検索の機能がある場合に設定すると効果的です。",
+        "SearchAction（サイトリンク検索ボックス）は、Google が対応する表示機能を終了しているため、検索結果のための対応は不要です。この項目は採点しておらず、無くても不利にはなりません。既に設置されている場合、そのままにしておいて差し支えありません。",
     }),
   );
 
@@ -201,15 +259,33 @@ export function checkStructuredData($: cheerio.CheerioAPI): CheckResult[] {
     }),
   );
 
+  // FAQPage は「画面に FAQ が実在するページ」でだけ問題として扱う。
+  // 構造化データは画面に無い内容を記述してはならないため、FAQ の無いページに
+  // FAQPage を足させるのは誤った助言になる。ここも WebSite と同じく、
+  // 該当しないページは pass にして配点だけ残す。
+  // 逆に、FAQ が無いのに FAQPage が書かれている場合はガイドライン違反として指摘する。
+  const faqOnPage = hasFaqContent($);
+  const faqMarkup = has("FAQPage");
+  const faqOk = faqOnPage === faqMarkup;
   results.push(
     check({
       id: "jsonld-faq",
       category: "structuredData",
-      status: has("FAQPage") ? "pass" : "warn",
+      status: faqOk ? "pass" : "warn",
       weight: 2,
-      label: has("FAQPage") ? "FAQPage 構造化データがある" : "FAQPage 構造化データがない",
-      advice:
-        "FAQPage の構造化データは、よくある質問と回答を、AI が「これは質問と回答」と認識できる形で伝えるデータです。これがあると、あなたのFAQがそのままAI検索の回答に引用されやすくなり、露出が増えます。このツールのFAQ生成機能を使えば、質問と回答を承認するだけで自動的に作成・設置できます。",
+      label: faqOnPage
+        ? faqMarkup
+          ? "FAQ に FAQPage 構造化データが設定されている"
+          : "FAQ があるのに FAQPage 構造化データがない"
+        : faqMarkup
+          ? "画面に FAQ が無いのに FAQPage 構造化データがある"
+          : "このページに FAQ は無いため FAQPage は不要",
+      evidence: faqOnPage
+        ? "画面によくある質問と回答らしき内容があります"
+        : "画面によくある質問と回答が見当たりません",
+      advice: faqOnPage
+        ? "このページには質問と回答が載っています。FAQPage の構造化データで印を付けると、AI が「これは質問とその答え」と認識でき、回答をそのまま引用しやすくなります。なお Google の FAQ リッチリザルト（検索結果での折りたたみ表示）は終了しているため、狙いは検索結果の見た目ではなく AI に正確に読ませることです。"
+        : "画面に存在しない内容を構造化データに書くことは、Google の構造化データに関するガイドラインで禁止されています。FAQPage の記述を削除するか、対応する質問と回答をページ本文に掲載してください。",
     }),
   );
 

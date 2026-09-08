@@ -63,6 +63,31 @@ body {
 .pdf-capture {
   background: var(--color-surface);
 }
+/* ─────────────────────────────────────────────────────────────
+   PDF の複製では、字幅を変える OpenType 機能をすべて切る。
+
+   html2canvas-pro は文字列を分割して「DOM で実測した各断片の位置」に
+   ctx.fillText で描くが、canvas の font 文字列に渡せるのは
+   style / variant(normal・small-caps) / weight / size / family だけで、
+   font-feature-settings と font-variant-numeric は渡らない
+   （node_modules/html2canvas-pro/dist/lib/render/canvas/text-renderer.js の
+   createFontStyle で確認）。
+
+   その結果、DOM は palt で詰めた狭い幅で位置を決めるのに、canvas は
+   詰めていない広い字形を描くことになり、（ ） ・ 。 のような全角の
+   約物が次の文字に重なる。Hiragino Sans のように palt を持つフォントで
+   だけ起きるので、環境によって出たり出なかったりする。
+
+   ここで normal に戻すと、複製側のレイアウトが canvas の描画結果と
+   一致する。画面表示（body の palt）は変えない。
+   数値列の桁揃えは text-right で行っているので tabular-nums を
+   切っても崩れない。
+   ───────────────────────────────────────────────────────────── */
+.pdf-capture,
+.pdf-capture * {
+  font-feature-settings: normal !important;
+  font-variant-numeric: normal !important;
+}
 /* 複製されたレポートルート（<main> でも <div ref> でも）の外側余白を外す */
 .pdf-capture main,
 .pdf-capture > * {
