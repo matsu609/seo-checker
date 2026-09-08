@@ -313,6 +313,38 @@ async function fetchSiteResult(devUrl, target, timeoutMs) {
   };
 }
 
+/**
+ * PDF 複製で字幅を変える OpenType 機能が切れているか、実際のブラウザで確かめる。
+ *
+ * html2canvas-pro は DOM で実測した位置に canvas で描くが、canvas の font には
+ * font-feature-settings / font-variant-numeric を渡せない。画面側が palt で
+ * 字幅を詰めていると、（ ） ・ などの約物が次の文字に重なる。palt を持つ
+ * フォント（Hiragino Sans など）のある環境でだけ起きるので、CI では
+ * 見た目で気づけない。ここでは計算後のスタイルで契約を確かめる。
+ */
+async function checkPdfCaptureFont(page) {
+  return page.evaluate(() => {
+    const host = document.createElement("div");
+    host.innerHTML =
+      '<span class="tabular-nums">90</span>' +
+      '<div class="pdf-capture"><span class="tabular-nums">90</span><p>（AIO）・robots.txt</p></div>';
+    document.body.appendChild(host);
+    const screenSpan = host.querySelector("span");
+    const capture = host.querySelector(".pdf-capture");
+    const capSpan = capture.querySelector("span");
+    const capP = capture.querySelector("p");
+    const result = {
+      screenFeatures: getComputedStyle(screenSpan).fontFeatureSettings,
+      screenNumeric: getComputedStyle(screenSpan).fontVariantNumeric,
+      captureFeatures: getComputedStyle(capSpan).fontFeatureSettings,
+      captureNumeric: getComputedStyle(capSpan).fontVariantNumeric,
+      captureParagraphFeatures: getComputedStyle(capP).fontFeatureSettings,
+    };
+    host.remove();
+    return result;
+  });
+}
+
 /** PDF ボタンを押して download イベントを待つ */
 async function downloadPdf(page, prefix) {
   const button = await firstVisible(
@@ -347,6 +379,7 @@ async function main() {
   const failures = [];
   const screenshots = [];
   let consoleErrors = [];
+  let pdfCaptureFont = null;
   let diagnosedPages = null;
   let expectedPages = null;
 
@@ -478,7 +511,27 @@ async function main() {
       }
     }
 
-    // --- 6. PDF ダウンロード -------------------------------------------------
+    // --- 6. PDF 複製のフォント設定 ------------------------------------------
+    try {
+      pdfCaptureFont = await checkPdfCaptureFont(page);
+      if (pdfCaptureFont.screenFeatures !== '"palt"') {
+        fail(`画面表示の palt が効いていません（${pdfCaptureFont.screenFeatures}）`);
+      }
+      if (pdfCaptureFont.captureFeatures !== "normal" || pdfCaptureFont.captureParagraphFeatures !== "normal") {
+        fail(
+          "PDF 複製の中で font-feature-settings が normal になっていません" +
+            `（${pdfCaptureFont.captureFeatures} / ${pdfCaptureFont.captureParagraphFeatures}）。` +
+            "palt を持つフォントの環境で、（ ） ・ が隣の文字に重なります",
+        );
+      }
+      if (pdfCaptureFont.captureNumeric !== "normal") {
+        fail(`PDF 複製の中で font-variant-numeric が normal になっていません（${pdfCaptureFont.captureNumeric}）`);
+      }
+    } catch (err) {
+      fail(`PDF 複製のフォント設定: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // --- 7. PDF ダウンロード -------------------------------------------------
     if (siteReportReady) {
       try {
         await downloadPdf(page, args.prefix);
@@ -508,6 +561,7 @@ async function main() {
     screenshots: screenshots.filter(Boolean),
     diagnosedPages,
     expectedPages,
+    pdfCaptureFont,
     consoleErrors,
     failures,
   };

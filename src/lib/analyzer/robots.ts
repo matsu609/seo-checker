@@ -2,19 +2,41 @@ import robotsParser from "robots-parser";
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
 import { fetchText } from "./fetch";
-import type { CheckResult } from "./types";
+import type { CheckResult, CheckStatus } from "./types";
 
-/** 主要な AI クローラの User-agent。robots.txt でこれらが拒否されていないかを見る */
+/* ─────────────────────────────────────────────────────────────
+   AI クローラは用途で 2 つに分かれ、robots.txt でも別々に指定できる。
+
+   - search  : AI の回答や AI 検索に「引用元として載せる」ための巡回。
+               止めると AI 検索で引用される機会そのものが無くなる。
+   - training: モデルの学習データ収集。止めても AI 検索への掲載は減らない。
+
+   学習用を拒否するのは各社が正式に認めている運用であり、経営判断として
+   まっとうな選択なので減点しない（状態は参考情報として表示する）。
+   採点するのは検索用だけにする。
+   ───────────────────────────────────────────────────────────── */
+export type CrawlerPurpose = "search" | "training";
+
 export const AI_CRAWLERS = [
-  { ua: "GPTBot", owner: "OpenAI（学習用）" },
-  { ua: "OAI-SearchBot", owner: "OpenAI（ChatGPT検索）" },
-  { ua: "ChatGPT-User", owner: "OpenAI（ユーザー操作）" },
-  { ua: "ClaudeBot", owner: "Anthropic" },
-  { ua: "PerplexityBot", owner: "Perplexity" },
-  { ua: "Google-Extended", owner: "Google（Gemini学習）" },
-  { ua: "Applebot-Extended", owner: "Apple" },
-  { ua: "CCBot", owner: "Common Crawl" },
-] as const;
+  { ua: "OAI-SearchBot", owner: "OpenAI（ChatGPT検索）", purpose: "search" },
+  { ua: "ChatGPT-User", owner: "OpenAI（ユーザー操作）", purpose: "search" },
+  { ua: "Claude-SearchBot", owner: "Anthropic（検索）", purpose: "search" },
+  { ua: "Claude-User", owner: "Anthropic（ユーザー操作）", purpose: "search" },
+  { ua: "PerplexityBot", owner: "Perplexity（検索）", purpose: "search" },
+  { ua: "GPTBot", owner: "OpenAI（学習）", purpose: "training" },
+  { ua: "ClaudeBot", owner: "Anthropic（学習）", purpose: "training" },
+  { ua: "Google-Extended", owner: "Google（Gemini の学習・グラウンディング）", purpose: "training" },
+  { ua: "Applebot-Extended", owner: "Apple（学習）", purpose: "training" },
+  { ua: "CCBot", owner: "Common Crawl（学習データ）", purpose: "training" },
+] as const satisfies readonly { ua: string; owner: string; purpose: CrawlerPurpose }[];
+
+export const SEARCH_CRAWLERS = AI_CRAWLERS.filter((c) => c.purpose === "search");
+export const TRAINING_CRAWLERS = AI_CRAWLERS.filter((c) => c.purpose === "training");
+
+/** ua がどちらの用途か。未知の名前は search 扱い（採点を甘くしない） */
+export function purposeOf(ua: string): CrawlerPurpose {
+  return AI_CRAWLERS.find((c) => c.ua === ua)?.purpose ?? "search";
+}
 
 export interface RobotsInfo {
   exists: boolean;
@@ -106,48 +128,61 @@ export function checkCrawlers(
   const results: CheckResult[] = [];
 
   // --- robots.txt による AI クローラ許可 -------------------------------------
+  // 採点するのは検索用クローラだけ。学習用の拒否は正当な運用なので減点しない
   const info = evaluateRobots(files.robotsTxt, pageUrl.toString(), robotsUrl);
+  const blockedSearch = info.blocked.filter((ua) => purposeOf(ua) === "search");
+  const blockedTraining = info.blocked.filter((ua) => purposeOf(ua) === "training");
+  const allowedSearch = SEARCH_CRAWLERS.map((c) => c.ua).filter(
+    (ua) => !blockedSearch.includes(ua),
+  );
 
-  if (info.blocked.length === 0) {
-    results.push(
-      check({
-        id: "ai-crawlers-allowed",
-        category: "crawlers",
-        status: "pass",
-        weight: 3,
-        label: "主要なAIクローラがアクセス可能",
-        evidence: info.exists
-          ? `robots.txt で ${AI_CRAWLERS.length} 種のAIクローラがすべて許可されています`
-          : "robots.txt が無いため、すべてのクローラが許可されています",
-      }),
-    );
-  } else if (info.blocked.length === AI_CRAWLERS.length) {
-    results.push(
-      check({
-        id: "ai-crawlers-allowed",
-        category: "crawlers",
-        status: "fail",
-        weight: 3,
-        label: "主要なAIクローラがすべてブロックされている",
-        evidence: `robots.txt で拒否: ${info.blocked.join(", ")}`,
-        advice:
-          "robots.txt で AI クローラ（GPTBot, ClaudeBot, PerplexityBot など）が Disallow されています。AI検索に引用されたい場合は、これらの User-agent に対して Allow: / を設定するか、Disallow の記述を削除してください。",
-      }),
-    );
-  } else {
-    results.push(
-      check({
-        id: "ai-crawlers-allowed",
-        category: "crawlers",
-        status: "warn",
-        weight: 3,
-        label: "一部のAIクローラがブロックされている",
-        evidence: `拒否: ${info.blocked.join(", ")} / 許可: ${info.allowed.join(", ")}`,
-        advice:
-          "一部の AI クローラが robots.txt で拒否されています。学習用クローラ（GPTBot, Google-Extended など）を意図的に止めている場合は問題ありませんが、検索用クローラ（OAI-SearchBot, ClaudeBot, PerplexityBot）まで止めると AI 検索での引用機会を失います。",
-      }),
-    );
-  }
+  const searchStatus: CheckStatus =
+    blockedSearch.length === 0
+      ? "pass"
+      : blockedSearch.length === SEARCH_CRAWLERS.length
+        ? "fail"
+        : "warn";
+  results.push(
+    check({
+      id: "ai-crawlers-allowed",
+      category: "crawlers",
+      status: searchStatus,
+      weight: 3,
+      label:
+        searchStatus === "pass"
+          ? "AI 検索用クローラがアクセス可能"
+          : searchStatus === "fail"
+            ? "AI 検索用クローラがすべてブロックされている"
+            : "一部の AI 検索用クローラがブロックされている",
+      evidence:
+        blockedSearch.length === 0
+          ? info.exists
+            ? `robots.txt で検索用 ${SEARCH_CRAWLERS.length} 種がすべて許可されています`
+            : "robots.txt が無いため、すべてのクローラが許可されています"
+          : `拒否: ${blockedSearch.join(", ")}${allowedSearch.length > 0 ? ` / 許可: ${allowedSearch.join(", ")}` : ""}`,
+      advice:
+        "OAI-SearchBot・PerplexityBot・Claude-SearchBot などの検索用クローラは、AI が回答に引用元として載せるためにページを読みに来ます。これを robots.txt で拒否すると、AI 検索に出る機会そのものが無くなります。学習用（GPTBot など）とは別の User-agent なので、学習だけ止めて検索は許可する、という指定ができます。",
+    }),
+  );
+
+  // 学習用は参考表示のみ（配点 0）。止めているのは正当な選択でありうる
+  results.push(
+    check({
+      id: "ai-crawlers-training",
+      category: "crawlers",
+      status: "info",
+      label:
+        blockedTraining.length === 0
+          ? "学習用 AI クローラも許可されている（参考）"
+          : `学習用 AI クローラを ${blockedTraining.length} 種拒否している（参考）`,
+      evidence:
+        blockedTraining.length === 0
+          ? `学習用 ${TRAINING_CRAWLERS.length} 種はすべて許可されています`
+          : `拒否: ${blockedTraining.join(", ")}`,
+      advice:
+        "学習用クローラ（GPTBot・ClaudeBot・Google-Extended・CCBot など）を拒否しても、AI 検索での引用や Google の検索結果への掲載は減りません。コンテンツを学習に使わせたくない場合の正式な手段なので、この項目は採点していません。",
+    }),
+  );
 
   // --- noindex ---------------------------------------------------------------
   const metaRobots = ($('meta[name="robots"]').attr("content") ?? "").toLowerCase();
@@ -169,19 +204,21 @@ export function checkCrawlers(
   );
 
   // --- llms.txt --------------------------------------------------------------
+  // 参考表示のみ（配点 0）。llms.txt は提案段階の仕様で、これを読むと表明した
+  // 主要な AI クローラはまだ無く、Google も AI 検索への掲載に専用ファイルは
+  // 不要だとしている。無いことを減点する根拠が無い。
   const hasLlms = files.llmsTxt.present;
   results.push(
     check({
       id: "llms-txt",
       category: "crawlers",
-      status: hasLlms ? "pass" : "warn",
-      weight: 2,
-      label: hasLlms ? "llms.txt が設置されている" : "llms.txt が設置されていない",
+      status: "info",
+      label: hasLlms ? "llms.txt が設置されている（参考）" : "llms.txt は設置されていない（参考）",
       evidence: hasLlms
         ? `${origin}/llms.txt（${files.llmsTxt.length} 文字）`
         : `${origin}/llms.txt → HTTP ${files.llmsTxt.status || "取得失敗"}`,
       advice:
-        "llms.txt は、サイトの概要と主要ページの一覧を AI に向けて Markdown で提供するファイルです。サイトのルートに /llms.txt を置き、サイト名・一行説明・重要ページへのリンク一覧を記載すると、AI がサイト構造を理解しやすくなります。",
+        "llms.txt は、サイトの概要と主要ページを AI 向けに Markdown でまとめる提案仕様です。読み取ることを表明した主要な AI クローラはまだ無く、Google も AI 検索への掲載に専用ファイルは不要だとしています。無くても不利にはならないため採点していません。設置する場合も、通常の HTML と robots.txt を整えることが先です。",
     }),
   );
 

@@ -21,7 +21,11 @@ const SCORING_ROWS: { label: string; ratio: string; note: string }[] = [
   { label: "合格", ratio: "配点の 100%", note: "条件を満たしています" },
   { label: "改善余地", ratio: "配点の 50%", note: "設定はあるものの、内容や量に改善の余地があります" },
   { label: "未対応", ratio: "0 点", note: "条件を満たしていません" },
-  { label: "参考", ratio: "採点対象外", note: "任意項目。対応すると評価が上がりますが、減点はしません" },
+  {
+    label: "参考",
+    ratio: "採点対象外",
+    note: "根拠が確立していない項目・そのページに当てはまらない項目。状態は表示しますが加点も減点もしません",
+  },
 ];
 
 export function MethodAppendix({
@@ -149,6 +153,27 @@ export function MethodAppendix({
         </table>
       </div>
 
+      <SubHeading>この点数の読み方</SubHeading>
+      <ul className="mt-1 space-y-1.5 text-[13px] leading-relaxed text-ink">
+        <li>
+          この点数は<strong className="font-bold">本ツール独自の技術チェック表</strong>の達成率です。検索順位・流入数・AI
+          の回答に引用された回数を測ったものではなく、それらを予測するものでもありません。
+        </li>
+        <li>
+          <strong className="font-bold">100 点を目指す必要はありません。</strong>
+          満点は「機械的に判定できる項目をすべて満たした状態」であって、成果の最大値ではありません。優先度の低い項目を無理に埋めるより、
+          該当する改善だけを選んで対応してください。
+        </li>
+        <li>
+          根拠が確立していない項目（llms.txt の有無など）と、そのページに当てはまらない項目（FAQ の無いページの FAQPage、下層ページの
+          WebSite など）は<strong className="font-bold">採点していません</strong>。本文も文字数ではなく、具体的な事実が書かれているかで判定します。
+        </li>
+        <li>
+          実際の成果は、Search Console の表示回数・検索語・インデックス状況、問い合わせなどの転換、主要 AI サービスからの参照、Core Web
+          Vitals で確認してください。本レポートはそこに至る前段の技術的な土台を点検するものです。
+        </li>
+      </ul>
+
       <p className="mt-4 text-[12px] leading-relaxed text-muted">
         表示速度・被リンク・検索順位は含みません。JavaScript で描画される内容は取得時点の HTML に含まれない場合があります。
       </p>
@@ -198,7 +223,10 @@ export function ReportFooter() {
       <p className="text-[11px] leading-relaxed text-muted">
         本レポートはルールベースの自動診断です。生成 AI による解釈は含まれておらず、同じページを診断すれば同じ結果になります。
         公開されている HTML・robots.txt・llms.txt・sitemap.xml のみを対象としており、表示速度・被リンク・検索順位・実際の AI
-        検索での引用状況は評価に含みません。判定は診断時点のページ内容に基づくものであり、掲載順位や成果を保証するものではありません。
+        検索での引用状況は評価に含みません。スコアは本ツール独自の技術チェック表の達成率であり、検索順位・流入・AI
+        の回答への引用を測ったものでも、それらを予測するものでもありません。点数の上昇は「技術的な変更をツールが認識した」ことを示すもので、
+        成果そのものの証拠ではありません。実績の確認には Search Console の表示回数・検索語・インデックス状況、問い合わせの転換、Core Web
+        Vitals をご利用ください。
       </p>
     </footer>
   );

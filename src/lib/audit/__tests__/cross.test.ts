@@ -141,7 +141,9 @@ describe("サイト共通ファイル", () => {
     expect(ruleIds(ruleSiteFiles([], makeContext()))).toEqual(["LLMS_TXT_MISSING"]);
   });
 
-  it("llms.txt が無ければ警告、あれば llms-full.txt を任意項目として案内する", () => {
+  // llms.txt は提案段階の仕様で、読み取りを表明した主要な AI クローラが無い。
+  // 無いことを警告にする根拠が無いので info（任意）に留める
+  it("llms.txt の不在は任意項目、あれば llms-full.txt を任意項目として案内する", () => {
     const withLlms = makeContext({
       siteFiles: {
         ...makeContext().siteFiles,
@@ -162,7 +164,7 @@ describe("サイト共通ファイル", () => {
     expect(ruleSiteFiles([], both)).toEqual([]);
 
     const missing = ruleSiteFiles([], makeContext());
-    expect(missing[0].severity).toBe("warning");
+    expect(missing[0].severity).toBe("info");
     expect(missing[0].url).toBe(ORIGIN);
   });
 

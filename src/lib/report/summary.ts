@@ -711,10 +711,12 @@ function buildCommentary(input: CommentaryInput): CommentaryLine[] {
       plan.push("優先改善の ", numPart(top3.length), " 項目に対応すると、");
     }
     if (input.projected > overall) {
+      // 「本ツールの採点上は」を必ず添える。この点数は技術チェック表の達成率であって、
+      // 検索順位や流入の予測ではない（付録 B「この点数の読み方」と同じ立場）
       plan.push(
-        "総合 ",
+        "本ツールの採点上は総合 ",
         numPart(input.projected),
-        ` 点（${input.projectedGrade.grade}）まで改善が見込めます。`,
+        ` 点（${input.projectedGrade.grade}）まで上がります。`,
       );
     } else {
       plan.push("総合点の変化はわずかですが、AI クローラが内容を読み取りやすくなります。");
