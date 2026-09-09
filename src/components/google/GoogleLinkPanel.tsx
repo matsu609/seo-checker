@@ -9,6 +9,8 @@
  * 接続は Clerk の外部アカウント連携を使う。必要なスコープは additionalScopes で
  * その場で要求するので、Clerk のダッシュボードでスコープを足す必要はない
  * （Google Cloud 側で API を有効にしておくことは必要）。
+ * Google がすでに接続済み（ログインに使った等）なら新規作成ではなく reauthorize で
+ * 権限だけ足す。同じプロバイダは二重に接続できないため。
  */
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -38,11 +40,17 @@ export function GoogleLinkPanel({ status }: { status: GoogleStatus }) {
     if (!user) return;
     setError(null);
     try {
-      const account = await user.createExternalAccount({
-        strategy: "oauth_google",
+      const params = {
         additionalScopes: [SEARCH_CONSOLE_SCOPE, ANALYTICS_SCOPE],
         redirectUrl: `${window.location.origin}/sso-callback`,
-      });
+      };
+      // ログイン画面の「Google で続ける」で先に Google がつながっていると、同じプロバイダを
+      // 二重には作れず createExternalAccount が "Another account is already connected" で
+      // 落ちる。その場合は既存の接続に権限を足す形（reauthorize）で認可画面へ送る
+      const existing = user.externalAccounts.find((a) => a.provider.includes("google"));
+      const account = existing
+        ? await existing.reauthorize(params)
+        : await user.createExternalAccount({ strategy: "oauth_google", ...params });
       const url = account.verification?.externalVerificationRedirectURL;
       if (!url) throw new Error("Google の認可画面を開けませんでした");
       window.location.href = url.toString();
