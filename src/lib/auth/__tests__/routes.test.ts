@@ -134,3 +134,12 @@ describe("API と画面の出し分け", () => {
     });
   });
 });
+
+describe("マスター画面は公開しない", () => {
+  // 全顧客の請求情報が出る画面。ログイン必須の側に必ず入っていること
+  it("/admin と /api/admin/* は保護される", () => {
+    expect(isPublicPath("/admin")).toBe(false);
+    expect(isPublicPath("/admin/")).toBe(false);
+    expect(isPublicPath("/api/admin/features")).toBe(false);
+  });
+});

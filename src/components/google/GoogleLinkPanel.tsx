@@ -17,8 +17,11 @@ import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { Field, Select } from "@/components/ui/Field";
+import { isUnverifiedSite } from "@/lib/google/search-console/parse";
 import { ANALYTICS_SCOPE, SEARCH_CONSOLE_SCOPE } from "@/lib/google/scopes";
+import { needsGoogleSetup, usableSites } from "@/lib/google/setup";
 import type { GoogleStatus } from "@/lib/google/status";
+import { GoogleSetupGuide } from "./GoogleSetupGuide";
 
 const UNSELECTED = "";
 
@@ -70,8 +73,20 @@ export function GoogleLinkPanel({ status }: { status: GoogleStatus }) {
     }
   }
 
+  /** Google 側で設定を済ませたあと、一覧だけ取り直す */
+  function refresh() {
+    setError(null);
+    startTransition(() => router.refresh());
+  }
+
   const busy = saving || pending || !isLoaded;
   const missing = status.missingScopes;
+
+  // 所有権が未確認のサイトは選ばせない（選んでも取得が 403 で落ちるだけ）。
+  // 空の理由が「Google 側の設定がまだ」のときだけ手順を出す（判定は setup.ts）。
+  const selectableSites = usableSites(status.sites);
+  const needsSearchConsoleSetup = needsGoogleSetup(status, "search-console");
+  const needsAnalyticsSetup = needsGoogleSetup(status, "analytics");
 
   return (
     <Card
@@ -120,53 +135,56 @@ export function GoogleLinkPanel({ status }: { status: GoogleStatus }) {
               {status.errors.searchConsole}
             </Callout>
           )}
-          <Field
-            label="Search Console のサイト"
-            hint="検索パフォーマンス画面で見る対象です。所有権が確認済みのサイトだけが並びます。"
-          >
-            <Select
-              value={status.settings.searchConsoleSiteUrl ?? UNSELECTED}
-              disabled={busy || status.sites.length === 0}
-              onChange={(e) => void save({ searchConsoleSiteUrl: e.target.value || null })}
+          {needsSearchConsoleSetup ? (
+            <GoogleSetupGuide service="search-console" onRefresh={refresh} refreshing={pending} />
+          ) : (
+            <Field
+              label="Search Console のサイト"
+              hint="検索パフォーマンス画面で見る対象です。所有権が確認済みのサイトだけが並びます。"
             >
-              <option value={UNSELECTED}>
-                {status.sites.length === 0 ? "選べるサイトがありません" : "選択しない"}
-              </option>
-              {status.sites.map((s) => (
-                <option key={s.siteUrl} value={s.siteUrl}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
+              <Select
+                value={status.settings.searchConsoleSiteUrl ?? UNSELECTED}
+                disabled={busy || selectableSites.length === 0}
+                onChange={(e) => void save({ searchConsoleSiteUrl: e.target.value || null })}
+              >
+                <option value={UNSELECTED}>選択しない</option>
+                {status.sites.map((s) => (
+                  <option key={s.siteUrl} value={s.siteUrl} disabled={isUnverifiedSite(s)}>
+                    {s.label}
+                    {isUnverifiedSite(s) && "（所有権が未確認）"}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
 
           {status.errors.analytics && (
             <Callout tone="warn" title="GA4 のプロパティ一覧を取得できませんでした">
               {status.errors.analytics}
             </Callout>
           )}
-          <Field
-            label="GA4 のプロパティ"
-            hint="生成 AI 流入分析とサイトレポートで使います。選ばない場合は、サーバーに設定されたプロパティ（全体共通）を使います。"
-          >
-            <Select
-              value={status.settings.ga4PropertyId ?? UNSELECTED}
-              disabled={busy || status.properties.length === 0}
-              onChange={(e) => void save({ ga4PropertyId: e.target.value || null })}
+          {needsAnalyticsSetup ? (
+            <GoogleSetupGuide service="analytics" onRefresh={refresh} refreshing={pending} />
+          ) : (
+            <Field
+              label="GA4 のプロパティ"
+              hint="生成 AI 流入分析とサイトレポートで使います。選ばない場合は、サーバーに設定されたプロパティ（全体共通）を使います。"
             >
-              <option value={UNSELECTED}>
-                {status.properties.length === 0
-                  ? "選べるプロパティがありません"
-                  : "選択しない（サーバーの設定を使う）"}
-              </option>
-              {status.properties.map((p) => (
-                <option key={p.propertyId} value={p.propertyId}>
-                  {p.accountName ? `${p.accountName} / ` : ""}
-                  {p.displayName}（{p.propertyId}）
-                </option>
-              ))}
-            </Select>
-          </Field>
+              <Select
+                value={status.settings.ga4PropertyId ?? UNSELECTED}
+                disabled={busy || status.properties.length === 0}
+                onChange={(e) => void save({ ga4PropertyId: e.target.value || null })}
+              >
+                <option value={UNSELECTED}>選択しない（サーバーの設定を使う）</option>
+                {status.properties.map((p) => (
+                  <option key={p.propertyId} value={p.propertyId}>
+                    {p.accountName ? `${p.accountName} / ` : ""}
+                    {p.displayName}（{p.propertyId}）
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
 
           {saved && !busy && <p className="text-[13px] text-pass">保存しました。</p>}
         </div>

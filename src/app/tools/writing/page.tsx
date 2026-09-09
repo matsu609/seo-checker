@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PlanGate } from "@/components/plans/PlanGate";
 import { PageHeader } from "@/components/ui";
 import { WritingTool } from "@/components/writing/WritingTool";
 import { requireFeature } from "@/lib/features/registry";
@@ -11,7 +12,9 @@ export default function Page() {
   return (
     <div className="mx-auto w-full max-w-6xl @container">
       <PageHeader feature={feature} />
-      <WritingTool />
+      <PlanGate featureId="writing">
+        <WritingTool />
+      </PlanGate>
     </div>
   );
 }

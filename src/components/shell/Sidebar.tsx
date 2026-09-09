@@ -4,7 +4,9 @@ import Link from "next/link";
 import { forwardRef } from "react";
 import { INTEGRATIONS, type IntegrationStatus } from "@/lib/features/integrations";
 import { groupsForSidebar, isFeatureActive, type Feature } from "@/lib/features/registry";
+import { planLabel } from "@/lib/plans/catalog";
 import { useIntegrations } from "@/lib/store/useIntegrations";
+import { canUseFeature, useAccess } from "@/lib/store/usePlan";
 import { CloseIcon, FeatureIconSvg, LogoMark } from "./icons";
 
 export interface SidebarProps {
@@ -40,6 +42,7 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
 ) {
   const { free, tools } = groupsForSidebar();
   const { status } = useIntegrations();
+  const access = useAccess();
   const freeActive = isFeatureActive(free, pathname);
 
   return (
@@ -101,7 +104,10 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
           <ul className="space-y-0.5">
             {group.features.map((f) => {
               const active = isFeatureActive(f, pathname);
-              const setup = needsSetup(f, status);
+              // プランが分かるまでは鍵を出さない（読み込み中に使えないよう見せない）。
+              // 運用者が個別開放した機能も開いた扱いにする
+              const locked = !canUseFeature(access, f.id, f.plan);
+              const setup = !locked && needsSetup(f, status);
               return (
                 <li key={f.id}>
                   <Link
@@ -117,7 +123,14 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                   >
                     <FeatureIconSvg icon={f.icon} className="h-4 w-4 shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{f.shortLabel}</span>
-                    {setup ? (
+                    {locked ? (
+                      <span
+                        title={`${planLabel(f.plan)}プラン以上でご利用いただけます`}
+                        className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted"
+                      >
+                        {planLabel(f.plan)}
+                      </span>
+                    ) : setup ? (
                       <span
                         title={`未設定: ${missingLabel(f, status)}`}
                         className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted"
@@ -145,6 +158,30 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
           </ul>
         </div>
       ))}
+
+      {/* 運用者だけに出す。判定はサーバー（/api/plan）で、ここは表示の出し分けだけ */}
+      {access?.admin && (
+        <div>
+          <div className="mt-4 mb-1 px-4 text-[11px] text-on-brand-muted">運用</div>
+          <ul className="space-y-0.5">
+            <li>
+              <Link
+                href="/admin"
+                onClick={onNavigate}
+                aria-current={pathname.startsWith("/admin") ? "page" : undefined}
+                className={`relative mx-2 flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
+                  pathname.startsWith("/admin")
+                    ? "bg-on-brand/12 font-bold text-on-brand before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[3px] before:rounded-r-sm before:bg-on-brand before:content-['']"
+                    : "text-on-brand/90 hover:bg-on-brand/8"
+                }`}
+              >
+                <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">マスター画面</span>
+              </Link>
+            </li>
+          </ul>
+        </div>
+      )}
 
       {/* フッター */}
       <div className="mt-auto border-t border-on-brand/15 px-4 py-3 pt-3 text-[11px] text-on-brand-muted">

@@ -6,6 +6,7 @@
  * アイコンは文字列キーにして、実体は src/components/shell/icons.tsx が持つ
  * （このファイルをサーバー側でもそのまま import できるようにするため）。
  */
+import type { PlanId } from "@/lib/plans/catalog";
 import type { IntegrationKey } from "./integrations";
 
 export type FeatureGroupId = "free" | "diagnosis" | "measure" | "research" | "generate" | "settings";
@@ -50,6 +51,11 @@ export interface Feature {
   /** あれば機能が増える外部連携 */
   optional?: readonly IntegrationKey[];
   group: FeatureGroupId;
+  /**
+   * この機能を使うのに必要な料金プラン（src/lib/plans/catalog.ts）。
+   * 読む・測る系は standard、AI が成果物を作る系は pro。
+   */
+  plan: PlanId;
 }
 
 export interface FeatureGroup {
@@ -74,6 +80,7 @@ export const FREE_FEATURE: Feature = {
   featureIds: [],
   icon: "search",
   status: "ready",
+  plan: "free",
   requires: [],
   optional: ["anthropic"],
   group: "free",
@@ -99,6 +106,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requires: [],
     optional: ["anthropic"],
     group: "diagnosis",
+    plan: "standard",
   },
   {
     id: "page-report",
@@ -118,6 +126,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requires: [],
     optional: ["pagespeed"],
     group: "diagnosis",
+    plan: "standard",
   },
   {
     id: "page-diagnosis",
@@ -137,6 +146,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requires: [],
     requiresAny: ["serpapi", "anthropic"],
     group: "diagnosis",
+    plan: "standard",
   },
   {
     id: "aio-topics",
@@ -155,6 +165,26 @@ const DIAGNOSIS: readonly Feature[] = [
     status: "beta",
     requires: ["serpapi", "anthropic"],
     group: "diagnosis",
+    plan: "standard",
+  },
+  {
+    id: "improvement",
+    path: "/tools/improvement",
+    label: "HP 改修提案（AI 最適化）",
+    shortLabel: "HP 改修提案",
+    description:
+      "URL を入れてボタンを押すだけで、ページを診断し、そのまま貼って使える改修案を AI が作ります。お客様は内容を確認するだけで、反映は運用者が行います。",
+    details: [
+      "タイトル・説明文・見出し・本文・構造化データ・alt の改修案を before → after で提示",
+      "提案ごとに「なぜ直すか」「期待できること」「優先度」「手間」を表示",
+      "変更箇所の色分け表示、コピー、PDF での持ち出し",
+    ],
+    featureIds: ["A2", "D2"],
+    icon: "pen",
+    status: "beta",
+    requires: ["anthropic"],
+    group: "diagnosis",
+    plan: "pro",
   },
 ];
 
@@ -176,6 +206,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["serpapi"],
     group: "measure",
+    plan: "standard",
   },
   {
     id: "search-performance",
@@ -196,6 +227,7 @@ const MEASURE: readonly Feature[] = [
     // 未連携のときは画面側で接続を案内する
     requires: [],
     group: "measure",
+    plan: "standard",
   },
   {
     id: "llmo",
@@ -215,6 +247,7 @@ const MEASURE: readonly Feature[] = [
     requires: ["anthropic"],
     optional: ["openai", "gemini", "perplexity"],
     group: "measure",
+    plan: "standard",
   },
   {
     id: "prompt-expansion",
@@ -233,6 +266,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["anthropic"],
     group: "measure",
+    plan: "standard",
   },
   {
     id: "ai-traffic",
@@ -251,6 +285,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["ga4"],
     group: "measure",
+    plan: "standard",
   },
   {
     id: "site-report",
@@ -269,6 +304,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["ga4", "serpapi"],
     group: "measure",
+    plan: "standard",
   },
 ];
 
@@ -291,6 +327,7 @@ const RESEARCH: readonly Feature[] = [
     requires: [],
     optional: ["anthropic"],
     group: "research",
+    plan: "standard",
   },
 ];
 
@@ -313,6 +350,7 @@ const GENERATE: readonly Feature[] = [
     status: "beta",
     requires: ["anthropic"],
     group: "generate",
+    plan: "pro",
   },
   {
     id: "llms-txt",
@@ -330,10 +368,30 @@ const GENERATE: readonly Feature[] = [
     status: "beta",
     requires: [],
     group: "generate",
+    plan: "pro",
   },
 ];
 
 const SETTINGS: readonly Feature[] = [
+  {
+    id: "plans",
+    path: "/plans",
+    label: "料金プラン",
+    shortLabel: "料金プラン",
+    description:
+      "無料診断・スタンダード・プロの 3 つのプランと、それぞれで使えるツールの一覧です。現在のプランもここで確認できます。",
+    details: [
+      "プランごとに含まれるツールの比較",
+      "現在のプランと、その決まり方の表示",
+      "プラン変更のご案内",
+    ],
+    featureIds: [],
+    icon: "dashboard",
+    status: "ready",
+    requires: [],
+    group: "settings",
+    plan: "free",
+  },
   {
     id: "settings",
     path: "/settings",
@@ -352,6 +410,7 @@ const SETTINGS: readonly Feature[] = [
     status: "ready",
     requires: [],
     group: "settings",
+    plan: "free",
   },
 ];
 

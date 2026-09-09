@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AiTrafficView } from "@/components/ai-traffic/AiTrafficView";
+import { PlanGate } from "@/components/plans/PlanGate";
 import { PageHeader } from "@/components/ui";
 import { requireFeature } from "@/lib/features/registry";
 
@@ -11,7 +12,9 @@ export default function Page() {
   return (
     <div className="mx-auto w-full max-w-6xl @container">
       <PageHeader feature={feature} />
-      <AiTrafficView />
+      <PlanGate featureId="ai-traffic">
+        <AiTrafficView />
+      </PlanGate>
     </div>
   );
 }

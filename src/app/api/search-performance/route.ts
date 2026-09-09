@@ -55,7 +55,7 @@ const cache = globalCache<SearchPerformanceResponse>("searchPerformance", CACHE_
 
 export async function POST(request: Request) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
+  const denied = await requireAuth({ feature: "search-performance" });
   if (denied) return denied;
 
   let raw: unknown;

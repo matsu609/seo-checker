@@ -13,7 +13,7 @@ const cache = globalCache<AuditSummary>("site-audit-summary", 30 * 60 * 1000, 50
 /** 連携状況だけを返す（画面がボタンの出し分けに使う） */
 export async function GET() {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
+  const denied = await requireAuth({ feature: "site-audit" });
   if (denied) return denied;
   return Response.json({ enabled: isAnthropicEnabled() }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -27,7 +27,7 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
+  const denied = await requireAuth({ feature: "site-audit" });
   if (denied) return denied;
   if (!isAnthropicEnabled()) {
     return Response.json(

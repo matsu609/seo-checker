@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Callout } from "@/components/ui/Callout";
+import { PlanGate } from "@/components/plans/PlanGate";
 import { PageHeader } from "@/components/ui";
 import { SearchPerformanceView } from "@/components/search-performance/SearchPerformanceView";
 import { isAuthEnabled } from "@/lib/auth/config";
@@ -27,17 +28,19 @@ export default async function Page() {
   return (
     <div className="mx-auto w-full max-w-6xl @container">
       <PageHeader feature={feature} />
-      {authEnabled ? (
-        <SearchPerformanceView
-          connected={googleConnection?.connected ?? false}
-          siteUrl={settings?.searchConsoleSiteUrl ?? null}
-        />
-      ) : (
-        <Callout tone="warn" title="ログインが設定されていません">
-          この機能は、ログインしている利用者ごとに Google アカウントを接続して使います。
-          Clerk のキー（NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY と CLERK_SECRET_KEY）を設定してください。
-        </Callout>
-      )}
+      <PlanGate featureId="search-performance">
+        {authEnabled ? (
+          <SearchPerformanceView
+            connected={googleConnection?.connected ?? false}
+            siteUrl={settings?.searchConsoleSiteUrl ?? null}
+          />
+        ) : (
+          <Callout tone="warn" title="ログインが設定されていません">
+            この機能は、ログインしている利用者ごとに Google アカウントを接続して使います。
+            Clerk のキー（NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY と CLERK_SECRET_KEY）を設定してください。
+          </Callout>
+        )}
+      </PlanGate>
     </div>
   );
 }
