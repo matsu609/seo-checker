@@ -69,6 +69,11 @@
       "commit": "3289f79",
       "date": "2026-09-09",
       "summary": "設定画面に Search Console / GA4 の設定手順書を追加"
+    },
+    {
+      "commit": "74dc1e7",
+      "date": "2026-09-09",
+      "summary": "Google マップ・店舗情報（MEO）の画面を追加"
     }
   ]
 }
