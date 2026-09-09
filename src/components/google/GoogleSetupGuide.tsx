@@ -32,7 +32,12 @@ const GUIDES: Record<GoogleService, Guide> = {
     lead: "このツールは、接続した Google アカウントで所有権が確認済みのサイトだけを読み取れます。サイトの登録と所有権の確認は Google 側での作業になり、このツールからは代行できません。",
     steps: [
       {
-        text: "Search Console でサイトを追加する",
+        text: "別の Google アカウントで運用中なら、そのアカウントの Search Console で「設定 → ユーザーと権限」から、接続中のアカウントを「制限付き」で追加する",
+        href: "https://search.google.com/search-console/users",
+        linkLabel: "ユーザーと権限を開く",
+      },
+      {
+        text: "まだ登録していないなら、Search Console でサイトを追加する",
         href: "https://search.google.com/search-console/welcome",
         linkLabel: "Search Console を開く",
       },
@@ -43,14 +48,19 @@ const GUIDES: Record<GoogleService, Guide> = {
       },
       { text: "この画面に戻って「一覧を取り直す」を押す" },
     ],
-    note: "登録直後はデータが貯まっていないため、数日は数値が出ないことがあります。",
+    note: "登録直後はデータが貯まっていないため、数日は数値が出ないことがあります。詳しい手順は下の「設定手順書」にあります。",
   },
   analytics: {
     title: "GA4 に、使えるプロパティがありません",
     lead: "接続した Google アカウントから見える GA4 プロパティが 1 つもありません。プロパティの作成と計測タグの設置は Google 側とサイト側での作業になり、このツールからは代行できません。",
     steps: [
       {
-        text: "Google アナリティクスでプロパティを作る",
+        text: "別の Google アカウントで運用中なら、そのアカウントの「管理 → プロパティのアクセス管理」から、接続中のアカウントを「閲覧者」で追加する",
+        href: "https://support.google.com/analytics/answer/9305587?hl=ja",
+        linkLabel: "権限の付け方を見る",
+      },
+      {
+        text: "まだ無いなら、Google アナリティクスでプロパティを作る",
         href: "https://analytics.google.com/",
         linkLabel: "アナリティクスを開く",
       },
@@ -61,7 +71,7 @@ const GUIDES: Record<GoogleService, Guide> = {
       },
       { text: "この画面に戻って「一覧を取り直す」を押す" },
     ],
-    note: "すでにプロパティをお持ちの場合は、接続中の Google アカウントにそのプロパティの閲覧権限があるかご確認ください。",
+    note: "タグを設置してから数値が出るまで 24〜48 時間かかります。詳しい手順は下の「設定手順書」にあります。",
   },
 };
 

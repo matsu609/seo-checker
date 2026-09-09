@@ -24,6 +24,7 @@ import { ANALYTICS_SCOPE, SEARCH_CONSOLE_SCOPE } from "@/lib/google/scopes";
 import { needsGoogleSetup, usableSites } from "@/lib/google/setup";
 import type { GoogleStatus } from "@/lib/google/status";
 import { GoogleSetupGuide } from "./GoogleSetupGuide";
+import { GoogleSetupManual } from "./GoogleSetupManual";
 
 const UNSELECTED = "";
 
@@ -197,6 +198,9 @@ export function GoogleLinkPanel({ status }: { status: GoogleStatus }) {
           {saved && !busy && <p className="text-[13px] text-pass">保存しました。</p>}
         </div>
       )}
+
+      {/* 接続前でも読めるよう、状態に関係なく常に置く。多くの利用者は Google 側の作業が先に必要 */}
+      <GoogleSetupManual className="mt-5" />
     </Card>
   );
 }
