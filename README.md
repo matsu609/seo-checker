@@ -241,6 +241,8 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 
 **利用者ごと**に Google アカウントを接続し、見る対象を選びます。管理者が全員分をまとめて設定するのではなく、ログインした人が自分の設定画面から接続します。
 
+> Google Cloud・Clerk・アプリの 3 者がどう分担しているかは [docs/dev/services.md](docs/dev/services.md) に図でまとめています。
+
 | 使うもの | どこで選ぶ | 何に使うか |
 |---|---|---|
 | Search Console のサイト | 設定 → Google 連携 | 検索パフォーマンス画面 |
@@ -345,6 +347,7 @@ src/
 docs/
   reference/                  # 競合ツールの機能調査と実装ガイド
   dev/                        # 設計仕様・Next.js / UI の開発メモ
+    services.md               # 外部サービス（Vercel / Clerk / Cloudflare / Google）の関係とデータの置き場所
 scripts/e2e/                  # ダミーサイトとスモークテスト
 ```
 
