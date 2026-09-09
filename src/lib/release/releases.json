@@ -64,6 +64,11 @@
       "commit": "59ecf10",
       "date": "2026-09-09",
       "summary": "Google 接続済みでも設定画面から権限を追加できるよう修正"
+    },
+    {
+      "commit": "3289f79",
+      "date": "2026-09-09",
+      "summary": "設定画面に Search Console / GA4 の設定手順書を追加"
     }
   ]
 }
