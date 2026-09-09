@@ -243,6 +243,8 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 
 > Google Cloud・Clerk・アプリの 3 者がどう分担しているかは [docs/dev/services.md](docs/dev/services.md) に図でまとめています。
 
+利用者向けの手順（別の Google アカウントで運用中のサイト・プロパティに閲覧権限を付ける方法、未登録のときの登録手順）は、設定画面の Google 連携カード内の「**設定手順書**」に載せています（`src/components/google/GoogleSetupManual.tsx`）。実際には制作会社や会社の共有アカウントで運用しているケースが多く、その場合は登録ではなく権限付与だけで済みます。
+
 | 使うもの | どこで選ぶ | 何に使うか |
 |---|---|---|
 | Search Console のサイト | 設定 → Google 連携 | 検索パフォーマンス画面 |
