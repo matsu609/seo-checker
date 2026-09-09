@@ -74,6 +74,11 @@
       "commit": "74dc1e7",
       "date": "2026-09-09",
       "summary": "Google マップ・店舗情報（MEO）の画面を追加"
+    },
+    {
+      "commit": "3df5905",
+      "date": "2026-09-09",
+      "summary": "Google マップの診断報告書（4 カテゴリ採点・総評・PDF）"
     }
   ]
 }
