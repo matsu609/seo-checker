@@ -2,21 +2,19 @@
  * POST /api/maps/compare
  * 選んだ店舗（自社 + 競合）の詳細を取り、プロフィールの充実度を採点して返す。
  *
- * 詳細は口コミ・紹介文を含むため Places API で最も高い料金区分になる。
- * 店舗ごとに 6 時間キャッシュし、同じ店舗を何度比較しても課金されないようにする。
- * 採点は純粋関数（src/lib/maps/score.ts）で、ここでは呼ぶだけ。
+ * 詳細は fetch.ts のキャッシュ越しに取る（レポートと共用。同じ店舗を何度比較しても
+ * 一定時間は課金されない）。採点は純粋関数（src/lib/maps/score.ts）で、ここでは呼ぶだけ。
  */
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth/guard";
-import { globalCache } from "@/lib/cache";
-import { getPlace, PlacesError, placesErrorResponse } from "@/lib/maps/client";
+import { PlacesError, placesErrorResponse } from "@/lib/maps/client";
+import { getPlaceCached } from "@/lib/maps/fetch";
 import { scoreProfile, type ProfileScore } from "@/lib/maps/score";
 import { MAX_PLACES, type PlaceDetail } from "@/lib/maps/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 /** Google の Place ID（ChIJ… のような英数字）。それ以外は Google に投げずに弾く */
 const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
 
@@ -42,8 +40,6 @@ export interface MapsCompareResponse {
   cached: boolean;
 }
 
-const cache = globalCache<PlaceDetail>("mapsDetail", CACHE_TTL_MS, 300);
-
 export async function POST(request: Request) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
   const denied = await requireAuth({ feature: "maps" });
@@ -67,14 +63,9 @@ export async function POST(request: Request) {
     const missing: string[] = [];
     const details = await Promise.all(
       placeIds.map(async (id): Promise<PlaceDetail | null> => {
-        if (!refresh) {
-          const hit = cache.get(id);
-          if (hit) return hit;
-        }
-        allCached = false;
         try {
-          const detail = await getPlace(id);
-          cache.set(id, detail);
+          const { detail, cached } = await getPlaceCached(id, refresh);
+          if (!cached) allCached = false;
           return detail;
         } catch (err) {
           // 1 件が消えていても他は出す。それ以外のエラー（キー・上限）は全体を止める
