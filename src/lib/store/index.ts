@@ -32,3 +32,13 @@ export {
   type Project,
   type ProjectInput,
 } from "./projects";
+export {
+  MapsSelectionSchema,
+  PlaceRefSchema,
+  EMPTY_MAPS_SELECTION,
+  mapsSelectionStore,
+  selectOwn,
+  toggleCompetitor,
+  type MapsSelection,
+  type PlaceRef,
+} from "./maps";

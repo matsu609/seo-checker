@@ -100,6 +100,7 @@ npm run dev                  # http://localhost:3000
 | [LLMO モニタリング・LLM リサーチ](src/lib/llmo) | B4 / B8 | 登録プロンプトを複数の LLM に投げ、ブランド言及率・ドメイン引用率・回答原文・引用元を記録。LLM が内部で発行した検索クエリ（ファンアウト）も保存 | Anthropic（OpenAI / Gemini / Perplexity は任意） |
 | [プロンプト拡張](src/lib/llmo) | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
 | [検索パフォーマンス](src/lib/google/search-console) | — | 連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を期間比較つきで取得。日別の推移と、クリックの多いクエリ・ページの一覧。推定ではなく Google の実測値 | Google 連携（利用者ごと） |
+| [Google マップ・店舗情報（MEO）](src/lib/maps) | — | 店名・地域で検索して自社 1 件と競合を最大 5 件選び、Google マップ上のビジネス プロフィール（評価・口コミ件数・写真・営業時間・電話・サイト）を比較。自社プロフィールの充実度を 100 点満点で採点し、項目ごとの改善ヒントと最近の口コミを表示 | Places API (New) |
 | [生成 AI 流入分析](src/lib/ai-traffic) | B6 | GA4 の参照元から生成 AI の流入を切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベント | GA4（利用者ごとの Google 連携でも可） |
 | [サイトレポート](src/lib/site-report) | E8 | GA4 の KPI の前期比、チャネル別流入と登録キーワードの平均順位・ファインダビリティスコア、自社・競合の最新順位表 | GA4（利用者ごとの Google 連携でも可）+ SerpApi |
 
@@ -277,6 +278,7 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO モニタリングの対象を増やす |
 | `SERPAPI_KEY` | 順位計測、AI Overviews の引用チェック、ページ診断の上位 10 件 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
+| `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（MEO）。Places API (New) 専用に制限したキー。請求先アカウントが必要（無料枠あり） |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |
 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（Stripe）の料金表を出す |
