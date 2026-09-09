@@ -27,7 +27,8 @@ export type FeatureIcon =
   | "keywords"
   | "pen"
   | "file-text"
-  | "settings";
+  | "settings"
+  | "map";
 
 export interface Feature {
   /** URL セグメント（例: "site-audit"）。無料診断は "free"、設定は "settings" */
@@ -226,6 +227,26 @@ const MEASURE: readonly Feature[] = [
     // 環境変数ではなく、利用者ごとの Google 連携が必要。
     // 未連携のときは画面側で接続を案内する
     requires: [],
+    group: "measure",
+    plan: "standard",
+  },
+  {
+    id: "maps",
+    path: "/tools/maps",
+    label: "Google マップ・店舗情報（MEO）",
+    shortLabel: "Google マップ",
+    description:
+      "Google マップ上の自社と競合のビジネス プロフィール（評価・口コミ・写真・営業時間・電話・サイト）を並べ、自社プロフィールの充実度を採点して改善点を出します。",
+    details: [
+      "店名・地域で検索して、自社 1 件と競合を最大 5 件選ぶ",
+      "評価・口コミ件数・写真枚数・営業時間・電話・ウェブサイト・営業ステータスの比較表",
+      "自社プロフィールの充実度を 100 点満点で採点し、項目ごとの改善ヒントを表示",
+      "自社の最近の口コミ（Google が返す最大 5 件）",
+    ],
+    featureIds: [],
+    icon: "map",
+    status: "beta",
+    requires: ["places"],
     group: "measure",
     plan: "standard",
   },

@@ -21,6 +21,7 @@
 | 計測 | `/tools/prompt-expansion` | プロンプト拡張 | B7 | Anthropic |
 | 計測 | `/tools/ai-traffic` | 生成 AI 流入分析 | B6 | GA4 |
 | 計測 | `/tools/site-report` | サイトレポート | E8 | GA4 + SERP |
+| 計測 | `/tools/maps` | Google マップ・店舗情報（MEO） | — | Places API (New) |
 | 調査 | `/tools/keywords` | キーワード調査 | C1 | なし（意図分類は Anthropic 任意） |
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
 | 生成 | `/tools/llms-txt` | llms.txt 生成 | D6 | なし |

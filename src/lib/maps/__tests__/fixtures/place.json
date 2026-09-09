@@ -1,0 +1,53 @@
+{
+  "id": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+  "displayName": { "text": "サンプル美容室 渋谷店", "languageCode": "ja" },
+  "formattedAddress": "日本、〒150-0002 東京都渋谷区渋谷1-1-1",
+  "rating": 4.6,
+  "userRatingCount": 128,
+  "primaryTypeDisplayName": { "text": "美容院", "languageCode": "ja" },
+  "types": ["hair_salon", "beauty_salon", "point_of_interest", "establishment"],
+  "businessStatus": "OPERATIONAL",
+  "nationalPhoneNumber": "03-1234-5678",
+  "websiteUri": "https://example.com/",
+  "regularOpeningHours": {
+    "weekdayDescriptions": [
+      "月曜日: 10時00分～20時00分",
+      "火曜日: 定休日",
+      "水曜日: 10時00分～20時00分",
+      "木曜日: 10時00分～20時00分",
+      "金曜日: 10時00分～20時00分",
+      "土曜日: 9時00分～19時00分",
+      "日曜日: 9時00分～19時00分"
+    ]
+  },
+  "photos": [
+    { "name": "places/ChIJ/photos/a" },
+    { "name": "places/ChIJ/photos/b" },
+    { "name": "places/ChIJ/photos/c" },
+    { "name": "places/ChIJ/photos/d" },
+    { "name": "places/ChIJ/photos/e" },
+    { "name": "places/ChIJ/photos/f" },
+    { "name": "places/ChIJ/photos/g" },
+    { "name": "places/ChIJ/photos/h" },
+    { "name": "places/ChIJ/photos/i" },
+    { "name": "places/ChIJ/photos/j" }
+  ],
+  "reviews": [
+    {
+      "rating": 5,
+      "text": { "text": "丁寧なカウンセリングで仕上がりも満足です。", "languageCode": "ja" },
+      "publishTime": "2026-08-20T09:00:00Z",
+      "relativePublishTimeDescription": "3 週間前",
+      "authorAttribution": { "displayName": "山田 太郎" }
+    },
+    {
+      "rating": 4,
+      "originalText": { "text": "Good service, a bit pricey.", "languageCode": "en" },
+      "publishTime": "2026-05-02T09:00:00Z",
+      "relativePublishTimeDescription": "4 か月前",
+      "authorAttribution": { "displayName": "J. Smith" }
+    }
+  ],
+  "editorialSummary": { "text": "落ち着いた雰囲気のヘアサロン。", "languageCode": "ja" },
+  "googleMapsUri": "https://maps.google.com/?cid=1234567890"
+}

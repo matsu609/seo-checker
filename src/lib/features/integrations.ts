@@ -11,6 +11,7 @@ export const INTEGRATION_KEYS = [
   "serpapi",
   "pagespeed",
   "ga4",
+  "places",
 ] as const;
 
 export type IntegrationKey = (typeof INTEGRATION_KEYS)[number];
@@ -66,6 +67,12 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
     label: "Google Analytics 4",
     envVars: ["GA4_PROPERTY_ID", "GOOGLE_SERVICE_ACCOUNT_JSON"],
     description: "生成 AI 流入分析・サイトレポート（GA4 Data API）",
+  },
+  places: {
+    key: "places",
+    label: "Google マップ（Places API）",
+    envVars: ["GOOGLE_PLACES_API_KEY"],
+    description: "Google マップ・店舗情報（MEO）。自社と競合のビジネス プロフィールの比較と充実度の採点",
   },
 };
 
