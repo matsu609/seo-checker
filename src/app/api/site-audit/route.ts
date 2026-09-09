@@ -85,7 +85,7 @@ function statusFor(err: FetchError): number {
  */
 export async function POST(request: NextRequest) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
+  const denied = await requireAuth({ feature: "site-audit" });
   if (denied) return denied;
   let body: { url?: unknown; maxPages?: unknown; refresh?: unknown };
   try {

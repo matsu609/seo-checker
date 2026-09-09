@@ -66,7 +66,7 @@ function acquireCrawlSlot(client: string): (() => void) | null {
  */
 export async function POST(request: NextRequest) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
+  const denied = await requireAuth({ feature: "llms-txt" });
   if (denied) return denied;
   let body: { url?: unknown; includePaths?: unknown; excludePaths?: unknown; limit?: unknown };
   try {

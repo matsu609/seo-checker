@@ -25,7 +25,7 @@ const LINK_MAX_BYTES = 64 * 1024;
  */
 export async function POST(request: NextRequest) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
+  const denied = await requireAuth({ feature: "llms-txt" });
   if (denied) return denied;
   let body: { url?: unknown; checkLinks?: unknown };
   try {

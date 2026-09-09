@@ -25,6 +25,19 @@ export function isDomainProperty(siteUrl: string): boolean {
   return siteUrl.startsWith("sc-domain:");
 }
 
+/**
+ * 所有権が確認されていないサイト。
+ *
+ * sites.list は「追加しただけで所有権を確認していない」サイトも返す。
+ * 選ばせても searchAnalytics.query が 403 で落ちるだけなので、選択肢から外し、
+ * 代わりに設定手順を案内する（GoogleSetupGuide）。
+ * permissionLevel が空で返ることもあるが、そのときは使える側に倒す
+ * （読めるものを隠すより、選んで失敗した方が原因が分かる）。
+ */
+export function isUnverifiedSite(site: { permissionLevel: string }): boolean {
+  return site.permissionLevel === "siteUnverifiedUser";
+}
+
 /** 画面に出す名前。ドメインプロパティは接頭辞を外して「（ドメイン）」を付ける */
 export function siteLabel(siteUrl: string): string {
   if (isDomainProperty(siteUrl)) return `${siteUrl.slice("sc-domain:".length)}（ドメイン）`;

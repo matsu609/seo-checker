@@ -27,7 +27,7 @@ const BodySchema = z.object({
 
 export async function POST(request: NextRequest) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
+  const denied = await requireAuth({ feature: "writing" });
   if (denied) return denied;
   let body: unknown;
   try {

@@ -4,6 +4,7 @@ export { Callout, type CalloutProps } from "./Callout";
 export { Card, type CardProps } from "./Card";
 export { DataTable, type Column, type DataTableProps, type SortState, type SortValue } from "./DataTable";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
+export { InlineDiff, type InlineDiffProps } from "./InlineDiff";
 export { Field, Input, Select, Textarea, type FieldProps, type InputProps, type SelectProps, type TextareaProps } from "./Field";
 export { PageHeader, type PageHeaderProps } from "./PageHeader";
 export { ProgressBar, type ProgressBarProps } from "./ProgressBar";

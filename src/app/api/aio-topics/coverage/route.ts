@@ -37,7 +37,7 @@ async function cacheKey(pageUrl: string, topics: readonly string[]): Promise<str
 
 export async function POST(request: NextRequest) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
+  const denied = await requireAuth({ feature: "aio-topics" });
   if (denied) return denied;
   if (!isAnthropicEnabled()) {
     return Response.json(

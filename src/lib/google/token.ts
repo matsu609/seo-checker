@@ -5,7 +5,8 @@
  * 持たない。ここで取れるのは短命のアクセストークンだけで、リフレッシュトークンは
  * 触らない（ブラウザにも渡さない）。
  *
- * Clerk のダッシュボードで Google 連携に scopes.ts のスコープを追加しておくこと。
+ * スコープは接続時に GoogleLinkPanel が要求する。Clerk のダッシュボードで足す
+ * 必要はないが、Google 連携を「独自のクレデンシャル」にしてあることが前提。
  */
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { GoogleLinkError } from "./errors";

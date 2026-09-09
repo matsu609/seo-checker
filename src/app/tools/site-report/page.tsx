@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SiteReportView } from "@/components/site-report/SiteReportView";
+import { PlanGate } from "@/components/plans/PlanGate";
 import { PageHeader } from "@/components/ui";
 import { requireFeature } from "@/lib/features/registry";
 
@@ -11,7 +12,9 @@ export default function Page() {
   return (
     <div className="mx-auto w-full max-w-6xl @container">
       <PageHeader feature={feature} />
-      <SiteReportView />
+      <PlanGate featureId="site-report">
+        <SiteReportView />
+      </PlanGate>
     </div>
   );
 }
