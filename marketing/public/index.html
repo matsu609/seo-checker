@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SEO Checker｜AI 検索に引用されるサイトへ</title>
-<meta name="description" content="AI 検索（AIO）にサイトが読まれ、引用される状態になっているかを無料で診断し、そのまま貼って使える改修案までお渡しします。月額 5,000 円から。">
+<title>SEO Checker｜Google 検索・AI・Google マップの診断ツール</title>
+<meta name="description" content="Google 検索（SEO）・生成 AI（AIO）・Google マップ（MEO）。3 つの「見つけてもらう場所」をひとつのツールで診断します。URL を入れるだけの無料診断、Search Console・GA4 の実測値、店舗のビジネス プロフィールの採点まで。月額 5,000 円から。">
 <link rel="canonical" href="https://seo-checker.tokyo/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://seo-checker.tokyo/">
-<meta property="og:title" content="SEO Checker｜AI 検索に引用されるサイトへ">
-<meta property="og:description" content="URL を入れるだけで AI 検索への対応状況を 100 点満点で採点。改修案の生成まで行います。">
+<meta property="og:title" content="SEO Checker｜Google 検索・AI・Google マップの診断ツール">
+<meta property="og:description" content="URL を入れるだけで AI 検索への対応状況を 100 点満点で採点。Search Console・GA4 の実測値、Google マップの店舗診断、改修案の生成まで。">
 <!-- タブのアイコン。アプリ本体（app.seo-checker.tokyo）と同じ src/app/icon.svg から
      scripts/generate-icons.mjs で書き出したもの。ここだけ手で差し替えると片方が古くなる -->
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -180,6 +180,9 @@ p { margin: 0 0 1rem; max-width: var(--measure); }
 p:last-child { margin-bottom: 0; }
 strong { font-weight: 700; }
 .note { font-size: .83rem; line-height: 1.85; color: var(--muted); }
+.list { margin: .9rem 0 1rem; padding-left: 1.25rem; font-size: .87rem; line-height: 1.9; }
+.list li + li { margin-top: .35rem; }
+main p a, main .list a, footer a, .contact a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .92em; }
 
 .checks { list-style: none; margin: 0 0 1rem; padding: 0; max-width: var(--measure); display: grid; gap: .45rem; }
@@ -374,35 +377,37 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
 <body>
 <article class="doc">
 
-  <!-- ▼ CTA のリンク先。診断ツールの URL が決まったら href="#contact" を差し替える ▼ -->
+  <!-- CTA はアプリ本体（app.seo-checker.tokyo）へ。運営者名・連絡先は src/lib/legal/operator.ts と揃える -->
   <header class="site-header">
-    <p class="logo">SEO Checker<small>AIO / SEO DIAGNOSIS</small></p>
+    <p class="logo">SEO Checker<small>SEO / AIO / MEO DIAGNOSIS</small></p>
     <nav class="site-nav">
       <a href="#problem">課題</a>
       <a href="#check">無料診断</a>
-      <a href="#reasons">特徴</a>
+      <a href="#areas">3 つの領域</a>
       <a href="#tools">機能</a>
       <a href="#price">料金</a>
+      <a href="#google">Google 連携</a>
       <a href="#faq">よくある質問</a>
+      <a href="https://app.seo-checker.tokyo/sign-in">ログイン</a>
     </nav>
-    <a class="btn btn-primary" href="#contact">無料で診断する</a>
+    <a class="btn btn-primary" href="https://app.seo-checker.tokyo/">無料で診断する</a>
   </header>
 
   <div class="hero">
     <p class="eyebrow">SERVICE GUIDE ／ 2026.09</p>
-    <h1>検索は「順位」から<br><span class="mark">「引用」</span>へ。</h1>
+    <h1>Google 検索・生成 AI・Google マップ。<br>3 つの<span class="mark">「見つけてもらう場所」</span>を、ひとつのツールで。</h1>
     <p class="lede">
-      AI が答えを組み立てて返す検索が広がり、利用者がサイトを開かずに済む場面が増えています。
-      サイトが AI に正しく読まれ、答えの根拠として引用される状態になっているかを診断し、
-      そのまま貼って使える改修案までお渡しします。
+      URL を入れるだけの無料診断から、Search Console・Google アナリティクスの実測値、
+      店舗のビジネス プロフィールの採点まで。専門知識がなくても、何を直せばよいかが分かる報告書を PDF で出せます。
+      AI が答えを組み立てて返す検索が広がるいま、サイトが AI に正しく読まれ、答えの根拠として引用される状態かどうかも診断します。
     </p>
     <div class="hero-actions">
-      <a class="btn btn-primary btn-lg" href="#contact">URL を入れて無料診断</a>
-      <a class="btn btn-outline btn-lg" href="#price">料金を見る</a>
+      <a class="btn btn-primary btn-lg" href="https://app.seo-checker.tokyo/">URL を入れて無料診断</a>
+      <a class="btn btn-outline btn-lg" href="https://app.seo-checker.tokyo/sign-in">ツールにログイン</a>
     </div>
-    <p class="hero-note">ログイン・API キー・クレジットカードの登録なしで診断できます。</p>
+    <p class="hero-note">無料診断はログイン・API キー・クレジットカードの登録なしで使えます。</p>
     <p class="hero-meta">
-      <span>AIO / SEO DIAGNOSIS &amp; OPTIMIZATION</span>
+      <span>SEO / AIO / MEO DIAGNOSIS &amp; OPTIMIZATION</span>
       <span>無料診断あり</span>
       <span>月額 5,000 円 〜</span>
     </p>
@@ -498,7 +503,39 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
       </p>
 
       <div class="hero-actions">
-        <a class="btn btn-primary" href="#contact">無料診断を試す</a>
+        <a class="btn btn-primary" href="https://app.seo-checker.tokyo/">無料診断を試す</a>
+      </div>
+    </section>
+
+    <section id="areas">
+      <h2>SEO・AIO・MEO、3 つの領域をひとつの画面で</h2>
+      <p>
+        ツールの画面は <strong>SEO / AIO / MEO</strong> の 3 つのタブに分かれています。
+        サイトを持つ事業者はどの領域も同じアカウントで扱えます。
+      </p>
+      <div class="reasons">
+        <div class="reason">
+          <h3>SEO（Google 検索）</h3>
+          <p>
+            サイトの技術的な問題、ページごとの改善点、キーワードの順位を診断・計測します。
+            Search Console を連携すると、クリック数・表示回数・掲載順位を Google の実測値で表示します。
+          </p>
+        </div>
+        <div class="reason">
+          <h3>AIO（生成 AI・AI Overviews）</h3>
+          <p>
+            ChatGPT や Google の AI Overviews に自社が引用・言及されているかを確認し、
+            AI に選ばれるためのページ改善と llms.txt の作成を支援します。
+            Google アナリティクスを連携すると、生成 AI からの流入を分析します。
+          </p>
+        </div>
+        <div class="reason">
+          <h3>MEO（Google マップ）</h3>
+          <p>
+            Google マップ上の店舗情報（ビジネス プロフィール）を、基本情報・投稿・写真・レビューの 4 カテゴリで採点。
+            競合との比較と、毎週の自動更新による推移の記録で、口コミ対策の効果が見えます。
+          </p>
+        </div>
       </div>
     </section>
 
@@ -605,6 +642,16 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           </div>
         </div>
       </div>
+
+      <div class="group">
+        <h3>店舗（Google マップ・MEO）</h3>
+        <div class="tools">
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">Google マップ・店舗情報</span><span class="badge">スタンダード</span></p>
+            <p>店名で検索して自社と競合（5 件まで）を登録すると、ビジネス プロフィールを基本情報・投稿・写真・レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF）を作ります。数字は毎週月曜に自動で取り直し、前回との差分と競合比較表を表示します。</p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section>
@@ -653,7 +700,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <li>総合スコアとカテゴリ別スコア、改善提案の一覧</li>
             <li>報告書の PDF ダウンロードと印刷</li>
           </ul>
-          <a class="btn btn-outline" href="#contact">診断する</a>
+          <a class="btn btn-outline" href="https://app.seo-checker.tokyo/">診断する</a>
         </div>
         <div class="plan">
           <p class="plan-name">スタンダード</p>
@@ -666,7 +713,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <li>生成 AI 流入分析・サイトレポート（GA4）</li>
             <li>キーワード調査・AIO トピック</li>
           </ul>
-          <a class="btn btn-outline" href="#contact">相談する</a>
+          <a class="btn btn-outline" href="https://app.seo-checker.tokyo/plans">申し込む</a>
         </div>
         <div class="plan is-lead">
           <p class="plan-flag">おすすめ</p>
@@ -679,7 +726,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <li>AI ライティング（企画・構成・本文・リライト・校正）</li>
             <li>llms.txt の生成</li>
           </ul>
-          <a class="btn btn-primary" href="#contact">相談する</a>
+          <a class="btn btn-primary" href="https://app.seo-checker.tokyo/plans">申し込む</a>
         </div>
       </div>
       <p class="note" style="margin-top: .9rem;">表示は月額・税別です。プランはいつでも変更・解約できます。</p>
@@ -799,18 +846,35 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
       </div>
     </section>
 
+    <section id="google">
+      <h2>Google アカウント連携について</h2>
+      <p>
+        SEO Checker は、利用者の許可を得て次の Google サービスのデータを<strong>読み取り専用</strong>で利用します。
+      </p>
+      <ul class="list">
+        <li><strong>Google Search Console</strong>: 利用者が所有するサイトのクリック数・表示回数・CTR・掲載順位を、「検索パフォーマンス」画面に表示するため。</li>
+        <li><strong>Google アナリティクス（GA4）</strong>: 利用者が所有するプロパティのユーザー数・セッション・流入元を、「生成 AI 流入分析」「サイトレポート」画面に表示するため。</li>
+      </ul>
+      <p>
+        取得したデータは、利用者本人の画面に表示する目的にだけ使い、運営者のサーバーには保存しません（応答を速くするための短時間のキャッシュを除く）。
+        第三者への提供、広告目的の利用、AI モデルの学習への利用は行いません。連携は設定画面からいつでも解除できます。
+      </p>
+      <p class="note">
+        詳しくは <a href="https://app.seo-checker.tokyo/privacy">プライバシーポリシー</a> と
+        <a href="https://app.seo-checker.tokyo/terms">利用規約</a> をご覧ください。
+      </p>
+    </section>
+
     <section id="contact">
       <h2>お問い合わせ</h2>
       <p>導入のご相談、無料診断の結果についてのご質問は下記まで承ります。</p>
-      <!-- ▼ 配布前に、ここを自社の連絡先に置き換えてください ▼ -->
       <div class="contact">
         <h3>ご相談窓口</h3>
         <p>
-          <span class="fill">会社名・サービス名をご記入ください</span><br>
-          <span class="fill">メールアドレス / 電話番号 / お問い合わせフォーム URL</span>
+          SEO 研究所（代表: 松下）<br>
+          <a href="mailto:contact@seo-checker.tokyo">contact@seo-checker.tokyo</a>
         </p>
       </div>
-      <!-- ▲ ここまで ▲ -->
     </section>
 
   </main>
@@ -819,23 +883,31 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
     <h2>まず、いまの状態を知るところから。</h2>
     <p>URL を入れるだけ、費用も登録もかかりません。結果はその場で PDF に保存できます。</p>
     <div class="hero-actions">
-      <a class="btn btn-primary btn-lg" href="#contact">無料で診断する</a>
+      <a class="btn btn-primary btn-lg" href="https://app.seo-checker.tokyo/">無料で診断する</a>
       <a class="btn btn-outline btn-lg" href="#price">料金を見る</a>
     </div>
   </div>
 
   <footer>
     <p>
+      SEO Checker は SEO 研究所（代表: 松下）が運営しています。
+      <a href="https://app.seo-checker.tokyo/">アプリを開く</a> ・
+      <a href="https://app.seo-checker.tokyo/terms">利用規約</a> ・
+      <a href="https://app.seo-checker.tokyo/privacy">プライバシーポリシー</a> ・
+      お問い合わせ: <a href="mailto:contact@seo-checker.tokyo">contact@seo-checker.tokyo</a>
+    </p>
+    <p>
       本資料の内容は 2026 年 9 月時点のものです。掲載順位や成果を保証するものではありません。
-      料金は月額・税別です。外部サービス（Google Search Console / GA4 など）の仕様変更により、
+      料金は月額・税別です。外部サービス（Google Search Console / GA4 / Google マップなど）の仕様変更により、
       取得できる項目が変わる場合があります。
     </p>
+    <p>© SEO 研究所</p>
   </footer>
 
 </article>
 
 <div class="sticky-cta">
-  <a class="btn btn-primary" href="#contact">無料で診断する</a>
+  <a class="btn btn-primary" href="https://app.seo-checker.tokyo/">無料で診断する</a>
   <a class="btn btn-outline" href="#price">料金</a>
 </div>
 </body>
