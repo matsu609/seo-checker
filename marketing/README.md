@@ -37,10 +37,40 @@ npx wrangler@4 deploy --dry-run   # アセットを認識できるかだけ見�
 npx wrangler@4 dev                # ローカルで表示を確認する
 ```
 
-## Next.js 側との関係
+## Next.js 側との関係（なぜ 1 つのリポジトリでも混ざらないのか）
 
-このディレクトリは Next.js のビルド対象に入りません（アプリは `src/` だけを見ます）。
-Vercel は `marketing/` を無視し、Cloudflare は `marketing/` の外を見ません。
+分かれ目は 3 つあります。
+
+**1. ビルドの入口が違う**
+
+| | Vercel（アプリ） | Cloudflare（紹介サイト） |
+|---|---|---|
+| 起点 | リポジトリのルート | `marketing/` |
+| 実行 | `next build` | `npx wrangler deploy` |
+| 配信されるもの | `src/app/**` から作った成果物 + ルートの `public/` | `marketing/wrangler.jsonc` の `assets.directory`（= `marketing/public/`） |
+
+`marketing/` はどこからも `import` されておらず `src/app/` の下でもないので、Next.js の成果物に入りません。
+逆に Cloudflare はルートディレクトリより上を見ないので、`src/` も `package.json` も存在しないのと同じです。
+
+**2. URL の置き場所が違う**
+
+`marketing/public/` の中身は `https://seo-checker.tokyo/` の直下に、ルートの `public/` の中身は
+`https://app.seo-checker.tokyo/` の直下に置かれます。どちらにも `favicon.ico` がありますが、
+別のドメインの別のファイルなので衝突しません。
+
+**3. `index.html` が自己完結している**
+
+CSS は `<style>` に内蔵、JavaScript は無し。外を参照しているのは Google Fonts と、
+同じ `marketing/public/` にあるアイコン 3 つ（`/favicon.ico` `/icon.svg` `/apple-icon.png`）だけです。
+**ここに `../src/...` のような、このディレクトリの外を指すパスを書かないでください。**
+Cloudflare は `marketing/` より上をアップロードしないので、必ず 404 になります。
+
+なお `marketing/` に `.ts` / `.tsx` ファイルを置くと、ルートの `tsconfig.json` の `include` が
+`**/*.ts` なので型検査の対象に入ります。静的 HTML のまま運用する限り関係ありません。
+
+**壊れたときの戻し方**: ビルドが失敗しても、**直前に成功したバージョンが配信され続けます**
+（紹介サイトが白紙になることはありません）。Cloudflare の「デプロイ」タブのバージョン履歴から、
+過去のバージョンにロールバックもできます。
 
 アプリ本体にある `public/service-guide.html` は別物です（無料診断画面から配る
 「サービス資料」の静的版で、この紹介ページより古い版）。片方を直しても他方は変わりません。
