@@ -121,6 +121,9 @@ apex `https://seo-checker.tokyo/` を配信する Worker。2026-09-10 に、ビ�
 | 監視パス（含む / 除外） | `*` / **空** | 除外に `*` を入れると全パスが除外され、ビルドが二度と走らない。含むを `marketing/*` に絞るのは、この欄がルートディレクトリからの相対かどうか確証が無いので避けた |
 | API トークン | `seo-checker-hp build token` | 変更していない |
 
+**2026-09-11 0:04、このリポジトリからの初回デプロイが成功**（バージョン `9ef76797` = コミット `c60fe42`）。
+以後、main への push のたびにここも再ビルドされる（監視パスが `*` のため。同じ内容が配信し直されるだけで害はない）。
+
 成功したビルドのログには `Read 4 files from the assets directory`（HTML + アイコン 3 つ）と出る。
 失敗したビルドの Retry は同じコミットで走るので、設定を直したあとは新しいコミットでビルドし直す。
 
@@ -164,7 +167,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
-| 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | **設定は完了（09-10 23:59 保存）**。残りはビルドの成功と `https://seo-checker.tokyo/` の表示確認だけ。値は「Cloudflare Workers（紹介サイト）」の節に記録 |
+| 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | **切り替え完了（09-11 0:04、バージョン `9ef76797` = コミット `c60fe42` がアクティブ）**。残りは `https://seo-checker.tokyo/` の表示確認と、旧リポジトリのアーカイブだけ |
 | 30 | 紹介サイトの「ご相談窓口」に残っているプレースホルダを運営者情報（SEO 研究所（代表: 松下） / contact@seo-checker.tokyo）に差し替える。ついでに #28 の文面（/terms /privacy /app のリンク）を反映 | Claude | 未（#29 と独立して着手可） |
 | 28 | 紹介サイト seo-checker.tokyo に `docs/marketing/site-copy.md` の文面を貼る（フッターに /terms /privacy /app のリンク、Google 連携の説明） | 利用者 → Claude | ソースがこのリポジトリに入ったので **Claude が直せる**（#30 に統合） |
 | 26 | contact@seo-checker.tokyo の受信（Cloudflare Email Routing） | 利用者 | 完了（利用者報告「転送設定は済んでいます」） |
@@ -386,3 +389,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **利用者は A（統合）を選択。**本番はまだ切り替わっていないので、残りは #29（Cloudflare の Build 設定）だけ。切り替え後に旧リポジトリ `matsu609/seo-checker-HP` をアーカイブする。
 - 利用者が Cloudflare の Build 設定を切り替え（#29）。Git リポジトリ `matsu609/seo-checker`、ルートディレクトリ `marketing`、ビルドコマンドは空、非本番ブランチのビルドはオフ。**監視パスの「除外」に `*` を入れかけていたのを保存前に止めた**（全パス除外になり、以後ビルドが一切走らなくなるため）。設定値は上の節に記録。
 - このコミットは**ビルドのきっかけを作るための push** でもある（Workers Builds は push で走る。保存だけでは走らないことがある）。
+- **紹介サイトの切り替え完了（#29）。**`c60fe42` の push で Workers Builds が走り、バージョン `9ef76797` がアクティブに（0:04）。配信内容の確認は利用者のブラウザで行う — **このセッションのネットワークポリシーが `seo-checker.tokyo` への接続を 403 で拒否するため、Claude 側からは取得できない**（`curl` は `CONNECT tunnel failed, response 403`）。
+- Cloudflare の画面に「エージェント Lee のアクセスを有効化」（API トークンを作る勧誘）が出ていた。**Claude が要求したものではない**ので、心当たりが無ければ許可しないよう伝えた。
