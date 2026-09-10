@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/maps-refresh",
+      "schedule": "0 20 * * 0"
+    }
+  ]
+}

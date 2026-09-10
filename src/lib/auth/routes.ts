@@ -21,8 +21,11 @@ const PUBLIC_PAGES = new Set(["/", "/terms", "/privacy"]);
  * 前方一致ではなく完全一致で持つ。`/api/site` を前方一致にすると
  * `/api/site-audit` と `/api/site-report`（どちらも実費が出る）まで
  * 公開されてしまうため。
+ *
+ * `/api/cron/maps-refresh` は Vercel の Cron が叩く（ログインは無い）。
+ * ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
  */
-const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq"]);
+const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/cron/maps-refresh"]);
 
 /**
  * Clerk のサインイン・サインアップ画面（ここを保護するとログインできない）と、

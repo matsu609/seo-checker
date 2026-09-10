@@ -129,6 +129,37 @@ export async function getMeoReport(userId: string, id: string): Promise<MeoHisto
   return { item: fromRow(row), report: row.report as SavedMeoReport };
 }
 
+/** 店舗ごとの最新 1 件（本文つき）。競合比較に使う。無い店舗は含まない */
+export async function latestReports(userId: string, placeIds: string[]): Promise<Map<string, MeoHistoryEntry>> {
+  const result = new Map<string, MeoHistoryEntry>();
+  const ids = [...new Set(placeIds)].filter((id) => id.length > 0);
+  if (ids.length === 0) return result;
+  // 店舗ごとに新しい順で並ぶので、最初に出てきた行だけ拾う
+  const list = `in.(${ids.map((id) => `"${encodeURIComponent(id)}"`).join(",")})`;
+  const rows = await supabaseRest<unknown>(
+    `${TABLE}?select=*&user_id=${eq(userId)}&place_id=${list}&order=place_id.asc,generated_at.desc&limit=${ids.length * 3}`,
+  );
+  const parsed = z.array(FullRowSchema).safeParse(rows);
+  if (!parsed.success) throw new Error("履歴の応答を読めませんでした");
+  for (const row of parsed.data) {
+    if (result.has(row.place_id)) continue;
+    result.set(row.place_id, { item: fromRow(row), report: row.report as SavedMeoReport });
+  }
+  return result;
+}
+
+/** AI 総評を保存済みの報告書に書き足す。他人の行や無い行なら false */
+export async function attachAiCommentary(userId: string, id: string, paragraphs: string[]): Promise<boolean> {
+  const entry = await getMeoReport(userId, id);
+  if (!entry) return false;
+  const rows = await supabaseRest<unknown>(`${TABLE}?select=id&user_id=${eq(userId)}&id=${eq(id)}`, {
+    method: "PATCH",
+    body: { report: { ...entry.report, aiCommentary: paragraphs } },
+    prefer: "return=representation",
+  });
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 /** 消せたら true（他人の行や無い行は false） */
 export async function deleteMeoReport(userId: string, id: string): Promise<boolean> {
   const rows = await supabaseRest<unknown>(`${TABLE}?select=id&user_id=${eq(userId)}&id=${eq(id)}`, {

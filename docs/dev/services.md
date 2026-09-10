@@ -49,7 +49,7 @@
 | **Cloudflare** | ドメインの名前解決（DNS） | `seo-checker.tokyo` のレコード |
 | **Clerk** | ログイン、**利用者データの保管** | ユーザー、トークン、プラン、連携設定 |
 | **Google Cloud** | Google API を使う権限の発行 | OAuth クライアント ID、スコープ、API キー（PageSpeed Insights / Places） |
-| **Supabase** | 保存した MEO 診断報告書の置き場（PostgreSQL） | `meo_reports` テーブル。アプリはサーバーから service_role キーで読み書き（ブラウザからは触らない） |
+| **Supabase** | MEO の登録店舗と診断報告書の置き場（PostgreSQL） | `meo_stores`・`meo_reports` テーブル。アプリはサーバーから service_role キーで読み書き（ブラウザからは触らない）。毎週月曜 5:00 JST に Vercel Cron が全店舗を取り直す |
 | **Stripe** | 決済（※現在は未使用） | — |
 
 **アプリ自身はデータを持たない。** Vercel 上のアプリは処理をするだけで、利用者ごとの情報はすべて Clerk から取り寄せる。

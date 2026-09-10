@@ -3,56 +3,63 @@
 /**
  * Google マップ・店舗情報（MEO）。
  *
- * 1. 店名や地域で候補を探し、自社を 1 件、競合を最大 MAX_COMPETITORS 件選ぶ
- * 2. 自社の診断レポート（4 カテゴリの採点・総評・口コミ情報）を作り、PDF に出す
- * 3. 保存した報告書の履歴（Supabase が設定されているときだけ）
+ * 1. 店名や地域で候補を探し、自社の店舗と、その競合（最大 5 件）を登録する
+ * 2. 自社の最新の診断レポート（4 カテゴリの採点・総評・口コミ情報）を見て、PDF に出す
+ * 3. 保存された履歴（前回との差分）
  * 4. 競合と並べて比較する
  *
- * 選んだ店舗はブラウザに保存する（他の画面と同じ localStorage）。報告書の保存だけサーバー（Supabase）。
- * 取得は /api/maps/*。採点はサーバー側の純粋関数。AI 総評は任意（キーがあるときだけ）。
+ * 数字は利用者が取り直せない。登録直後に 1 回、その後は毎週月曜 5:00 の一斉更新だけ
+ * （src/lib/maps/refresh.ts）。登録店舗はサーバー（Supabase）、画面の状態だけ localStorage。
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapsCommentaryResponse } from "@/app/api/maps/commentary/route";
 import type { MapsCompareItem, MapsCompareResponse } from "@/app/api/maps/compare/route";
 import type { MapsHistoryEntryResponse } from "@/app/api/maps/history/[id]/route";
-import type { MapsHistoryListResponse, MapsHistorySaveResponse } from "@/app/api/maps/history/route";
-import type { MapsReportResponse } from "@/app/api/maps/report/route";
+import type { MapsHistoryListResponse } from "@/app/api/maps/history/route";
 import type { MapsSearchResponse } from "@/app/api/maps/search/route";
+import type { MapsStoreAddResponse, MapsStoresResponse } from "@/app/api/maps/stores/route";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Field, Input } from "@/components/ui/Field";
+import { Field, Input, Select } from "@/components/ui/Field";
 import { toCommentaryInput } from "@/lib/maps/commentary-input";
 import type { MeoHistoryItem, SavedMeoReport } from "@/lib/maps/history";
-import { meoReportFileName, type MeoReport } from "@/lib/maps/report";
-import { MAX_COMPETITORS, type PlaceSummary } from "@/lib/maps/types";
+import { meoReportFileName } from "@/lib/maps/report";
+import { MAX_COMPETITORS_PER_STORE, type MeoStore } from "@/lib/maps/stores";
+import type { PlaceSummary } from "@/lib/maps/types";
 import { downloadPdf } from "@/lib/pdf/download";
 import { formatDateTime } from "@/lib/report/format";
 import { useStore } from "@/lib/store/hooks";
-import { mapsSelectionStore, selectOwn, toggleCompetitor, type PlaceRef } from "@/lib/store/maps";
+import { mapsViewStore } from "@/lib/store/maps";
 import { useToolRun } from "@/lib/tools/run";
 import { formatCount, formatRating, hostOf, statusLabel } from "./format";
 import { MeoHistoryCard } from "./MeoHistoryCard";
 import { MeoReportView } from "./report/MeoReportView";
 
 type PdfState = "idle" | "working" | "failed";
-type SaveState = { phase: "idle" } | { phase: "working" } | { phase: "saved"; id: string } | { phase: "failed"; message: string };
+
+interface StoresState {
+  stores: MeoStore[];
+  nextRefreshAt: string | null;
+  loading: boolean;
+  error: string | null;
+}
 
 interface HistoryState {
-  /** Supabase が設定されているか（false ならカードごと出さない） */
-  enabled: boolean;
   items: MeoHistoryItem[];
   loading: boolean;
   error: string | null;
 }
 
-/** 履歴から開いた報告書（報告書欄に、作りたての報告書の代わりに出す） */
-interface Opened {
+/** 報告書欄に出しているもの */
+interface Shown {
   id: string;
   report: SavedMeoReport;
+  /** 最新ではなく履歴から開いたもの */
+  fromHistory: boolean;
 }
 
 async function errorMessage(res: Response): Promise<string> {
@@ -65,52 +72,43 @@ async function errorMessage(res: Response): Promise<string> {
   return `リクエストに失敗しました（HTTP ${res.status}）`;
 }
 
+async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, { cache: "no-store", signal });
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as T;
+}
+
 export function MapsTool() {
-  const [selection, setSelection] = useStore(mapsSelectionStore);
-  const [query, setQuery] = useState(selection.query);
+  const [view, setView] = useStore(mapsViewStore);
+  const [query, setQuery] = useState(view.query);
   const search = useToolRun<MapsSearchResponse>();
-  const report = useToolRun<MapsReportResponse>();
   const commentary = useToolRun<MapsCommentaryResponse>();
-  const compare = useToolRun<MapsCompareResponse>();
   const [aiEnabled, setAiEnabled] = useState(false);
   const [pdf, setPdf] = useState<PdfState>("idle");
-  const [save, setSave] = useState<SaveState>({ phase: "idle" });
-  const [history, setHistory] = useState<HistoryState>({ enabled: false, items: [], loading: false, error: null });
-  const [opened, setOpened] = useState<Opened | null>(null);
+  const [stores, setStores] = useState<StoresState>({ stores: [], nextRefreshAt: null, loading: true, error: null });
+  const [history, setHistory] = useState<HistoryState>({ items: [], loading: false, error: null });
+  const [shown, setShown] = useState<Shown | null>(null);
+  const [compare, setCompare] = useState<{ data: MapsCompareResponse | null; loading: boolean; error: string | null }>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+  const [registering, setRegistering] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: "info" | "warn" | "fail"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const own = selection.own;
-  const ownId = own?.id ?? null;
-  const competitorIds = new Set(selection.competitors.map((c) => c.id));
-
-  // 保存済みの報告書一覧。店舗を変えたら取り直す。Supabase 未設定なら enabled: false が返る
-  const loadHistory = useCallback(async (placeId: string | null, signal?: AbortSignal) => {
-    setHistory((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      const url = placeId ? `/api/maps/history?placeId=${encodeURIComponent(placeId)}` : "/api/maps/history";
-      const res = await fetch(url, { cache: "no-store", signal });
-      if (!res.ok) throw new Error(await errorMessage(res));
-      const body = (await res.json()) as MapsHistoryListResponse;
-      setHistory({ enabled: body.enabled, items: body.enabled ? body.items : [], loading: false, error: null });
-    } catch (err) {
-      if (signal?.aborted) return;
-      const message = err instanceof Error ? err.message : "履歴を読み込めませんでした";
-      setHistory((prev) => ({ ...prev, loading: false, error: message }));
-    }
-  }, []);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    void loadHistory(ownId, ac.signal);
-    return () => ac.abort();
-  }, [ownId, loadHistory]);
-
-  // 店舗を変えたら、開いていた履歴と保存状態は捨てる
-  useEffect(() => {
-    setOpened(null);
-    setSave({ phase: "idle" });
-  }, [ownId]);
+  const owns = useMemo(() => stores.stores.filter((s) => s.role === "own"), [stores.stores]);
+  const own = useMemo(
+    () => owns.find((s) => s.placeId === view.currentOwnId) ?? owns[0] ?? null,
+    [owns, view.currentOwnId],
+  );
+  const ownId = own?.placeId ?? null;
+  const competitors = useMemo(
+    () => stores.stores.filter((s) => s.role === "competitor" && s.ownPlaceId === ownId),
+    [stores.stores, ownId],
+  );
+  const registeredIds = useMemo(() => new Set(stores.stores.map((s) => s.placeId)), [stores.stores]);
 
   // AI 総評のボタンを出すかどうか（キーの有無だけを聞く）
   useEffect(() => {
@@ -126,50 +124,163 @@ export function MapsTool() {
     };
   }, []);
 
+  const loadStores = useCallback(async (signal?: AbortSignal) => {
+    setStores((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const body = await getJson<MapsStoresResponse>("/api/maps/stores", signal);
+      setStores({ stores: body.stores, nextRefreshAt: body.nextRefreshAt, loading: false, error: null });
+    } catch (err) {
+      if (signal?.aborted) return;
+      setStores((prev) => ({ ...prev, loading: false, error: err instanceof Error ? err.message : "登録店舗を読み込めませんでした" }));
+    }
+  }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    void loadStores(ac.signal);
+    return () => ac.abort();
+  }, [loadStores]);
+
+  // 自社店舗が変わったら、履歴（最新を含む）と比較を取り直す
+  const loadHistory = useCallback(async (placeId: string, signal?: AbortSignal) => {
+    setHistory((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const body = await getJson<MapsHistoryListResponse>(`/api/maps/history?placeId=${encodeURIComponent(placeId)}`, signal);
+      setHistory({ items: body.items, loading: false, error: null });
+      const latest = body.items[0];
+      if (latest) {
+        const entry = await getJson<MapsHistoryEntryResponse>(`/api/maps/history/${encodeURIComponent(latest.id)}`, signal);
+        setShown({ id: entry.item.id, report: entry.report, fromHistory: false });
+      } else {
+        setShown(null);
+      }
+    } catch (err) {
+      if (signal?.aborted) return;
+      setHistory((prev) => ({ ...prev, loading: false, error: err instanceof Error ? err.message : "履歴を読み込めませんでした" }));
+    }
+  }, []);
+
+  const loadCompare = useCallback(async (placeId: string, signal?: AbortSignal) => {
+    setCompare({ data: null, loading: true, error: null });
+    try {
+      const body = await getJson<MapsCompareResponse>(`/api/maps/compare?ownPlaceId=${encodeURIComponent(placeId)}`, signal);
+      setCompare({ data: body, loading: false, error: null });
+    } catch (err) {
+      if (signal?.aborted) return;
+      setCompare({ data: null, loading: false, error: err instanceof Error ? err.message : "比較を読み込めませんでした" });
+    }
+  }, []);
+
+  useEffect(() => {
+    commentary.reset();
+    setPdf("idle");
+    if (!ownId) {
+      setShown(null);
+      setHistory({ items: [], loading: false, error: null });
+      setCompare({ data: null, loading: false, error: null });
+      return;
+    }
+    const ac = new AbortController();
+    void loadHistory(ownId, ac.signal);
+    void loadCompare(ownId, ac.signal);
+    return () => ac.abort();
+    // commentary.reset は安定した関数
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownId, loadHistory, loadCompare]);
+
   async function onSearch() {
     const q = query.trim();
     if (!q) return;
-    setSelection((prev) => ({ ...prev, query: q }));
+    setView((prev) => ({ ...prev, query: q }));
     await search.run("/api/maps/search", { query: q });
   }
 
-  async function onReport(refresh = false) {
-    if (!own) return;
-    commentary.reset();
-    setPdf("idle");
-    setSave({ phase: "idle" });
-    setOpened(null);
-    await report.run("/api/maps/report", { placeId: own.id, refresh });
-  }
-
-  async function onSave() {
-    if (!own || report.state.phase !== "done" || opened) return;
-    setSave({ phase: "working" });
+  async function onRegister(place: PlaceSummary, role: "own" | "competitor") {
+    if (role === "competitor" && !ownId) return;
+    setRegistering(place.id);
+    setNotice(null);
     try {
-      const res = await fetch("/api/maps/history", {
+      const res = await fetch("/api/maps/stores", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          placeId: own.id,
-          aiCommentary: commentary.state.phase === "done" ? commentary.state.data.paragraphs : undefined,
-        }),
+        body: JSON.stringify({ placeId: place.id, name: place.name, ownPlaceId: role === "competitor" ? ownId : undefined }),
       });
       if (!res.ok) throw new Error(await errorMessage(res));
-      const body = (await res.json()) as MapsHistorySaveResponse;
-      setSave({ phase: "saved", id: body.item.id });
-      setHistory((prev) => ({ ...prev, items: [body.item, ...prev.items.filter((i) => i.id !== body.item.id)] }));
+      const body = (await res.json()) as MapsStoreAddResponse;
+      await loadStores();
+      if (role === "own") setView((prev) => ({ ...prev, currentOwnId: place.id }));
+      else if (ownId) {
+        void loadCompare(ownId);
+      }
+      if (!body.fetched) {
+        setNotice({ tone: "warn", text: `${place.name} を登録しましたが、店舗情報をいま取得できませんでした（${body.fetchError ?? "不明"}）。次回の一斉更新で取得します。` });
+      } else if (role === "own") {
+        // 登録直後の報告書を出す
+        void loadHistory(place.id);
+        setNotice({ tone: "info", text: `${place.name} を自社として登録し、診断レポートを作成しました。` });
+      } else {
+        setNotice({ tone: "info", text: `${place.name} を競合として登録しました。` });
+      }
     } catch (err) {
-      setSave({ phase: "failed", message: err instanceof Error ? err.message : "保存できませんでした" });
+      setNotice({ tone: "fail", text: err instanceof Error ? err.message : "登録できませんでした" });
+    } finally {
+      setRegistering(null);
+    }
+  }
+
+  async function onRemove(store: MeoStore) {
+    const what = store.role === "own" ? `${store.name} と、その競合の登録を外します。履歴は残ります。` : `${store.name} を競合から外します。`;
+    if (!window.confirm(`${what}よろしいですか？`)) return;
+    setBusyId(store.id);
+    try {
+      const res = await fetch(`/api/maps/stores/${encodeURIComponent(store.id)}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 404) throw new Error(await errorMessage(res));
+      await loadStores();
+      if (store.role === "competitor" && ownId) void loadCompare(ownId);
+    } catch (err) {
+      setNotice({ tone: "fail", text: err instanceof Error ? err.message : "外せませんでした" });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function onCommentary() {
+    if (!shown) return;
+    const { detail, score } = shown.report;
+    const result = await commentary.run("/api/maps/commentary", { input: toCommentaryInput(detail, score) });
+    if (!result) return;
+    // 生成した総評を保存済みの報告書に書き足す（次に開いたときも同じ総評）
+    try {
+      await fetch(`/api/maps/history/${encodeURIComponent(shown.id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ aiCommentary: result.paragraphs }),
+      });
+      setShown((prev) => (prev && prev.id === shown.id ? { ...prev, report: { ...prev.report, aiCommentary: result.paragraphs } } : prev));
+    } catch {
+      // 保存に失敗しても画面には出ている
+    }
+  }
+
+  async function onDownloadPdf() {
+    const element = reportRef.current;
+    if (!element || !shown) return;
+    setPdf("working");
+    try {
+      await downloadPdf({ element, fileName: meoReportFileName(shown.report) });
+      setPdf("idle");
+    } catch {
+      setPdf("failed");
     }
   }
 
   async function onOpenHistory(item: MeoHistoryItem) {
     setBusyId(item.id);
     try {
-      const res = await fetch(`/api/maps/history/${encodeURIComponent(item.id)}`, { cache: "no-store" });
-      if (!res.ok) throw new Error(await errorMessage(res));
-      const body = (await res.json()) as MapsHistoryEntryResponse;
-      setOpened({ id: body.item.id, report: body.report });
+      const entry = await getJson<MapsHistoryEntryResponse>(`/api/maps/history/${encodeURIComponent(item.id)}`);
+      const latestId = history.items[0]?.id ?? null;
+      setShown({ id: entry.item.id, report: entry.report, fromHistory: entry.item.id !== latestId });
+      commentary.reset();
       setPdf("idle");
       reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (err) {
@@ -185,9 +296,7 @@ export function MapsTool() {
     try {
       const res = await fetch(`/api/maps/history/${encodeURIComponent(item.id)}`, { method: "DELETE" });
       if (!res.ok && res.status !== 404) throw new Error(await errorMessage(res));
-      setHistory((prev) => ({ ...prev, items: prev.items.filter((i) => i.id !== item.id), error: null }));
-      if (opened?.id === item.id) setOpened(null);
-      if (save.phase === "saved" && save.id === item.id) setSave({ phase: "idle" });
+      if (ownId) await loadHistory(ownId);
     } catch (err) {
       setHistory((prev) => ({ ...prev, error: err instanceof Error ? err.message : "削除できませんでした" }));
     } finally {
@@ -195,44 +304,9 @@ export function MapsTool() {
     }
   }
 
-  async function onCommentary() {
-    if (report.state.phase !== "done" || opened) return;
-    const { detail, score } = report.state.data.report;
-    await commentary.run("/api/maps/commentary", { input: toCommentaryInput(detail, score) });
-  }
-
-  // 報告書欄に出すもの: 履歴から開いたもの > 作りたてのもの
-  const shown: { report: MeoReport; aiCommentary: string[] | null; fromHistory: boolean } | null = opened
-    ? { report: opened.report, aiCommentary: opened.report.aiCommentary, fromHistory: true }
-    : report.state.phase === "done"
-      ? {
-          report: report.state.data.report,
-          aiCommentary: commentary.state.phase === "done" ? commentary.state.data.paragraphs : null,
-          fromHistory: false,
-        }
-      : null;
-
-  async function onDownloadPdf() {
-    const element = reportRef.current;
-    if (!element || !shown) return;
-    setPdf("working");
-    try {
-      await downloadPdf({ element, fileName: meoReportFileName(shown.report) });
-      setPdf("idle");
-    } catch {
-      setPdf("failed");
-    }
-  }
-
-  async function onCompare(refresh = false) {
-    if (!own) return;
-    await compare.run("/api/maps/compare", {
-      placeIds: [own.id, ...selection.competitors.map((c) => c.id)],
-      refresh,
-    });
-  }
-
-  const ref = (p: PlaceSummary): PlaceRef => ({ id: p.id, name: p.name });
+  const aiCommentary = shown
+    ? (shown.report.aiCommentary ?? (commentary.state.phase === "done" ? commentary.state.data.paragraphs : null))
+    : null;
 
   const searchColumns: Column<PlaceSummary>[] = [
     {
@@ -262,29 +336,24 @@ export function MapsTool() {
     { key: "status", header: "状態", render: (p) => statusLabel(p.status), nowrap: true },
     {
       key: "select",
-      header: "選ぶ",
+      header: "登録",
       nowrap: true,
       render: (p) => {
-        const isOwn = own?.id === p.id;
-        const isCompetitor = competitorIds.has(p.id);
-        const full = selection.competitors.length >= MAX_COMPETITORS;
+        const registered = registeredIds.has(p.id);
+        const full = competitors.length >= MAX_COMPETITORS_PER_STORE;
         return (
           <div className="flex gap-1.5">
-            <Button
-              size="sm"
-              variant={isOwn ? "primary" : "secondary"}
-              onClick={() => setSelection((prev) => selectOwn(prev, ref(p)))}
-              disabled={isOwn}
-            >
-              {isOwn ? "自社" : "自社にする"}
+            <Button size="sm" variant="secondary" onClick={() => void onRegister(p, "own")} disabled={registered} loading={registering === p.id}>
+              {registered ? "登録済み" : "自社として登録"}
             </Button>
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => setSelection((prev) => toggleCompetitor(prev, ref(p)))}
-              disabled={isOwn || (!isCompetitor && full)}
+              onClick={() => void onRegister(p, "competitor")}
+              disabled={registered || !ownId || full || registering !== null}
+              title={!ownId ? "先に自社の店舗を登録してください" : full ? `競合は ${MAX_COMPETITORS_PER_STORE} 件までです` : undefined}
             >
-              {isCompetitor ? "競合から外す" : "競合に追加"}
+              競合として登録
             </Button>
           </div>
         );
@@ -299,7 +368,7 @@ export function MapsTool() {
       render: (r) => (
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 font-bold text-ink">
-            {r.placeId === own?.id && <Badge tone="info" icon={false}>自社</Badge>}
+            {r.role === "own" && <Badge tone="info" icon={false}>自社</Badge>}
             {r.detail.name}
           </div>
           {r.detail.category && <div className="text-[12px] text-muted">{r.detail.category}</div>}
@@ -332,16 +401,39 @@ export function MapsTool() {
         ),
     },
     { key: "status", header: "状態", render: (r) => statusLabel(r.detail.status), nowrap: true },
+    { key: "generatedAt", header: "取得日時", nowrap: true, render: (r) => <span className="text-[12px] text-muted">{formatDateTime(r.generatedAt)}</span> },
   ];
+
+  const nextRefreshLabel = stores.nextRefreshAt ? formatDateTime(stores.nextRefreshAt) : null;
 
   return (
     <div className="space-y-6">
       <Card
         number={1}
-        title="店舗を探す"
-        description="店名と地域（例: 渋谷 美容室 ○○）で検索し、自社を 1 件、比較したい競合を最大 5 件まで選びます。"
+        title="店舗の登録"
+        description="店名と地域（例: 渋谷 美容室 ○○）で検索し、自社の店舗と、その競合を最大 5 件まで登録します。登録した店舗の数字は毎週月曜 5:00 に一斉更新します（手動の取り直しはできません）。"
         className="no-print"
       >
+        {owns.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-sm border border-line bg-surface p-3">
+            <Field label="見る自社店舗" className="min-w-64">
+              <Select value={own?.placeId ?? ""} onChange={(e) => setView((prev) => ({ ...prev, currentOwnId: e.target.value || null }))}>
+                {owns.map((s) => (
+                  <option key={s.id} value={s.placeId}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {own && (
+              <Button size="sm" variant="ghost" onClick={() => void onRemove(own)} loading={busyId === own.id}>
+                この店舗の登録を外す
+              </Button>
+            )}
+            {nextRefreshLabel && <span className="ml-auto text-[12px] text-muted">次回の一斉更新: {nextRefreshLabel}</span>}
+          </div>
+        )}
+
         <form
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
@@ -357,6 +449,16 @@ export function MapsTool() {
           </Button>
         </form>
 
+        {stores.error && (
+          <Callout tone="fail" title="登録店舗を読み込めませんでした" className="mt-4">
+            {stores.error}
+          </Callout>
+        )}
+        {notice && (
+          <Callout tone={notice.tone} className="mt-4">
+            {notice.text}
+          </Callout>
+        )}
         {search.state.phase === "error" && (
           <Callout tone="fail" title="検索できませんでした" className="mt-4">
             {search.state.message}
@@ -378,18 +480,19 @@ export function MapsTool() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[13px]">
           <span className="text-muted">自社:</span>
-          {own ? <Badge tone="info" icon={false}>{own.name}</Badge> : <span className="text-muted">未選択</span>}
+          {own ? <Badge tone="info" icon={false}>{own.name}</Badge> : <span className="text-muted">未登録</span>}
           <span className="ml-3 text-muted">
-            競合 ({selection.competitors.length}/{MAX_COMPETITORS}):
+            競合 ({competitors.length}/{MAX_COMPETITORS_PER_STORE}):
           </span>
-          {selection.competitors.length === 0 && <span className="text-muted">なし</span>}
-          {selection.competitors.map((c) => (
+          {competitors.length === 0 && <span className="text-muted">なし</span>}
+          {competitors.map((c) => (
             <button
               key={c.id}
               type="button"
-              onClick={() => setSelection((prev) => toggleCompetitor(prev, c))}
+              onClick={() => void onRemove(c)}
+              disabled={busyId !== null}
               title="競合から外す"
-              className="rounded-sm border border-line bg-surface px-1.5 py-0.5 text-ink hover:bg-panel"
+              className="rounded-sm border border-line bg-surface px-1.5 py-0.5 text-ink hover:bg-panel disabled:opacity-60"
             >
               {c.name} <span aria-hidden="true">×</span>
             </button>
@@ -401,131 +504,101 @@ export function MapsTool() {
         number={2}
         title="診断レポート（自社）"
         description="Google マップ上の公開情報から、基本情報・投稿・写真・レビューの 4 カテゴリで採点します。オーナー権限が要る項目は「未取得」として採点から外します。"
-        actions={
-          <Button onClick={() => void onReport()} loading={report.state.phase === "running"} disabled={!own}>
-            {shown ? "作り直す" : "レポートを作成"}
-          </Button>
-        }
         padding="sm"
       >
-        {!own && report.state.phase === "idle" && !shown && (
-          <EmptyState title="自社の店舗を選んでください" description="上の検索結果で「自社にする」を押すとレポートを作れます。" />
+        {!own && !stores.loading && (
+          <EmptyState title="自社の店舗を登録してください" description="上の検索結果で「自社として登録」を押すと、診断レポートを作成します。" />
         )}
 
-        {report.state.phase === "error" && !shown && (
-          <Callout tone="fail" title="レポートを作成できませんでした">
-            {report.state.message}
+        {own && history.error && !shown && (
+          <Callout tone="fail" title="レポートを読み込めませんでした">
+            {history.error}
           </Callout>
+        )}
+
+        {own && !history.loading && !history.error && !shown && (
+          <EmptyState
+            title="まだ診断レポートがありません"
+            description={`登録時に取得できなかった店舗です。次回の一斉更新（${nextRefreshLabel ?? "毎週月曜 5:00"}）で作成します。`}
+          />
         )}
 
         {shown && (
           <>
-            {shown.fromHistory && (
-              <Callout tone="info" title="保存済みの報告書を表示しています" className="no-print mb-3">
-                {formatDateTime(shown.report.generatedAt)} に保存したものです。いまの状態で診断し直すには「作り直す」を押してください。
-              </Callout>
-            )}
-            <div className="no-print mb-3 flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
-              {commentary.state.phase === "error" && !shown.fromHistory && (
-                <span className="text-[13px] text-fail">{commentary.state.message}</span>
-              )}
-              {save.phase === "failed" && <span className="text-[13px] text-fail">{save.message}</span>}
-              {pdf === "failed" && <span className="text-[13px] text-fail">PDF を作成できませんでした</span>}
-              {!shown.fromHistory && report.state.phase === "done" && report.state.data.cached && (
-                <button type="button" onClick={() => void onReport(true)} className="text-[13px] text-muted underline underline-offset-2">
-                  最新の情報を取り直す
-                </button>
-              )}
-              {aiEnabled && !shown.fromHistory && commentary.state.phase !== "done" && (
-                <Button variant="secondary" size="sm" onClick={() => void onCommentary()} loading={commentary.state.phase === "running"}>
-                  AI 総評を生成
+            <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <span className="text-[12px] text-muted">
+                {shown.fromHistory ? "履歴の報告書を表示中: " : "最新の報告書: "}
+                {formatDateTime(shown.report.generatedAt)} 時点
+                {nextRefreshLabel && !shown.fromHistory && <>（次回の更新 {nextRefreshLabel}）</>}
+              </span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                {commentary.state.phase === "error" && <span className="text-[13px] text-fail">{commentary.state.message}</span>}
+                {pdf === "failed" && <span className="text-[13px] text-fail">PDF を作成できませんでした</span>}
+                {aiEnabled && !aiCommentary && (
+                  <Button variant="secondary" size="sm" onClick={() => void onCommentary()} loading={commentary.state.phase === "running"}>
+                    AI 総評を生成
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => void onDownloadPdf()} loading={pdf === "working"}>
+                  PDF でダウンロード
                 </Button>
-              )}
-              {history.enabled && !shown.fromHistory && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void onSave()}
-                  loading={save.phase === "working"}
-                  disabled={save.phase === "saved"}
-                >
-                  {save.phase === "saved" ? "保存済み" : "保存"}
-                </Button>
-              )}
-              <Button size="sm" onClick={() => void onDownloadPdf()} loading={pdf === "working"}>
-                PDF でダウンロード
-              </Button>
+              </div>
             </div>
             <div ref={reportRef}>
-              <MeoReportView report={shown.report} aiCommentary={shown.aiCommentary} />
+              <MeoReportView report={shown.report} aiCommentary={aiCommentary} />
             </div>
           </>
         )}
       </Card>
 
-      {history.enabled && (
-        <MeoHistoryCard
-          number={3}
-          placeName={own?.name ?? null}
-          items={history.items}
-          loading={history.loading}
-          error={history.error}
-          openedId={opened?.id ?? null}
-          onOpen={(item) => void onOpenHistory(item)}
-          onDelete={(item) => void onDeleteHistory(item)}
-          onReload={() => void loadHistory(ownId)}
-          busyId={busyId}
-        />
-      )}
+      <MeoHistoryCard
+        number={3}
+        placeName={own?.name ?? null}
+        items={history.items}
+        loading={history.loading}
+        error={history.error}
+        openedId={shown?.id ?? null}
+        onOpen={(item) => void onOpenHistory(item)}
+        onDelete={(item) => void onDeleteHistory(item)}
+        onReload={() => {
+          if (ownId) void loadHistory(ownId);
+        }}
+        busyId={busyId}
+      />
 
       <Card
-        number={history.enabled ? 4 : 3}
+        number={4}
         title="競合との比較"
-        description="自社と競合を並べます。口コミは Google が返す最大 5 件です。"
-        actions={
-          <Button onClick={() => void onCompare()} loading={compare.state.phase === "running"} disabled={!own} variant="secondary">
-            比較する
-          </Button>
-        }
+        description="自社と登録した競合を、最新の一斉更新の数字で並べます。口コミは Google が返す最大 5 件です。"
         className="no-print"
       >
-        {!own && compare.state.phase === "idle" && (
-          <EmptyState title="自社の店舗を選んでください" description="競合を追加してから「比較する」を押します。" />
+        {!own && !stores.loading && (
+          <EmptyState title="自社の店舗を登録してください" description="競合を登録すると、ここに比較表が出ます。" />
         )}
 
-        {compare.state.phase === "error" && (
-          <Callout tone="fail" title="取得できませんでした">
-            {compare.state.message}
+        {own && compare.error && (
+          <Callout tone="fail" title="比較を読み込めませんでした">
+            {compare.error}
           </Callout>
         )}
 
-        {compare.state.phase === "done" && (
+        {own && compare.data && (
           <div className="space-y-4">
             <DataTable
-              rows={compare.state.data.results}
+              rows={compare.data.results}
               columns={compareColumns}
               rowKey={(r) => r.placeId}
               defaultSort={{ key: "score", dir: "desc" }}
-              rowClassName={(r) => (r.placeId === own?.id ? "bg-accent-soft" : undefined)}
-              minWidth="56rem"
-              emptyText="表示できる店舗がありません。"
+              rowClassName={(r) => (r.role === "own" ? "bg-accent-soft" : undefined)}
+              minWidth="60rem"
+              emptyText="表示できる店舗がありません。競合を登録すると、ここに並びます。"
             />
-            {compare.state.data.missing.length > 0 && (
-              <Callout tone="warn" title="見つからなかった店舗があります">
-                {compare.state.data.missing.length} 件は Google マップ上で見つかりませんでした（閉業で削除された可能性があります）。検索し直して選び直してください。
+            {compare.data.missing.length > 0 && (
+              <Callout tone="warn" title="まだ数字が無い店舗があります">
+                {compare.data.missing.map((m) => m.name).join("、")} は登録時に取得できませんでした。次回の一斉更新で取得します。
               </Callout>
             )}
-            <p className="text-[11px] text-muted">
-              データ: Google Places API。
-              {compare.state.data.cached && (
-                <>
-                  {" "}
-                  <button type="button" onClick={() => void onCompare(true)} className="underline underline-offset-2">
-                    最新の情報を取り直す
-                  </button>
-                </>
-              )}
-            </p>
+            <p className="text-[11px] text-muted">データ: Google Places API。毎週月曜 5:00 に一斉更新。</p>
           </div>
         )}
       </Card>
