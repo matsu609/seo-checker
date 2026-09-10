@@ -384,6 +384,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 09-11 0:33 利用者が Search Console のプロパティ追加画面 → 「ドメイン」で `seo-checker.tokyo` → TXT を Cloudflare DNS（名前 `@`）に追加 → 確認、の手順を案内（#31）。
 - 09-11 0:35 Search Console が Cloudflare を自動検出（「確認を開始」で Google が TXT を自動追加する方式）。手動 TXT は不要と案内。失敗時は手順プルダウン「その他」で手動に切り替え。
 - **09-11 0:38 Search Console の所有確認完了**（ドメイン名プロバイダ方式、Cloudflare が TXT を自動追加）。審査の前提: ポリシー・規約・紹介サイト・ドメイン確認まで済み。残り: ブランディングの保存確認、動作確認、デモ動画（台本は Claude）、用途説明文（Claude）、公開申請。
+- 利用者の質問「Claude Code 側でチェックできる？」→ 本番 2 ドメインは egress 403、Google Cloud はログイン要で不可。リポジトリ内のソースは確認済み。許可ドメインを環境設定（Network policy）に足せば今後は可能と案内（任意）。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
