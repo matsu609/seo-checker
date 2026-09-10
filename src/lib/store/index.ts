@@ -33,3 +33,4 @@ export {
   type ProjectInput,
 } from "./projects";
 export { MapsViewSchema, EMPTY_MAPS_VIEW, mapsViewStore, type MapsView } from "./maps";
+export { SidebarTabSchema, DEFAULT_SIDEBAR_TAB, sidebarTabStore, type SidebarTab } from "./sidebar";

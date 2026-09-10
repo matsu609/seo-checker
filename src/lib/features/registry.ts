@@ -11,6 +11,26 @@ import type { IntegrationKey } from "./integrations";
 
 export type FeatureGroupId = "free" | "diagnosis" | "measure" | "research" | "generate" | "settings";
 
+/**
+ * サイドバーのタブ（利用者の指示: AIO / SEO / MEO で分ける）。
+ * group（診断 / 計測 / …）は「何をするか」、category は「何のための施策か」。
+ * 設定・料金など共通のものは category を持たない（どのタブでも出す）。
+ */
+export type FeatureCategoryId = "seo" | "aio" | "meo";
+
+export interface FeatureCategory {
+  id: FeatureCategoryId;
+  label: string;
+  /** タブの補足（1 行） */
+  description: string;
+}
+
+export const FEATURE_CATEGORIES: readonly FeatureCategory[] = [
+  { id: "seo", label: "SEO", description: "Google 検索で上位に出すための診断・計測・制作" },
+  { id: "aio", label: "AIO", description: "AI Overviews や生成 AI に引用・言及されるための最適化" },
+  { id: "meo", label: "MEO", description: "Google マップ・ビジネス プロフィールの改善と競合比較" },
+];
+
 export type FeatureStatus = "ready" | "beta";
 
 export type FeatureIcon =
@@ -52,6 +72,8 @@ export interface Feature {
   /** あれば機能が増える外部連携 */
   optional?: readonly IntegrationKey[];
   group: FeatureGroupId;
+  /** サイドバーのタブ。共通のもの（設定・料金）は undefined */
+  category?: FeatureCategoryId;
   /**
    * この機能を使うのに必要な料金プラン（src/lib/plans/catalog.ts）。
    * 読む・測る系は standard、AI が成果物を作る系は pro。
@@ -107,6 +129,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requires: [],
     optional: ["anthropic"],
     group: "diagnosis",
+    category: "seo",
     plan: "standard",
   },
   {
@@ -127,6 +150,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requires: [],
     optional: ["pagespeed"],
     group: "diagnosis",
+    category: "aio",
     plan: "standard",
   },
   {
@@ -147,6 +171,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requires: [],
     requiresAny: ["serpapi", "anthropic"],
     group: "diagnosis",
+    category: "seo",
     plan: "standard",
   },
   {
@@ -166,6 +191,7 @@ const DIAGNOSIS: readonly Feature[] = [
     status: "beta",
     requires: ["serpapi", "anthropic"],
     group: "diagnosis",
+    category: "aio",
     plan: "standard",
   },
   {
@@ -185,6 +211,7 @@ const DIAGNOSIS: readonly Feature[] = [
     status: "beta",
     requires: ["anthropic"],
     group: "diagnosis",
+    category: "aio",
     plan: "pro",
   },
 ];
@@ -207,6 +234,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["serpapi"],
     group: "measure",
+    category: "seo",
     plan: "standard",
   },
   {
@@ -228,6 +256,7 @@ const MEASURE: readonly Feature[] = [
     // 未連携のときは画面側で接続を案内する
     requires: [],
     group: "measure",
+    category: "seo",
     plan: "standard",
   },
   {
@@ -250,6 +279,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["places", "supabase"],
     group: "measure",
+    category: "meo",
     plan: "standard",
   },
   {
@@ -270,6 +300,7 @@ const MEASURE: readonly Feature[] = [
     requires: ["anthropic"],
     optional: ["openai", "gemini", "perplexity"],
     group: "measure",
+    category: "aio",
     plan: "standard",
   },
   {
@@ -289,6 +320,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["anthropic"],
     group: "measure",
+    category: "aio",
     plan: "standard",
   },
   {
@@ -308,6 +340,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["ga4"],
     group: "measure",
+    category: "aio",
     plan: "standard",
   },
   {
@@ -327,6 +360,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["ga4", "serpapi"],
     group: "measure",
+    category: "seo",
     plan: "standard",
   },
 ];
@@ -350,6 +384,7 @@ const RESEARCH: readonly Feature[] = [
     requires: [],
     optional: ["anthropic"],
     group: "research",
+    category: "seo",
     plan: "standard",
   },
 ];
@@ -373,6 +408,7 @@ const GENERATE: readonly Feature[] = [
     status: "beta",
     requires: ["anthropic"],
     group: "generate",
+    category: "seo",
     plan: "pro",
   },
   {
@@ -391,6 +427,7 @@ const GENERATE: readonly Feature[] = [
     status: "beta",
     requires: [],
     group: "generate",
+    category: "aio",
     plan: "pro",
   },
 ];
@@ -489,9 +526,26 @@ export function requireFeature(id: string): Feature {
 
 /**
  * サイドバー描画用: 無料診断（単独ブロック）と、その下に並べるツールのグループ。
+ * category を渡すと、そのタブの機能と共通（category 無し）の機能だけに絞る。空のグループは落とす。
  */
-export function groupsForSidebar(): { free: Feature; tools: readonly FeatureGroup[] } {
-  return { free: FREE_FEATURE, tools: FEATURE_GROUPS.filter((g) => g.id !== "free") };
+export function groupsForSidebar(category?: FeatureCategoryId): { free: Feature; tools: readonly FeatureGroup[] } {
+  const groups = FEATURE_GROUPS.filter((g) => g.id !== "free");
+  if (!category) return { free: FREE_FEATURE, tools: groups };
+  const tools = groups
+    .map((g) => ({ ...g, features: g.features.filter((f) => !f.category || f.category === category) }))
+    .filter((g) => g.features.length > 0);
+  return { free: FREE_FEATURE, tools };
+}
+
+/** パスが属するタブ（共通の機能や無料診断なら null） */
+export function categoryForPath(pathname: string): FeatureCategoryId | null {
+  return findFeatureByPath(pathname)?.category ?? null;
+}
+
+export function findCategory(id: FeatureCategoryId): FeatureCategory {
+  const c = FEATURE_CATEGORIES.find((x) => x.id === id);
+  if (!c) throw new Error(`registry に無いタブです: ${id}`);
+  return c;
 }
 
 /** 現在のパスがその機能の配下か（aria-current 判定） */

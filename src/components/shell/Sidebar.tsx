@@ -3,8 +3,17 @@
 import Link from "next/link";
 import { forwardRef } from "react";
 import { INTEGRATIONS, type IntegrationStatus } from "@/lib/features/integrations";
-import { groupsForSidebar, isFeatureActive, type Feature } from "@/lib/features/registry";
+import {
+  categoryForPath,
+  FEATURE_CATEGORIES,
+  groupsForSidebar,
+  isFeatureActive,
+  type Feature,
+  type FeatureCategoryId,
+} from "@/lib/features/registry";
 import { planLabel } from "@/lib/plans/catalog";
+import { useStore } from "@/lib/store/hooks";
+import { sidebarTabStore } from "@/lib/store/sidebar";
 import { useIntegrations } from "@/lib/store/useIntegrations";
 import { canUseFeature, useAccess } from "@/lib/store/usePlan";
 import { CloseIcon, FeatureIconSvg, LogoMark } from "./icons";
@@ -40,7 +49,11 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
   { pathname, version, onNavigate, onClose },
   closeRef,
 ) {
-  const { free, tools } = groupsForSidebar();
+  const [saved, setSaved] = useStore(sidebarTabStore);
+  // 開いている画面のタブを優先。共通の画面（設定など）では最後に選んだタブ
+  const pathCategory = categoryForPath(pathname);
+  const tab: FeatureCategoryId = pathCategory ?? saved.tab;
+  const { free, tools } = groupsForSidebar(tab);
   const { status } = useIntegrations();
   const access = useAccess();
   const freeActive = isFeatureActive(free, pathname);
@@ -96,6 +109,28 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         <span className="rounded-full border border-on-brand-muted px-1.5 text-[10px] font-bold leading-4 text-on-brand-muted">
           β
         </span>
+      </div>
+
+      {/* SEO / AIO / MEO のタブ。定義は registry の FEATURE_CATEGORIES */}
+      <div role="tablist" aria-label="ツールの分類" className="mx-3 mt-2 grid grid-cols-3 gap-1 rounded-md border border-on-brand/25 p-1">
+        {FEATURE_CATEGORIES.map((c) => {
+          const selected = c.id === tab;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              title={c.description}
+              onClick={() => setSaved({ tab: c.id })}
+              className={`h-8 rounded-sm text-[12px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
+                selected ? "bg-on-brand text-brand" : "text-on-brand/90 hover:bg-on-brand/10"
+              }`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
       </div>
 
       {tools.map((group) => (
