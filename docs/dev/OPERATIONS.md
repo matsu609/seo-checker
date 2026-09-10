@@ -36,7 +36,7 @@
 | Places API（Google マップ） | **コードは完成、キー未設定** | 請求先アカウントの紐づけとキー作成が利用者側で未了 |
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
-| Supabase | **プロジェクト作成済み・`meo_reports` テーブル作成済み**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
+| Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
 | Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
 | Stripe / Clerk Billing | 未使用 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` 未設定。プランは `DEFAULT_PLAN=pro` |
 
@@ -52,7 +52,7 @@
 | `ANTHROPIC_API_KEY` | 登録はあるがアプリで空判定 | **貼り直しが必要** |
 | `PAGESPEED_API_KEY` | 利用者が作成。反映は要確認 | |
 | `GOOGLE_PLACES_API_KEY` | **未設定** | Places API (New) に制限したキーを作る |
-| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | **未設定**（r19 で使う。未設定の間は保存ボタンと履歴カードが出ないだけ） | URL は `https://qcdkatzxvdgplgibevlc.supabase.co`（`/rest/v1/` 付きでも r20 で可）。キーは Project Settings → API Keys の service_role（JWT）か Secret key（`sb_secret_`）のどちらでも可（r20）。URL は Config、キーは Secret。Production + Preview |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | **登録済み**（利用者報告 09-10 14:4x。本番での動作確認は Places キー登録後） | URL は `https://qcdkatzxvdgplgibevlc.supabase.co`（`/rest/v1/` 付きでも r20 で可）。キーは Project Settings → API Keys の service_role（JWT）か Secret key（`sb_secret_`）のどちらでも可（r20）。URL は Config、キーは Secret。Production + Preview |
 | Preview 環境の Clerk キー | **無し** | Preview はログイン無効で動く状態。必要になったら Development の `pk_test_` / `sk_test_` を Preview 用に登録 |
 
 ### Clerk（Production）の設定
@@ -97,7 +97,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 |---|---|---|---|
 | 1 | `ANTHROPIC_API_KEY` を Vercel で貼り直し → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
 | 2 | Places API: (New) を有効化 → 請求先紐づけ → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
-| 3 | Supabase: ~~プロジェクト作成~~ → ~~SQL Editor でテーブル作成~~（09-10 14:06 実行、成功）→ `SUPABASE_URL`（Config）と `SUPABASE_SERVICE_ROLE_KEY`（Secret）を Vercel に → Redeploy → `/tools/maps` で「保存」ボタンと「診断履歴」カードが出るか確認 | 利用者 | 作業中（残り: Vercel の環境変数と Redeploy） |
+| 3 | Supabase: ~~プロジェクト作成~~ → ~~SQL でテーブル作成~~ → ~~Vercel に環境変数 2 つ~~ → Redeploy → 設定画面「外部連携」で Supabase が設定済みになるか確認 → `/tools/maps` で「保存」ボタンと「診断履歴」カード（Places キー #2 が要る） | 利用者 | ほぼ完了（残り: 動作確認） |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード（Supabase 未設定なら静かに無効） | Claude | **完了（r19）**。本番での動作確認は #3 のあと |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（法人名 or 屋号、連絡先メール、任意で所在地）→ `src/lib/legal/operator.ts` に記入 | 利用者 → Claude | 利用者「まだ」 |
@@ -223,4 +223,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - Vercel の Environments ピッカーに Preview が出ないとの報告 → Production のみで可と案内（Preview は Clerk キーも無く未使用）。Supabase の変数は **Production のみ**になる見込み。
 - Environments ピッカーは「＜ Search environments」の下に Production / Preview / Development が出ることを確認。`SUPABASE_URL` は Production + Preview で登録済み（画面より）。`SUPABASE_SERVICE_ROLE_KEY` は Secret に切り替えて登録するよう案内。
 - Supabase のキーの場所を案内: 左下の歯車 → Project Settings → API Keys（`/settings/api-keys`）。Secret keys（`sb_secret_`）か Legacy の `service_role`。
+- 利用者「出来ました」= Vercel に Supabase の変数 2 つを登録。確認手順（設定画面の外部連携 → Supabase 設定済み）を案内。`/tools/maps` の動作確認には Places キー（#2）が必要。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
