@@ -94,6 +94,11 @@
       "commit": "28e12a7",
       "date": "2026-09-10",
       "summary": "MEO 診断報告書の保存・履歴（Supabase）。「保存」で報告書を残し、最新診断結果と前回との差分を表示"
+    },
+    {
+      "commit": "d2660c6",
+      "date": "2026-09-10",
+      "summary": "Supabase の URL（/rest/v1/ 付き）と新しい Secret key（sb_secret_）に対応"
     }
   ]
 }
