@@ -25,6 +25,8 @@
 | Google Cloud → Maps Platform キー | https://console.cloud.google.com/google/maps-apis/credentials?project=seo-checker-508104 |
 | Google Cloud → 予算とアラート | https://console.cloud.google.com/billing/budgets?project=seo-checker-508104 |
 | Google Cloud → OAuth（Google Auth Platform） | https://console.cloud.google.com/auth/overview?project=seo-checker-508104 |
+| Claude Console → クレジット | https://platform.claude.com/settings/billing |
+| Claude Console → API キー | https://platform.claude.com/settings/keys |
 | Clerk ダッシュボード | https://dashboard.clerk.com/ |
 | Cloudflare DNS | https://dash.cloudflare.com/ → seo-checker.tokyo → DNS |
 | 本番 → 設定（外部連携） | https://app.seo-checker.tokyo/settings |
@@ -117,7 +119,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
-| 1 | `ANTHROPIC_API_KEY`: Claude Console（https://console.anthropic.com/ 。**Pro/Max の定額プランでは不可。従量制でクレジット前払い**）→ Billing でクレジット 5〜20 ドル → API keys で `seo-checker (vercel)` を作成 → Vercel で貼り替え → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
+| 1 | `ANTHROPIC_API_KEY`: Claude Console（**https://platform.claude.com/** に移行済み。旧 console.anthropic.com。**Pro/Max の定額プランでは不可。従量制でクレジット前払い**）→ Billing でクレジット 5〜20 ドル → API keys で `seo-checker (vercel)` を作成 → Vercel で貼り替え → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports` テーブル~~ → ~~Vercel に環境変数 2 つ~~ → **`meo_stores` テーブルを SQL Editor で作成（下記 SQL の 2 つ目）** → 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: `meo_stores` の SQL |
 | 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
@@ -299,4 +301,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者の提案「マスターで週 1 自動実行なら Pro プラン 1 つで済む？」→ 課金が運営者 1 アカウントに集まるのは正しいが、Pro（定額）はサーバーから使えず規約上も不可。API は従量制。Sonnet 5 で全店舗週 1 自動生成なら 100 店舗で月 1,600〜2,400 円と説明。選択肢: 毎週自動 / 手動（現状） / 第 1 月曜のみ自動（#22）。利用者の判断待ち。
 - 利用者の質問「コンサル目的で提供者が説明する用途なら Pro でいい？」→ 人が手で使うなら Pro で可（成果物の商用利用も可）。自動呼び出し・利用者の操作の裏で動かすのは不可。コンサル型（少数店舗）なら Pro のチャット、SaaS 型なら API。折衷: 「AI に相談する用のテキストをコピー」ボタン（#23、API 不要）を提案。
 - **決定**: AI 総評は API で運用（Pro のチャット運用ではない）。当面 Opus 5・ボタン押下時のみ生成。10 店舗ほど品質確認後に「自動生成の頻度（#22）」「Sonnet 5 への切り替え」を判断。#23（コピー用ボタン）は不要に。
+- 利用者が Claude Console（platform.claude.com、ワークスペース Default、クレジット $0）に登録済み。資金追加 → API キー作成 → Vercel の手順を案内。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
