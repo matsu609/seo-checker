@@ -26,7 +26,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r20 | main に push すると Vercel が自動デプロイ |
+| GitHub `matsu609/seo-checker` | main = r21 | main に push すると Vercel が自動デプロイ |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理 | 紹介サイト（apex）は Cloudflare 経由、`app.` は Vercel へ CNAME（DNS のみ） |
 | Clerk（**Production インスタンス**） | 稼働中。`clerk.seo-checker.tokyo` / `accounts.seo-checker.tokyo` | 2026-09-09 に Development から移行完了。DNS 5/5 Verified、SSL 発行済み |
@@ -52,6 +52,7 @@
 | `ANTHROPIC_API_KEY` | 登録はあるがアプリで空判定 | **貼り直しが必要** |
 | `PAGESPEED_API_KEY` | 利用者が作成。反映は要確認 | |
 | `GOOGLE_PLACES_API_KEY` | **未設定** | Places API (New) に制限したキーを作る |
+| `CRON_SECRET` | **未設定**（r21 で必要。無いと毎週の一斉更新が動かない） | 長いランダム文字列（例: `openssl rand -hex 32` か、パスワード生成器で 40 文字以上）。Vercel に Secret で登録 → Redeploy。Vercel が Cron の呼び出しに自動で付ける |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | **登録済み**（利用者報告 09-10 14:4x。本番での動作確認は Places キー登録後） | URL は `https://qcdkatzxvdgplgibevlc.supabase.co`（`/rest/v1/` 付きでも r20 で可）。キーは Project Settings → API Keys の service_role（JWT）か Secret key（`sb_secret_`）のどちらでも可（r20）。URL は Config、キーは Secret。Production + Preview |
 | Preview 環境の Clerk キー | **無し** | Preview はログイン無効で動く状態。必要になったら Development の `pk_test_` / `sk_test_` を Preview 用に登録 |
 
@@ -97,8 +98,9 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 |---|---|---|---|
 | 1 | `ANTHROPIC_API_KEY` を Vercel で貼り直し → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
 | 2 | Places API: (New) を有効化 → 請求先紐づけ（運営者のプロジェクトに 1 つ。利用者は登録不要）→ 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
-| 3 | Supabase: ~~プロジェクト作成~~ → ~~SQL でテーブル作成~~ → ~~Vercel に環境変数 2 つ~~ → Redeploy → 設定画面「外部連携」で Supabase が設定済みになるか確認 → `/tools/maps` で「保存」ボタンと「診断履歴」カード（Places キー #2 が要る） | 利用者 | ほぼ完了（残り: 動作確認） |
-| 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード（Supabase 未設定なら静かに無効） | Claude | **完了（r19）**。本番での動作確認は #3 のあと |
+| 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports` テーブル~~ → ~~Vercel に環境変数 2 つ~~ → **`meo_stores` テーブルを SQL Editor で作成（下記 SQL の 2 つ目）** → 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: `meo_stores` の SQL |
+| 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
+| 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（法人名 or 屋号、連絡先メール、任意で所在地）→ `src/lib/legal/operator.ts` に記入 | 利用者 → Claude | 利用者「まだ」 |
 | 7 | Clerk: Legal に `/terms` `/privacy` の URL、サインアップ時の同意 ON。アプリ名を `SEO Checker` に。Restrictions で許可リスト／招待制 | 利用者 | 未 |
@@ -111,7 +113,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 15 | Places API の **利用者ごとの月間上限**（例: レポート 50 回 / 月）を Supabase で数えて 429 を返す。お客様に開放する前に入れる。費用は運営者のプロジェクト 1 本に集中するため | Claude | 提案中（利用者の判断待ち） |
 | 16 | Places の費用削減: 競合比較の詳細取得は口コミ・紹介文を外した安い区分のフィールドマスクにする（`src/lib/maps/client.ts` のマスクを 2 種類に） | Claude | 候補（利用が増えたら） |
 | 17 | 競合分析の強化（提案中）: 競合の履歴保存と推移グラフ、口コミ内容の AI 要約比較（自社 vs 競合の褒め・不満）、口コミ増加ペースの推定。地点別の擬似順位は要望が出てから | Claude | 利用者の判断待ち |
-| 18 | **週次一斉更新**（利用者の要望）: 店舗登録（自社・競合）を localStorage から Supabase へ移す → Vercel Cron（毎週月曜 5:00 JST = `0 20 * * 0` UTC）で `/api/cron/maps-refresh`（`CRON_SECRET` で保護）→ 全店舗の詳細取得と履歴保存 → 画面から「作り直す」「取り直す」を外し「次回更新日」を表示。登録直後だけ即時取得。競合は月 1 回 or 安い区分。店舗が増えたら分割処理 | Claude | 曜日は提案済み。実装は利用者の GO 待ち |
+| 18 | **週次一斉更新**: 店舗登録を Supabase `meo_stores` へ、Vercel Cron（`0 20 * * 0` UTC = 月曜 5:00 JST）→ `/api/cron/maps-refresh`。登録直後だけ即時取得。競合も毎週（利用者了承。費用は超過分を許容） | Claude | **完了（r21）**。本番の動作確認は #2 #3 #19 のあと |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 入力待ち（利用者からの回答が要るもの）
@@ -140,6 +142,26 @@ create index if not exists meo_reports_user_place_idx
   on meo_reports (user_id, place_id, generated_at desc);
 alter table meo_reports enable row level security;
 ```
+
+2 つ目（r21、登録店舗。**未実行なら SQL Editor で実行する**）:
+
+```sql
+create table if not exists meo_stores (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  place_id text not null,
+  place_name text not null,
+  own_place_id text not null default '',
+  created_at timestamptz not null default now(),
+  last_refreshed_at timestamptz,
+  unique (user_id, place_id, own_place_id)
+);
+create index if not exists meo_stores_user_idx on meo_stores (user_id, own_place_id);
+create index if not exists meo_stores_refresh_idx on meo_stores (last_refreshed_at);
+alter table meo_stores enable row level security;
+```
+
+`own_place_id` が空なら自社、入っていればその自社店舗の競合。
 
 RLS は有効のまま。アプリはサーバーの service_role だけで読み書きする（ブラウザからは触らない）。`user_id` は Clerk のユーザー ID（Clerk 無効の開発環境では `"local"`）。
 
@@ -186,7 +208,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 ### MEO（Google マップ・店舗情報）— 3 フェーズ
 
 - **フェーズ 1（r15〜r16、完了）**: `/tools/maps`。検索 → 自社 / 競合の選択（localStorage）→ `/api/maps/report` で 4 カテゴリ採点の報告書 → `/api/maps/commentary` で AI 総評（任意）→ PDF。競合比較は `/api/maps/compare`。詳細は `src/lib/maps/fetch.ts` で 6 時間キャッシュ（Places の詳細は最も高い料金区分）。
-- **フェーズ 2（r19、コード完了）**: 別ルート `/api/maps/history`（一覧・保存）と `/api/maps/history/[id]`（本文・削除）。画面に「保存」ボタン、「診断履歴（自社）」カード（最新診断結果＋前回との差分、履歴表の「開く」「削除」）。`SUPABASE_URL` が無ければ出さない。プライバシーポリシー第 2 条・第 5 条の表・第 8 条を更新済み。残り: 本番での動作確認（#3 のあと）、アカウント削除時の行削除（Clerk の Webhook。現状は手動）。
+- **フェーズ 2（r19 → r21 で週次更新に再設計）**: 数字は利用者が取り直せない。店舗を登録（`/api/maps/stores` POST）した直後に 1 回取得して `meo_reports` に保存、以後は毎週月曜 5:00 JST の Cron（`/api/cron/maps-refresh`、`src/lib/maps/refresh.ts`）が全店舗を取り直して保存。競合比較（`/api/maps/compare` GET）は保存済みの最新報告書から。画面: 店舗の登録・切り替え、最新の報告書＋次回更新日、履歴（開く・削除）、比較表（取得日時つき）。AI 総評は生成後に `PATCH /api/maps/history/[id]` で報告書に書き足す。機能は `requires: ["places", "supabase"]`。残り: アカウント削除時の行削除（Clerk の Webhook。現状は手動）、Cron 1 回の上限は 2,000 行 / 240 秒（超えた分は次回。店舗が数百を超えたら分割か複数 Cron に）。
 - **フェーズ 3（承認後）**: Business Profile API（Business Information / v4 reviews・localPosts・media / Performance API）で `score.ts` の `unavailable` 9 項目を埋める。インサイト 8 指標（表示回数 モバイル/PC、電話、ルート、サイト、メニュー、平均クリック率）を期間比較・CSV・詳細グラフつきで。スコープ `business.manage` を追加 → 同意画面のスコープ追加と再審査に注意。
 
 ### 既知の課題・メモ
@@ -234,4 +256,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者の質問「競合の情報をログイン無しで取れるのはすごい。何ができない？」→ Places は公開情報のみ（口コミ最大 5 件、写真最大 10 枚）。取れないのはインサイト・返信率・投稿・オーナー説明文・開業日・メニュー・写真の日付など（= score.ts の unavailable 9 項目）。Business Profile API 承認後も**自社のみ**埋まり、競合は永久に公開情報の範囲、と説明。
 - 利用者の質問「競合分析はどこまで？需要は？」→ できる: 数字の横並び・充実度比較・口コミ内容の AI 要約比較（未実装）・履歴による推移（未実装、Supabase に競合分も保存）・口コミ増加ペース推定。できない: 実績値・投稿/返信・順位そのもの（地点指定の擬似順位なら可、費用増）。需要は「初回診断と月次報告の 1 ページ」として確実にあるが日常利用は薄い、と回答。提案順: (1) 自社の報告書と履歴を確実に、(2) 競合の履歴保存と推移グラフ、(3) 口コミ AI 要約比較、(4) 地点別順位は要望が出てから。
 - 利用者の要望「基本データは毎週決まった曜日に一斉更新。ユーザーは自由に更新できないように」→ **月曜 5:00 JST** を推奨（週末の口コミ反映・週初の計画・早朝処理）。競合は月 1 回（第 1 月曜）か安い区分で。設計案を提示（#18）。
+- 利用者「競合も毎週更新で、超過はそれでいい」→ 週次一斉更新を実装。**r21**: 店舗の登録制（`meo_stores`）、Cron（`vercel.json` `0 20 * * 0`）、`CRON_SECRET`、手動取り直しの廃止、比較は保存済みから、`/api/maps/report` 削除。lint / tsc / test（89 ファイル・1279 件）/ build 通過。利用者側に残る作業: `meo_stores` の SQL、`CRON_SECRET` の登録、Places キー。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
