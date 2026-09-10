@@ -192,6 +192,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 25 | 設定画面の Supabase の説明文を r21 の内容に更新 | Claude | 完了（r22） |
 | 31 | Search Console で `seo-checker.tokyo` の所有確認 | 利用者 | **完了（09-11 0:38、Cloudflare 連携で自動。TXT は消さない）**。matsumatsu452@gmail.com が所有者 → ツールの検索パフォーマンスで seo-checker.tokyo を選べる |
 | 32 | 紹介サイトの JSON-LD `sameAs` に公式 SNS（X / Instagram / YouTube / note など）や GitHub の URL を追加（利用者から URL をもらう）。FAQ の文面を変えたら FAQPage の JSON-LD も同文に直す | 利用者 → Claude | URL 待ち |
+| 33 | MEO「サイト・Google 情報の調査」カード（提案中）: 登録店舗の公式サイト URL（Places の websiteUri）に無料 AIO 診断エンジン（`analyzeFetched`）を走らせ、JSON-LD / 本文から店名・住所・電話を抜いて Places の値と NAP 整合を判定。競合 5 件にも同じ診断をして並べる。API 費用ほぼゼロ、半日 | Claude | 利用者の GO 待ち |
+| 34 | MEO「AI 検索での見つかり方」カード（提案中）: 地域 + 業種から質問 5 本を自動生成（prompt-expansion 流用）→ LLMO の仕組みで Claude（Web 検索つき）に投げ、自社名 + 競合名の言及を判定 → 質問 × AI の表と店名の出現集計。まず Claude のみ（1 店舗 1 回 15〜30 円）、月 1 回の自動実行 + 推移。他社 LLM は各 API キーが要る。競合未登録なら Places 検索で同地域・同業種の上位 5 件を自動投入も可 | Claude | 利用者の GO 待ち |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 入力待ち（利用者からの回答が要るもの）
@@ -390,6 +392,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者が無料 AIO 診断で seo-checker.tokyo を採点した PDF（82 点・B、構造化データ 42、未対応: JSON-LD 無し・sameAs 無し、改善余地: 具体情報・FAQPage・Organization・BreadcrumbList・WebSite）を共有し「HP を改善して」→ `marketing/public/index.html` に JSON-LD 6 種と「サービス概要」表、`sitemap.xml` / `robots.txt` / `llms.txt` を追加。`analyzeFetched` でオフライン採点し **100 点（全 5 カテゴリ 100）** を確認（一時テストは削除済み）。sameAs は公式 SNS が無いため app.seo-checker.tokyo を暫定登録。**利用者に公式 SNS / GitHub 等の URL があれば sameAs に追加する（#32）**。
 - 利用者の質問「無料 AIO 診断は内部リンク数も評価対象？」→ 対象外（内部リンクはサイト全体診断でページを集めるためだけに使用）。採点は 5 カテゴリ（クローラ可否 / 構造化データ / メタ / 見出し / コンテンツ）。内部リンクの構造はサイト診断（テクニカル SEO）の担当、と回答。
 - 利用者が競合ツール（aisuishin.kazet.ai）の診断結果 URL を共有 → egress 403 で読めず。スクリーンショットか PDF、または Network policy に追加を依頼。
+- 利用者が競合ツール（kazet.ai）の 2 機能「サイト・Google 情報の調査」「AI 検索での見つかり方」の画面を共有し「安くすぐ実装できる？」→ 可能。前者は無料 AIO 診断エンジン + Places の NAP 整合で費用ゼロ・半日（#33）、後者は LLMO + プロンプト拡張の流用で Claude のみ 1 店舗 15〜30 円・1 日（#34）。1 → 2 の順、月 1 回自動 + 推移を推奨。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
