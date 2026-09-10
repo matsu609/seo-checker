@@ -75,9 +75,10 @@ Cloudflare は `marketing/` より上をアップロードしないので、必�
 アプリ本体にある `public/service-guide.html` は別物です（無料診断画面から配る
 「サービス資料」の静的版で、この紹介ページより古い版）。片方を直しても他方は変わりません。
 
-## 残っている直し
+## 文面の元
 
-- `public/index.html` の「ご相談窓口」にプレースホルダが残っています
-  （`<!-- ▼ 配布前に… ▼ -->` で囲んだ範囲）。運営者名・連絡先は
-  `src/lib/legal/operator.ts`（`/terms` と `/privacy` に出るもの）と揃えてください。
-- 文面の素案は `docs/marketing/site-copy.md` にあります。
+文面の素案と Google 審査向けのチェックリストは `docs/marketing/site-copy.md`。
+運営者名・連絡先は `src/lib/legal/operator.ts`（`/terms` と `/privacy` に出るもの）と揃える。
+2026-09-10 に「ご相談窓口」のプレースホルダを運営者情報に差し替え、SEO / AIO / MEO の説明、
+Google 連携の説明、フッターの利用規約・プライバシーポリシー・アプリへのリンクを入れた。
+CTA はすべて `https://app.seo-checker.tokyo/`（無料診断）、`/sign-in`、`/plans` を指す。

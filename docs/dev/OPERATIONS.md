@@ -47,7 +47,7 @@
 | 連絡先メール（デベロッパー連絡先・規約・ポリシー共通） | **contact@seo-checker.tokyo** | 09-10 利用者の指示。`src/lib/legal/operator.ts`（r23）。転送設定済み（利用者報告） |
 | 事業者名 | **SEO 研究所（代表: 松下）** | 個人事業。09-10 利用者の指示（r24） |
 | 所在地 | **「請求があれば遅滞なく開示します」** | 個人事業のため請求時開示（r24） |
-| 紹介サイトの文面 | `docs/marketing/site-copy.md` | seo-checker.tokyo（別管理）に貼る。運営者名・連絡先は operator.ts と揃える |
+| 紹介サイトの文面 | `marketing/public/index.html`（正本）。素案は `docs/marketing/site-copy.md` | 運営者名・連絡先は operator.ts と揃える |
 | 管轄裁判所 | 東京地方裁判所 | |
 
 ## 再開の手順（次のセッションで最初にやること）
@@ -168,8 +168,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
 | 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | **切り替え完了（09-11 0:04、バージョン `9ef76797` = コミット `c60fe42` がアクティブ）**。残りは `https://seo-checker.tokyo/` の表示確認と、旧リポジトリのアーカイブだけ |
-| 30 | 紹介サイトの「ご相談窓口」に残っているプレースホルダを運営者情報（SEO 研究所（代表: 松下） / contact@seo-checker.tokyo）に差し替える。ついでに #28 の文面（/terms /privacy /app のリンク）を反映 | Claude | 未（#29 と独立して着手可） |
-| 28 | 紹介サイト seo-checker.tokyo に `docs/marketing/site-copy.md` の文面を貼る（フッターに /terms /privacy /app のリンク、Google 連携の説明） | 利用者 → Claude | ソースがこのリポジトリに入ったので **Claude が直せる**（#30 に統合） |
+| 30 | 紹介サイトの文面反映（運営者情報、SEO/AIO/MEO の説明、Google 連携の説明、フッターのリンク、CTA をアプリへ） | Claude | **完了（09-10、main にマージ。push で Workers Builds が配信）** |
+| 28 | 紹介サイトの文面 | Claude | 完了（#30 に統合） |
 | 26 | contact@seo-checker.tokyo の受信（Cloudflare Email Routing） | 利用者 | 完了（利用者報告「転送設定は済んでいます」） |
 | 27 | Google Auth Platform → ブランディング → 「デベロッパーの連絡先情報」に contact@seo-checker.tokyo を追加（ユーザーサポートメールは Google アカウントのアドレスしか選べないので matsumatsu452@gmail.com のまま） | 利用者 | 未（#26 のあと） |
 | 7 | Clerk: Legal に `/terms` `/privacy` の URL、サインアップ時の同意 ON。アプリ名を `SEO Checker` に。Restrictions で許可リスト／招待制 | 利用者 | 未 |
@@ -376,6 +376,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者の指示「デベロッパーの連絡先は contact@seo-checker.tokyo。HP と GitHub のメモにも」→ **r23**: `operator.ts` の email を設定（/terms と /privacy に表示）。メモに運営者情報の節を追加。Cloudflare Email Routing での受信設定（#26）と Google ブランディングへの登録（#27）を残タスクに。
 - 利用者「転送設定は済んでいる」→ #26 完了。質問「運営者名は屋号でいい？」→ 個人なら屋号 + 代表者名（例: SEO 研究所（代表: 氏名））、法人なら法人名。所在地は個人なら請求時開示で省略可。「上のリンク」= /privacy と /terms の URL。紹介サイトのフッターに説明 + 2 リンク + アプリへのリンクを置くよう案内。
 - 利用者の指示「運営者名は SEO 研究所（代表: 松下）、所在地は請求時開示」→ **r24**: operator.ts に反映（/terms /privacy に表示）。紹介サイトの文面を `docs/marketing/site-copy.md` に作成（ヒーロー、3 列の説明、Google 連携の説明、料金、フッター、審査向けチェックリスト）。貼り付けは利用者（#28）。
+- 利用者「HP をこのリポジトリに入れたので内容の反映を」→ `marketing/public/index.html` に反映（#30）: title/OG、ヘッダー nav（3 つの領域・Google 連携・ログイン）、ヒーロー、`#areas`（SEO/AIO/MEO）、ツール一覧に店舗（MEO）グループ、`#google`（読み取り専用の説明 + /privacy /terms）、ご相談窓口（SEO 研究所（代表: 松下）/ contact@）、フッター（アプリ / 規約 / ポリシー / © SEO 研究所）、CTA 全部をアプリ URL に（`#contact` 残り 0）。Playwright でデスクトップ・モバイルの描画確認、`wrangler deploy --dry-run` OK、lint / tsc / test / build 通過。add-release は実行せず（アプリの動きは不変、前回の方針どおり）。**配信の確認は利用者のブラウザで**（このセッションから seo-checker.tokyo は 403）。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
