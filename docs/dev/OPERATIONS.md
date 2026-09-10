@@ -43,7 +43,7 @@
 
 | 項目 | 値 | 備考 |
 |---|---|---|
-| 連絡先メール（デベロッパー連絡先・規約・ポリシー共通） | **contact@seo-checker.tokyo** | 09-10 利用者の指示。`src/lib/legal/operator.ts`（r23）。**受信できるようにメールの転送設定が必要（#26）** |
+| 連絡先メール（デベロッパー連絡先・規約・ポリシー共通） | **contact@seo-checker.tokyo** | 09-10 利用者の指示。`src/lib/legal/operator.ts`（r23）。転送設定済み（利用者報告） |
 | 事業者名 | 未定（「準備中」表示） | #6 |
 | 所在地 | 未定 | #6（任意） |
 | 管轄裁判所 | 東京地方裁判所 | |
@@ -141,7 +141,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報: ~~連絡先メール~~（contact@seo-checker.tokyo、r23）→ 法人名 or 屋号、任意で所在地 → `src/lib/legal/operator.ts` | 利用者 → Claude | メールのみ完了 |
-| 26 | **contact@seo-checker.tokyo を受信できるようにする**: Cloudflare → seo-checker.tokyo → Email → Email Routing で `contact` を作り、転送先（例: matsumatsu452@gmail.com）を登録・確認。転送先で受信テスト | 利用者 | 未 |
+| 26 | contact@seo-checker.tokyo の受信（Cloudflare Email Routing） | 利用者 | 完了（利用者報告「転送設定は済んでいます」） |
 | 27 | Google Auth Platform → ブランディング → 「デベロッパーの連絡先情報」に contact@seo-checker.tokyo を追加（ユーザーサポートメールは Google アカウントのアドレスしか選べないので matsumatsu452@gmail.com のまま） | 利用者 | 未（#26 のあと） |
 | 7 | Clerk: Legal に `/terms` `/privacy` の URL、サインアップ時の同意 ON。アプリ名を `SEO Checker` に。Restrictions で許可リスト／招待制 | 利用者 | 未 |
 | 8 | Google Auth Platform → ブランディングに利用規約 / プライバシーの URL | 利用者 | 未 |
@@ -343,4 +343,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「お願い致します」（r22 了承）。次の待ち: /tools/maps の動作確認結果、テストユーザー追加。次の作業候補は #22（第 1 月曜だけ自動生成を推奨）か #17。
 - 利用者の質問「GSC / GA4 の審査はどれくらい？」→ 2〜6 週間目安（ブランド確認 3〜5 営業日 + GA4 の機密スコープ審査 1〜4 週）。GSC の webmasters.readonly は非機密で審査不要。**テスト中はリフレッシュトークンが 7 日で失効**（利用者が週 1 で再接続）ため、お客様に出す前に公開申請が現実的。準備物: 運営者情報（#6）、紹介サイトの説明とリンク、ドメイン所有確認（Search Console）、ブランディング URL（#8）、用途説明文、デモ動画（#13 に統合）。
 - 利用者の指示「デベロッパーの連絡先は contact@seo-checker.tokyo。HP と GitHub のメモにも」→ **r23**: `operator.ts` の email を設定（/terms と /privacy に表示）。メモに運営者情報の節を追加。Cloudflare Email Routing での受信設定（#26）と Google ブランディングへの登録（#27）を残タスクに。
+- 利用者「転送設定は済んでいる」→ #26 完了。質問「運営者名は屋号でいい？」→ 個人なら屋号 + 代表者名（例: SEO 研究所（代表: 氏名））、法人なら法人名。所在地は個人なら請求時開示で省略可。「上のリンク」= /privacy と /terms の URL。紹介サイトのフッターに説明 + 2 リンク + アプリへのリンクを置くよう案内。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
