@@ -72,7 +72,7 @@
 | `ADMIN_EMAILS` | `matsumatsu452@gmail.com` | マスター画面の管理者 |
 | `DEFAULT_PLAN` | `pro` | Production and Preview |
 | `SITE_MAX_PAGES` | `100` | Production and Preview（一度誤って Preview のみにしたが復旧済み） |
-| `ANTHROPIC_API_KEY` | 登録はあるがアプリで空判定 | **貼り直しが必要** |
+| `ANTHROPIC_API_KEY` | **貼り替え済み**（利用者報告 09-10 16:5x、Claude Console のクレジット購入済み） | Redeploy 後に設定画面で確認 |
 | `PAGESPEED_API_KEY` | 利用者が作成。反映は要確認 | |
 | `GOOGLE_PLACES_API_KEY` | **設定済み**（09-10 15:58、Secret、Production） | seo-checker の Places API (New) 制限つきキー |
 | `CRON_SECRET` | **未設定**（r21 で必要。無いと毎週の一斉更新が動かない） | 長いランダム文字列（例: `openssl rand -hex 32` か、パスワード生成器で 40 文字以上）。Vercel に Secret で登録 → Redeploy。Vercel が Cron の呼び出しに自動で付ける |
@@ -119,7 +119,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
-| 1 | `ANTHROPIC_API_KEY`: Claude Console（**https://platform.claude.com/** に移行済み。旧 console.anthropic.com。**Pro/Max の定額プランでは不可。従量制でクレジット前払い**）→ Billing でクレジット 5〜20 ドル → API keys で `seo-checker (vercel)` を作成 → Vercel で貼り替え → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
+| 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports` テーブル~~ → ~~Vercel に環境変数 2 つ~~ → **`meo_stores` テーブルを SQL Editor で作成（下記 SQL の 2 つ目）** → 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: `meo_stores` の SQL |
 | 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
@@ -303,4 +303,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **決定**: AI 総評は API で運用（Pro のチャット運用ではない）。当面 Opus 5・ボタン押下時のみ生成。10 店舗ほど品質確認後に「自動生成の頻度（#22）」「Sonnet 5 への切り替え」を判断。#23（コピー用ボタン）は不要に。
 - 利用者が Claude Console（platform.claude.com、ワークスペース Default、クレジット $0）に登録済み。資金追加 → API キー作成 → Vercel の手順を案内。
 - Claude Console の請求画面（クレジット $0、「$5 からクレジットを購入」）まで到達。20 ドル購入 → API キー → Vercel を案内。クレジットは購入から 1 年で失効。
+- 利用者「出来ました」= Claude Console のクレジット購入・API キー作成・Vercel `ANTHROPIC_API_KEY` 貼り替え。残り: `meo_stores` SQL、`CRON_SECRET`、Redeploy、動作確認（設定画面の外部連携 3 つ、/tools/maps で登録 → レポート → AI 総評 → PDF、Cron Jobs 一覧）。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
