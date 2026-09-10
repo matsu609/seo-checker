@@ -392,3 +392,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - このコミットは**ビルドのきっかけを作るための push** でもある（Workers Builds は push で走る。保存だけでは走らないことがある）。
 - **紹介サイトの切り替え完了（#29）。**`c60fe42` の push で Workers Builds が走り、バージョン `9ef76797` がアクティブに（0:04）。配信内容の確認は利用者のブラウザで行う — **このセッションのネットワークポリシーが `seo-checker.tokyo` への接続を 403 で拒否するため、Claude 側からは取得できない**（`curl` は `CONNECT tunnel failed, response 403`）。
 - Cloudflare の画面に「エージェント Lee のアクセスを有効化」（API トークンを作る勧誘）が出ていた。**Claude が要求したものではない**ので、心当たりが無ければ許可しないよう伝えた。
+- 利用者の質問「HP が壊れたりしない？ アプリと HP が同じリポジトリで、ファイルの参照はどう分けている？」→ 分かれ目は ①ビルドの入口（Vercel はルートで `next build`、Cloudflare は `marketing/` で `wrangler deploy`）②URL の置き場所（`marketing/public/` は apex 直下、ルートの `public/` は `app.` 直下。同名の `favicon.ico` があっても別ドメインなので衝突しない）③`index.html` が自己完結（CSS 内蔵・JS 無し・外部は Google Fonts のみ）。`src/` や `next.config.ts` から `marketing` への参照が無いこと、`marketing/` に `.ts` が無いことを grep で確認済み。**ビルドが失敗しても直前の成功バージョンが配信され続ける**（白紙にはならない。バージョン履歴からロールバック可）。説明は `marketing/README.md` に追記した。
