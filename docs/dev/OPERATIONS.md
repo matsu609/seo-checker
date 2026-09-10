@@ -117,7 +117,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
-| 1 | `ANTHROPIC_API_KEY` を Vercel で貼り直し → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
+| 1 | `ANTHROPIC_API_KEY`: Claude Console（https://console.anthropic.com/ 。**Pro/Max の定額プランでは不可。従量制でクレジット前払い**）→ Billing でクレジット 5〜20 ドル → API keys で `seo-checker (vercel)` を作成 → Vercel で貼り替え → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports` テーブル~~ → ~~Vercel に環境変数 2 つ~~ → **`meo_stores` テーブルを SQL Editor で作成（下記 SQL の 2 つ目）** → 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: `meo_stores` の SQL |
 | 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
@@ -286,4 +286,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者が seo-checker の認証情報画面（PSI キーと Clerk OAuth のみ）に到達。API キー作成 → 名前・API 制限 → Vercel の手順を再掲。
 - Google Cloud の API キー作成は新フロー（作成前に名前と API の制限を入力するダイアログ）。名前 `Places (seo-checker)`、制限は Places API (New) のみ、サービスアカウントのバインドは不要と案内。
 - Vercel に `GOOGLE_PLACES_API_KEY`（Secret、Production）登録を画面で確認（15:58）。一覧に `ANTHROPIC_API_KEY` が見えない（スクロール外の可能性）→ 確認を依頼。残り: `CRON_SECRET`、`meo_stores` の SQL、Redeploy、動作確認。
+- 利用者の質問「ANTHROPIC_API_KEY は定額制（Pro/Max）でもいい？」→ 不可。Console の従量制（前払いクレジット）。AI 総評 1 回 ≈ 5 円（Opus 5）。Console 登録 → Billing → API keys → Vercel の手順を案内。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
