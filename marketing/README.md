@@ -10,7 +10,12 @@ apex ドメイン `https://seo-checker.tokyo/` で配信している**サービ�
 | パス | 役割 |
 | --- | --- |
 | `public/index.html` | 配信されるページそのもの |
+| `public/favicon.ico` / `public/icon.svg` / `public/apple-icon.png` | タブのアイコン。アプリ本体と同じ `src/app/icon.svg` から生成 |
 | `wrangler.jsonc` | Cloudflare Workers の設定。Worker 名 `seo-checker-hp`、`assets.directory` は `./public` |
+
+アイコンは**手でコピーしない**でください。形を変えたら `node scripts/generate-icons.mjs` を
+リポジトリのルートで実行すると、アプリ側（`src/app/` と `public/`）とここへ同時に書き出されます。
+紹介サイトはビルドが別系統で Next.js の `/icon.svg` を参照できないため、実体をここにも置いています。
 
 ## デプロイ
 

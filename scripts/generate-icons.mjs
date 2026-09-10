@@ -5,6 +5,8 @@
  *   node scripts/generate-icons.mjs
  *
  * アイコンの形を変えたときだけ実行する（生成物はリポジトリに入れてある）。
+ * 紹介サイト（marketing/）はビルドが別系統でアプリのアイコンを参照できないため、
+ * ここから同じ元データでコピーを書き出す。手でコピーすると片方だけ古くなる。
  * ICO には PNG をそのまま埋め込む形式を使う（16/32/48 の 3 枚）。
  * sharp は Next.js が持っているものをそのまま使う。
  */
@@ -19,6 +21,8 @@ for (const [file, size] of [
   ["src/app/apple-icon.png", 180],
   ["public/icon-192.png", 192],
   ["public/icon-512.png", 512],
+  // 紹介サイト（Cloudflare Workers が配信する marketing/public）
+  ["marketing/public/apple-icon.png", 180],
 ]) {
   writeFileSync(file, await png(size));
   console.log(file, size);
@@ -45,5 +49,12 @@ const entries = images.map((img, i) => {
   offset += img.length;
   return e;
 });
-writeFileSync("src/app/favicon.ico", Buffer.concat([header, ...entries, ...images]));
-console.log("src/app/favicon.ico", sizes.join("/"));
+const ico = Buffer.concat([header, ...entries, ...images]);
+for (const file of ["src/app/favicon.ico", "marketing/public/favicon.ico"]) {
+  writeFileSync(file, ico);
+  console.log(file, sizes.join("/"));
+}
+
+// 紹介サイトは Next.js の /icon.svg を使えないので、元の SVG もコピーする
+writeFileSync("marketing/public/icon.svg", svg);
+console.log("marketing/public/icon.svg");
