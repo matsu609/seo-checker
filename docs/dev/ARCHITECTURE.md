@@ -79,6 +79,8 @@ src/
 | `SERPAPI_KEY` | 順位計測・AI Overviews・ページ診断の Top10（SerpApi） | 任意 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（無くても低頻度なら動く） | 任意 |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | GA4 Data API（サービスアカウント JSON をそのまま、または base64） | 任意 |
+| `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（Places API (New)） | 任意 |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO 診断報告書の保存・履歴（`src/lib/db/supabase.ts`。PostgREST を fetch で叩く。service_role は RLS を素通りするので行は必ず user_id で絞る） | 任意 |
 | `SITE_MAX_PAGES` | 無料診断・サイト診断のクロール上限（既定 300、上限 1000） | 任意 |
 | `ALLOW_PRIVATE_HOSTS` | 開発時のみ | 任意 |
 
