@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEO Checker｜AI 検索に引用されるサイトへ</title>
+<meta name="description" content="AI 検索（AIO）にサイトが読まれ、引用される状態になっているかを無料で診断し、そのまま貼って使える改修案までお渡しします。月額 5,000 円から。">
+<link rel="canonical" href="https://seo-checker.tokyo/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://seo-checker.tokyo/">
+<meta property="og:title" content="SEO Checker｜AI 検索に引用されるサイトへ">
+<meta property="og:description" content="URL を入れるだけで AI 検索への対応状況を 100 点満点で採点。改修案の生成まで行います。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   BtoB の配布資料としての可読性を優先し、白地・濃い文字で固定する。
+   ダークテーマは持たない（印刷・PDF 化したときに同じ見え方にするため）。
+   本文 #16232f / 補足 #4d5b6b はいずれも白地でコントラスト比 7:1 以上。
+   ───────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+
+  --surface: #f2f4f7;   /* 紙の外側 */
+  --panel: #ffffff;     /* 紙の面 */
+  --panel-alt: #f7f9fb; /* 帯・囲み */
+  --ink: #16232f;
+  --muted: #4d5b6b;
+  --line: #dde3e9;
+  --line-strong: #b7c2cd;
+  --accent: #14607a;
+  --accent-deep: #0b3547;
+  --accent-soft: #eaf2f6;
+  --pass: #1a7549;
+  --warn: #8a5a1b;
+  --shadow-lift: 0 6px 20px rgba(20, 34, 48, .08);
+
+  /* 配点バーの色。白文字を乗せるので、いずれも白に対して 4.5:1 以上を確保する */
+  --w1: #14607a;
+  --w2: #2b3f6b;
+  --w3: #2e6379;
+  --w4: #7a5c33;
+  --w5: #556374;
+
+  --measure: 40rem;
+  --gutter: 3rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.9;
+  font-feature-settings: "palt";
+  -webkit-font-smoothing: antialiased;
+}
+
+.doc {
+  max-width: 58rem;
+  margin: 0 auto;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+/* ── 追従ヘッダー ───────────────────────────────────────── */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .7rem var(--gutter);
+  background: rgba(255, 255, 255, .94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.logo { font-weight: 700; font-size: .95rem; letter-spacing: .02em; margin: 0; white-space: nowrap; color: var(--accent-deep); }
+.logo small { display: block; font-size: .66rem; font-weight: 400; color: var(--muted); letter-spacing: .06em; }
+.site-nav { display: flex; gap: 1.1rem; margin-left: auto; font-size: .8rem; }
+.site-nav a { color: var(--muted); text-decoration: none; white-space: nowrap; }
+.site-nav a:hover { color: var(--accent); text-decoration: underline; }
+@media (max-width: 56rem) { .site-nav { display: none; } .site-header .btn { margin-left: auto; } }
+
+/* ── ボタン ─────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  padding: .6rem 1.15rem;
+  font-size: .85rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: background-color .15s ease, color .15s ease;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-deep); }
+.btn-outline { border-color: var(--line-strong); color: var(--accent); background: var(--panel); }
+.btn-outline:hover { border-color: var(--accent); background: var(--accent-soft); }
+.btn-lg { padding: .85rem 1.9rem; font-size: .95rem; }
+
+/* ── ファーストビュー ───────────────────────────────────── */
+.hero {
+  background: var(--panel);
+  padding: 3.5rem var(--gutter) 2.75rem;
+  border-bottom: 1px solid var(--line);
+}
+.eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .75rem;
+  letter-spacing: .18em;
+  color: var(--accent);
+  margin: 0;
+}
+.hero h1 {
+  font-family: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-weight: 700;
+  font-size: clamp(1.9rem, 5.2vw, 2.85rem);
+  line-height: 1.45;
+  letter-spacing: .01em;
+  color: var(--accent-deep);
+  text-wrap: balance;
+  margin: 1rem 0 0;
+}
+.hero h1 .mark { background: linear-gradient(transparent 62%, var(--accent-soft) 62%); padding: 0 .1em; }
+.hero .lede { max-width: var(--measure); color: var(--ink); margin: 1.25rem 0 0; font-size: .95rem; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.9rem; }
+.hero-note { font-size: .78rem; color: var(--muted); margin: .85rem 0 0; }
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.5rem;
+  margin: 2rem 0 0;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .72rem;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+/* ── 本文 ───────────────────────────────────────────────── */
+main { padding: 0 var(--gutter) 3rem; }
+
+section { padding: 2.75rem 0; border-bottom: 1px solid var(--line); }
+section:last-of-type { border-bottom: 0; }
+
+h2 {
+  font-family: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-weight: 700;
+  font-size: 1.35rem;
+  line-height: 1.55;
+  letter-spacing: .01em;
+  color: var(--accent-deep);
+  margin: 0 0 1.1rem;
+  padding-left: .85rem;
+  border-left: 4px solid var(--accent);
+  text-wrap: balance;
+}
+h3 { font-size: .8rem; font-weight: 700; letter-spacing: .1em; color: var(--muted); margin: 0 0 .7rem; }
+p { margin: 0 0 1rem; max-width: var(--measure); }
+p:last-child { margin-bottom: 0; }
+strong { font-weight: 700; }
+.note { font-size: .83rem; line-height: 1.85; color: var(--muted); }
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .92em; }
+
+.checks { list-style: none; margin: 0 0 1rem; padding: 0; max-width: var(--measure); display: grid; gap: .45rem; }
+.checks li { padding-left: 1.15rem; position: relative; font-size: .93rem; }
+.checks li::before { content: ""; position: absolute; left: 0; top: .8em; width: .5rem; height: 1px; background: var(--accent); }
+
+/* ── 課題提起（3 つの症状）─────────────────────────────── */
+.symptoms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 1.4rem; }
+.symptom { background: var(--panel); padding: 1.15rem 1.2rem; }
+.symptom-mark { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .72rem; letter-spacing: .1em; color: var(--warn); margin: 0; }
+.symptom .symptom-title { font-weight: 700; font-size: .92rem; color: var(--ink); margin: .3rem 0 .35rem; max-width: none; line-height: 1.7; }
+.symptom p { font-size: .83rem; line-height: 1.8; color: var(--muted); margin: 0; max-width: none; }
+
+/* ── 選ばれる理由 ───────────────────────────────────────── */
+.reasons { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 1.4rem; counter-reset: reason; }
+.reason { background: var(--panel); padding: 1.2rem 1.3rem 1.2rem 3.6rem; position: relative; counter-increment: reason; }
+.reason::before {
+  content: counter(reason, decimal-leading-zero);
+  position: absolute; left: 1.3rem; top: 1.3rem;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .85rem; color: var(--accent);
+}
+.reason h3 { color: var(--ink); font-size: .95rem; letter-spacing: .01em; margin-bottom: .35rem; }
+.reason p { font-size: .85rem; line-height: 1.85; color: var(--muted); margin: 0; max-width: none; }
+
+/* ── 配点バー（合計 100 点を実際の比率で割る）─────────────── */
+.weights { margin: 1.5rem 0 .85rem; }
+.weight-bar { display: flex; height: 2.75rem; overflow: hidden; border: 1px solid var(--line-strong); }
+.weight-bar span {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .8rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.weight-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: .5rem 1rem; margin-top: .8rem; }
+.weight-legend div { display: flex; align-items: baseline; gap: .45rem; font-size: .8rem; line-height: 1.5; }
+.swatch { width: .7rem; height: .7rem; flex: none; translate: 0 .05rem; }
+
+/* ── before → after の見本 ─────────────────────────────── */
+.diff { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); margin: 1.3rem 0 .8rem; }
+.diff > div { background: var(--panel); padding: 1rem 1.15rem; }
+.diff .after { background: var(--accent-soft); }
+.diff h3 { margin-bottom: .5rem; }
+.diff .after h3 { color: var(--accent); }
+.diff p { font-size: .86rem; line-height: 1.75; color: var(--ink); margin: 0; max-width: none; }
+.diff .label { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .68rem; letter-spacing: .1em; color: var(--muted); display: block; margin-bottom: .2rem; }
+
+/* ── 料金プラン ─────────────────────────────────────────── */
+.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.4rem; }
+.plan { border: 1px solid var(--line); background: var(--panel-alt); padding: 1.25rem; display: flex; flex-direction: column; position: relative; }
+.plan.is-lead { border-color: var(--accent); background: var(--accent-soft); box-shadow: var(--shadow-lift); }
+.plan-flag {
+  position: absolute; top: -1px; right: -1px;
+  background: var(--accent); color: #fff;
+  font-size: .66rem; font-weight: 700; letter-spacing: .08em;
+  padding: .15rem .55rem; margin: 0;
+}
+.plan-name { font-weight: 700; font-size: .95rem; margin: 0; color: var(--ink); }
+.plan-price {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.35rem; font-weight: 500; color: var(--accent-deep);
+  margin: .35rem 0 .6rem; letter-spacing: -.01em;
+}
+.plan-price small { font-size: .7rem; font-weight: 400; color: var(--muted); letter-spacing: .04em; }
+.plan-summary { font-size: .83rem; line-height: 1.8; color: var(--muted); margin: 0 0 .9rem; }
+.plan ul { list-style: none; margin: 0 0 1.1rem; padding: 0; display: grid; gap: .4rem; }
+.plan li { font-size: .81rem; line-height: 1.75; padding-left: .95rem; position: relative; color: var(--ink); }
+.plan li::before { content: "✓"; position: absolute; left: 0; color: var(--pass); font-size: .75rem; }
+.plan .btn { margin-top: auto; width: 100%; }
+
+/* ── ツール一覧 ─────────────────────────────────────────── */
+.group { margin-top: 1.75rem; }
+.group:first-of-type { margin-top: 1.4rem; }
+.tools { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.tool { background: var(--panel); padding: .95rem 1.1rem; }
+/* 奇数個のグループで最後の 1 枚が半端に残らないよう、行いっぱいに伸ばす */
+.tools > .tool:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.tool-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; margin: 0; }
+.tool-name { font-weight: 700; font-size: .9rem; color: var(--ink); }
+.badge {
+  font-size: .68rem; letter-spacing: .06em; font-weight: 500;
+  border: 1px solid var(--line-strong); color: var(--muted);
+  padding: .05rem .4rem; white-space: nowrap;
+}
+.badge.is-pro { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.tool p { font-size: .81rem; line-height: 1.8; color: var(--muted); margin: .35rem 0 0; max-width: none; }
+
+/* ── 導入の流れ（実際に順番があるので番号を振る）───────────── */
+.steps { list-style: none; counter-reset: step; margin: 1.4rem 0 0; padding: 0; display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.steps li { counter-increment: step; background: var(--panel); padding: 1rem 1.1rem 1rem 3.4rem; position: relative; }
+.steps li::before {
+  content: counter(step, decimal-leading-zero);
+  position: absolute; left: 1.1rem; top: 1rem;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .85rem; color: var(--accent);
+}
+.step-name { font-weight: 700; font-size: .9rem; color: var(--ink); }
+.steps p { font-size: .81rem; line-height: 1.8; color: var(--muted); margin: .3rem 0 0; max-width: none; }
+
+/* ── わかること / わからないこと ───────────────────────── */
+.ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 1.3rem; }
+.ledger > div { background: var(--panel); padding: 1.15rem 1.25rem; }
+.ledger h3 { color: var(--ink); letter-spacing: .02em; font-size: .88rem; }
+.ledger ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.ledger li { font-size: .85rem; line-height: 1.75; color: var(--muted); padding-left: 1.05rem; position: relative; }
+.ledger .yes li::before { content: "○"; position: absolute; left: 0; color: var(--pass); font-size: .72rem; top: .18em; }
+.ledger .no li::before { content: "—"; position: absolute; left: 0; color: var(--line-strong); }
+
+/* ── FAQ ────────────────────────────────────────────────── */
+.faq { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 1.3rem; }
+.faq details { background: var(--panel); }
+.faq summary {
+  cursor: pointer; list-style: none;
+  padding: .95rem 2.5rem .95rem 1.15rem;
+  font-size: .88rem; font-weight: 700; color: var(--ink); position: relative;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+"; position: absolute; right: 1.15rem; top: .9rem;
+  font-family: "IBM Plex Mono", ui-monospace, monospace; color: var(--accent); font-size: 1rem;
+}
+.faq details[open] summary::after { content: "−"; }
+.faq details[open] summary { padding-bottom: .3rem; }
+.faq .answer { font-size: .85rem; line-height: 1.9; color: var(--muted); margin: 0; padding: 0 1.15rem 1.05rem; max-width: none; }
+
+/* ── 最終 CTA / お問い合わせ ───────────────────────────── */
+.cta-final {
+  background: var(--panel-alt);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 2.75rem var(--gutter);
+  text-align: center;
+}
+.cta-final h2 {
+  border: 0; padding: 0; margin: 0 0 .9rem;
+  font-size: clamp(1.4rem, 3.6vw, 1.9rem);
+}
+.cta-final p { color: var(--muted); font-size: .9rem; max-width: 34rem; margin: 0 auto 1.6rem; }
+.cta-final .hero-actions { justify-content: center; margin-top: 0; }
+
+.contact { border: 1px solid var(--accent); background: var(--accent-soft); padding: 1.4rem 1.5rem; margin-top: 1.2rem; }
+.contact h3 { color: var(--ink); font-size: .88rem; letter-spacing: .02em; }
+.contact p { font-size: .87rem; color: var(--ink); }
+.fill { color: var(--muted); border-bottom: 1px dashed var(--line-strong); padding-bottom: .1rem; }
+
+footer { padding: 1.5rem var(--gutter) 2.25rem; background: var(--panel); }
+footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width: none; }
+
+/* ── スマートフォンの追従 CTA ───────────────────────────── */
+.sticky-cta {
+  position: fixed; inset: auto 0 0 0; z-index: 30;
+  display: none; gap: .6rem; padding: .7rem 1rem;
+  background: rgba(255, 255, 255, .96);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line-strong);
+}
+.sticky-cta .btn { flex: 1; }
+
+@media (max-width: 46rem) {
+  :root { --gutter: 1.5rem; }
+  .hero { padding: 2.75rem var(--gutter) 2.25rem; }
+  main { padding-bottom: 2rem; }
+  footer { padding-bottom: 5.5rem; }
+  .plans, .tools, .ledger, .symptoms, .diff { grid-template-columns: 1fr; }
+  .doc { border-left: 0; border-right: 0; }
+  .sticky-cta { display: flex; }
+}
+
+@media print {
+  body { background: #fff; font-size: 10.5pt; }
+  .doc { max-width: none; border: 0; }
+  .site-header, .sticky-cta, .hero-actions, .cta-final { display: none; }
+  .hero { padding: 2.5cm 2cm 1.5cm; }
+  main { padding: 0 2cm 1cm; }
+  footer { padding: 1cm 2cm; }
+  section { break-inside: avoid; page-break-inside: avoid; }
+  .tools, .plans, .ledger, .steps, .weights, .symptoms, .reasons, .faq { break-inside: avoid; page-break-inside: avoid; }
+  .faq details { display: block; }
+  .faq .answer { display: block; }
+  @page { size: A4; margin: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<article class="doc">
+
+  <!-- ▼ CTA のリンク先。診断ツールの URL が決まったら href="#contact" を差し替える ▼ -->
+  <header class="site-header">
+    <p class="logo">SEO Checker<small>AIO / SEO DIAGNOSIS</small></p>
+    <nav class="site-nav">
+      <a href="#problem">課題</a>
+      <a href="#check">無料診断</a>
+      <a href="#reasons">特徴</a>
+      <a href="#tools">機能</a>
+      <a href="#price">料金</a>
+      <a href="#faq">よくある質問</a>
+    </nav>
+    <a class="btn btn-primary" href="#contact">無料で診断する</a>
+  </header>
+
+  <div class="hero">
+    <p class="eyebrow">SERVICE GUIDE ／ 2026.09</p>
+    <h1>検索は「順位」から<br><span class="mark">「引用」</span>へ。</h1>
+    <p class="lede">
+      AI が答えを組み立てて返す検索が広がり、利用者がサイトを開かずに済む場面が増えています。
+      サイトが AI に正しく読まれ、答えの根拠として引用される状態になっているかを診断し、
+      そのまま貼って使える改修案までお渡しします。
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-lg" href="#contact">URL を入れて無料診断</a>
+      <a class="btn btn-outline btn-lg" href="#price">料金を見る</a>
+    </div>
+    <p class="hero-note">ログイン・API キー・クレジットカードの登録なしで診断できます。</p>
+    <p class="hero-meta">
+      <span>AIO / SEO DIAGNOSIS &amp; OPTIMIZATION</span>
+      <span>無料診断あり</span>
+      <span>月額 5,000 円 〜</span>
+    </p>
+  </div>
+
+  <main>
+
+    <section id="problem">
+      <h2>順位は落ちていないのに、問い合わせが減っていませんか</h2>
+      <p>
+        AI が検索結果の上で答えを組み立てるようになり、
+        「表示はされているのにクリックされない」状態が起きています。
+        次のどれかに心当たりがあれば、AI 側から見たサイトの状態を確認する価値があります。
+      </p>
+      <div class="symptoms">
+        <div class="symptom">
+          <p class="symptom-mark">SYMPTOM 01</p>
+          <p class="symptom-title">表示回数は横ばい、クリックだけ減った</p>
+          <p>答えが検索結果内で完結し、サイトまで来ない状態です。引用元に選ばれているかが分かれ目になります。</p>
+        </div>
+        <div class="symptom">
+          <p class="symptom-mark">SYMPTOM 02</p>
+          <p class="symptom-title">AI に聞くと競合の名前しか出ない</p>
+          <p>AI が参照できる形で情報が置かれていない可能性があります。人が読める状態と、機械が読める状態は別ものです。</p>
+        </div>
+        <div class="symptom">
+          <p class="symptom-mark">SYMPTOM 03</p>
+          <p class="symptom-title">何から直せばいいのか分からない</p>
+          <p>指摘だけの診断ツールは多くありますが、直した後の文面まで出るものは多くありません。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>問われているのは「何位か」ではありません</h2>
+      <p>
+        AI に引用されるには、機械が理解できる形で情報が置かれている必要があります。
+        人が読んで良いページでも、機械から見ると必要な手がかりが欠けていることは珍しくありません。
+        まず確認するのは次の 3 点です。
+      </p>
+      <ul class="checks">
+        <li>検索用の AI クローラを <span class="mono">robots.txt</span> で拒否していないか（OAI-SearchBot / PerplexityBot / Claude-SearchBot など）</li>
+        <li>誰が・何を・いつ・いくらで、が具体的に書かれているか</li>
+        <li>見出しと本文が対応し、構造化データが実態と合っているか</li>
+      </ul>
+    </section>
+
+    <section id="check">
+      <h2>まずは無料診断から</h2>
+      <p>
+        URL を入れるだけで、1 ページまたはサイト全体を採点します。
+        サイト全体は sitemap と内部リンクをたどって収集し、進捗を見ながら途中で止められます。
+        ログインも API キーも不要で、結果は報告書として PDF で保存できます。
+        配点は次のとおり、合計 100 点です。
+      </p>
+
+      <div class="weights">
+        <div class="weight-bar" role="img" aria-label="配点の内訳。AI クローラ可否 20 点、構造化データ 25 点、メタ情報 20 点、見出し 15 点、コンテンツ 20 点。合計 100 点。">
+          <span style="flex: 20; background: var(--w1);">20</span>
+          <span style="flex: 25; background: var(--w2);">25</span>
+          <span style="flex: 20; background: var(--w3);">20</span>
+          <span style="flex: 15; background: var(--w4);">15</span>
+          <span style="flex: 20; background: var(--w5);">20</span>
+        </div>
+        <div class="weight-legend">
+          <div><i class="swatch" style="background: var(--w1);"></i>AI クローラ可否</div>
+          <div><i class="swatch" style="background: var(--w2);"></i>構造化データ</div>
+          <div><i class="swatch" style="background: var(--w3);"></i>メタ情報</div>
+          <div><i class="swatch" style="background: var(--w4);"></i>見出し</div>
+          <div><i class="swatch" style="background: var(--w5);"></i>コンテンツ</div>
+        </div>
+      </div>
+
+      <p class="note">
+        採点はルールベース（生成 AI 不使用）で、同じページなら何度診断しても同じ結果になります。
+        表示速度・被リンク・検索順位はこの点数に含みません。
+      </p>
+
+      <h3 style="margin-top: 1.9rem;">報告書に載るもの</h3>
+      <ul class="checks">
+        <li>総合スコアと A〜E のグレード、3 行の講評、優先改善 TOP 3（見込み効果つき）</li>
+        <li>カテゴリ別スコアと、判定の内訳・ページ別スコアの分布</li>
+        <li>ページ × カテゴリのヒートテーブル（サイト全体で診断したときのみ）</li>
+        <li>想定 FAQ の下書き。承認したものを <span class="mono">FAQPage</span> の JSON-LD と HTML に変換します</li>
+        <li>付録として、診断したページの一覧・配点と判定基準・クロール統計</li>
+      </ul>
+
+      <p class="note">
+        <strong>採点しないもの</strong>も決めています。本文の文字数（Google は推奨文字数を持たないと明言しています）、
+        <span class="mono">llms.txt</span>（提案段階の仕様で、読み取りを表明した主要な AI クローラはまだありません）、
+        学習用 AI クローラの拒否（各社が認めている運用で、AI 検索での引用は減りません）は、
+        状態を参考として表示するだけで点数には反映しません。
+      </p>
+
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#contact">無料診断を試す</a>
+      </div>
+    </section>
+
+    <section id="reasons">
+      <h2>指摘で終わらせない三つの設計</h2>
+      <div class="reasons">
+        <div class="reason">
+          <h3>改修案は「そのまま貼れる文面」で出す</h3>
+          <p>
+            「〜を検討してください」という助言ではなく、変更前と変更後を並べた文面をお渡しします。
+            対象はタイトル・説明文・見出し・本文・構造化データ・画像の代替テキストです。
+          </p>
+        </div>
+        <div class="reason">
+          <h3>推定ではなく実測値を並べる</h3>
+          <p>
+            Search Console と GA4 を接続し、クリック数・表示回数・掲載順位・流入をそのまま表示します。
+            AI 経由の流入も参照元から切り出して集計します。
+          </p>
+        </div>
+        <div class="reason">
+          <h3>AI 側からどう見えているかを記録する</h3>
+          <p>
+            登録したプロンプトを Claude / ChatGPT / Gemini / Perplexity に投げ、
+            ブランドが言及されたか、自社ドメインが引用されたかを回答原文ごと残します。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tools">
+      <h2>ご提供するツール</h2>
+
+      <div class="group">
+        <h3>診断</h3>
+        <div class="tools">
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">サイト診断</span><span class="badge">スタンダード</span></p>
+            <p>ドメイン配下をクロールし、約 45 のルールで重複 title・canonical・リダイレクト・リンク切れなど 10 カテゴリの課題を件数化します。前回との差分と CSV 出力に対応。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">ページ最適化レポート</span><span class="badge">スタンダード</span></p>
+            <p>1 URL の AI フレンドリー度を 0〜100 点で評価し、項目ごとの測定値・理由・改善提案を表にまとめます。表示速度と Core Web Vitals も併記。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">ページ診断</span><span class="badge">スタンダード</span></p>
+            <p>対策キーワードの検索上位 10 件と自社ページを比較し、検索意図・不足要素・title / description 案を提案します。診断結果を踏まえたチャットで深掘りできます。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">AIO 頻出トピック</span><span class="badge">スタンダード</span></p>
+            <p>AI Overviews の本文からトピックを抽出・正規化し、出現割合と自社ページに不足しているトピックを表示します。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">HP 改修提案</span><span class="badge is-pro">プロ</span></p>
+            <p>URL を入れてボタンを押すだけで、ページを診断し、そのまま貼って使える改修案を AI が作ります。反映は運用者が行います。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>計測</h3>
+        <div class="tools">
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">順位計測</span><span class="badge">スタンダード</span></p>
+            <p>登録キーワードの Google 順位とランディング URL を取得し、その場で測るリアルタイム計測にも対応。AI Overviews の引用は 自社のみ / 競合のみ / 両方 / なし / AIO 表示なし の 5 区分で集計します。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">検索パフォーマンス</span><span class="badge">スタンダード</span></p>
+            <p>連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を取得します。推定ではなく Google の実測値です。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">LLMO モニタリング・LLM リサーチ</span><span class="badge">スタンダード</span></p>
+            <p>登録プロンプトを Claude / ChatGPT / Gemini / Perplexity に投げ、ブランド言及率・ドメイン引用率・回答原文・引用元を記録します。LLM が内部で発行した検索クエリ（ファンアウト）も保存し、CSV に出せます。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">プロンプト拡張</span><span class="badge">スタンダード</span></p>
+            <p>参考プロンプトと対象サイトから、利用者が AI に聞きそうな関連プロンプトをカテゴリ付きで生成します。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">生成 AI 流入分析</span><span class="badge">スタンダード</span></p>
+            <p>GA4 の参照元から生成 AI チャネルを切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベントを集計します。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">サイトレポート</span><span class="badge">スタンダード</span></p>
+            <p>GA4 の KPI（ユーザー数・エンゲージメント・自然検索セッション・CV）の前期比、チャネル別流入、登録キーワードの平均順位とファインダビリティスコア、自社・競合の最新順位表をひとつにまとめます。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>調査・生成</h3>
+        <div class="tools">
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">キーワード調査</span><span class="badge">スタンダード</span></p>
+            <p>種キーワードから Google サジェスト・関連キーワードを展開し、検索意図を分類して一覧にします。CSV 出力と順位計測への登録に対応。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">AI ライティング</span><span class="badge is-pro">プロ</span></p>
+            <p>キーワードから構成案・本文をストリーミング生成し、エディターで範囲選択リライトと差分表示、ファクト・コピペ・薬機法 NG 表現のチェックまで行います。参考資料の PDF（5MB まで）を添えて企画書を作る企画書モードにも対応。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">llms.txt 生成</span><span class="badge is-pro">プロ</span></p>
+            <p>6 ステップのウィザードで、AI クローラ向けの <span class="mono">llms.txt</span> を生成します。既存の <span class="mono">llms.txt</span> の検証にも対応。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>改修案は「そのまま使える形」で</h2>
+      <p>
+        プロプランでは、診断結果をもとに AI が改修案を作ります。
+        出力は次のように、変更前と変更後を並べた形です。
+      </p>
+
+      <div class="diff">
+        <div>
+          <h3>BEFORE</h3>
+          <p><span class="label">TITLE</span>サービス紹介｜株式会社◯◯</p>
+        </div>
+        <div class="after">
+          <h3>AFTER</h3>
+          <p><span class="label">TITLE</span>AI 検索対応の SEO 診断｜無料で 100 点満点採点｜株式会社◯◯</p>
+        </div>
+      </div>
+      <p class="note" style="margin-bottom: 1.2rem;">表示例です。実際の出力は診断したページの内容にもとづきます。</p>
+
+      <ul class="checks">
+        <li>提案ごとに「なぜ直すか」「期待できること」「優先度」「手間」を表示</li>
+        <li>変更箇所の色分け表示、コピー、PDF での持ち出し</li>
+        <li>1 回につき 1 ページ。同じ URL は 30 分キャッシュし、押したときだけ作り直します</li>
+      </ul>
+      <p class="note">
+        ページに書かれていない事実（実績数・料金など）を AI が作ることはありません。
+        数値を入れる箇所は伏せ字にし、確認していただく形にしています。
+        サイトへの反映は運用者が行い、<strong>ツールがお客様のサイトを書き換えることはありません。</strong>
+      </p>
+    </section>
+
+    <section id="price">
+      <h2>料金プラン</h2>
+      <p>
+        切り分けの考え方は「<strong>読む・測る</strong>＝スタンダード ／ <strong>AI が書く</strong>＝プロ」です。
+      </p>
+      <div class="plans">
+        <div class="plan">
+          <p class="plan-name">無料診断</p>
+          <p class="plan-price">無料</p>
+          <p class="plan-summary">URL を入れるだけで、AI 検索への対応状況を採点します。ログインも不要です。</p>
+          <ul>
+            <li>無料 AIO 診断（1 ページ / サイト全体）</li>
+            <li>総合スコアとカテゴリ別スコア、改善提案の一覧</li>
+            <li>報告書の PDF ダウンロードと印刷</li>
+          </ul>
+          <a class="btn btn-outline" href="#contact">診断する</a>
+        </div>
+        <div class="plan">
+          <p class="plan-name">スタンダード</p>
+          <p class="plan-price">5,000<small> 円 / 月</small></p>
+          <p class="plan-summary">検索の実測値とサイトの分析結果を継続して確認できます。</p>
+          <ul>
+            <li>サイト診断・ページ最適化レポート・ページ診断</li>
+            <li>検索パフォーマンス（Search Console の実測値）</li>
+            <li>順位計測・AI Overviews 引用・LLMO モニタリング</li>
+            <li>生成 AI 流入分析・サイトレポート（GA4）</li>
+            <li>キーワード調査・AIO トピック</li>
+          </ul>
+          <a class="btn btn-outline" href="#contact">相談する</a>
+        </div>
+        <div class="plan is-lead">
+          <p class="plan-flag">おすすめ</p>
+          <p class="plan-name">プロ</p>
+          <p class="plan-price">10,000<small> 円 / 月</small></p>
+          <p class="plan-summary">スタンダードの内容に加え、AI が改修案と原稿を作ります。</p>
+          <ul>
+            <li>スタンダードのすべて</li>
+            <li>HP 改修提案（そのまま貼って使える before → after）</li>
+            <li>AI ライティング（企画・構成・本文・リライト・校正）</li>
+            <li>llms.txt の生成</li>
+          </ul>
+          <a class="btn btn-primary" href="#contact">相談する</a>
+        </div>
+      </div>
+      <p class="note" style="margin-top: .9rem;">表示は月額・税別です。プランはいつでも変更・解約できます。</p>
+      <p class="note">
+        「スタンダードのまま、HP 改修提案だけ試したい」といったご要望には、
+        <strong>機能を個別に開放する形</strong>で対応できます。開放は契約中のプランに足すだけで、
+        お支払いいただいている機能を塞ぐことはできない作りです。
+      </p>
+    </section>
+
+    <section>
+      <h2>ご利用の流れ</h2>
+      <ol class="steps">
+        <li>
+          <span class="step-name">無料診断で現状を確認する</span>
+          <p>URL を入力して採点します。ログインも費用もかかりません。報告書はその場で PDF に保存できます。</p>
+        </li>
+        <li>
+          <span class="step-name">プランをお申し込みいただく</span>
+          <p>カード決済でお申し込みいただくと、そのままツールが開きます。プランの変更・解約もお客様側で行えます。</p>
+        </li>
+        <li>
+          <span class="step-name">Search Console と GA4 を接続する</span>
+          <p>設定画面からお客様の Google アカウントを接続し、対象サイトとプロパティを選びます。要求するのは読み取り専用の権限だけです。</p>
+        </li>
+        <li>
+          <span class="step-name">毎月、確認して直す</span>
+          <p>お客様は画面で数値と改善点を確認します。反映をご希望の場合は運用者にご連絡ください。作業は運用者が行います。</p>
+        </li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>この診断でわかること・わからないこと</h2>
+      <div class="ledger">
+        <div>
+          <h3>わかること</h3>
+          <ul class="yes">
+            <li>AI に読まれる状態が整っているか</li>
+            <li>どのページの、どこを直すべきか</li>
+            <li>直した後の具体的な文面</li>
+            <li>そのページに置ける想定 FAQ の下書きと JSON-LD</li>
+            <li>Search Console と GA4 の実測値の推移</li>
+          </ul>
+        </div>
+        <div>
+          <h3>わからないこと</h3>
+          <ul class="no">
+            <li>検索順位そのもの（スコアは順位ではありません）</li>
+            <li>実際に AI に引用された回数</li>
+            <li>表示速度・被リンク（スコアには含みません）</li>
+          </ul>
+        </div>
+      </div>
+      <p class="note" style="margin-top: 1rem;">
+        スコアは技術チェック表の達成率です。成果の確認には Search Console の表示回数、
+        問い合わせの転換、Core Web Vitals をご利用ください。
+      </p>
+    </section>
+
+    <section id="faq">
+      <h2>よくあるご質問</h2>
+      <div class="faq">
+        <details>
+          <summary>診断すれば検索順位は上がりますか</summary>
+          <p class="answer">
+            順位や成果を保証するものではありません。スコアは技術チェック表の達成率で、順位とは別のものです。
+            AI や検索エンジンに読まれる前提条件を整えるための道具とお考えください。
+          </p>
+        </details>
+        <details>
+          <summary>採点に生成 AI を使っていますか</summary>
+          <p class="answer">
+            無料診断の採点はルールベースで、生成 AI を使っていません。同じページなら何度診断しても同じ結果になります。
+            生成 AI を使うのは改修案の作成と AI ライティング（いずれもプロプラン）です。
+          </p>
+        </details>
+        <details>
+          <summary>サイト全体の診断は何ページまで見ますか</summary>
+          <p class="answer">
+            sitemap（索引の再帰展開）と内部リンクの幅優先探索でページを収集します。
+            既定は 300 ページまでで、設定により最大 1,000 ページまで広げられます。
+            進捗を見ながら途中で中止することもできます。
+          </p>
+        </details>
+        <details>
+          <summary>ツールがサイトを書き換えることはありますか</summary>
+          <p class="answer">
+            ありません。お渡しするのは変更前と変更後を並べた文面までで、サイトへの反映は運用者が行います。
+          </p>
+        </details>
+        <details>
+          <summary>Search Console や GA4 の権限はどこまで必要ですか</summary>
+          <p class="answer">
+            読み取り専用の権限だけです。接続はお客様の Google アカウントで行い、設定画面からいつでも解除できます。
+          </p>
+        </details>
+        <details>
+          <summary>無料診断を使うのに登録は必要ですか</summary>
+          <p class="answer">
+            不要です。ログイン・API キー・クレジットカードの登録なしで、URL を入れるだけで採点できます。
+          </p>
+        </details>
+        <details>
+          <summary>プランを上げずに、上位の機能だけ試せますか</summary>
+          <p class="answer">
+            できます。ご相談いただいた機能を、契約中のプランに足す形で個別に開放します。
+            開放できるのは足す方向だけで、契約に含まれる機能を後から塞ぐことはできません。
+          </p>
+        </details>
+        <details>
+          <summary>途中で解約できますか</summary>
+          <p class="answer">
+            できます。プランの変更・解約はお客様側の画面で行えます。表示している料金は月額・税別です。
+          </p>
+        </details>
+      </div>
+    </section>
+
+    <section id="contact">
+      <h2>お問い合わせ</h2>
+      <p>導入のご相談、無料診断の結果についてのご質問は下記まで承ります。</p>
+      <!-- ▼ 配布前に、ここを自社の連絡先に置き換えてください ▼ -->
+      <div class="contact">
+        <h3>ご相談窓口</h3>
+        <p>
+          <span class="fill">会社名・サービス名をご記入ください</span><br>
+          <span class="fill">メールアドレス / 電話番号 / お問い合わせフォーム URL</span>
+        </p>
+      </div>
+      <!-- ▲ ここまで ▲ -->
+    </section>
+
+  </main>
+
+  <div class="cta-final">
+    <h2>まず、いまの状態を知るところから。</h2>
+    <p>URL を入れるだけ、費用も登録もかかりません。結果はその場で PDF に保存できます。</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-lg" href="#contact">無料で診断する</a>
+      <a class="btn btn-outline btn-lg" href="#price">料金を見る</a>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      本資料の内容は 2026 年 9 月時点のものです。掲載順位や成果を保証するものではありません。
+      料金は月額・税別です。外部サービス（Google Search Console / GA4 など）の仕様変更により、
+      取得できる項目が変わる場合があります。
+    </p>
+  </footer>
+
+</article>
+
+<div class="sticky-cta">
+  <a class="btn btn-primary" href="#contact">無料で診断する</a>
+  <a class="btn btn-outline" href="#price">料金</a>
+</div>
+</body>
+</html>

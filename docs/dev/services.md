@@ -46,7 +46,7 @@
 |---|---|---|
 | **GitHub** | ソースコードの保管と履歴 | リポジトリ `matsu609/seo-checker` |
 | **Vercel** | アプリの実行・公開・環境変数 | ビルド成果物、API キー類 |
-| **Cloudflare** | ドメインの名前解決（DNS） | `seo-checker.tokyo` のレコード |
+| **Cloudflare** | ドメインの名前解決（DNS）と**紹介サイトの配信**（Workers） | `seo-checker.tokyo` のレコード、Worker `seo-checker-hp` |
 | **Clerk** | ログイン、**利用者データの保管** | ユーザー、トークン、プラン、連携設定 |
 | **Google Cloud** | Google API を使う権限の発行 | OAuth クライアント ID、スコープ、API キー（PageSpeed Insights / Places） |
 | **Supabase** | MEO の登録店舗と診断報告書の置き場（PostgreSQL） | `meo_stores`・`meo_reports` テーブル。アプリはサーバーから service_role キーで読み書き（ブラウザからは触らない）。毎週月曜 5:00 JST に Vercel Cron が全店舗を取り直す |
@@ -62,7 +62,7 @@
 
 | ホスト名 | 向き先 | 用途 |
 |---|---|---|
-| `seo-checker.tokyo` | Cloudflare | **紹介サイト**（このアプリとは別物） |
+| `seo-checker.tokyo` | Cloudflare Workers | **紹介サイト**（このアプリとは別物。ソースはこのリポジトリの `marketing/`） |
 | `app.seo-checker.tokyo` | Vercel | **このアプリ本体** |
 | `clerk.seo-checker.tokyo` | Clerk | 認証 API（ログイン処理の実体） |
 | `accounts.seo-checker.tokyo` | Clerk | ログイン・登録画面、パスワード再設定 |
@@ -70,6 +70,8 @@
 | `clk._domainkey` / `clk2._domainkey` | Clerk | メールの電子署名（DKIM） |
 
 > `seo-checker.tokyo`（紹介サイト）と `app.seo-checker.tokyo`（アプリ）は別物。混同しないこと。
+> ソースは同じリポジトリに同居しているが、**配信は別系統**。`marketing/` は Cloudflare Workers が、
+> それ以外は Vercel がビルドする（[marketing/README.md](../../marketing/README.md)）。
 
 **Cloudflare のプロキシは、Clerk の 5 件すべてで「DNS のみ」にする。** プロキシを有効にすると Cloudflare が通信を横取りして TLS を終端するため、Clerk の検証が通らず、DKIM も機能しなくなる。
 

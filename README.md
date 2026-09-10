@@ -351,6 +351,9 @@ src/
     features/registry.ts      # サイドバーと機能の定義
     store/                    # localStorage への保存（zod で検証）
     llm/ serp/ export/ tools/ # 共通の外部連携・CSV・API 実行フック
+marketing/                    # 紹介サイト seo-checker.tokyo（静的 HTML 1 枚。Cloudflare Workers が配信）
+  public/index.html           # ページの実体
+  wrangler.jsonc              # Worker 名 seo-checker-hp。Cloudflare の Root directory は marketing
 docs/
   reference/                  # 競合ツールの機能調査と実装ガイド
   dev/                        # 設計仕様・Next.js / UI の開発メモ

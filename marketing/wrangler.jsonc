@@ -1,0 +1,10 @@
+{
+  // 静的 HTML だけの Worker。`npx wrangler deploy` はこの assets.directory を
+  // 見て配信対象を決めるため、この設定が無いと
+  // "Could not detect a directory containing static files" で失敗する。
+  "name": "seo-checker-hp",
+  "compatibility_date": "2026-09-08",
+  "assets": {
+    "directory": "./public"
+  }
+}
