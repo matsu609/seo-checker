@@ -96,7 +96,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
 | 1 | `ANTHROPIC_API_KEY` を Vercel で貼り直し → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
-| 2 | Places API: (New) を有効化 → 請求先紐づけ → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
+| 2 | Places API: (New) を有効化 → 請求先紐づけ（運営者のプロジェクトに 1 つ。利用者は登録不要）→ 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~SQL でテーブル作成~~ → ~~Vercel に環境変数 2 つ~~ → Redeploy → 設定画面「外部連携」で Supabase が設定済みになるか確認 → `/tools/maps` で「保存」ボタンと「診断履歴」カード（Places キー #2 が要る） | 利用者 | ほぼ完了（残り: 動作確認） |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード（Supabase 未設定なら静かに無効） | Claude | **完了（r19）**。本番での動作確認は #3 のあと |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
@@ -108,6 +108,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 11 | フェーズ 3（承認後）: Business Profile API で未取得 9 項目を埋め、インサイト（8 指標・期間比較・CSV・詳細グラフ）を追加 | Claude | 承認待ち |
 | 12 | 規約・ポリシーの専門家レビュー | 利用者 | 推奨 |
 | 13 | Google OAuth の本番公開申請（GA4/GSC をお客様に開放する前） | 利用者 | 未 |
+| 15 | Places API の **利用者ごとの月間上限**（例: レポート 50 回 / 月）を Supabase で数えて 429 を返す。お客様に開放する前に入れる。費用は運営者のプロジェクト 1 本に集中するため | Claude | 提案中（利用者の判断待ち） |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 入力待ち（利用者からの回答が要るもの）
@@ -224,4 +225,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - Environments ピッカーは「＜ Search environments」の下に Production / Preview / Development が出ることを確認。`SUPABASE_URL` は Production + Preview で登録済み（画面より）。`SUPABASE_SERVICE_ROLE_KEY` は Secret に切り替えて登録するよう案内。
 - Supabase のキーの場所を案内: 左下の歯車 → Project Settings → API Keys（`/settings/api-keys`）。Secret keys（`sb_secret_`）か Legacy の `service_role`。
 - 利用者「出来ました」= Vercel に Supabase の変数 2 つを登録。確認手順（設定画面の外部連携 → Supabase 設定済み）を案内。`/tools/maps` の動作確認には Places キー（#2）が必要。
+- 利用者の質問「請求先はマスター？ユーザー毎？」→ 運営者のプロジェクト 1 本に集中と回答。無料枠は 2025-03 以降の「SKU ごとの月間無料回数」（Text Search Pro 5,000 / Place Details Enterprise 1,000）で、「月 200 ドル」は旧制度と訂正。利用者ごとの月間上限（#15）を提案。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
