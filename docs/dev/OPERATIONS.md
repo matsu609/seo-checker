@@ -144,7 +144,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
-| 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | 未（ソース側は完了） |
+| 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | 未（ソース側は完了。09-10 に利用者が案 A を選択し、これが**唯一の残り作業**） |
 | 30 | 紹介サイトの「ご相談窓口」に残っているプレースホルダを運営者情報（SEO 研究所（代表: 松下） / contact@seo-checker.tokyo）に差し替える。ついでに #28 の文面（/terms /privacy /app のリンク）を反映 | Claude | 未（#29 と独立して着手可） |
 | 28 | 紹介サイト seo-checker.tokyo に `docs/marketing/site-copy.md` の文面を貼る（フッターに /terms /privacy /app のリンク、Google 連携の説明） | 利用者 → Claude | ソースがこのリポジトリに入ったので **Claude が直せる**（#30 に統合） |
 | 26 | contact@seo-checker.tokyo の受信（Cloudflare Email Routing） | 利用者 | 完了（利用者報告「転送設定は済んでいます」） |
@@ -257,6 +257,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 | 09-10 | MEO 報告書は競合（口コミ365）の PDF と同じ 4 カテゴリ・21 項目構成。**未取得は採点の分母から外す** | 「測れなかった」を 0 点にしない方針（無料診断と同じ）。承認後にデータを差し込むだけで完成する |
 | 09-10 | 利用規約・プライバシーポリシーは**ログイン不要の公開ページ** | 登録前に読める必要がある。Google OAuth 審査と Clerk 設定で URL が必須 |
 | 09-10 | プライバシーポリシー第 5 条に **Limited Use** 準拠の文言 | Google OAuth 審査の必須要件。変更不可 |
+| 09-10 | 紹介サイトのリポジトリは **1 つに寄せる**（利用者が案 A を選択） | 運営者名・連絡先・料金・アイコンが両方に出るため、分けたままだと片方だけ古くなる。実際に `public/service-guide.html` と HP の内容がずれ、HP には配布前のプレースホルダとアイコン未設定が残っていた。分けたまま旧リポジトリに直接 push する案 B も示したうえでの決定 |
 | 09-10 | 紹介サイトのソースを `marketing/` に取り込み、**配信は Cloudflare Workers のまま**にした | リポジトリが 2 つあると運営者名・料金を直したときに片方だけ古くなる。一方で apex を Vercel に向け直すと DNS とドメイン移設が要り、審査中の Google OAuth の入口を止めるリスクがある。利用者の選択は「Cloudflare のまま・ソースだけ移す」 |
 
 ---
@@ -360,3 +361,6 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
   残り: 利用者が Cloudflare の接続先を切り替える（#29）。そのあと旧リポジトリはアーカイブしてよい。紹介サイトの連絡先プレースホルダは #30。
   利用者の了承を得て main にマージ済み（`8e6186b`）。**Cloudflare の Build 設定を切り替えるまで、紹介サイトは旧リポジトリのままの内容が配信され続ける**（表示は変わらない）。
 - 利用者の指示「このサイトのタブの画像をサービスのページの画像と同じに」（紹介サイトのタブが地球儀のまま）→ 紹介サイトの `<head>` にアイコンの指定が 1 つも無く、ブラウザの既定が出ていた。`scripts/generate-icons.mjs` を拡張し、`src/app/icon.svg`（アプリと同じ元データ）から `marketing/public/` にも `favicon.ico` / `icon.svg` / `apple-icon.png` を書き出すように。`marketing/public/index.html` に `<link rel="icon">` など 3 行を追加。手でコピーすると片方だけ古くなるため、生成の一本化にした。アプリ側の生成物はバイト単位で同一（差分なし）。wrangler の dry-run で 4 ファイル認識、lint / tsc / test（90 ファイル・1285 件）/ build 通過。**タブに反映されるのは #29（Cloudflare の接続先切り替え）のあと**。いまはまだ旧リポジトリの内容が配信されている。
+- 利用者の質問「Claude Code は別のリポジトリの情報を別のリポジトリにプッシュできないの？」→ **できるが、そのリポジトリが push 権限つきでセッションに接続されている必要がある**。今回 `seo-checker-hp` は読み取り専用（公開リポジトリなので clone だけは無条件）でつないだため、書き戻しは不可。読み取り → こちらに取り込む向きは可、と説明。
+- 利用者「リポジトリを分けたけど意味なかった？」→ 分ける利点（配信系統の切り分け、依存が要らない、権限を分けられる）と、分けると必ず起きる問題（同じ事実が両方に出る）を提示。判断軸は**同じ事実が両方に書かれるか**。今回は運営者名・連絡先・料金・アイコンが該当し、実際にずれていた。A（統合）/ B（分けたまま旧リポジトリに push、`marketing/` は削除）/ C（折衷）を提示。
+- **利用者は A（統合）を選択。**本番はまだ切り替わっていないので、残りは #29（Cloudflare の Build 設定）だけ。切り替え後に旧リポジトリ `matsu609/seo-checker-HP` をアーカイブする。
