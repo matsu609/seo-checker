@@ -15,10 +15,12 @@ export interface OperatorInfo {
 }
 
 export const OPERATOR: OperatorInfo = {
-  name: null,
-  // 利用者の指示（2026-09-10）。Google OAuth のデベロッパー連絡先とも揃える
+  // 個人事業。屋号 + 代表者名（利用者の指示 2026-09-10）
+  name: "SEO 研究所（代表: 松下）",
+  // Google OAuth のデベロッパー連絡先とも揃える
   email: "contact@seo-checker.tokyo",
-  address: null,
+  // 個人事業のため所在地は請求時に開示する（特定商取引法の表示の運用に合わせる）
+  address: "請求があれば遅滞なく開示します",
   court: "東京地方裁判所",
 };
 
