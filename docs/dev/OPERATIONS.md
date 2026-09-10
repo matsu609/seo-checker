@@ -26,7 +26,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r18（`0d483c9`） | main に push すると Vercel が自動デプロイ |
+| GitHub `matsu609/seo-checker` | main = r19（`d3eb138`） | main に push すると Vercel が自動デプロイ |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理 | 紹介サイト（apex）は Cloudflare 経由、`app.` は Vercel へ CNAME（DNS のみ） |
 | Clerk（**Production インスタンス**） | 稼働中。`clerk.seo-checker.tokyo` / `accounts.seo-checker.tokyo` | 2026-09-09 に Development から移行完了。DNS 5/5 Verified、SSL 発行済み |
@@ -36,7 +36,7 @@
 | Places API（Google マップ） | **コードは完成、キー未設定** | 請求先アカウントの紐づけとキー作成が利用者側で未了 |
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
-| Supabase | **未作成** | フェーズ 2（診断履歴）の保存先に決定済み |
+| Supabase | **プロジェクト作成済み**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | テーブル作成（SQL）と Vercel への環境変数登録は利用者側で作業中。コード（r19）は完成 |
 | Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
 | Stripe / Clerk Billing | 未使用 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` 未設定。プランは `DEFAULT_PLAN=pro` |
 
@@ -52,7 +52,7 @@
 | `ANTHROPIC_API_KEY` | 登録はあるがアプリで空判定 | **貼り直しが必要** |
 | `PAGESPEED_API_KEY` | 利用者が作成。反映は要確認 | |
 | `GOOGLE_PLACES_API_KEY` | **未設定** | Places API (New) に制限したキーを作る |
-| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | **未設定** | フェーズ 2 |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | **未設定**（r19 で使う。未設定の間は保存ボタンと履歴カードが出ないだけ） | Supabase の Project Settings → API（Data API）から。URL は Config、service_role は Secret |
 | Preview 環境の Clerk キー | **無し** | Preview はログイン無効で動く状態。必要になったら Development の `pk_test_` / `sk_test_` を Preview 用に登録 |
 
 ### Clerk（Production）の設定
@@ -97,8 +97,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 |---|---|---|---|
 | 1 | `ANTHROPIC_API_KEY` を Vercel で貼り直し → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
 | 2 | Places API: (New) を有効化 → 請求先紐づけ → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
-| 3 | Supabase: プロジェクト作成（Tokyo）→ `SUPABASE_URL`（Config）と `SUPABASE_SERVICE_ROLE_KEY`（Secret）を Vercel に → SQL Editor でテーブル作成（下記 SQL） | 利用者 | 未 |
-| 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード（Supabase 未設定なら静かに無効） | Claude | 着手前 |
+| 3 | Supabase: ~~プロジェクト作成~~ → SQL Editor でテーブル作成（下記 SQL）→ `SUPABASE_URL`（Config）と `SUPABASE_SERVICE_ROLE_KEY`（Secret）を Vercel に → Redeploy → `/tools/maps` で「保存」ボタンと「診断履歴」カードが出るか確認 | 利用者 | 作業中（プロジェクトは作成済み） |
+| 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード（Supabase 未設定なら静かに無効） | Claude | **完了（r19）**。本番での動作確認は #3 のあと |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（法人名 or 屋号、連絡先メール、任意で所在地）→ `src/lib/legal/operator.ts` に記入 | 利用者 → Claude | 利用者「まだ」 |
 | 7 | Clerk: Legal に `/terms` `/privacy` の URL、サインアップ時の同意 ON。アプリ名を `SEO Checker` に。Restrictions で許可リスト／招待制 | 利用者 | 未 |
@@ -113,7 +113,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 ### 入力待ち（利用者からの回答が要るもの）
 
 - 運営者名・連絡先メール・所在地（#6）
-- Supabase の `SUPABASE_URL`（#3。キーは会話に貼らず Vercel へ）
+- Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
 - Business Profile API の承認結果（#5）
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
 
@@ -137,7 +137,9 @@ create index if not exists meo_reports_user_place_idx
 alter table meo_reports enable row level security;
 ```
 
-RLS は有効のまま。アプリはサーバーの service_role だけで読み書きする（ブラウザからは触らない）。`user_id` は Clerk のユーザー ID。
+RLS は有効のまま。アプリはサーバーの service_role だけで読み書きする（ブラウザからは触らない）。`user_id` は Clerk のユーザー ID（Clerk 無効の開発環境では `"local"`）。
+
+実装（r19）: `src/lib/db/supabase.ts`（PostgREST を fetch で。SDK 無し）、`src/lib/maps/history.ts`（保存・一覧・取得・削除。必ず `user_id=eq.` で絞る）、`/api/maps/history`（GET 一覧 `?placeId=` / POST 保存 `{placeId, aiCommentary?}`。保存する報告書はサーバーが同じキャッシュから組み立て直す。ブラウザの JSON は入れない）、`/api/maps/history/[id]`（GET 本文 / DELETE）。画面は `src/components/maps/MeoHistoryCard.tsx`。GET が `enabled:false` を返したら画面は保存ボタンも履歴カードも出さない。
 
 ---
 
@@ -166,6 +168,8 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 | 09-09 | 「接続し直す」が失敗するのは**コードのバグ**と判断し修正（r13） | Google ログイン済みだと `createExternalAccount` が二重接続で失敗。`reauthorize` で権限だけ追加するように変更 |
 | 09-09 | 設定画面に**利用者向け手順書**を追加（r14） | 実際は「別の Google アカウントで運用中」が多く、登録ではなく権限付与で済むのに、その案内が無かった |
 | 09-09 | Google マップは **Places API（B）から着手し、Business Profile API（A）は並行申請** | A は Google の審査制で数日〜数週間。B はキーだけで動く |
+| 09-10 | Supabase は **SDK を入れず PostgREST を fetch で叩く** | 依存を増やさない方針（他社 LLM と同じ）。必要な操作は 4 つだけ。service_role を使うので、`user_id` の絞り込みをコードで必ず付ける（`history.test.ts` で固定） |
+| 09-10 | 保存する報告書は **ブラウザから受け取らずサーバーで組み立て直す** | 任意の JSON を DB に入れさせない。同じ 6 時間キャッシュから作るので画面の内容と一致する。AI 総評だけ段落を受け取り、5 段落 × 2,000 字で縛る |
 | 09-10 | 診断履歴の保存先は **Supabase** | DB を持たない設計からの拡張。ARCHITECTURE.md / cache.ts が想定していた選択肢。無料枠で開始できる |
 | 09-10 | MEO 報告書は競合（口コミ365）の PDF と同じ 4 カテゴリ・21 項目構成。**未取得は採点の分母から外す** | 「測れなかった」を 0 点にしない方針（無料診断と同じ）。承認後にデータを差し込むだけで完成する |
 | 09-10 | 利用規約・プライバシーポリシーは**ログイン不要の公開ページ** | 登録前に読める必要がある。Google OAuth 審査と Clerk 設定で URL が必須 |
@@ -178,7 +182,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 ### MEO（Google マップ・店舗情報）— 3 フェーズ
 
 - **フェーズ 1（r15〜r16、完了）**: `/tools/maps`。検索 → 自社 / 競合の選択（localStorage）→ `/api/maps/report` で 4 カテゴリ採点の報告書 → `/api/maps/commentary` で AI 総評（任意）→ PDF。競合比較は `/api/maps/compare`。詳細は `src/lib/maps/fetch.ts` で 6 時間キャッシュ（Places の詳細は最も高い料金区分）。
-- **フェーズ 2（着手前）**: Supabase に報告書を保存。`POST /api/maps/report` に `save` オプション or 別ルート `/api/maps/history`（一覧・削除）。画面に「最新診断結果」カードと履歴一覧。`SUPABASE_URL` が無ければ保存ボタンを出さない。プライバシーポリシー第 2 条「診断結果」の行を更新すること。
+- **フェーズ 2（r19、コード完了）**: 別ルート `/api/maps/history`（一覧・保存）と `/api/maps/history/[id]`（本文・削除）。画面に「保存」ボタン、「診断履歴（自社）」カード（最新診断結果＋前回との差分、履歴表の「開く」「削除」）。`SUPABASE_URL` が無ければ出さない。プライバシーポリシー第 2 条・第 5 条の表・第 8 条を更新済み。残り: 本番での動作確認（#3 のあと）、アカウント削除時の行削除（Clerk の Webhook。現状は手動）。
 - **フェーズ 3（承認後）**: Business Profile API（Business Information / v4 reviews・localPosts・media / Performance API）で `score.ts` の `unavailable` 9 項目を埋める。インサイト 8 指標（表示回数 モバイル/PC、電話、ルート、サイト、メニュー、平均クリック率）を期間比較・CSV・詳細グラフつきで。スコープ `business.manage` を追加 → 同意画面のスコープ追加と再審査に注意。
 
 ### 既知の課題・メモ
@@ -211,3 +215,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - r17: 利用規約 `/terms`。
 - r18: プライバシーポリシー `/privacy`。
 - 利用者の指示: **やり取りのたびに引き継ぎメモ（このファイル）を更新して push する**。`CLAUDE.md` にルールを追加。
+- 利用者が Supabase プロジェクトを作成（SQL エディタの画面を共有）。SQL を案内。
+- r19: MEO 診断報告書の保存・履歴（Supabase）。lint / tsc / test（86 ファイル・1250 件）/ build すべて通過。
