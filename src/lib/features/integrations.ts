@@ -12,6 +12,7 @@ export const INTEGRATION_KEYS = [
   "pagespeed",
   "ga4",
   "places",
+  "supabase",
 ] as const;
 
 export type IntegrationKey = (typeof INTEGRATION_KEYS)[number];
@@ -73,6 +74,12 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
     label: "Google マップ（Places API）",
     envVars: ["GOOGLE_PLACES_API_KEY"],
     description: "Google マップ・店舗情報（MEO）。自社と競合のビジネス プロフィールの比較と充実度の採点",
+  },
+  supabase: {
+    key: "supabase",
+    label: "Supabase（データベース）",
+    envVars: ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
+    description: "MEO 診断報告書の保存と履歴。未設定なら保存ボタンと履歴を出さない",
   },
 };
 
