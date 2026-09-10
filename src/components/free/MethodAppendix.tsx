@@ -179,7 +179,7 @@ export function MethodAppendix({
         表示速度・被リンク・検索順位は含みません。JavaScript で描画される内容は取得時点の HTML に含まれない場合があります。
       </p>
       <p className="mt-1 text-[11px] text-muted">
-        診断日時: <Num>{formatDateTimeSeconds(fetchedAt)}</Num> ／ 使用ツール: SEO Checker 無料 AIO 診断 v
+        診断日時: <Num>{formatDateTimeSeconds(fetchedAt)}</Num> ／ 使用ツール: SEO Checker 無料 SEO・MEO・AIO 診断（サイト）v
         <Num>{version}</Num>（ルールベース）
       </p>
     </ReportSection>

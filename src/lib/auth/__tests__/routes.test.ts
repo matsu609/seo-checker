@@ -27,6 +27,13 @@ describe("公開パス", () => {
     expect(isPublicPath("/terms/")).toBe(true);
     expect(isPublicPath("/privacy")).toBe(true);
     expect(isPublicPath("/privacy/")).toBe(true);
+    // 無料 MEO 診断（実費はハンドラ側の回数制限で守る）
+    expect(isPublicPath("/meo")).toBe(true);
+    expect(isPublicPath("/api/meo/search")).toBe(true);
+    expect(isPublicPath("/api/meo/report")).toBe(true);
+    // 有料の MEO はログイン必須のまま
+    expect(isPublicPath("/tools/maps")).toBe(false);
+    expect(isPublicPath("/api/meo/history")).toBe(false);
   });
 
   it("ログイン画面は公開（保護するとログインできなくなる）", () => {
@@ -121,8 +128,15 @@ describe("保護パス", () => {
 
 describe("公開パスの一覧", () => {
   it("増えていないか（増やすときは意図的に更新する）", () => {
-    expect(PUBLIC_PATHS.pages).toEqual(["/", "/terms", "/privacy"]);
-    expect(PUBLIC_PATHS.apis).toEqual(["/api/analyze", "/api/site", "/api/faq", "/api/cron/maps-refresh"]);
+    expect(PUBLIC_PATHS.pages).toEqual(["/", "/meo", "/terms", "/privacy"]);
+    expect(PUBLIC_PATHS.apis).toEqual([
+      "/api/analyze",
+      "/api/site",
+      "/api/faq",
+      "/api/meo/search",
+      "/api/meo/report",
+      "/api/cron/maps-refresh",
+    ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);
   });
 });

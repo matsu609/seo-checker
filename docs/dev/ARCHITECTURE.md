@@ -11,7 +11,8 @@
 
 | グループ | パス | ラベル | 機能 ID | 外部依存 |
 |---|---|---|---|---|
-| 無料診断 | `/` | 無料 AIO 診断 | （元ツール） | なし（FAQ 生成のみ Anthropic） |
+| 無料診断 | `/` | 無料 SEO・AIO 診断（サイト） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
+| 無料診断 | `/meo` | 無料 MEO 診断（店舗 1 件、ログイン不要、回数制限つき） | — | Places API (New) |
 | 診断 | `/tools/site-audit` | サイト診断（テクニカル SEO） | A1 | なし（サマリーは Anthropic 任意） |
 | 診断 | `/tools/page-report` | ページ最適化レポート（AIO/LLM） | A2, A3 | PSI 任意 |
 | 診断 | `/tools/page-diagnosis` | ページ診断（キーワード × ページ） | A4 | SERP or Anthropic web 検索 |

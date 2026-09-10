@@ -6,6 +6,8 @@
  */
 import type { FormEvent } from "react";
 import { Button, Field, Input } from "@/components/ui";
+import { FREE_SUITE_LABEL } from "@/lib/features/registry";
+import { FreeTargetSwitch } from "./FreeTargetSwitch";
 import { ServiceGuideButton } from "./ServiceGuideButton";
 
 export type Mode = "page" | "site";
@@ -41,10 +43,11 @@ export function DiagnosisForm({
 }) {
   return (
     <section className="no-print mb-6 rounded-sm border border-line bg-panel p-5">
-      <h1 className="text-[20px] font-bold text-ink">無料 AIO 診断</h1>
+      <h1 className="text-[20px] font-bold text-ink">{FREE_SUITE_LABEL}</h1>
       <p className="mt-1 text-[13px] leading-relaxed text-muted">
-        URL を入力すると、AI 検索（AIO）への対応状況をルールベースで採点し、報告書として出力します。ログインも API キーも不要です。
+        URL を入力すると、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として出力します。ログインも API キーも不要です。
       </p>
+      <FreeTargetSwitch current="site" />
 
       <form onSubmit={onSubmit} className="mt-4" noValidate>
         <Field label="診断する URL" htmlFor="url" error={error}>

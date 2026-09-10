@@ -6,6 +6,7 @@ import { INTEGRATIONS, type IntegrationStatus } from "@/lib/features/integration
 import {
   categoryForPath,
   FEATURE_CATEGORIES,
+  FREE_SUITE_LABEL,
   groupsForSidebar,
   isFeatureActive,
   type Feature,
@@ -56,7 +57,6 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
   const { free, tools } = groupsForSidebar(tab);
   const { status } = useIntegrations();
   const access = useAccess();
-  const freeActive = isFeatureActive(free, pathname);
 
   return (
     <nav aria-label="メインナビゲーション" className="flex min-h-full flex-col text-on-brand">
@@ -77,29 +77,44 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         )}
       </div>
 
-      {/* 無料診断（単独ブロック） */}
+      {/* 無料診断（単独ブロック）。サイト（SEO・AIO）と店舗（MEO）の 2 本 */}
       <div className="mx-3 mt-4 rounded-md border border-on-brand/25 p-1">
-        <div className="px-2 pt-1 pb-1 text-[11px] text-on-brand-muted">無料診断</div>
-        <Link
-          href={free.path}
-          onClick={onNavigate}
-          aria-current={freeActive ? "page" : undefined}
-          className={`flex h-9 items-center gap-2.5 rounded-md px-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
-            freeActive ? "bg-on-brand text-brand" : "text-on-brand hover:bg-on-brand/10"
-          }`}
-        >
-          <FeatureIconSvg icon={free.icon} className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{free.shortLabel}</span>
-          <span
-            className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
-              freeActive ? "bg-brand text-on-brand" : "bg-on-brand text-brand"
-            }`}
-          >
-            無料
-          </span>
-        </Link>
+        <div className="px-2 pt-1 pb-1 text-[11px] font-bold text-on-brand-muted">{FREE_SUITE_LABEL}</div>
+        <ul className="space-y-0.5">
+          {free.map((f) => {
+            const active = isFeatureActive(f, pathname);
+            const setup = needsSetup(f, status);
+            return (
+              <li key={f.id}>
+                <Link
+                  href={f.path}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
+                  title={f.label}
+                  className={`flex h-9 items-center gap-2.5 rounded-md px-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
+                    active ? "bg-on-brand text-brand" : "text-on-brand hover:bg-on-brand/10"
+                  }`}
+                >
+                  <FeatureIconSvg icon={f.icon} className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{f.shortLabel}</span>
+                  {setup ? (
+                    <span className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted">準備中</span>
+                  ) : (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                        active ? "bg-brand text-on-brand" : "bg-on-brand text-brand"
+                      }`}
+                    >
+                      無料
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
         <p className="px-2 pt-1 pb-1 text-[11px] leading-snug text-on-brand-muted">
-          URL だけで診断・PDF 出力。ログイン・API 不要
+          URL または店名だけで診断・PDF 出力。ログイン・API 不要
         </p>
       </div>
 

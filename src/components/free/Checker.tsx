@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 無料 AIO 診断の画面。
+ * 無料 SEO・AIO 診断（サイト）の画面。店舗の MEO 診断は free/MeoChecker.tsx（/meo）。
  *
  * - フォーム・進捗・操作行は no-print、レポート本体（reportRef）だけを PDF 化する
  * - page は POST /api/analyze、site は POST /api/site の NDJSON ストリーム（readNdjson 経由）
