@@ -35,9 +35,10 @@ export const PLANS: readonly Plan[] = [
     id: "free",
     label: "無料診断",
     priceYen: 0,
-    summary: "URL を入れるだけで、AI 検索への対応状況を採点します。ログインも不要です。",
+    summary: "URL か店名を入れるだけで、サイト（SEO・AIO）と Google マップの店舗（MEO）を採点します。ログインも不要です。",
     highlights: [
-      "無料 AIO 診断（1 ページ / サイト全体）",
+      "無料 SEO・AIO 診断（1 ページ / サイト全体）",
+      "無料 MEO 診断（Google マップの店舗 1 件）",
       "総合スコアとカテゴリ別スコア、改善提案の一覧",
       "報告書の PDF ダウンロードと印刷",
     ],

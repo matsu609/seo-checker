@@ -12,8 +12,8 @@
  * ハンドラ内でも必ず検証せよ」と明記しているため、二重に守る。
  */
 
-/** ログイン不要で開けるページ（無料診断と、登録前に読める利用規約・プライバシーポリシー） */
-const PUBLIC_PAGES = new Set(["/", "/terms", "/privacy"]);
+/** ログイン不要で開けるページ（無料診断 2 本と、登録前に読める利用規約・プライバシーポリシー） */
+const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy"]);
 
 /**
  * ログイン不要で叩ける API。
@@ -22,10 +22,12 @@ const PUBLIC_PAGES = new Set(["/", "/terms", "/privacy"]);
  * `/api/site-audit` と `/api/site-report`（どちらも実費が出る）まで
  * 公開されてしまうため。
  *
+ * `/api/meo/search` と `/api/meo/report` は無料 MEO 診断（実費が出る）。
+ * ハンドラ側が IP ごとの回数制限と 1 日の全体上限で守る（src/lib/free/ratelimit.ts）。
  * `/api/cron/maps-refresh` は Vercel の Cron が叩く（ログインは無い）。
  * ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
  */
-const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/cron/maps-refresh"]);
+const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/cron/maps-refresh"]);
 
 /**
  * Clerk のサインイン・サインアップ画面（ここを保護するとログインできない）と、

@@ -71,7 +71,7 @@ describe("機能とプランの対応", () => {
   // 無料診断が有料になっていたら、見込み顧客の入口が塞がる
   it("無料診断と設定まわりは free のまま", () => {
     const free = features.filter((f) => f.plan === "free").map((f) => f.id);
-    expect(free.sort()).toEqual(["free", "plans", "settings"]);
+    expect(free.sort()).toEqual(["free", "free-meo", "plans", "settings"]);
   });
 
   // AI が成果物を作る機能は pro に置く（値付けの根拠）

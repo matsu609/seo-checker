@@ -8,7 +8,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "SEO Checker | 無料AIO診断 と SEO/LLMO ツール",
+    name: "SEO Checker | 無料 SEO・MEO・AIO 診断 と SEO/LLMO ツール",
     short_name: "SEO Checker",
     description:
       "URL を入れるだけで AI 検索（AIO）対策の状況を診断し、報告書として PDF 出力できるツールです。",

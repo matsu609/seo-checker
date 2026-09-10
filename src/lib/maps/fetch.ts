@@ -18,6 +18,11 @@ export interface CachedDetail {
   cached: boolean;
 }
 
+/** キャッシュにあれば返す（Google には問い合わせない）。無料診断が上限の判定に使う */
+export function peekPlaceCached(placeId: string): PlaceDetail | null {
+  return cache.get(placeId) ?? null;
+}
+
 /** refresh を付けるとキャッシュを飛ばして取り直す */
 export async function getPlaceCached(placeId: string, refresh = false): Promise<CachedDetail> {
   if (!refresh) {

@@ -87,13 +87,16 @@ export interface FeatureGroup {
   features: readonly Feature[];
 }
 
+/** 無料診断のまとめ名（サイドバーの見出し・ページタイトル） */
+export const FREE_SUITE_LABEL = "無料 SEO・MEO・AIO 診断";
+
 export const FREE_FEATURE: Feature = {
   id: "free",
   path: "/",
-  label: "無料 AIO 診断",
-  shortLabel: "無料 AIO 診断",
+  label: "無料 SEO・AIO 診断（サイト）",
+  shortLabel: "サイトを診断（SEO・AIO）",
   description:
-    "URL を入れるだけで、AI 検索（AIO）への対応状況をルールベースで採点し、報告書として PDF 出力できます。ログイン・API キー不要。",
+    "URL を入れるだけで、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として PDF 出力できます。ログイン・API キー不要。",
   details: [
     "1 ページ、またはサイト全体（sitemap と内部リンクから収集）を対象に採点",
     "総合スコア・グレード・カテゴリ別スコア・改善提案を報告書形式で表示",
@@ -106,6 +109,32 @@ export const FREE_FEATURE: Feature = {
   plan: "free",
   requires: [],
   optional: ["anthropic"],
+  group: "free",
+};
+
+/**
+ * 無料 MEO 診断。店名で探して 1 店舗の公開情報を採点する（ログイン不要）。
+ * 有料の /tools/maps との違い: 保存しない・競合なし・毎週の更新なし・AI 総評なし。
+ * 実費（Places）が出るので API 側で回数制限をかける（src/lib/free/ratelimit.ts）。
+ */
+export const FREE_MEO_FEATURE: Feature = {
+  id: "free-meo",
+  path: "/meo",
+  label: "無料 MEO 診断（Google マップの店舗）",
+  shortLabel: "店舗を診断（MEO）",
+  description:
+    "店名を入れるだけで、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として PDF 出力できます。ログイン不要。",
+  details: [
+    "店名・地域で検索して店舗を 1 件選ぶ",
+    "総合評価 A〜E と 4 カテゴリ・21 項目の判定、改善ヒント、総評（ルール生成）",
+    "口コミ情報（平均評価・件数・直近の口コミ・星の分布）",
+    "PDF ダウンロード。競合との比較・毎週の更新・AI 総評は有料プランで",
+  ],
+  featureIds: [],
+  icon: "map",
+  status: "beta",
+  plan: "free",
+  requires: ["places"],
   group: "free",
 };
 
@@ -476,7 +505,7 @@ const SETTINGS: readonly Feature[] = [
 
 /** サイドバーに出す順で並べたグループ */
 export const FEATURE_GROUPS: readonly FeatureGroup[] = [
-  { id: "free", label: "無料診断", features: [FREE_FEATURE] },
+  { id: "free", label: FREE_SUITE_LABEL, features: [FREE_FEATURE, FREE_MEO_FEATURE] },
   { id: "diagnosis", label: "診断", features: DIAGNOSIS },
   { id: "measure", label: "計測", features: MEASURE },
   { id: "research", label: "調査", features: RESEARCH },
@@ -528,13 +557,14 @@ export function requireFeature(id: string): Feature {
  * サイドバー描画用: 無料診断（単独ブロック）と、その下に並べるツールのグループ。
  * category を渡すと、そのタブの機能と共通（category 無し）の機能だけに絞る。空のグループは落とす。
  */
-export function groupsForSidebar(category?: FeatureCategoryId): { free: Feature; tools: readonly FeatureGroup[] } {
+export function groupsForSidebar(category?: FeatureCategoryId): { free: readonly Feature[]; tools: readonly FeatureGroup[] } {
+  const free = FEATURE_GROUPS.find((g) => g.id === "free")?.features ?? [FREE_FEATURE];
   const groups = FEATURE_GROUPS.filter((g) => g.id !== "free");
-  if (!category) return { free: FREE_FEATURE, tools: groups };
+  if (!category) return { free, tools: groups };
   const tools = groups
     .map((g) => ({ ...g, features: g.features.filter((f) => !f.category || f.category === category) }))
     .filter((g) => g.features.length > 0);
-  return { free: FREE_FEATURE, tools };
+  return { free, tools };
 }
 
 /** パスが属するタブ（共通の機能や無料診断なら null） */

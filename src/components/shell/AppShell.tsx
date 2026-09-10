@@ -28,7 +28,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [ta
 export function AppShell({ children, version, authEnabled }: AppShellProps) {
   const pathname = usePathname() ?? "/";
   const feature = findFeatureByPath(pathname);
-  const isFree = pathname === "/";
+  // 無料診断（/ と /meo）は画面側が <main> を持つので、シェルは素の <div> で包む
+  const isFree = feature?.group === "free";
   const drawerId = useId();
 
   const [open, setOpen] = useState(false);

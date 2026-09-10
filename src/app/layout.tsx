@@ -8,7 +8,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "SEO Checker | 無料AIO診断 と SEO/LLMO ツール",
+    default: "SEO Checker | 無料 SEO・MEO・AIO 診断 と SEO/LLMO ツール",
     template: "%s | SEO Checker",
   },
   description:
