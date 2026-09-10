@@ -79,7 +79,7 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
     key: "supabase",
     label: "Supabase（データベース）",
     envVars: ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
-    description: "MEO 診断報告書の保存と履歴。未設定なら保存ボタンと履歴を出さない",
+    description: "Google マップ・店舗情報（MEO）の登録店舗と診断報告書の履歴。週 1 回の一斉更新の保存先",
   },
 };
 
