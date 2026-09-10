@@ -26,7 +26,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r19（`d3eb138`） | main に push すると Vercel が自動デプロイ |
+| GitHub `matsu609/seo-checker` | main = r20 | main に push すると Vercel が自動デプロイ |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理 | 紹介サイト（apex）は Cloudflare 経由、`app.` は Vercel へ CNAME（DNS のみ） |
 | Clerk（**Production インスタンス**） | 稼働中。`clerk.seo-checker.tokyo` / `accounts.seo-checker.tokyo` | 2026-09-09 に Development から移行完了。DNS 5/5 Verified、SSL 発行済み |
@@ -52,7 +52,7 @@
 | `ANTHROPIC_API_KEY` | 登録はあるがアプリで空判定 | **貼り直しが必要** |
 | `PAGESPEED_API_KEY` | 利用者が作成。反映は要確認 | |
 | `GOOGLE_PLACES_API_KEY` | **未設定** | Places API (New) に制限したキーを作る |
-| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | **未設定**（r19 で使う。未設定の間は保存ボタンと履歴カードが出ないだけ） | Supabase の Project Settings → API（Data API）から。URL は Config、service_role は Secret |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | **未設定**（r19 で使う。未設定の間は保存ボタンと履歴カードが出ないだけ） | URL は `https://qcdkatzxvdgplgibevlc.supabase.co`（`/rest/v1/` 付きでも r20 で可）。キーは Project Settings → API Keys の service_role（JWT）か Secret key（`sb_secret_`）のどちらでも可（r20）。URL は Config、キーは Sensitive |
 | Preview 環境の Clerk キー | **無し** | Preview はログイン無効で動く状態。必要になったら Development の `pk_test_` / `sk_test_` を Preview 用に登録 |
 
 ### Clerk（Production）の設定
@@ -218,3 +218,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者が Supabase プロジェクトを作成（SQL エディタの画面を共有）。SQL を案内。
 - r19: MEO 診断報告書の保存・履歴（Supabase）。lint / tsc / test（86 ファイル・1250 件）/ build すべて通過。
 - 利用者が Supabase で SQL を実行（成功。行は返されませんでした）。次は Vercel の環境変数 2 つと Redeploy。
+- r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
