@@ -16,7 +16,8 @@ export interface OperatorInfo {
 
 export const OPERATOR: OperatorInfo = {
   name: null,
-  email: null,
+  // 利用者の指示（2026-09-10）。Google OAuth のデベロッパー連絡先とも揃える
+  email: "contact@seo-checker.tokyo",
   address: null,
   court: "東京地方裁判所",
 };
