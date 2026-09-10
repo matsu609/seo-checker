@@ -388,6 +388,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者の質問「Claude Code 側でチェックできる？」→ 本番 2 ドメインは egress 403、Google Cloud はログイン要で不可。リポジトリ内のソースは確認済み。許可ドメインを環境設定（Network policy）に足せば今後は可能と案内（任意）。
 - **09-11 1:01 利用者の画面で 3 点確認**: /privacy 末尾の運営者情報、seo-checker.tokyo のヘッダー・フッター（配信切り替え後の内容）、ブランディングの保存済み値。Google 審査の書類側はそろった。残り: 動作確認 → デモ動画（台本 Claude）→ 用途説明文（Claude）→ 公開・申請。ロゴは審査後。
 - 利用者が無料 AIO 診断で seo-checker.tokyo を採点した PDF（82 点・B、構造化データ 42、未対応: JSON-LD 無し・sameAs 無し、改善余地: 具体情報・FAQPage・Organization・BreadcrumbList・WebSite）を共有し「HP を改善して」→ `marketing/public/index.html` に JSON-LD 6 種と「サービス概要」表、`sitemap.xml` / `robots.txt` / `llms.txt` を追加。`analyzeFetched` でオフライン採点し **100 点（全 5 カテゴリ 100）** を確認（一時テストは削除済み）。sameAs は公式 SNS が無いため app.seo-checker.tokyo を暫定登録。**利用者に公式 SNS / GitHub 等の URL があれば sameAs に追加する（#32）**。
+- 利用者の質問「無料 AIO 診断は内部リンク数も評価対象？」→ 対象外（内部リンクはサイト全体診断でページを集めるためだけに使用）。採点は 5 カテゴリ（クローラ可否 / 構造化データ / メタ / 見出し / コンテンツ）。内部リンクの構造はサイト診断（テクニカル SEO）の担当、と回答。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
