@@ -100,7 +100,7 @@ npm run dev                  # http://localhost:3000
 | [LLMO モニタリング・LLM リサーチ](src/lib/llmo) | B4 / B8 | 登録プロンプトを複数の LLM に投げ、ブランド言及率・ドメイン引用率・回答原文・引用元を記録。LLM が内部で発行した検索クエリ（ファンアウト）も保存 | Anthropic（OpenAI / Gemini / Perplexity は任意） |
 | [プロンプト拡張](src/lib/llmo) | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
 | [検索パフォーマンス](src/lib/google/search-console) | — | 連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を期間比較つきで取得。日別の推移と、クリックの多いクエリ・ページの一覧。推定ではなく Google の実測値 | Google 連携（利用者ごと） |
-| [Google マップ・店舗情報（MEO）](src/lib/maps) | — | 店名・地域で検索して自社 1 件と競合を最大 5 件選ぶ。自社のビジネス プロフィールを基本情報 / 投稿 / 写真 / レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF 出力）を作成。総評は `ANTHROPIC_API_KEY` があれば AI が執筆。オーナー権限が要る項目は「未取得」として採点から外し、Business Profile 連携後に埋まる。競合との比較表つき。「保存」で報告書を履歴に残し、前回との差分を確認（Supabase 設定時） | Places API (New)（総評は Anthropic 任意、履歴は Supabase 任意） |
+| [Google マップ・店舗情報（MEO）](src/lib/maps) | — | 店名・地域で検索して自社 1 件と競合を最大 5 件選ぶ。自社のビジネス プロフィールを基本情報 / 投稿 / 写真 / レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF 出力）を作成。総評は `ANTHROPIC_API_KEY` があれば AI が執筆。オーナー権限が要る項目は「未取得」として採点から外し、Business Profile 連携後に埋まる。自社の店舗と競合を登録すると、登録直後に 1 回、その後は毎週月曜 5:00 に一斉更新して履歴に保存（手動の取り直しは不可）。最新診断結果と前回との差分、競合との比較表 | Places API (New) + Supabase（総評は Anthropic 任意。一斉更新は `CRON_SECRET`） |
 | [生成 AI 流入分析](src/lib/ai-traffic) | B6 | GA4 の参照元から生成 AI の流入を切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベント | GA4（利用者ごとの Google 連携でも可） |
 | [サイトレポート](src/lib/site-report) | E8 | GA4 の KPI の前期比、チャネル別流入と登録キーワードの平均順位・ファインダビリティスコア、自社・競合の最新順位表 | GA4（利用者ごとの Google 連携でも可）+ SerpApi |
 
@@ -280,7 +280,8 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `SERPAPI_KEY` | 順位計測、AI Overviews の引用チェック、ページ診断の上位 10 件 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（MEO）。Places API (New) 専用に制限したキー。請求先アカウントが必要（無料枠あり） |
-| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO 診断報告書の「保存」と履歴（Supabase）。未設定なら保存機能を出さない。テーブルは `docs/dev/OPERATIONS.md` の SQL |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗と診断報告書の履歴（Supabase）。テーブルは `docs/dev/OPERATIONS.md` の SQL |
+| `CRON_SECRET` | 毎週月曜 5:00 の一斉更新（`vercel.json` の Cron → `/api/cron/maps-refresh`）。未設定なら一斉更新は動かない |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |
 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（Stripe）の料金表を出す |

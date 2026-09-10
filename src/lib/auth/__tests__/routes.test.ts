@@ -64,6 +64,10 @@ describe("保護パス", () => {
   it("公開 API の下の階層は公開しない", () => {
     expect(isPublicPath("/api/analyze/secret")).toBe(false);
     expect(isPublicPath("/api/faq/bulk")).toBe(false);
+    // Cron の入口は 1 本だけ。/api/cron/ 配下を丸ごと公開しない
+    expect(isPublicPath("/api/cron/maps-refresh")).toBe(true);
+    expect(isPublicPath("/api/cron")).toBe(false);
+    expect(isPublicPath("/api/cron/other")).toBe(false);
   });
 
   it("実費の出る API はすべて保護される", () => {
@@ -78,7 +82,10 @@ describe("保護パス", () => {
       "/api/llms-txt/validate",
       "/api/maps/history",
       "/api/maps/history/0b2f0b8e-0000-4000-8000-000000000000",
-      "/api/maps/report",
+      "/api/maps/stores",
+      "/api/maps/stores/0b2f0b8e-0000-4000-8000-000000000000",
+      "/api/maps/compare",
+      "/api/maps/search",
       "/api/page-diagnosis",
       "/api/page-diagnosis/chat",
       "/api/page-report",
@@ -115,7 +122,7 @@ describe("保護パス", () => {
 describe("公開パスの一覧", () => {
   it("増えていないか（増やすときは意図的に更新する）", () => {
     expect(PUBLIC_PATHS.pages).toEqual(["/", "/terms", "/privacy"]);
-    expect(PUBLIC_PATHS.apis).toEqual(["/api/analyze", "/api/site", "/api/faq"]);
+    expect(PUBLIC_PATHS.apis).toEqual(["/api/analyze", "/api/site", "/api/faq", "/api/cron/maps-refresh"]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);
   });
 });

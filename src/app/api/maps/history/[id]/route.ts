@@ -2,12 +2,14 @@
  * 保存済みの MEO 診断報告書 1 件。
  *
  * GET    … { item, report }（本文つき）。自分の行でなければ 404
+ * PATCH  … { aiCommentary } を書き足す（画面で生成した AI 総評を残す）
  * DELETE … 削除。自分の行でなければ 404
  */
+import { z } from "zod";
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
-import { deleteMeoReport, getMeoReport, type MeoHistoryEntry } from "@/lib/maps/history";
+import { AiCommentarySchema, attachAiCommentary, deleteMeoReport, getMeoReport, type MeoHistoryEntry } from "@/lib/maps/history";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -39,6 +41,22 @@ export async function GET(_request: Request, context: Context) {
     const entry = await getMeoReport(ready.userId, ready.id);
     if (!entry) return Response.json({ error: "その履歴はありません" }, { status: 404 });
     return Response.json(entry satisfies MapsHistoryEntryResponse, { headers: { "cache-control": "no-store" } });
+  } catch (err) {
+    return dbErrorResponse(err);
+  }
+}
+
+const PatchSchema = z.object({ aiCommentary: AiCommentarySchema.min(1) });
+
+export async function PATCH(request: Request, context: Context) {
+  const ready = await prepare(context);
+  if (ready instanceof Response) return ready;
+  const parsed = PatchSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return Response.json({ error: "総評の形式が正しくありません" }, { status: 400 });
+  try {
+    const ok = await attachAiCommentary(ready.userId, ready.id, parsed.data.aiCommentary);
+    if (!ok) return Response.json({ error: "その履歴はありません" }, { status: 404 });
+    return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
   } catch (err) {
     return dbErrorResponse(err);
   }

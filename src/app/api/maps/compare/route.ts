@@ -1,92 +1,82 @@
 /**
- * POST /api/maps/compare
- * 選んだ店舗（自社 + 競合）の詳細を取り、プロフィールの充実度を採点して返す。
+ * GET /api/maps/compare?ownPlaceId=…
+ * 自社と、その競合として登録した店舗の「最新の保存済み報告書」を並べて返す。
  *
- * 詳細は fetch.ts のキャッシュ越しに取る（レポートと共用。同じ店舗を何度比較しても
- * 一定時間は課金されない）。採点は純粋関数（src/lib/maps/score.ts）で、ここでは呼ぶだけ。
+ * Google には問い合わせない（数字は週 1 回の一斉更新のもの）。
+ * まだ 1 回も取れていない店舗は missing に入れる。
  */
-import { z } from "zod";
 import { requireAuth } from "@/lib/auth/guard";
-import { PlacesError, placesErrorResponse } from "@/lib/maps/client";
-import { getPlaceCached } from "@/lib/maps/fetch";
-import { scoreProfile, type ProfileScore } from "@/lib/maps/score";
-import { MAX_PLACES, type PlaceDetail } from "@/lib/maps/types";
+import { currentUserId } from "@/lib/auth/user";
+import { dbErrorResponse } from "@/lib/db/supabase";
+import { latestReports } from "@/lib/maps/history";
+import type { ProfileScore } from "@/lib/maps/score";
+import { listStores, type MeoStore } from "@/lib/maps/stores";
+import type { PlaceDetail } from "@/lib/maps/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 30;
 
-/** Google の Place ID（ChIJ… のような英数字）。それ以外は Google に投げずに弾く */
 const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
-
-const BodySchema = z.object({
-  placeIds: z
-    .array(z.string().regex(PLACE_ID, "店舗の ID が正しくありません"))
-    .min(1, "店舗を選んでください")
-    .max(MAX_PLACES, `比較できるのは ${MAX_PLACES} 件までです`),
-  refresh: z.boolean().optional(),
-});
 
 export interface MapsCompareItem {
   placeId: string;
+  /** 登録名（Google の最新の店名は detail.name） */
+  name: string;
+  role: MeoStore["role"];
+  /** この数字を取った日時 */
+  generatedAt: string;
   detail: PlaceDetail;
   score: ProfileScore;
 }
 
 export interface MapsCompareResponse {
   results: MapsCompareItem[];
-  /** 見つからなかった（閉業で消えた等）店舗の ID */
-  missing: string[];
-  /** 全件キャッシュから返したか */
-  cached: boolean;
+  /** まだ報告書が無い店舗（登録直後に取れなかった等。次回の一斉更新で取る） */
+  missing: { placeId: string; name: string }[];
 }
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
   const denied = await requireAuth({ feature: "maps" });
   if (denied) return denied;
+  const userId = await currentUserId();
+  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
 
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return Response.json({ error: "リクエスト形式が不正です" }, { status: 400 });
+  const ownPlaceId = new URL(request.url).searchParams.get("ownPlaceId") ?? "";
+  if (!PLACE_ID.test(ownPlaceId)) {
+    return Response.json({ error: "自社店舗の ID が正しくありません" }, { status: 400 });
   }
-  const parsed = BodySchema.safeParse(raw);
-  if (!parsed.success) {
-    return Response.json({ error: parsed.error.issues[0]?.message ?? "入力が正しくありません" }, { status: 400 });
-  }
-  const { refresh } = parsed.data;
-  const placeIds = [...new Set(parsed.data.placeIds)];
 
   try {
-    let allCached = true;
-    const missing: string[] = [];
-    const details = await Promise.all(
-      placeIds.map(async (id): Promise<PlaceDetail | null> => {
-        try {
-          const { detail, cached } = await getPlaceCached(id, refresh);
-          if (!cached) allCached = false;
-          return detail;
-        } catch (err) {
-          // 1 件が消えていても他は出す。それ以外のエラー（キー・上限）は全体を止める
-          if (err instanceof PlacesError && err.code === "not_found") {
-            missing.push(id);
-            return null;
-          }
-          throw err;
-        }
-      }),
+    const stores = await listStores(userId);
+    const own = stores.find((s) => s.role === "own" && s.placeId === ownPlaceId);
+    if (!own) return Response.json({ error: "その店舗は登録されていません" }, { status: 404 });
+    const targets = [own, ...stores.filter((s) => s.role === "competitor" && s.ownPlaceId === ownPlaceId)];
+
+    const latest = await latestReports(
+      userId,
+      targets.map((s) => s.placeId),
     );
-
-    const now = new Date();
     const results: MapsCompareItem[] = [];
-    for (const detail of details) {
-      if (!detail) continue;
-      results.push({ placeId: detail.id, detail, score: scoreProfile(detail, now) });
+    const missing: MapsCompareResponse["missing"] = [];
+    for (const s of targets) {
+      const entry = latest.get(s.placeId);
+      if (!entry) {
+        missing.push({ placeId: s.placeId, name: s.name });
+        continue;
+      }
+      results.push({
+        placeId: s.placeId,
+        name: s.name,
+        role: s.role,
+        generatedAt: entry.report.generatedAt,
+        detail: entry.report.detail,
+        score: entry.report.score,
+      });
     }
-    const body: MapsCompareResponse = { results, missing, cached: allCached };
+    const body: MapsCompareResponse = { results, missing };
     return Response.json(body, { headers: { "cache-control": "no-store" } });
   } catch (err) {
-    return placesErrorResponse(err);
+    return dbErrorResponse(err);
   }
 }

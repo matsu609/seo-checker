@@ -8,10 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fixture from "./fixtures/place.json";
 import {
   AiCommentarySchema,
+  attachAiCommentary,
   deleteMeoReport,
   fromRow,
   getMeoReport,
   HISTORY_LIMIT,
+  latestReports,
   listMeoReports,
   saveMeoReport,
   toRow,
@@ -136,6 +138,39 @@ describe("問い合わせ", () => {
 
     fetchMock.mockResolvedValueOnce(Response.json([]));
     await expect(deleteMeoReport("user_2", ROW.id)).resolves.toBe(false);
+  });
+
+  it("店舗ごとの最新 1 件だけ拾う（複数店舗を 1 回の問い合わせで）", async () => {
+    const older = { ...ROW, id: "0b2f0b8e-0000-4000-8000-000000000001", generated_at: "2026-09-01T00:00:00.000Z", report: { generatedAt: "old" } };
+    const newer = { ...ROW, report: { generatedAt: "new" } };
+    const other = { ...ROW, id: "0b2f0b8e-0000-4000-8000-000000000002", place_id: "ChIJother", report: { generatedAt: "other" } };
+    fetchMock.mockResolvedValueOnce(Response.json([newer, older, other]));
+    const map = await latestReports("user_1", ["ChIJsample", "ChIJother", "ChIJnone"]);
+    expect(map.size).toBe(2);
+    expect(map.get("ChIJsample")?.report).toEqual({ generatedAt: "new" });
+    expect(map.get("ChIJother")?.report).toEqual({ generatedAt: "other" });
+    expect(calledUrl()).toContain("user_id=eq.user_1");
+    expect(calledUrl()).toContain("place_id=in.(");
+    expect(calledUrl()).toContain("order=place_id.asc,generated_at.desc");
+  });
+
+  it("店舗が無ければ問い合わせない", async () => {
+    await expect(latestReports("user_1", [])).resolves.toEqual(new Map());
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("AI 総評は本文に書き足す（他人の行なら false）", async () => {
+    fetchMock
+      .mockResolvedValueOnce(Response.json([{ ...ROW, report: { generatedAt: "x", aiCommentary: null } }]))
+      .mockResolvedValueOnce(Response.json([{ id: ROW.id }]));
+    await expect(attachAiCommentary("user_1", ROW.id, ["段落"])).resolves.toBe(true);
+    const [, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ report: { generatedAt: "x", aiCommentary: ["段落"] } });
+    expect(fetchMock.mock.calls[1]![0] as string).toContain("user_id=eq.user_1");
+
+    fetchMock.mockResolvedValueOnce(Response.json([]));
+    await expect(attachAiCommentary("user_2", ROW.id, ["段落"])).resolves.toBe(false);
   });
 
   it("応答の形が違えばエラーにする（黙って空にしない）", async () => {
