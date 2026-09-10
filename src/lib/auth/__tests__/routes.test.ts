@@ -21,9 +21,12 @@ describe("公開パス", () => {
     expect(isPublicPath("/api/analyze")).toBe(true);
     expect(isPublicPath("/api/site")).toBe(true);
     expect(isPublicPath("/api/faq")).toBe(true);
-    // 利用規約は登録前に読めなければならない
+    // 利用規約とプライバシーポリシーは登録前に読めなければならない
+    // （Google OAuth の審査と Clerk の設定でも URL を求められる）
     expect(isPublicPath("/terms")).toBe(true);
     expect(isPublicPath("/terms/")).toBe(true);
+    expect(isPublicPath("/privacy")).toBe(true);
+    expect(isPublicPath("/privacy/")).toBe(true);
   });
 
   it("ログイン画面は公開（保護するとログインできなくなる）", () => {
@@ -108,7 +111,7 @@ describe("保護パス", () => {
 
 describe("公開パスの一覧", () => {
   it("増えていないか（増やすときは意図的に更新する）", () => {
-    expect(PUBLIC_PATHS.pages).toEqual(["/", "/terms"]);
+    expect(PUBLIC_PATHS.pages).toEqual(["/", "/terms", "/privacy"]);
     expect(PUBLIC_PATHS.apis).toEqual(["/api/analyze", "/api/site", "/api/faq"]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);
   });

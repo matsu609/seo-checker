@@ -196,6 +196,16 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         >
           利用規約
         </Link>
+        <span className="mx-1.5" aria-hidden="true">
+          ·
+        </span>
+        <Link
+          href="/privacy"
+          onClick={onNavigate}
+          className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60"
+        >
+          プライバシー
+        </Link>
       </div>
     </nav>
   );
