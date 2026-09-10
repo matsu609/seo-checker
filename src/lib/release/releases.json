@@ -109,6 +109,11 @@
       "commit": "86dea1a",
       "date": "2026-09-10",
       "summary": "サイドバーを SEO / AIO / MEO のタブに分割（開いている画面のタブを優先、選択はブラウザに保存）"
+    },
+    {
+      "commit": "7ea3020",
+      "date": "2026-09-10",
+      "summary": "利用規約・プライバシーポリシーの連絡先を contact@seo-checker.tokyo に"
     }
   ]
 }
