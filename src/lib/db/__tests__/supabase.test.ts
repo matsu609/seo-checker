@@ -3,17 +3,42 @@
  * 「未設定なら not_configured」「キーはヘッダにだけ載る」「エラー本文を画面に流さない」を見る。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DbError, dbErrorResponse, isSupabaseConfigured, supabaseRest } from "../supabase";
+import { DbError, dbErrorResponse, isSupabaseConfigured, normalizeSupabaseUrl, supabaseAuthHeaders, supabaseRest } from "../supabase";
 
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
 
-function configure() {
+function configure(key = "eyJ.service-role.jwt") {
   vi.stubEnv("SUPABASE_URL", "https://example.supabase.co/");
-  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-role-key");
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", key);
 }
+
+describe("URL と鍵の形式", () => {
+  it("Data API 画面からコピーした /rest/v1/ 付きの URL でも二重にならない", () => {
+    expect(normalizeSupabaseUrl("https://x.supabase.co")).toBe("https://x.supabase.co");
+    expect(normalizeSupabaseUrl("https://x.supabase.co/")).toBe("https://x.supabase.co");
+    expect(normalizeSupabaseUrl("https://x.supabase.co/rest/v1/")).toBe("https://x.supabase.co");
+    expect(normalizeSupabaseUrl("  https://x.supabase.co/rest/v1 ")).toBe("https://x.supabase.co");
+  });
+
+  it("従来の JWT は Bearer にも載せ、新しい sb_secret_ は apikey だけ", () => {
+    expect(supabaseAuthHeaders("eyJabc")).toEqual({ apikey: "eyJabc", authorization: "Bearer eyJabc" });
+    expect(supabaseAuthHeaders("sb_secret_abc")).toEqual({ apikey: "sb_secret_abc" });
+  });
+
+  it("URL に /rest/v1/ が付いていても正しい場所を叩く", async () => {
+    vi.stubEnv("SUPABASE_URL", "https://example.supabase.co/rest/v1/");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "sb_secret_abc");
+    const fetchMock = vi.fn(async () => Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+    await supabaseRest("meo_reports");
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://example.supabase.co/rest/v1/meo_reports");
+    expect((init.headers as Record<string, string>).authorization).toBeUndefined();
+  });
+});
 
 describe("設定の有無", () => {
   it("両方そろって初めて有効", () => {
@@ -51,8 +76,8 @@ describe("リクエストの形", () => {
     expect(url).toBe("https://example.supabase.co/rest/v1/meo_reports?select=id");
     expect(init.method).toBe("POST");
     const headers = init.headers as Record<string, string>;
-    expect(headers.apikey).toBe("service-role-key");
-    expect(headers.authorization).toBe("Bearer service-role-key");
+    expect(headers.apikey).toBe("eyJ.service-role.jwt");
+    expect(headers.authorization).toBe("Bearer eyJ.service-role.jwt");
     expect(headers.prefer).toBe("return=representation");
     expect(headers["content-type"]).toBe("application/json");
     expect(init.body).toBe('{"a":1}');

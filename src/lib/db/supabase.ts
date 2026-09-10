@@ -32,6 +32,30 @@ export function isSupabaseConfigured(): boolean {
   return env("SUPABASE_URL") !== null && env("SUPABASE_SERVICE_ROLE_KEY") !== null;
 }
 
+/**
+ * SUPABASE_URL の正規化。ダッシュボードの「Data API」画面は `.../rest/v1/` まで
+ * 含んだ URL をコピーさせるので、どちらを貼られても同じ土台にする。
+ */
+export function normalizeSupabaseUrl(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/, "")
+    .replace(/\/+$/, "");
+}
+
+/**
+ * 認証ヘッダ。鍵の形式が 2 種類ある:
+ * - 従来の service_role（JWT。`eyJ` で始まる）: apikey と Authorization: Bearer の両方
+ * - 新しい Secret key（`sb_secret_` で始まる）: apikey だけ（JWT ではないので Bearer に載せない）
+ * どちらも RLS を素通りする管理者権限。
+ */
+export function supabaseAuthHeaders(key: string): Record<string, string> {
+  const headers: Record<string, string> = { apikey: key };
+  if (key.startsWith("eyJ")) headers.authorization = `Bearer ${key}`;
+  return headers;
+}
+
 export interface RestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   /** JSON にして送る本文 */
@@ -53,8 +77,7 @@ export async function supabaseRest<T = unknown>(path: string, options: RestOptio
   }
 
   const headers: Record<string, string> = {
-    apikey: key,
-    authorization: `Bearer ${key}`,
+    ...supabaseAuthHeaders(key),
     accept: "application/json",
   };
   if (options.body !== undefined) headers["content-type"] = "application/json";
@@ -62,7 +85,7 @@ export async function supabaseRest<T = unknown>(path: string, options: RestOptio
 
   let res: Response;
   try {
-    res = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/${path}`, {
+    res = await fetch(`${normalizeSupabaseUrl(url)}/rest/v1/${path}`, {
       method: options.method ?? "GET",
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
