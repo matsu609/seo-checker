@@ -171,7 +171,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 30 | 紹介サイトの文面反映（運営者情報、SEO/AIO/MEO の説明、Google 連携の説明、フッターのリンク、CTA をアプリへ） | Claude | **完了（09-10、main にマージ。push で Workers Builds が配信）** |
 | 28 | 紹介サイトの文面 | Claude | 完了（#30 に統合） |
 | 26 | contact@seo-checker.tokyo の受信（Cloudflare Email Routing） | 利用者 | 完了（利用者報告「転送設定は済んでいます」） |
-| 27 | Google Auth Platform → ブランディング → 「デベロッパーの連絡先情報」に contact@seo-checker.tokyo を追加（ユーザーサポートメールは Google アカウントのアドレスしか選べないので matsumatsu452@gmail.com のまま） | 利用者 | 未（#26 のあと） |
+| 27 | Google Auth Platform → ブランディング: デベロッパー連絡先に contact@seo-checker.tokyo（09-11 0:30 画面で確認、保存前）。承認済みドメイン seo-checker.tokyo。あわせてホームページ / プライバシー / 規約の URL を入れて保存 | 利用者 | ほぼ完了（保存と URL 欄の確認） |
 | 7 | Clerk: Legal に `/terms` `/privacy` の URL、サインアップ時の同意 ON。アプリ名を `SEO Checker` に。Restrictions で許可リスト／招待制 | 利用者 | 未 |
 | 8 | Google Auth Platform → ブランディングに利用規約 / プライバシーの URL | 利用者 | 未 |
 | 9 | 鍵のローテーション: Clerk Production `sk_live_`（Instance → API keys → Regenerate → Vercel 更新 → Redeploy）、Clerk Development `sk_test_`、Google OAuth クライアントシークレット（シークレットを追加 → Clerk に貼り替え → 古い方を無効化） | 利用者 | 未 |
@@ -378,6 +378,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者の指示「運営者名は SEO 研究所（代表: 松下）、所在地は請求時開示」→ **r24**: operator.ts に反映（/terms /privacy に表示）。紹介サイトの文面を `docs/marketing/site-copy.md` に作成（ヒーロー、3 列の説明、Google 連携の説明、料金、フッター、審査向けチェックリスト）。貼り付けは利用者（#28）。
 - 利用者「HP をこのリポジトリに入れたので内容の反映を」→ `marketing/public/index.html` に反映（#30）: title/OG、ヘッダー nav（3 つの領域・Google 連携・ログイン）、ヒーロー、`#areas`（SEO/AIO/MEO）、ツール一覧に店舗（MEO）グループ、`#google`（読み取り専用の説明 + /privacy /terms）、ご相談窓口（SEO 研究所（代表: 松下）/ contact@）、フッター（アプリ / 規約 / ポリシー / © SEO 研究所）、CTA 全部をアプリ URL に（`#contact` 残り 0）。Playwright でデスクトップ・モバイルの描画確認、`wrangler deploy --dry-run` OK、lint / tsc / test / build 通過。add-release は実行せず（アプリの動きは不変、前回の方針どおり）。**配信の確認は利用者のブラウザで**（このセッションから seo-checker.tokyo は 403）。
 - 利用者の指示「フッターの運営者名・アプリ・規約・ポリシーのリンクは別ページ（別タブ）で」→ フッターと Google 連携節の app.seo-checker.tokyo 向けリンクに `target="_blank" rel="noopener"`（5 か所）。CTA ボタンは同じタブのまま。wrangler dry-run / lint / tsc OK。テスト・ビルドは HTML のみの変更のため省略せず前回結果を維持（アプリのコードに変更なし）。
+- 09-11 0:30 利用者が Google Auth Platform → ブランディングで承認済みドメイン `seo-checker.tokyo`、デベロッパー連絡先 2 件（matsumatsu452@gmail.com / contact@seo-checker.tokyo）を入力（保存前の画面）。上部の URL 欄（ホームページ / privacy / terms）の確認と保存を案内。審査提出時は Search Console でのドメイン所有確認が必要（TXT レコード）。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
