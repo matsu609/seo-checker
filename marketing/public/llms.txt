@@ -1,0 +1,21 @@
+# SEO Checker
+
+> Google 検索（SEO）・生成 AI（AIO）・Google マップ（MEO）の 3 つを、ひとつのツールで診断する日本語の SaaS。運営は SEO 研究所（代表: 松下）。連絡先は contact@seo-checker.tokyo。
+
+- URL を入れるだけの無料 AIO 診断（ログイン・API キー不要、5 カテゴリ 100 点満点、ルールベースで生成 AI 不使用、PDF 出力）
+- Search Console と Google アナリティクス 4 を読み取り専用で連携し、実測値を表示
+- Google マップの店舗情報を 4 カテゴリ 21 項目で採点し、競合と比較。毎週月曜 5:00 に自動更新
+- 料金: 無料診断 0 円 / スタンダード 5,000 円 / プロ 10,000 円（月額・税別）
+
+## 主要ページ
+
+- [紹介サイト（このページ）](https://seo-checker.tokyo/): サービスの説明、機能一覧、料金、よくある質問、Google 連携の説明
+- [アプリ本体・無料診断](https://app.seo-checker.tokyo/): URL を入れて診断する画面
+- [料金プラン](https://app.seo-checker.tokyo/plans)
+- [利用規約](https://app.seo-checker.tokyo/terms)
+- [プライバシーポリシー](https://app.seo-checker.tokyo/privacy)
+
+## 補足
+
+- 順位や成果を保証するものではない。スコアは技術チェック表の達成率
+- ツールがサイトを書き換えることはない。改修案の反映は運用者が行う

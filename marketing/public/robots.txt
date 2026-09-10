@@ -1,0 +1,5 @@
+# 紹介サイト seo-checker.tokyo。AI 検索用クローラを含め、すべて許可する。
+User-agent: *
+Allow: /
+
+Sitemap: https://seo-checker.tokyo/sitemap.xml
