@@ -99,6 +99,11 @@
       "commit": "d2660c6",
       "date": "2026-09-10",
       "summary": "Supabase の URL（/rest/v1/ 付き）と新しい Secret key（sb_secret_）に対応"
+    },
+    {
+      "commit": "929a7c5",
+      "date": "2026-09-10",
+      "summary": "MEO の数字を毎週月曜 5:00 に一斉更新（店舗の登録制、手動の取り直しを廃止、競合比較は保存済みの数字から）"
     }
   ]
 }
