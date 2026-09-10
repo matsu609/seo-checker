@@ -6,6 +6,7 @@
  * リスクと責任は利用者が負う建て付けにしてある。運営者名・連絡先は
  * src/lib/legal/operator.ts で一元管理する。
  */
+import Link from "next/link";
 import {
   OPERATOR,
   SERVICE_NAME,
@@ -179,6 +180,11 @@ export function TermsOfService() {
       <div className="rounded-sm border border-line bg-panel px-5 py-6 @md:px-8">
         <p className="text-[13px] leading-relaxed text-muted">
           {S} をご利用いただきありがとうございます。この規約は、安心してお使いいただくための約束事をまとめたものです。各条の冒頭に「かんたんに言うと」を添えていますが、正式な内容は本文のとおりです。
+          情報の取り扱いは{" "}
+          <Link href="/privacy" className="underline underline-offset-2">
+            プライバシーポリシー
+          </Link>
+          をご覧ください。
         </p>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 text-[12px] text-muted">
           <div>
