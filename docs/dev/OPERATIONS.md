@@ -104,6 +104,26 @@
 - ユーザー: `matsumatsu452@gmail.com`（メール確認済み、Google 連携済み）。Development にいたユーザーは引き継がれていない。
 - **未対応**: アプリ名が `My Application` のまま（ログイン画面・確認メールに出る）。登録制限が無い（誰でも登録できる。README 235 行目の推奨に反する）。Legal の URL（利用規約 `/terms`・プライバシー `/privacy`）未登録。
 
+### Cloudflare Workers（紹介サイト `seo-checker-hp`）
+
+apex `https://seo-checker.tokyo/` を配信する Worker。2026-09-10 に、ビルド元を旧 `matsu609/seo-checker-HP` から
+**このリポジトリの `marketing/`** に切り替えた（利用者が設定・保存済み）。画面は Compute（Workers） → `seo-checker-hp` → 設定 → ビルド。
+
+| 項目 | 値 | 備考 |
+|---|---|---|
+| Git リポジトリ | `matsu609/seo-checker` | |
+| ルート ディレクトリ | **`marketing`** | ここが `/` だと `Could not detect a directory containing static files` で失敗する |
+| ビルド コマンド | **なし（空）** | `marketing/` に `package.json` は無い。静的 HTML なのでビルド不要 |
+| デプロイ コマンド | `npx wrangler deploy` | 既定のまま |
+| バージョン コマンド | `npx wrangler versions upload` | 非本番ブランチ用。未使用 |
+| プロダクション ブランチ | `main` | |
+| 非本番ブランチのビルド | オフ | 作業ブランチが main と同じ内容で二重にビルドされるため |
+| 監視パス（含む / 除外） | `*` / **空** | 除外に `*` を入れると全パスが除外され、ビルドが二度と走らない。含むを `marketing/*` に絞るのは、この欄がルートディレクトリからの相対かどうか確証が無いので避けた |
+| API トークン | `seo-checker-hp build token` | 変更していない |
+
+成功したビルドのログには `Read 4 files from the assets directory`（HTML + アイコン 3 つ）と出る。
+失敗したビルドの Retry は同じコミットで走るので、設定を直したあとは新しいコミットでビルドし直す。
+
 ### Cloudflare の DNS（`seo-checker.tokyo` ゾーン）
 
 Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ（プロキシ無効）**。
@@ -144,7 +164,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
-| 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | 未（ソース側は完了。09-10 に利用者が案 A を選択し、これが**唯一の残り作業**） |
+| 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | **設定は完了（09-10 23:59 保存）**。残りはビルドの成功と `https://seo-checker.tokyo/` の表示確認だけ。値は「Cloudflare Workers（紹介サイト）」の節に記録 |
 | 30 | 紹介サイトの「ご相談窓口」に残っているプレースホルダを運営者情報（SEO 研究所（代表: 松下） / contact@seo-checker.tokyo）に差し替える。ついでに #28 の文面（/terms /privacy /app のリンク）を反映 | Claude | 未（#29 と独立して着手可） |
 | 28 | 紹介サイト seo-checker.tokyo に `docs/marketing/site-copy.md` の文面を貼る（フッターに /terms /privacy /app のリンク、Google 連携の説明） | 利用者 → Claude | ソースがこのリポジトリに入ったので **Claude が直せる**（#30 に統合） |
 | 26 | contact@seo-checker.tokyo の受信（Cloudflare Email Routing） | 利用者 | 完了（利用者報告「転送設定は済んでいます」） |
@@ -364,3 +384,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者の質問「Claude Code は別のリポジトリの情報を別のリポジトリにプッシュできないの？」→ **できるが、そのリポジトリが push 権限つきでセッションに接続されている必要がある**。今回 `seo-checker-hp` は読み取り専用（公開リポジトリなので clone だけは無条件）でつないだため、書き戻しは不可。読み取り → こちらに取り込む向きは可、と説明。
 - 利用者「リポジトリを分けたけど意味なかった？」→ 分ける利点（配信系統の切り分け、依存が要らない、権限を分けられる）と、分けると必ず起きる問題（同じ事実が両方に出る）を提示。判断軸は**同じ事実が両方に書かれるか**。今回は運営者名・連絡先・料金・アイコンが該当し、実際にずれていた。A（統合）/ B（分けたまま旧リポジトリに push、`marketing/` は削除）/ C（折衷）を提示。
 - **利用者は A（統合）を選択。**本番はまだ切り替わっていないので、残りは #29（Cloudflare の Build 設定）だけ。切り替え後に旧リポジトリ `matsu609/seo-checker-HP` をアーカイブする。
+- 利用者が Cloudflare の Build 設定を切り替え（#29）。Git リポジトリ `matsu609/seo-checker`、ルートディレクトリ `marketing`、ビルドコマンドは空、非本番ブランチのビルドはオフ。**監視パスの「除外」に `*` を入れかけていたのを保存前に止めた**（全パス除外になり、以後ビルドが一切走らなくなるため）。設定値は上の節に記録。
+- このコミットは**ビルドのきっかけを作るための push** でもある（Workers Builds は push で走る。保存だけでは走らないことがある）。
