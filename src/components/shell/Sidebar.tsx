@@ -186,6 +186,16 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
       {/* フッター */}
       <div className="mt-auto border-t border-on-brand/15 px-4 py-3 pt-3 text-[11px] text-on-brand-muted">
         <span className="tabular-nums">v{version}</span> · ルールベース診断
+        <span className="mx-1.5" aria-hidden="true">
+          ·
+        </span>
+        <Link
+          href="/terms"
+          onClick={onNavigate}
+          className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60"
+        >
+          利用規約
+        </Link>
       </div>
     </nav>
   );

@@ -222,6 +222,7 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 | 範囲 | ログイン | 中身 |
 |---|---|---|
 | `/`、`POST /api/analyze`、`POST /api/site`、`POST /api/faq` | **不要** | 無料 AIO 診断。見込み顧客に試してもらう入口なので公開のまま |
+| `/terms` | **不要** | 利用規約。登録前に読めるよう公開。運営者名・連絡先は `src/lib/legal/operator.ts` |
 | `/tools/*`、`/settings`、上記以外の API すべて | **必要** | 外部 API の実費が出るため |
 
 公開範囲の定義は `src/lib/auth/routes.ts` の 1 か所だけにあり、`src/lib/auth/__tests__/routes.test.ts` が固定しています。
