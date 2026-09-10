@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r24 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r25 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -94,6 +94,7 @@
 | `ANTHROPIC_API_KEY` | **設定済み**（09-10 17:30 設定画面で「設定済み」を確認） | Claude Console のクレジット購入済み |
 | `PAGESPEED_API_KEY` | **登録済み**（利用者報告 09-10 17:4x「AB 完了」）。設定画面での確認は未 | |
 | `GOOGLE_PLACES_API_KEY` | **設定済み**（09-10 17:30 設定画面で「設定済み」を確認） | seo-checker の Places API (New) 制限つきキー |
+| `FREE_MEO_DAILY_LIMIT` / `FREE_MEO_DAILY_SEARCH_LIMIT` | 未設定（既定 500 / 1,500 で動く。0 で無料 MEO 診断を停止） | r25 |
 | `CRON_SECRET` | **登録済みの見込み**（利用者「できました」09-10 17:30。Cron Jobs 画面での確認は未） | 長いランダム文字列（例: `openssl rand -hex 32` か、パスワード生成器で 40 文字以上）。Vercel に Secret で登録 → Redeploy。Vercel が Cron の呼び出しに自動で付ける |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | **登録済み**（利用者報告 09-10 14:4x。本番での動作確認は Places キー登録後） | URL は `https://qcdkatzxvdgplgibevlc.supabase.co`（`/rest/v1/` 付きでも r20 で可）。キーは Project Settings → API Keys の service_role（JWT）か Secret key（`sb_secret_`）のどちらでも可（r20）。URL は Config、キーは Secret。Production + Preview |
 | Preview 環境の Clerk キー | **無し** | Preview はログイン無効で動く状態。必要になったら Development の `pk_test_` / `sk_test_` を Preview 用に登録 |
@@ -194,9 +195,10 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 32 | 紹介サイトの JSON-LD `sameAs` に公式 SNS（X / Instagram / YouTube / note など）や GitHub の URL を追加（利用者から URL をもらう）。FAQ の文面を変えたら FAQPage の JSON-LD も同文に直す | 利用者 → Claude | URL 待ち |
 | 33 | MEO「サイト・Google 情報の調査」カード（提案中）: 登録店舗の公式サイト URL（Places の websiteUri）に無料 AIO 診断エンジン（`analyzeFetched`）を走らせ、JSON-LD / 本文から店名・住所・電話を抜いて Places の値と NAP 整合を判定。競合 5 件にも同じ診断をして並べる。API 費用ほぼゼロ、半日 | Claude | 利用者の GO 待ち |
 | 34 | MEO「AI 検索での見つかり方」カード（提案中）: 地域 + 業種から質問 5 本を自動生成（prompt-expansion 流用）→ LLMO の仕組みで Claude（Web 検索つき）に投げ、自社名 + 競合名の言及を判定 → 質問 × AI の表と店名の出現集計。まず Claude のみ（1 店舗 1 回 15〜30 円）、月 1 回の自動実行 + 推移。他社 LLM は各 API キーが要る。競合未登録なら Places 検索で同地域・同業種の上位 5 件を自動投入も可 | Claude | 利用者の GO 待ち |
-| 37 | **無料 MEO 診断**（利用者が追加を決定。A/B は判断待ち）: A = ログイン不要の公開ページ `/meo` + 公開 API（`PUBLIC_PAGES` / `PUBLIC_APIS` に追加）、IP ごとの回数制限（/api/site の仕組み流用）、日次の全体上限（環境変数、超過時は「本日の無料枠は終了」）、6h キャッシュ、報告書末尾に有料導線。B = free プランで自社 1 店舗のみ登録。料金表（catalog / PlanTable）と紹介サイト・README を更新 | 利用者 → Claude | A/B 判断待ち |
-| 35 | 無料プランの線引き（提案中）: free プランに MEO 自社 1 店舗 1 回（店舗登録 1 件・履歴 1 件・一斉更新対象外・競合なし・AI 総評なし）と #33、#34（Claude のみ 3 質問 1 回）を入れる案。決まったら料金表（PlanTable / plans catalog / 紹介サイト）と登録制限を実装 | 利用者 → Claude | 判断待ち |
+| 37 | **無料 MEO 診断** | Claude | **完了（r25、案 A = ログイン不要 `/meo`）**。旧メモ:: A = ログイン不要の公開ページ `/meo` + 公開 API（`PUBLIC_PAGES` / `PUBLIC_APIS` に追加）、IP ごとの回数制限（/api/site の仕組み流用）、日次の全体上限（環境変数、超過時は「本日の無料枠は終了」）、6h キャッシュ、報告書末尾に有料導線。B = free プランで自社 1 店舗のみ登録。料金表（catalog / PlanTable）と紹介サイト・README を更新 | 利用者 → Claude | A/B 判断待ち |
+| 35 | 無料プランの線引き | — | r25 で確定: ログイン不要 = サイト診断 + MEO 診断（1 店舗、保存・競合・更新・AI 総評なし）。#33 / #34 を無料に入れるかは別途。旧メモ:: free プランに MEO 自社 1 店舗 1 回（店舗登録 1 件・履歴 1 件・一斉更新対象外・競合なし・AI 総評なし）と #33、#34（Claude のみ 3 質問 1 回）を入れる案。決まったら料金表（PlanTable / plans catalog / 紹介サイト）と登録制限を実装 | 利用者 → Claude | 判断待ち |
 | 36 | MEO の自己申告入力（候補）: Places に無い店舗向けに店名・住所・電話・営業時間・写真枚数などを手入力して同じ採点を通す簡易版。半日 | Claude | 要望が出てから |
+| 38 | 無料 MEO 診断の回数制限を Supabase に移す（候補）: いまはプロセス内メモリで、Vercel の複数インスタンスでは上限の数倍まで通る。利用が増えたら `free_usage` テーブルで日次カウント | Claude | 利用が増えたら |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 入力待ち（利用者からの回答が要るもの）
@@ -399,6 +401,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「どこまで無料にするか迷う」→ 軸は「実費ゼロ + 続きが欲しくなるところまで」。提案: ログイン不要 = 無料 AIO 診断のみ／登録あり無料 = MEO 自社 1 店舗 1 回（競合・履歴・AI 総評なし）+ #33 の整合チェック + #34 を Claude のみ 3 質問 1 回／スタンダード = 週次更新・履歴・競合・GSC/GA4・順位・#34 月次／プロ = AI 生成物。実費が出る機能はログイン無しで出さない。判断待ち: MEO 1 回無料と #34 1 回無料を入れるか（推奨は両方入れる）。実装は free プランで店舗登録 1 件・履歴 1 件・一斉更新対象外の制限（半日）。
 - 利用者の情報「競合ツールの AIO スコアは LLM への単発質問、MEO スコアは Places API か自己申告データ」→ うちの部品（LLMO + プロンプト拡張、MEO 診断、無料 AIO 診断エンジン）で同等以上を同じ費用感（1 件 10〜20 円）で出せると整理。自己申告入力（Places に無い店向け）は要望が出てから（#36 候補）。#33 + #34 + #35 をまとめて着手する提案、GO 待ち。
 - 利用者「MEO 診断だけ無料に追加したい。無料で何が出せる？」→ 公開情報 1 回分（検索 + 詳細）で今の報告書の全部（採点・21 項目・ルール総評・口コミ・PDF）+ #33 が無料で出せる（1 店舗 ≤ 4 円、6h キャッシュ）。無料に入れない: 競合比較・週次更新と履歴・AI 総評・#34。出し方 A（ログイン不要 `/meo`、IP 制限 + 日次上限 + キャッシュ）か B（登録あり、自社 1 店舗）。推奨 A + 報告書末尾に有料導線。実装 1 日。判断待ち（#37）。
+- 利用者の指示「無料 SEO・MEO・AIO 診断に改称して無料診断をアップグレード」→ **r25**: `FREE_SUITE_LABEL`、`/meo`（`FREE_MEO_FEATURE`、requires places、force-dynamic）、公開 API `/api/meo/search` `/api/meo/report`、`src/lib/free/ratelimit.ts`（IP ごと 検索 30 / 報告書 10 回/時、全体 1 日 検索 1,500 / 報告書 500、`FREE_MEO_DAILY_LIMIT` `FREE_MEO_DAILY_SEARCH_LIMIT`、0 で停止。キャッシュ命中は消費しない）、`peekPlaceCached`、`FreeTargetSwitch`、サイドバー無料ブロックに 2 本、AppShell の `isFree` を group=free 判定に。タイトル・manifest・料金表・README・ARCHITECTURE・紹介サイト（料金カード・概要表・ヒーロー・llms.txt）更新。ローカルで next start + Playwright で / と /meo の描画確認。lint / tsc / test（91 ファイル・1291 件）/ build 通過。**回数制限はプロセス内メモリ（Vercel の複数インスタンスでは上限の数倍まで許容）。厳密にするなら Supabase に移す（#38）。**
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
