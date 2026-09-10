@@ -35,7 +35,8 @@
 | Claude Console → クレジット | https://platform.claude.com/settings/billing |
 | Claude Console → API キー | https://platform.claude.com/settings/keys |
 | Clerk ダッシュボード | https://dashboard.clerk.com/ |
-| Cloudflare DNS | https://dash.cloudflare.com/ → seo-checker.tokyo → DNS |
+| Cloudflare DNS | https://dash.cloudflare.com/ → seo-checker.tokyo → DNS → レコード |
+| Google Search Console | https://search.google.com/search-console |
 | 本番 → 設定（外部連携） | https://app.seo-checker.tokyo/settings |
 | 本番 → Google マップ・店舗情報 | https://app.seo-checker.tokyo/tools/maps |
 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin |
@@ -189,6 +190,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 23 | ~~「AI に相談する用のテキストをコピー」ボタン~~ | — | 不要（API 運用に決定） |
 | 24 | `PAGESPEED_API_KEY` を Vercel に登録 → Redeploy | 利用者 | 完了（報告ベース） |
 | 25 | 設定画面の Supabase の説明文を r21 の内容に更新 | Claude | 完了（r22） |
+| 31 | Search Console で `seo-checker.tokyo` をドメインプロパティとして追加し、Cloudflare DNS に TXT（`google-site-verification=…`、名前 `@`）を足して所有確認（Google OAuth 審査の前提）。アカウントは matsumatsu452@gmail.com | 利用者 | 進行中（09-11 0:33 プロパティ追加画面） |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 入力待ち（利用者からの回答が要るもの）
@@ -379,6 +381,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「HP をこのリポジトリに入れたので内容の反映を」→ `marketing/public/index.html` に反映（#30）: title/OG、ヘッダー nav（3 つの領域・Google 連携・ログイン）、ヒーロー、`#areas`（SEO/AIO/MEO）、ツール一覧に店舗（MEO）グループ、`#google`（読み取り専用の説明 + /privacy /terms）、ご相談窓口（SEO 研究所（代表: 松下）/ contact@）、フッター（アプリ / 規約 / ポリシー / © SEO 研究所）、CTA 全部をアプリ URL に（`#contact` 残り 0）。Playwright でデスクトップ・モバイルの描画確認、`wrangler deploy --dry-run` OK、lint / tsc / test / build 通過。add-release は実行せず（アプリの動きは不変、前回の方針どおり）。**配信の確認は利用者のブラウザで**（このセッションから seo-checker.tokyo は 403）。
 - 利用者の指示「フッターの運営者名・アプリ・規約・ポリシーのリンクは別ページ（別タブ）で」→ フッターと Google 連携節の app.seo-checker.tokyo 向けリンクに `target="_blank" rel="noopener"`（5 か所）。CTA ボタンは同じタブのまま。wrangler dry-run / lint / tsc OK。テスト・ビルドは HTML のみの変更のため省略せず前回結果を維持（アプリのコードに変更なし）。
 - 09-11 0:30 利用者が Google Auth Platform → ブランディングで承認済みドメイン `seo-checker.tokyo`、デベロッパー連絡先 2 件（matsumatsu452@gmail.com / contact@seo-checker.tokyo）を入力（保存前の画面）。上部の URL 欄（ホームページ / privacy / terms）の確認と保存を案内。審査提出時は Search Console でのドメイン所有確認が必要（TXT レコード）。
+- 09-11 0:33 利用者が Search Console のプロパティ追加画面 → 「ドメイン」で `seo-checker.tokyo` → TXT を Cloudflare DNS（名前 `@`）に追加 → 確認、の手順を案内（#31）。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
