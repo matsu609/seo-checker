@@ -11,6 +11,7 @@ apex ドメイン `https://seo-checker.tokyo/` で配信している**サービ�
 | --- | --- |
 | `public/index.html` | 配信されるページそのもの |
 | `public/favicon.ico` / `public/icon.svg` / `public/apple-icon.png` | タブのアイコン。アプリ本体と同じ `src/app/icon.svg` から生成 |
+| `public/sitemap.xml` / `public/robots.txt` / `public/llms.txt` | 検索・AI クローラ向けの補助ファイル（1 ページなのでどれも短い） |
 | `wrangler.jsonc` | Cloudflare Workers の設定。Worker 名 `seo-checker-hp`、`assets.directory` は `./public` |
 
 アイコンは**手でコピーしない**でください。形を変えたら `node scripts/generate-icons.mjs` を
@@ -82,3 +83,11 @@ Cloudflare は `marketing/` より上をアップロードしないので、必�
 2026-09-10 に「ご相談窓口」のプレースホルダを運営者情報に差し替え、SEO / AIO / MEO の説明、
 Google 連携の説明、フッターの利用規約・プライバシーポリシー・アプリへのリンクを入れた。
 CTA はすべて `https://app.seo-checker.tokyo/`（無料診断）、`/sign-in`、`/plans` を指す。
+
+## 無料 AIO 診断での自己採点
+
+`https://app.seo-checker.tokyo/` の無料診断でこのページを採点し、指摘を潰す運用にしている。
+2026-09-11 の診断（82 点・B、構造化データ 42）を受けて、`<head>` に JSON-LD
+（Organization / WebSite / WebPage / BreadcrumbList / SoftwareApplication / FAQPage）と
+「サービス概要」の表、`sitemap.xml` / `robots.txt` / `llms.txt` を追加し、オフライン採点で 100 点を確認した。
+**FAQPage の JSON-LD は本文の `<details>` から機械的に作ったもの**なので、FAQ の文面を変えたら JSON-LD も同じ文面に直すこと。

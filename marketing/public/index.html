@@ -6,6 +6,7 @@
 <title>SEO Checker｜Google 検索・AI・Google マップの診断ツール</title>
 <meta name="description" content="Google 検索（SEO）・生成 AI（AIO）・Google マップ（MEO）。3 つの「見つけてもらう場所」をひとつのツールで診断します。URL を入れるだけの無料診断、Search Console・GA4 の実測値、店舗のビジネス プロフィールの採点まで。月額 5,000 円から。">
 <link rel="canonical" href="https://seo-checker.tokyo/">
+<link rel="sitemap" type="application/xml" href="https://seo-checker.tokyo/sitemap.xml">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://seo-checker.tokyo/">
 <meta property="og:title" content="SEO Checker｜Google 検索・AI・Google マップの診断ツール">
@@ -181,8 +182,15 @@ p:last-child { margin-bottom: 0; }
 strong { font-weight: 700; }
 .note { font-size: .83rem; line-height: 1.85; color: var(--muted); }
 .list { margin: .9rem 0 1rem; padding-left: 1.25rem; font-size: .87rem; line-height: 1.9; }
+.table-wrap { overflow-x: auto; margin-top: 1.2rem; }
+.facts { width: 100%; border-collapse: collapse; font-size: .85rem; line-height: 1.8; border: 1px solid var(--line); }
+.facts th, .facts td { text-align: left; vertical-align: top; padding: .6rem .8rem; border-bottom: 1px solid var(--line); }
+.facts th { width: 11rem; background: var(--panel); color: var(--ink); font-weight: 700; white-space: nowrap; }
+.facts td { color: var(--muted); }
+.facts tr:last-child th, .facts tr:last-child td { border-bottom: 0; }
+@media (max-width: 640px) { .facts th { width: 6.5rem; white-space: normal; } .facts th, .facts td { padding: .5rem .6rem; } }
 .list li + li { margin-top: .35rem; }
-main p a, main .list a, footer a, .contact a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+main p a, main .list a, .facts a, footer a, .contact a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .92em; }
 
 .checks { list-style: none; margin: 0 0 1rem; padding: 0; max-width: var(--measure); display: grid; gap: .45rem; }
@@ -373,6 +381,209 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 </style>
+<!-- 構造化データ（JSON-LD）。FAQPage の中身は本文の <details> と同じ文面にしておくこと
+     （AI 検索・無料 AIO 診断の採点対象: Organization / WebSite / BreadcrumbList / FAQPage / sameAs） -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://seo-checker.tokyo/#organization",
+      "name": "SEO 研究所",
+      "alternateName": "SEO Checker",
+      "url": "https://seo-checker.tokyo/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://seo-checker.tokyo/apple-icon.png"
+      },
+      "email": "contact@seo-checker.tokyo",
+      "founder": {
+        "@type": "Person",
+        "name": "松下"
+      },
+      "foundingDate": "2026-09",
+      "areaServed": "JP",
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "contactType": "customer support",
+          "email": "contact@seo-checker.tokyo",
+          "availableLanguage": [
+            "ja"
+          ]
+        }
+      ],
+      "sameAs": [
+        "https://app.seo-checker.tokyo/"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://seo-checker.tokyo/#website",
+      "url": "https://seo-checker.tokyo/",
+      "name": "SEO Checker",
+      "description": "Google 検索（SEO）・生成 AI（AIO）・Google マップ（MEO）を診断するツール SEO Checker の紹介サイト",
+      "inLanguage": "ja",
+      "publisher": {
+        "@id": "https://seo-checker.tokyo/#organization"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://seo-checker.tokyo/#webpage",
+      "url": "https://seo-checker.tokyo/",
+      "name": "SEO Checker｜Google 検索・AI・Google マップの診断ツール",
+      "isPartOf": {
+        "@id": "https://seo-checker.tokyo/#website"
+      },
+      "about": {
+        "@id": "https://seo-checker.tokyo/#organization"
+      },
+      "inLanguage": "ja",
+      "datePublished": "2026-09-01",
+      "dateModified": "2026-09-11",
+      "breadcrumb": {
+        "@id": "https://seo-checker.tokyo/#breadcrumb"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://seo-checker.tokyo/#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "トップ",
+          "item": "https://seo-checker.tokyo/"
+        }
+      ]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://app.seo-checker.tokyo/#app",
+      "name": "SEO Checker",
+      "url": "https://app.seo-checker.tokyo/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "ja",
+      "description": "URL を入れるだけの無料 AIO 診断、Search Console・GA4 の実測値、Google マップの店舗診断（MEO）をひとつの画面で提供する SaaS",
+      "publisher": {
+        "@id": "https://seo-checker.tokyo/#organization"
+      },
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "無料診断",
+          "price": "0",
+          "priceCurrency": "JPY",
+          "url": "https://app.seo-checker.tokyo/"
+        },
+        {
+          "@type": "Offer",
+          "name": "スタンダード",
+          "price": "5000",
+          "priceCurrency": "JPY",
+          "url": "https://app.seo-checker.tokyo/plans",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "5000",
+            "priceCurrency": "JPY",
+            "billingIncrement": 1,
+            "unitCode": "MON",
+            "valueAddedTaxIncluded": false
+          }
+        },
+        {
+          "@type": "Offer",
+          "name": "プロ",
+          "price": "10000",
+          "priceCurrency": "JPY",
+          "url": "https://app.seo-checker.tokyo/plans",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "10000",
+            "priceCurrency": "JPY",
+            "billingIncrement": 1,
+            "unitCode": "MON",
+            "valueAddedTaxIncluded": false
+          }
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://seo-checker.tokyo/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "診断すれば検索順位は上がりますか",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "順位や成果を保証するものではありません。スコアは技術チェック表の達成率で、順位とは別のものです。 AI や検索エンジンに読まれる前提条件を整えるための道具とお考えください。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "採点に生成 AI を使っていますか",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "無料診断の採点はルールベースで、生成 AI を使っていません。同じページなら何度診断しても同じ結果になります。 生成 AI を使うのは改修案の作成と AI ライティング（いずれもプロプラン）です。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "サイト全体の診断は何ページまで見ますか",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "sitemap（索引の再帰展開）と内部リンクの幅優先探索でページを収集します。 既定は 300 ページまでで、設定により最大 1,000 ページまで広げられます。 進捗を見ながら途中で中止することもできます。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "ツールがサイトを書き換えることはありますか",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ありません。お渡しするのは変更前と変更後を並べた文面までで、サイトへの反映は運用者が行います。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Search Console や GA4 の権限はどこまで必要ですか",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "読み取り専用の権限だけです。接続はお客様の Google アカウントで行い、設定画面からいつでも解除できます。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "無料診断を使うのに登録は必要ですか",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不要です。ログイン・API キー・クレジットカードの登録なしで、URL を入れるだけで採点できます。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "プランを上げずに、上位の機能だけ試せますか",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "できます。ご相談いただいた機能を、契約中のプランに足す形で個別に開放します。 開放できるのは足す方向だけで、契約に含まれる機能を後から塞ぐことはできません。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "途中で解約できますか",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "できます。プランの変更・解約はお客様側の画面で行えます。表示している料金は月額・税別です。"
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <article class="doc">
@@ -385,6 +596,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
       <a href="#check">無料診断</a>
       <a href="#areas">3 つの領域</a>
       <a href="#tools">機能</a>
+      <a href="#facts">概要</a>
       <a href="#price">料金</a>
       <a href="#google">Google 連携</a>
       <a href="#faq">よくある質問</a>
@@ -683,6 +895,28 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         数値を入れる箇所は伏せ字にし、確認していただく形にしています。
         サイトへの反映は運用者が行い、<strong>ツールがお客様のサイトを書き換えることはありません。</strong>
       </p>
+    </section>
+
+    <section id="facts">
+      <h2>サービス概要（数字で見る SEO Checker）</h2>
+      <div class="table-wrap">
+        <table class="facts">
+          <tbody>
+            <tr><th>提供開始</th><td>2026 年 9 月（紹介サイト・ツールともに公開）</td></tr>
+            <tr><th>運営</th><td>SEO 研究所（代表: 松下）／ お問い合わせ: <a href="mailto:contact@seo-checker.tokyo">contact@seo-checker.tokyo</a></td></tr>
+            <tr><th>無料診断の採点項目</th><td>5 カテゴリ・100 点満点（AI クローラ可否 20 ／ 構造化データ 25 ／ メタ情報 20 ／ 見出し 15 ／ コンテンツ 20）。ルールベースで生成 AI は不使用</td></tr>
+            <tr><th>サイト診断の範囲</th><td>約 45 のルール・10 カテゴリ。既定 300 ページ、最大 1,000 ページまでクロール</td></tr>
+            <tr><th>MEO 診断の採点項目</th><td>4 カテゴリ・21 項目（基本情報 ／ 投稿 ／ 写真 ／ レビュー）。競合は自社 1 店舗あたり 5 件まで登録可</td></tr>
+            <tr><th>数字の更新</th><td>Google マップの数字は毎週月曜 5:00（日本時間）に自動で取り直し、履歴として保存</td></tr>
+            <tr><th>連携する外部サービス</th><td>Google Search Console（読み取り専用）、Google アナリティクス 4（読み取り専用）、Google Places API、PageSpeed Insights</td></tr>
+            <tr><th>対応する生成 AI</th><td>LLMO モニタリングで Claude ／ ChatGPT ／ Gemini ／ Perplexity の 4 サービスを計測</td></tr>
+            <tr><th>料金</th><td>無料診断 0 円 ／ スタンダード 5,000 円 ／ プロ 10,000 円（いずれも月額・税別）。カード決済、解約はお客様側の画面で可能</td></tr>
+            <tr><th>出力</th><td>診断報告書はブラウザで閲覧、PDF ダウンロード、印刷に対応。一覧は CSV 出力に対応</td></tr>
+            <tr><th>データの保管場所</th><td>アプリは Vercel、データベースは Supabase（東京リージョン）。Google から取得した数値は利用者の画面表示にだけ使用</td></tr>
+            <tr><th>規約・ポリシー</th><td><a href="https://app.seo-checker.tokyo/terms" target="_blank" rel="noopener">利用規約</a>（2026 年 9 月 10 日施行）／ <a href="https://app.seo-checker.tokyo/privacy" target="_blank" rel="noopener">プライバシーポリシー</a></td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section id="price">
