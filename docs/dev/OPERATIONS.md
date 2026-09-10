@@ -36,7 +36,7 @@
 | Places API（Google マップ） | **コードは完成、キー未設定** | 請求先アカウントの紐づけとキー作成が利用者側で未了 |
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
-| Supabase | **プロジェクト作成済み**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | テーブル作成（SQL）と Vercel への環境変数登録は利用者側で作業中。コード（r19）は完成 |
+| Supabase | **プロジェクト作成済み・`meo_reports` テーブル作成済み**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
 | Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
 | Stripe / Clerk Billing | 未使用 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` 未設定。プランは `DEFAULT_PLAN=pro` |
 
@@ -97,7 +97,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 |---|---|---|---|
 | 1 | `ANTHROPIC_API_KEY` を Vercel で貼り直し → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | 未 |
 | 2 | Places API: (New) を有効化 → 請求先紐づけ → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
-| 3 | Supabase: ~~プロジェクト作成~~ → SQL Editor でテーブル作成（下記 SQL）→ `SUPABASE_URL`（Config）と `SUPABASE_SERVICE_ROLE_KEY`（Secret）を Vercel に → Redeploy → `/tools/maps` で「保存」ボタンと「診断履歴」カードが出るか確認 | 利用者 | 作業中（プロジェクトは作成済み） |
+| 3 | Supabase: ~~プロジェクト作成~~ → ~~SQL Editor でテーブル作成~~（09-10 14:06 実行、成功）→ `SUPABASE_URL`（Config）と `SUPABASE_SERVICE_ROLE_KEY`（Secret）を Vercel に → Redeploy → `/tools/maps` で「保存」ボタンと「診断履歴」カードが出るか確認 | 利用者 | 作業中（残り: Vercel の環境変数と Redeploy） |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード（Supabase 未設定なら静かに無効） | Claude | **完了（r19）**。本番での動作確認は #3 のあと |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（法人名 or 屋号、連絡先メール、任意で所在地）→ `src/lib/legal/operator.ts` に記入 | 利用者 → Claude | 利用者「まだ」 |
@@ -217,3 +217,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者の指示: **やり取りのたびに引き継ぎメモ（このファイル）を更新して push する**。`CLAUDE.md` にルールを追加。
 - 利用者が Supabase プロジェクトを作成（SQL エディタの画面を共有）。SQL を案内。
 - r19: MEO 診断報告書の保存・履歴（Supabase）。lint / tsc / test（86 ファイル・1250 件）/ build すべて通過。
+- 利用者が Supabase で SQL を実行（成功。行は返されませんでした）。次は Vercel の環境変数 2 つと Redeploy。
