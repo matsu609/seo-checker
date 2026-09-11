@@ -84,7 +84,7 @@ src/
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | GA4 Data API（サービスアカウント JSON をそのまま、または base64） | 任意 |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（Places API (New)） | 任意 |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗（`meo_stores`）と診断報告書の履歴（`meo_reports`）、口コミ支援（`review_forms` / `review_channels` / `review_responses`）。`src/lib/db/supabase.ts` が PostgREST を fetch で叩く。service_role は RLS を素通りするので行は必ず user_id で絞る | MEO に必須 |
-| `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きのモデル（既定 `LLM_FAST_MODEL`） | 任意 |
+| `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きと質問文の訳のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援の回数制限（アンケートごとの 1 日の回答数 500 / AI 下書きの 1 日の全体上限 2,000） | 任意 |
 | `CRON_SECRET` | Vercel Cron（`vercel.json`）が `/api/cron/maps-refresh` を叩くときの Bearer。`src/lib/auth/cron.ts` で検証。未設定なら Cron は何もしない | MEO の一斉更新に必須 |
@@ -110,7 +110,7 @@ src/
 - Route Handler は入力を zod で検証し、エラーは `{ error: string }` と適切な HTTP ステータスで返す（既存の analyze/site と同じ形）。
 - クロールを伴う API（`/api/site`）は同時実行を制限する。1 回の呼び出しが対象サイトへ最大 60（サイトマップ）+ `SITE_MAX_PAGES`（既定 300）回のリクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になる。現状はプロセス内で「同時 2 本まで・同一クライアント（`x-forwarded-for` の先頭 IP）1 本まで」、超過は `429` と `{ code: "busy" }`（`src/app/api/site/route.ts`）。複数インスタンスで動かすときは共有ストアの制限に置き換える。
 - Cron の入口（`/api/cron/*`）はログインが無いので `src/lib/auth/routes.ts` の公開 API に 1 本ずつ完全一致で入れ、ハンドラは `CRON_SECRET` で守る。MEO の数字は利用者が取り直せない（Google に問い合わせるのは店舗の登録直後と週 1 回の一斉更新だけ。`src/lib/maps/refresh.ts`）。
-- 来店客向けアンケート（`/r/<slug>`、`/api/r/<slug>/*`）はログインが無い。`src/lib/auth/routes.ts` の公開接頭辞（`/r/`、`/api/r/`。接頭辞そのものは公開しない）で通し、ハンドラは IP ごとの回数制限とアンケートごとの 1 日の上限で守る（`src/lib/free/ratelimit.ts`）。来店客側の更新（投稿ボタンの押下、お店に直接伝える）は回答時に発行した `edit_token` を持つ人だけ。店舗側の管理 API（`/api/reviews/*`）は `review_responses` に user_id が無いので、必ず `review_forms` の所有（user_id）を確かめてから form_id で触る（`src/lib/reviews/api.ts` の `ownedForm`）。来店客に返すのは `PublicReviewForm`（質問と店名だけ。トーン・キーワード・投稿 URL・所有者は返さない）。
+- 来店客向けアンケート（`/r/<slug>`、`/api/r/<slug>/*`）はログインが無い。`src/lib/auth/routes.ts` の公開接頭辞（`/r/`、`/api/r/`。接頭辞そのものは公開しない）で通し、ハンドラは IP ごとの回数制限とアンケートごとの 1 日の上限で守る（`src/lib/free/ratelimit.ts`）。来店客側の更新（投稿ボタンの押下、お店に直接伝える）は回答時に発行した `edit_token` を持つ人だけ。店舗側の管理 API（`/api/reviews/*`）は `review_responses` に user_id が無いので、必ず `review_forms` の所有（user_id）を確かめてから form_id で触る（`src/lib/reviews/api.ts` の `ownedForm`）。来店客に返すのは `PublicReviewForm`（質問と店名だけ。トーン・キーワード・投稿 URL・所有者は返さない）。来店客の画面は `Accept-Language` / `?lang=` で 5 言語に切り替わる（`src/lib/reviews/i18n.ts`、質問文の訳は `translate.ts`。選択肢は表示だけ訳し、送る値は日本語の原文）。
 - サイト診断の結果はキャッシュ 1 件で 1 MB 近い。`globalCache` の `maxEntries` を小さく（10 件）し、`SiteCheckSummary.affected` はサーバー側で 50 件までに間引く（件数は `counts` が持つ）。
 
 ## UI 規約

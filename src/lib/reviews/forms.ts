@@ -8,6 +8,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { supabaseRest } from "@/lib/db/supabase";
+import { DEFAULT_LOCALE, type SurveyLocale } from "./i18n";
 import {
   MAX_CHANNELS,
   QuestionsSchema,
@@ -52,12 +53,22 @@ export interface ReviewChannel {
   createdAt: string;
 }
 
-/** 来店客に返す形（店舗の設定のうち、画面に要るものだけ） */
+/** 来店客に見せる質問。選択肢は「表示する文字（訳）」と「送る値（日本語の原文）」を分ける */
+export interface PublicQuestion {
+  id: string;
+  type: ReviewQuestion["type"];
+  label: string;
+  options: { value: string; label: string }[];
+  required: boolean;
+}
+
+/** 来店客に返す形（店舗の設定のうち、画面に要るものだけ）。locale は表示している言語 */
 export interface PublicReviewForm {
   slug: string;
   title: string;
   storeName: string;
-  questions: ReviewQuestion[];
+  locale: SurveyLocale;
+  questions: PublicQuestion[];
   lowRatingMax: number;
   hasWriteReviewUrl: boolean;
 }
@@ -146,13 +157,25 @@ export function channelDisplayName(channel: Pick<ReviewChannel, "label" | "store
   return `${channel.storeName}（${channel.label}）`;
 }
 
-export function toPublicForm(form: ReviewForm, channel: ReviewChannel | null = null): PublicReviewForm {
+/**
+ * 来店客に返す形にする。translation は「原文 → 訳」の対応表（translate.ts）。無い文言は日本語のまま。
+ * 選択肢の value は常に日本語の原文（回答の検証・保存・店舗側の表示は日本語で揃える）。
+ */
+export function toPublicForm(form: ReviewForm, channel: ReviewChannel | null = null, locale: SurveyLocale = DEFAULT_LOCALE, translation: Record<string, string> = {}): PublicReviewForm {
   const store = resolveStore(form, channel);
+  const t = (text: string) => translation[text.trim()] ?? text;
   return {
     slug: form.slug,
-    title: form.title,
+    title: t(form.title),
     storeName: store.storeName,
-    questions: form.questions,
+    locale,
+    questions: form.questions.map((q) => ({
+      id: q.id,
+      type: q.type,
+      label: t(q.label),
+      options: q.options.map((o) => ({ value: o, label: t(o) })),
+      required: q.required,
+    })),
     lowRatingMax: form.settings.lowRatingMax,
     hasWriteReviewUrl: store.writeReviewUrl !== null,
   };
@@ -266,6 +289,27 @@ export async function updateForm(userId: string, id: string, patch: FormPatch): 
     prefer: "return=representation",
   });
   return parseForms(rows)[0] ?? null;
+}
+
+/* ───────────── 文言の訳（review_forms.translations。{ 言語: { 原文: 訳 } }） ───────────── */
+
+const TranslationsSchema = z.record(z.string(), z.record(z.string(), z.string()));
+
+/** 保存済みの訳（来店客向け。列が無い・壊れていれば空） */
+export async function getTranslations(formId: string, locale: SurveyLocale): Promise<Record<string, string>> {
+  const rows = await supabaseRest<unknown>(`${FORMS}?select=translations&id=${eq(formId)}&limit=1`);
+  const row = Array.isArray(rows) ? (rows[0] as { translations?: unknown } | undefined) : undefined;
+  const parsed = TranslationsSchema.safeParse(row?.translations ?? {});
+  return parsed.success ? (parsed.data[locale] ?? {}) : {};
+}
+
+/** その言語の訳を丸ごと置き換えて保存する（他の言語は残す） */
+export async function saveTranslations(formId: string, locale: SurveyLocale, map: Record<string, string>): Promise<void> {
+  const rows = await supabaseRest<unknown>(`${FORMS}?select=translations&id=${eq(formId)}&limit=1`);
+  const row = Array.isArray(rows) ? (rows[0] as { translations?: unknown } | undefined) : undefined;
+  const current = TranslationsSchema.safeParse(row?.translations ?? {});
+  const next = { ...(current.success ? current.data : {}), [locale]: map };
+  await supabaseRest<unknown>(`${FORMS}?id=${eq(formId)}`, { method: "PATCH", body: { translations: next }, prefer: "return=minimal" });
 }
 
 /** 消せたら true（回答と QR は外部キーの cascade で消える） */

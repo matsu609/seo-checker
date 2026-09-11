@@ -11,7 +11,8 @@
  */
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { supabaseRest } from "@/lib/db/supabase";
+import { DbError, supabaseRest } from "@/lib/db/supabase";
+import { isSurveyLocale, type SurveyLocale } from "./i18n";
 import { RawAnswersSchema, type Answers } from "./questions";
 
 export const RESPONSE_STATUSES = ["open", "in_progress", "done"] as const;
@@ -43,6 +44,8 @@ export interface ReviewResponse {
   status: ResponseStatus;
   note: string | null;
   handledAt: string | null;
+  /** 来店客が答えた画面の言語（列が無い古い行は null = 日本語） */
+  lang: SurveyLocale | null;
   createdAt: string;
 }
 
@@ -50,8 +53,23 @@ export interface ReviewResponse {
 export const RESPONSES_LIMIT = 1000;
 
 const TABLE = "review_responses";
-const COLUMNS =
+const BASE_COLUMNS =
   "id,form_id,channel_id,rating,answers,is_low,draft,draft_source,draft_final,direct_message,direct_contact,clicked_review_at,clicked_direct_at,status,note,handled_at,created_at";
+/** `lang` 列は r38 で追加（alter table）。まだ無い環境でも動くよう、400 が返ったら列なしでやり直す */
+let langColumnMissing = false;
+const columns = () => (langColumnMissing ? BASE_COLUMNS : `${BASE_COLUMNS},lang`);
+
+/** lang 列が無い（PostgREST が 400）ときは、列なしで 1 回だけやり直す */
+async function withLangFallback<T>(run: (cols: string, withLang: boolean) => Promise<T>): Promise<T> {
+  try {
+    return await run(columns(), !langColumnMissing);
+  } catch (err) {
+    if (langColumnMissing || !(err instanceof DbError) || err.status !== 400) throw err;
+    langColumnMissing = true;
+    console.error("[reviews] review_responses.lang 列が無いため、言語なしで続けます（OPERATIONS.md の r38 の alter table を実行してください）");
+    return run(columns(), false);
+  }
+}
 
 const RowSchema = z.object({
   id: z.string(),
@@ -70,6 +88,7 @@ const RowSchema = z.object({
   status: z.string(),
   note: z.string().nullable(),
   handled_at: z.string().nullable(),
+  lang: z.string().nullable().optional(),
   created_at: z.string(),
 });
 export type ReviewResponseRow = z.infer<typeof RowSchema>;
@@ -105,6 +124,7 @@ export function fromResponseRow(row: ReviewResponseRow): ReviewResponse {
     status: toStatus(row.status),
     note: row.note,
     handledAt: row.handled_at,
+    lang: isSurveyLocale(row.lang) ? row.lang : null,
     createdAt: row.created_at,
   };
 }
@@ -133,25 +153,30 @@ export interface NewResponse {
   draft: string | null;
   draftSource: DraftSource;
   editToken: string;
+  /** 来店客の画面の言語（省略時は日本語） */
+  lang?: SurveyLocale;
 }
 
 export async function insertResponse(input: NewResponse, at = new Date()): Promise<ReviewResponse> {
-  const rows = await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}`, {
-    method: "POST",
-    body: {
-      form_id: input.formId,
-      channel_id: input.channelId,
-      rating: input.rating,
-      answers: input.answers,
-      is_low: input.isLow,
-      draft: input.draft,
-      draft_source: input.draftSource,
-      edit_token: input.editToken,
-      status: "open",
-      created_at: at.toISOString(),
-    },
-    prefer: "return=representation",
-  });
+  const rows = await withLangFallback((cols, withLang) =>
+    supabaseRest<unknown>(`${TABLE}?select=${cols}`, {
+      method: "POST",
+      body: {
+        form_id: input.formId,
+        channel_id: input.channelId,
+        rating: input.rating,
+        answers: input.answers,
+        is_low: input.isLow,
+        draft: input.draft,
+        draft_source: input.draftSource,
+        edit_token: input.editToken,
+        status: "open",
+        created_at: at.toISOString(),
+        ...(withLang ? { lang: input.lang ?? "ja" } : {}),
+      },
+      prefer: "return=representation",
+    }),
+  );
   const r = parseRows(rows)[0];
   if (!r) throw new Error("保存後の応答を読めませんでした");
   return r;
@@ -170,28 +195,27 @@ export interface ListFilter {
 
 /** formId は所有を確かめたものを渡す。新しい順 */
 export async function listResponses(formId: string, filter: ListFilter = {}, limit = RESPONSES_LIMIT): Promise<ReviewResponse[]> {
-  const params = [`select=${COLUMNS}`, `form_id=${eq(formId)}`, "order=created_at.desc", `limit=${limit}`];
+  const params = [`form_id=${eq(formId)}`, "order=created_at.desc", `limit=${limit}`];
   if (filter.status) params.push(`status=${eq(filter.status)}`);
   if (filter.lowOnly) params.push("is_low=is.true");
   if (filter.channelId) params.push(`channel_id=${eq(filter.channelId)}`);
   if (filter.from) params.push(`created_at=gte.${encodeURIComponent(filter.from)}`);
   if (filter.to) params.push(`created_at=lt.${encodeURIComponent(filter.to)}`);
-  const rows = await supabaseRest<unknown>(`${TABLE}?${params.join("&")}`);
+  const rows = await withLangFallback((cols) => supabaseRest<unknown>(`${TABLE}?select=${cols}&${params.join("&")}`));
   return parseRows(rows);
 }
 
 /** 1 件（所有の確認は呼び出し側が formId で行う） */
 export async function getResponse(id: string): Promise<ReviewResponse | null> {
-  const rows = await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&id=${eq(id)}&limit=1`);
+  const rows = await withLangFallback((cols) => supabaseRest<unknown>(`${TABLE}?select=${cols}&id=${eq(id)}&limit=1`));
   return parseRows(rows)[0] ?? null;
 }
 
 /** 来店客側の更新。id と edit_token の両方が一致した行だけ */
 async function patchByToken(formId: string, id: string, token: string, body: Record<string, unknown>): Promise<ReviewResponse | null> {
   if (!isValidEditToken(token)) return null;
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=${COLUMNS}&form_id=${eq(formId)}&id=${eq(id)}&edit_token=${eq(token)}`,
-    { method: "PATCH", body, prefer: "return=representation" },
+  const rows = await withLangFallback((cols) =>
+    supabaseRest<unknown>(`${TABLE}?select=${cols}&form_id=${eq(formId)}&id=${eq(id)}&edit_token=${eq(token)}`, { method: "PATCH", body, prefer: "return=representation" }),
   );
   return parseRows(rows)[0] ?? null;
 }
@@ -220,11 +244,9 @@ export async function updateResponse(formId: string, id: string, patch: Response
   }
   if (patch.note !== undefined) body.note = patch.note;
   if (Object.keys(body).length === 0) return null;
-  const rows = await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&form_id=${eq(formId)}&id=${eq(id)}`, {
-    method: "PATCH",
-    body,
-    prefer: "return=representation",
-  });
+  const rows = await withLangFallback((cols) =>
+    supabaseRest<unknown>(`${TABLE}?select=${cols}&form_id=${eq(formId)}&id=${eq(id)}`, { method: "PATCH", body, prefer: "return=representation" }),
+  );
   return parseRows(rows)[0] ?? null;
 }
 

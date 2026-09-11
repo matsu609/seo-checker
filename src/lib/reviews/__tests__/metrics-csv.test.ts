@@ -31,6 +31,7 @@ function resp(over: Partial<ReviewResponse>): ReviewResponse {
     status: "open",
     note: null,
     handledAt: null,
+    lang: null,
     createdAt: "2026-09-10T03:00:00Z",
     ...over,
   };
@@ -98,16 +99,16 @@ describe("CSV", () => {
     const csv = responsesToCsv(
       [
         resp({ id: "a", rating: 2, isLow: true, answers: { rating01: 2, text0001: "=悪い" }, draft: "下書き", status: "done" }),
-        resp({ id: "b", channelId: "c2", rating: 5, answers: { rating01: 5 } }),
+        resp({ id: "b", channelId: "c2", rating: 5, answers: { rating01: 5 }, lang: "en" }),
       ],
       form,
       CH,
     );
     const lines = csv.replace(/^﻿/, "").trim().split("\r\n");
-    expect(lines[0]).toContain("回答日時,店舗,経路（QR）,評価,低評価,満足度,感想,AI 下書き");
-    expect(lines[1]).toContain("本店,テーブル 1,2,はい,2 / 5,'=悪い,下書き");
+    expect(lines[0]).toContain("回答日時,店舗,経路（QR）,評価,低評価,言語,満足度,感想,AI 下書き");
+    expect(lines[1]).toContain("本店,テーブル 1,2,はい,日本語,2 / 5,'=悪い,下書き");
     expect(lines[1]).toContain("対応済み");
-    expect(lines[2]).toContain("駅前店,レジ,5,,5 / 5");
+    expect(lines[2]).toContain("駅前店,レジ,5,,英語,5 / 5");
     expect(csv.startsWith("﻿")).toBe(true);
   });
 });

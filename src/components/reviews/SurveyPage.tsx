@@ -9,21 +9,28 @@
  *
  * 投稿ボタンは下書きをコピーしてから Google の投稿画面を開く（Google 側に本文を渡す手段は無い）。
  * 押下は /api/r/[slug]/events に記録する（実際に投稿されたかは分からない）。
+ *
+ * 文言は locale（端末の言語から判定。右上の切替で変更）の辞書（i18n.ts）。質問文・選択肢はサーバーが訳して渡す。
+ * 選択肢は訳を表示しつつ、送る値は日本語の原文（店舗側は日本語のまま見られる）。
  */
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import type { PublicAnswerResponse } from "@/app/api/r/[slug]/answers/route";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Field, Input, Textarea } from "@/components/ui/Field";
-import type { PublicReviewForm } from "@/lib/reviews/forms";
-import { DIRECT_CONTACT_MAX, DIRECT_MESSAGE_MAX, DRAFT_MAX, TEXT_ANSWER_MAX, type AnswerValue, type ReviewQuestion } from "@/lib/reviews/questions";
+import type { PublicQuestion, PublicReviewForm } from "@/lib/reviews/forms";
+import { LOCALE_HTML_LANG, LOCALE_NAMES, SURVEY_LOCALES, surveyStrings, type SurveyLocale, type SurveyStrings } from "@/lib/reviews/i18n";
+import { DIRECT_CONTACT_MAX, DIRECT_MESSAGE_MAX, DRAFT_MAX, TEXT_ANSWER_MAX, type AnswerValue } from "@/lib/reviews/questions";
 
 export interface SurveyPageProps {
   slug: string;
   code: string | null;
   form: PublicReviewForm | null;
   error: string | null;
+  /** 表示する言語（サーバーで端末の言語から判定。切替は ?lang= で再表示） */
+  locale: SurveyLocale;
 }
 
 type Phase =
@@ -32,19 +39,19 @@ type Phase =
   | { kind: "done"; result: PublicAnswerResponse; draft: string; copied: boolean; clicked: boolean }
   | { kind: "direct"; result: PublicAnswerResponse; sent: boolean };
 
-async function errorMessage(res: Response): Promise<string> {
+async function errorMessage(res: Response, t: SurveyStrings): Promise<string> {
   try {
     const body = (await res.json()) as { error?: unknown };
     if (typeof body.error === "string" && body.error) return body.error;
   } catch {
     // JSON でない応答
   }
-  return `送信に失敗しました（HTTP ${res.status}）`;
+  return t.errorHttp(res.status);
 }
 
-const RATING_LABELS = ["不満", "やや不満", "ふつう", "満足", "とても満足"];
-
-export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
+export function SurveyPage({ slug, code, form, error, locale }: SurveyPageProps) {
+  const t = surveyStrings(locale);
+  const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [phase, setPhase] = useState<Phase>({ kind: "answering" });
   const [formError, setFormError] = useState<string | null>(null);
@@ -52,6 +59,14 @@ export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
   const [directContact, setDirectContact] = useState("");
   const [directBusy, setDirectBusy] = useState(false);
   const [directError, setDirectError] = useState<string | null>(null);
+
+  /** 言語の切替: ?lang= を付けて同じ画面を出し直す（回答の途中でも入力は残る） */
+  function changeLocale(next: SurveyLocale) {
+    const params = new URLSearchParams();
+    if (code) params.set("c", code);
+    params.set("lang", next);
+    router.replace(`/r/${encodeURIComponent(slug)}?${params.toString()}`);
+  }
 
   function set(id: string, value: AnswerValue | undefined) {
     setAnswers((prev) => {
@@ -69,12 +84,12 @@ export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
       const v = answers[q.id];
       const empty = v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
       if (q.required && empty) {
-        setFormError(`「${q.label}」に答えてください。`);
+        setFormError(t.errorRequired(q.label));
         return;
       }
     }
     if (Object.keys(answers).length === 0) {
-      setFormError("1 つ以上の質問に答えてください。");
+      setFormError(t.errorAtLeastOne);
       return;
     }
     setFormError(null);
@@ -83,14 +98,14 @@ export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
       const res = await fetch(`/api/r/${encodeURIComponent(slug)}/answers`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code: code ?? undefined, answers }),
+        body: JSON.stringify({ code: code ?? undefined, lang: locale, answers }),
       });
-      if (!res.ok) throw new Error(await errorMessage(res));
+      if (!res.ok) throw new Error(await errorMessage(res, t));
       const result = (await res.json()) as PublicAnswerResponse;
       setPhase({ kind: "done", result, draft: result.draft ?? "", copied: false, clicked: false });
       window.scrollTo({ top: 0 });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "送信に失敗しました");
+      setFormError(err instanceof Error ? err.message : t.errorSendFailed);
       setPhase({ kind: "answering" });
     }
   }
@@ -123,7 +138,7 @@ export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
     if (phase.kind !== "direct") return;
     const message = directMessage.trim();
     if (!message) {
-      setDirectError("お伝えしたい内容を入力してください。");
+      setDirectError(t.directRequired);
       return;
     }
     setDirectError(null);
@@ -134,47 +149,63 @@ export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ responseId: phase.result.responseId, token: phase.result.token, message, contact: directContact.trim() || undefined }),
       });
-      if (!res.ok) throw new Error(await errorMessage(res));
+      if (!res.ok) throw new Error(await errorMessage(res, t));
       setPhase({ ...phase, sent: true });
     } catch (err) {
-      setDirectError(err instanceof Error ? err.message : "送信に失敗しました");
+      setDirectError(err instanceof Error ? err.message : t.errorSendFailed);
     } finally {
       setDirectBusy(false);
     }
   }
 
   return (
-    <main className="mx-auto w-full max-w-lg px-4 py-6 md:py-10">
+    <main lang={LOCALE_HTML_LANG[locale]} className="mx-auto w-full max-w-lg px-4 py-6 md:py-10">
       <header className="mb-6">
-        <p className="text-[12px] text-muted">ご来店アンケート</p>
-        <h1 className="mt-1 text-xl font-bold text-ink">{form?.storeName ?? "アンケート"}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-[12px] text-muted">{t.eyebrow}</p>
+          <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted">
+            <span className="sr-only">{t.languageLabel}</span>
+            <span aria-hidden>🌐</span>
+            <select
+              aria-label={t.languageLabel}
+              value={locale}
+              onChange={(e) => changeLocale(e.target.value as SurveyLocale)}
+              className="rounded-sm border border-line bg-panel px-1.5 py-1 text-[12px] text-ink"
+            >
+              {SURVEY_LOCALES.map((l) => (
+                <option key={l} value={l}>
+                  {LOCALE_NAMES[l]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <h1 className="mt-1 text-xl font-bold text-ink">{form?.storeName ?? t.fallbackTitle}</h1>
         {form && <p className="mt-1 text-[13px] text-muted">{form.title}</p>}
       </header>
 
       {error && (
-        <Callout tone="warn" title="アンケートを表示できません">
+        <Callout tone="warn" title={t.cannotShow}>
           {error}
         </Callout>
       )}
 
       {form && (phase.kind === "answering" || phase.kind === "sending") && (
         <form onSubmit={onSubmit} className="space-y-6" aria-busy={phase.kind === "sending"}>
-          <p className="text-sm leading-relaxed text-ink">
-            本日はご来店ありがとうございます。1 分ほどのアンケートにご協力ください。いただいた内容はお店に届きます。
-          </p>
+          <p className="text-sm leading-relaxed text-ink">{t.intro}</p>
           {form.questions.map((q, i) => (
-            <QuestionField key={q.id} index={i + 1} question={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} />
+            <QuestionField key={q.id} index={i + 1} question={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} t={t} />
           ))}
           {formError && (
             <Callout tone="fail">{formError}</Callout>
           )}
           <Button type="submit" size="lg" className="w-full" loading={phase.kind === "sending"}>
-            {phase.kind === "sending" ? "送信しています…" : "送信する"}
+            {phase.kind === "sending" ? t.sending : t.submit}
           </Button>
           <p className="text-[11px] leading-relaxed text-muted">
-            この画面は SEO 研究所が提供するアンケートです。回答は店舗に届き、店舗の改善に使われます。
+            {t.footer}{" "}
             <Link href="/privacy" className="underline" target="_blank" rel="noopener noreferrer">
-              プライバシーポリシー
+              {t.privacy}
             </Link>
           </p>
         </form>
@@ -182,20 +213,16 @@ export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
 
       {phase.kind === "done" && (
         <div className="space-y-6">
-          <Callout tone="pass" title="店舗にフィードバックを送信しました">
-            ご協力ありがとうございます。いただいた内容はお店に届きました。
+          <Callout tone="pass" title={t.doneTitle}>
+            {t.doneBody}
           </Callout>
 
           {phase.draft || phase.result.draft ? (
             <section className="rounded-sm border border-line bg-panel p-4">
-              <h2 className="text-base font-bold text-ink">口コミの下書き</h2>
-              <p className="mt-1 text-[13px] leading-relaxed text-muted">
-                {phase.result.draftSource === "ai"
-                  ? "ご回答をもとに下書きを作りました。内容はご自身の体験に合わせて自由に書き換えてください。そのまま使うこともできます。"
-                  : "ご回答の文章をそのまま並べています。自由に書き換えてお使いください。"}
-              </p>
+              <h2 className="text-base font-bold text-ink">{t.draftTitle}</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted">{phase.result.draftSource === "ai" ? t.draftHintAi : t.draftHintFallback}</p>
               <Textarea
-                aria-label="口コミの下書き"
+                aria-label={t.draftAria}
                 rows={8}
                 maxLength={DRAFT_MAX}
                 value={phase.draft}
@@ -212,40 +239,35 @@ export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
           <div className="grid gap-3">
             {phase.result.writeReviewUrl && (
               <Button type="button" size="lg" className="w-full" onClick={onPostToGoogle}>
-                Google マップに投稿する
+                {t.postToGoogle}
               </Button>
             )}
             {phase.result.isLow && (
               <Button type="button" size="lg" variant="secondary" className="w-full" onClick={() => setPhase({ kind: "direct", result: phase.result, sent: false })}>
-                お店に直接伝える
+                {t.tellStore}
               </Button>
             )}
           </div>
           {phase.clicked && (
             <Callout tone="info">
-              {phase.copied ? "下書きをコピーしました。" : "下書きは上の欄にあります。"}
-              Google マップの投稿画面が開くので、本文を貼り付けて、ご自身の判断で投稿してください。投稿するかどうかはご自由です。
+              {phase.copied ? t.copied : t.notCopied} {t.afterClick}
             </Callout>
           )}
-          <p className="text-[11px] leading-relaxed text-muted">
-            口コミの投稿は任意です。投稿の有無で特典や扱いが変わることはありません。投稿される場合は、実際の体験にもとづく内容にしてください。
-          </p>
+          <p className="text-[11px] leading-relaxed text-muted">{t.disclaimer}</p>
         </div>
       )}
 
       {phase.kind === "direct" && (
         <div className="space-y-6">
           {phase.sent ? (
-            <Callout tone="pass" title="お店に送信しました">
-              ご意見をありがとうございます。お店が確認し、改善に活かします。
+            <Callout tone="pass" title={t.directSentTitle}>
+              {t.directSentBody}
             </Callout>
           ) : (
             <form onSubmit={onSendDirect} className="space-y-4" aria-busy={directBusy}>
-              <h2 className="text-base font-bold text-ink">お店に直接伝える</h2>
-              <p className="text-[13px] leading-relaxed text-muted">
-                ここに書いた内容は公開されず、お店にだけ届きます。
-              </p>
-              <Field label="お伝えしたい内容" htmlFor="direct-message" required>
+              <h2 className="text-base font-bold text-ink">{t.directTitle}</h2>
+              <p className="text-[13px] leading-relaxed text-muted">{t.directHint}</p>
+              <Field label={t.directMessage} htmlFor="direct-message" required>
                 <Textarea
                   id="direct-message"
                   rows={6}
@@ -254,16 +276,16 @@ export function SurveyPage({ slug, code, form, error }: SurveyPageProps) {
                   onChange={(e) => setDirectMessage(e.target.value)}
                 />
               </Field>
-              <Field label="連絡先（任意）" htmlFor="direct-contact" hint="お店から返事が必要な場合だけ、メールアドレスか電話番号を入力してください">
+              <Field label={t.directContact} htmlFor="direct-contact" hint={t.directContactHint}>
                 <Input id="direct-contact" maxLength={DIRECT_CONTACT_MAX} value={directContact} onChange={(e) => setDirectContact(e.target.value)} />
               </Field>
               {directError && <Callout tone="fail">{directError}</Callout>}
               <div className="grid gap-3">
                 <Button type="submit" size="lg" className="w-full" loading={directBusy}>
-                  送信する
+                  {t.send}
                 </Button>
                 <Button type="button" size="lg" variant="ghost" className="w-full" onClick={() => setPhase({ kind: "done", result: phase.result, draft: phase.result.draft ?? "", copied: false, clicked: false })}>
-                  戻る
+                  {t.back}
                 </Button>
               </div>
             </form>
@@ -279,15 +301,20 @@ function QuestionField({
   question,
   value,
   onChange,
+  t,
 }: {
   index: number;
-  question: ReviewQuestion;
+  question: PublicQuestion;
   value: AnswerValue | undefined;
   onChange: (v: AnswerValue | undefined) => void;
+  t: SurveyStrings;
 }) {
   const label = (
     <span>
-      <span className="mr-1 tabular-nums text-muted">Q{index}.</span>
+      <span className="mr-1 tabular-nums text-muted">
+        {t.questionPrefix}
+        {index}.
+      </span>
       {question.label}
     </span>
   );
@@ -299,7 +326,7 @@ function QuestionField({
           {label}
           {question.required && (
             <span className="ml-1 text-[11px] font-normal text-fail" aria-hidden>
-              必須
+              {t.required}
             </span>
           )}
         </legend>
@@ -312,14 +339,14 @@ function QuestionField({
                 type="button"
                 role="radio"
                 aria-checked={selected}
-                aria-label={`${n}（${RATING_LABELS[n - 1]}）`}
+                aria-label={`${n} (${t.ratingLabels[n - 1]})`}
                 onClick={() => onChange(n)}
                 className={`flex h-14 flex-col items-center justify-center rounded-md border text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                   selected ? "border-accent bg-accent text-on-brand" : "border-line bg-panel text-ink hover:bg-surface"
                 }`}
               >
                 <span className="text-lg leading-none">{n}</span>
-                <span className="mt-1 text-[10px] font-normal leading-none">{RATING_LABELS[n - 1]}</span>
+                <span className="mt-1 text-[10px] font-normal leading-none">{t.ratingLabels[n - 1]}</span>
               </button>
             );
           })}
@@ -333,9 +360,9 @@ function QuestionField({
         <legend className="mb-2 block text-[13px] font-bold text-ink">{label}</legend>
         <div className="grid gap-2">
           {question.options.map((o) => (
-            <label key={o} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-line bg-panel px-3 text-sm text-ink has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
-              <input type="radio" name={question.id} value={o} checked={value === o} onChange={() => onChange(o)} className="h-4 w-4 accent-accent" />
-              {o}
+            <label key={o.value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-line bg-panel px-3 text-sm text-ink has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
+              <input type="radio" name={question.id} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="h-4 w-4 accent-accent" />
+              {o.label}
             </label>
           ))}
         </div>
@@ -349,20 +376,20 @@ function QuestionField({
         <legend className="mb-2 block text-[13px] font-bold text-ink">{label}</legend>
         <div className="grid gap-2">
           {question.options.map((o) => {
-            const checked = list.includes(o);
+            const checked = list.includes(o.value);
             return (
-              <label key={o} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-line bg-panel px-3 text-sm text-ink has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
+              <label key={o.value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-line bg-panel px-3 text-sm text-ink has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
                 <input
                   type="checkbox"
-                  value={o}
+                  value={o.value}
                   checked={checked}
                   onChange={() => {
-                    const next = checked ? list.filter((x) => x !== o) : [...list, o];
+                    const next = checked ? list.filter((x) => x !== o.value) : [...list, o.value];
                     onChange(next.length > 0 ? next : undefined);
                   }}
                   className="h-4 w-4 accent-accent"
                 />
-                {o}
+                {o.label}
               </label>
             );
           })}
@@ -378,7 +405,7 @@ function QuestionField({
         maxLength={TEXT_ANSWER_MAX}
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onChange(e.target.value || undefined)}
-        placeholder="思い出したことを、そのままの言葉で"
+        placeholder={t.textPlaceholder}
       />
     </Field>
   );

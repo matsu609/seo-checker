@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r37 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r38 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -214,6 +214,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
 | 52 | 口コミへの返信（段階 1）: 公開情報の口コミ（最新 5 件）→ AI 返信案 → コピーして GBP へ | Claude | **完了（r37、`/tools/replies` の「接続前の代替」）** |
 | 53 | 口コミへの返信（段階 2）: Business Profile API で全件取得・ツール内から投稿・更新・削除 | Claude | **コードは完了（r37）**。動くのは #54 の 4 手順が終わってから |
+| 55 | **r38 の SQL を Supabase で実行**（`review_forms.translations` と `review_responses.lang` の 2 列。下の「r38 で足した列」）。実行前でもアンケートは動く（訳は毎回 AI、回答の言語は記録されない）ので急がないが、AI 訳の使い回しと「英語で回答」バッジはこの SQL 後に効く | 利用者 | 未実行 |
 | 54 | **口コミ返信を有効にする（Google 側の作業）**: ① Business Profile API の利用申請 → ② 承認後、Google Cloud で API 3 つを有効化 → ③ OAuth の同意画面に `business.manage` スコープを追加 → ④ 本番 `/tools/replies` で「Google に口コミ返信の権限を追加する」→ Google の確認画面で許可（下の「口コミ返信を有効にする手順」） | 利用者 | **①申請済み（09-11、ケース ID `0-4126000041187`、7〜10 営業日）**。②は Account Management / Business Information の 2 つが有効化済み（09-11 確認）。残りの「Google My Business API」（v4）と③④は承認メール後 |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
@@ -348,7 +349,20 @@ create index if not exists review_responses_low_idx on review_responses (form_id
 alter table review_forms enable row level security;
 alter table review_channels enable row level security;
 alter table review_responses enable row level security;
+
+-- r38: アンケートの多言語（訳の保存と、回答した画面の言語）
+alter table review_forms add column if not exists translations jsonb not null default '{}'::jsonb;
+alter table review_responses add column if not exists lang text;
 ```
+
+**r38 で足した列（#55。r34〜r36 の SQL を実行済みなら、この 2 行だけを実行する）**:
+
+```sql
+alter table review_forms add column if not exists translations jsonb not null default '{}'::jsonb;
+alter table review_responses add column if not exists lang text;
+```
+
+`translations` は `{ "en": { "日本語の原文": "訳" }, "ko": { … } }`（店舗が書き換えた質問文・選択肢の AI 訳。テンプレートの文言は `src/lib/reviews/i18n.ts` の静的な訳を使うので保存しない）。`lang` は来店客が回答した画面の言語（`ja` / `en` / `zh-Hans` / `zh-Hant` / `ko`。列が無い間はコードが自動で列なしにやり直す = 動くが記録されない）。
 
 r34 の SQL を先に実行していた場合は、代わりに次を実行する（r35 で列を 3 つ足した）:
 
@@ -423,18 +437,19 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **口コミへの返信（r37、`/tools/replies`）**: MEO タブ「生成」グループ、pro。`src/lib/google/business-profile.ts`（Account Management v1 → accounts、Business Information v1 → locations（Place ID 付き）、My Business v4 → reviews / reply の PUT・DELETE。応答は落ちない `parse*`。403 は「利用申請・API 有効化」を案内）。スコープ `business.manage` は `scopes.ts` の `GoogleService: "business-profile"`（REQUIRED_SCOPES には入れない = 設定画面の通常接続では要求しない。`ConnectBusinessButton` が読み取り 2 つと一緒に reauthorize で要求）。AI 返信案は `src/lib/replies/draft.ts`（評価 3 以下は謝罪 → 受け止め → 改善 → 個別連絡の型、4 以上は感謝の型。氏名・来店日時・特典の約束を禁止。口コミは untrusted ブロック。モデル `REVIEW_REPLY_MODEL`、既定は高速モデル）。API: `/api/replies/status`（接続・権限・ビジネス一覧・MEO の自社店舗・AI の有無）、`reviews`（50 件ずつ、`pageToken`）、`reply`（PUT / DELETE）、`draft`、`places`（接続前の代替 = 保存済み報告書の最新 5 件、費用ゼロ）。画面 `RepliesTool`: 未返信 → 低評価 → 新しい順、返信の投稿・更新・削除は `window.confirm`。設定（トーン・補足・署名・最後のビジネス）は localStorage `repliesSettings`。口コミと返信は保存しない（Google が正）。**Google 側の作業 4 つ（#54）が終わるまで投稿は動かない。接続前は公開情報の口コミで返信案 → コピー → GBP。**
 - **フェーズ 3（承認後）**: Business Profile API（Business Information / v4 reviews・localPosts・media / Performance API）で `score.ts` の `unavailable` 9 項目を埋める。インサイト 8 指標（表示回数 モバイル/PC、電話、ルート、サイト、メニュー、平均クリック率）を期間比較・CSV・詳細グラフつきで。スコープ `business.manage` を追加 → 同意画面のスコープ追加と再審査に注意。
 
-### 口コミ支援（アンケート QR）— r34〜r36
+### 口コミ支援（アンケート QR）— r34〜r36、r38（多言語）
 
 - **何をするか**: 店舗が `/tools/reviews`（MEO タブ、pro、`requires: ["supabase"]`、`optional: ["anthropic", "places"]`）でアンケートを作る（業種テンプレート: 飲食 / サロン / クリニック / 汎用。質問は評価 1〜5・単一選択・複数選択・自由記述、最大 8 問）→ QR を発行（店舗別・テーブル別・スタッフ別など最大 30、SVG / PNG はサーバーが `qrcode` で描く）→ 来店客が `/r/<slug>?c=<code>`（ログイン不要、サイドバー無し = `AppShell` の `isBare`、`robots: noindex`）で回答 → **AI が口コミの下書き**（`src/lib/reviews/draft.ts`。トーン 3 種と「含めたい語」最大 5 は店舗の設定。モデルは `REVIEW_DRAFT_MODEL`、既定は `LLM_FAST_MODEL`。回答は untrusted ブロック。キー無し / 上限超え / 失敗時は自由記述をそのまま並べる `fallback`）→ 完了画面「店舗にフィードバックを送信しました」+ 編集できる下書き + **「Google マップに投稿する」（評価に関係なく全員同じ。押すと下書きをクリップボードにコピーし、押下を `/api/r/[slug]/events` に記録してから Google の投稿画面 `writeAReviewUri` を新しいタブで開く）** + 低評価（既定 2 以下、店舗が 1〜4 で変更）のときは **「お店に直接伝える」を並列で追加**（本文 + 任意の連絡先 → `/api/r/[slug]/direct`）。
 - **店舗ごとの QR（r35）**: 1 つのアンケート（質問・AI 設定）を複数店舗で共有できる。QR（`review_channels`）に店舗（`store_name` / `place_id` / `write_review_url`）を紐づけると、その QR から開いた来店客の画面はその店舗名、AI 下書きの店名と投稿ボタンの飛び先もその店舗（`resolveStore`。紐づけが無い QR は本体の店舗）。発行は「店舗ごと（MEO の登録店舗から選ぶ / 店名と Place ID を手入力）」と「置き場所ごと（本体の店舗のまま）」、MEO に登録済みの自社店舗にまとめて発行（`{ bulk: "stores" }`。紐づけ済みの Place ID は飛ばす）。集計・絞り込み・CSV は「店名（ラベル）」で店舗ごとに分かれる（CSV に「店舗」列）。投稿先の解決は `src/lib/reviews/links.ts`（指定 → 保存済み報告書の `writeReview` → Place ID から組み立て）。
 - **QR のダウンロードと削除の警告（r36）**: QR カードの「SVG を保存」「PNG を保存」は `?download=1` で添付（`Content-Disposition: attachment`、ファイル名は `QR_<店名（ラベル）>.svg` を RFC 5987 の `filename*` で。ASCII の代替名つき。`src/lib/reviews/url.ts` の `contentDisposition`）。プレビューの `<img>` は従来どおりインライン。削除は必ず 1 回警告を挟む（QR = `window.confirm`、質問の × = `window.confirm`、アンケート本体と回答 = インラインの「本当に削除する」。利用者の指示「基本削除ボタンは一回警告」）。
+- **来店客の言語に合わせた自動切替（r38、利用者の指示「スマホの言語設定に合わせて切り替える」）**: 対応は日本語・英語・中国語（簡体 / 繁体）・韓国語の 5 つ（`src/lib/reviews/i18n.ts`）。判定は `?lang=` → ブラウザの `Accept-Language`（スマホは OS の言語をそのまま送る。`zh-TW` / `zh-HK` / `zh-Hant*` は繁体、他の中国語は簡体）→ 日本語。画面右上の 🌐 プルダウンで切替（`?lang=` を付けて出し直す。入力中の回答は残る）。**画面の固定文言**は辞書。**質問文・選択肢・アンケート名**は `src/lib/reviews/translate.ts`: 業種テンプレートの文言は静的な訳（AI 不要。テストで全テンプレートに訳があることを固定）、店舗が書き換えた文言は AI（`REVIEW_DRAFT_MODEL`、既定は高速モデル。区切りブロック。1 日上限は AI 下書きと同じ `review-ai` の枠）で訳して `review_forms.translations` に保存し使い回す（列が無い / AI 無し / 失敗 / 12 秒超は日本語のまま出す。画面は止めない）。**選択肢は「表示は訳、送る値は日本語の原文」**（`PublicQuestion.options[].{value,label}`）なので、回答の検証・保存・店舗側の一覧・集計・CSV は日本語のまま。自由記述は来店客の言語のまま届く。**AI 下書きは画面の言語で書く**（`DraftInput.locale` → 「書く言語」。Google マップに投稿する本文もその言語）。「お店に直接伝える」の本文も来店客の言語のまま。回答の `lang` を保存し、店舗側の一覧にバッジ（「英語」など）、行を開くと「英語の画面で回答」、CSV に「言語」列。`<main lang>` とタブのタイトルも言語に合わせる。**未対応**: 店舗側で自由記述を日本語に翻訳して見る機能（候補。要望があれば AI で 1 件ずつ訳す）。
 - **店舗側**: 回答一覧（既定の並びは「低評価・直接連絡・未対応を先に」。新しい順 / 評価が低い順、対応状態・経路・期間・低評価だけで絞り込み）、行を開くと回答全文・AI 下書き・投稿時の本文・直接連絡・対応状態（未対応 / 対応中 / 対応済み）・対応メモ。集計（回答数・平均評価・分布・低評価・**投稿ボタン押下率（実投稿数は取れないと明記）**・経路別・週別 8 週）。CSV（式インジェクション対策済み）。未対応の低評価があればカード 1 に件数の注意。メール通知は無し（送信サービスが無い）。
 - **守り**: 公開パスは `routes.ts` の接頭辞 `/r/` と `/api/r/`（接頭辞そのものは公開しない。`routes.test.ts` で固定）。回数制限は IP ごと（取得 120 / 回答 30 / イベント 60 / 時。店内 Wi-Fi で IP が共有されるため緩め）+ アンケートごとの 1 日 500 件（`REVIEW_FORM_DAILY_LIMIT`）+ AI 下書きの 1 日全体 2,000 件（`REVIEW_AI_DAILY_LIMIT`。超えたら fallback）。来店客側の更新は `edit_token`。管理 API は `ownedForm`（user_id）で所有確認 → form_id。来店客に返すのは `PublicReviewForm`（質問・店名・低評価の閾値・投稿 URL の有無だけ）。
 - **投稿 URL**: 作成時に Place ID を指定すると、保存済みの MEO 報告書の `links.writeReview`（r28）→ 無ければ `https://search.google.com/local/writereview?placeid=` を組み立て。MEO 未登録なら Place ID か URL を手入力。無ければ投稿ボタンは出ない。
 - **プライバシーポリシー**: 第 12 条「店舗のアンケートに回答する方の情報」を追加（第 8 条にも一言）。改定は第 13 条に繰り下げ。
 - **設計時の照合**（[review-support-design.md](./review-support-design.md) §2）: Google の 2025〜2026 年の方針では AI 生成本文・キーワード指定・スタッフ別ノルマが禁止側。利用者の判断で AI 下書きを含めて実装した。店舗向けの注意（全員同じボタン・特典を付けない・語は参考だけ）は画面上部の Callout に明記。
 - **未実装 / 候補**: 低評価のメール通知（Resend 等）、連絡先の自動削除（Cron）、回答 1,000 件超の集計（いまは新しい順 1,000 件の範囲）、QR の印刷用 PDF、課金（店舗数課金にするなら `review_forms` の件数で判定）。
-- **検証**: lint / tsc / test（98 ファイル・1,369 件）/ build 通過。PostgREST のモック + `next start` + Playwright で「作成 → 保存 → QR（SVG / PNG）→ スマホ幅で回答（評価 2）→ 下書き → 投稿ボタン（新タブ + 押下記録）→ お店に直接伝える → 管理画面に低評価 1 件・直接連絡・押下時の本文・メモ保存 → CSV → 偽トークンは 404」を確認。
+- **検証**: lint / tsc / test（98 ファイル・1,369 件）/ build 通過。PostgREST のモック + `next start` + Playwright で「作成 → 保存 → QR（SVG / PNG）→ スマホ幅で回答（評価 2）→ 下書き → 投稿ボタン（新タブ + 押下記録）→ お店に直接伝える → 管理画面に低評価 1 件・直接連絡・押下時の本文・メモ保存 → CSV → 偽トークンは 404」を確認。r38 は test 103 ファイル・1,401 件。多言語のスモーク（端末 = 英語で開く → 英語の画面と質問 → 繁体字に切替 → 英語で回答 → `lang=en` と日本語の選択肢の値が保存 → 管理画面にバッジ「英語」→ CSV の「言語」列。API は `Accept-Language: zh-TW` → 繁体、`fr` → 日本語、`?lang=ko` が優先）も通過。**AI 訳は実 API で未検証**（キー無しの環境。本番で店舗が書き換えた質問を英語の端末で開いて確認する）。
 
 ### 既知の課題・メモ
 
@@ -598,3 +613,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者の決定: **Wolf のプロフィールで申請を進める**（wolf@ がそれ以前から作っているはず、との判断で「はい」）。却下されたら 10/1 以降に再申請（ペナルティ無し）。
 - 申請フォームの最後の質問「許可リスト登録済みのプロジェクト ID を持っているか」→ 初回なので「いいえ」。**送信完了（09-11 20:52）。サポートケース ID `0-4126000041187`、審査 7〜10 営業日**。結果は `matsumatsu452@gmail.com` にメール。承認後は #54 ②〜④。
 - 利用者が Google Cloud「有効な API とサービス」の一覧を共有（Places API (New) 11 リクエスト、My Business Account Management API と My Business Business Information API がリクエスト「—」で表示。Google My Business API v4 は無し）→ Places の 11 件は MEO 診断が本番で動いている証拠。**#54 ②のうち 2 つは有効化済み**（この画面は有効化済みの API だけが並ぶ）。v4 は承認前はライブラリに出ない / 有効化できないことがあるので承認メール後に有効化するよう案内。承認前の呼び出しは 403 のまま。
+- 利用者「アンケート機能について、ユーザーのスマホの言語設定に合わせてアンケートの言語を切り替えるようにして」→ **r38**: 日本語・英語・中国語（簡体 / 繁体）・韓国語の 5 言語。`Accept-Language` で自動判定、右上の 🌐 で切替、テンプレートの質問は静的な訳、書き換えた質問は AI 訳を `review_forms.translations` に保存、AI 下書きも来店客の言語、回答に `lang` を記録して店舗側にバッジと CSV 列（上の「口コミ支援 … r38（多言語）」）。**利用者の作業: #55 の SQL 2 行**（実行前でも動く）。lint / tsc / test（1,401 件）/ build と、モック + Playwright の多言語スモーク・従来のスモークを通過。AI 訳は実 API で未検証。

@@ -53,6 +53,13 @@ describe("AI に渡す本文", () => {
     expect(before).toContain("自然につながるときだけ");
     expect(SYSTEM_PROMPT).toContain("書かれていない体験");
   });
+
+  it("書く言語は来店客の画面の言語（省略時は日本語）", () => {
+    expect(buildDraftPrompt(INPUT)).toContain("書く言語: 日本語");
+    expect(buildDraftPrompt({ ...INPUT, locale: "en" })).toContain("書く言語: 英語");
+    expect(buildDraftPrompt({ ...INPUT, locale: "zh-Hant" })).toContain("繁体字中国語");
+    expect(SYSTEM_PROMPT).toContain("指定された言語");
+  });
 });
 
 describe("ルールの下書き", () => {

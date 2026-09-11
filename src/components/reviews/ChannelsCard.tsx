@@ -135,7 +135,7 @@ export function ChannelsCard({ number, form, channels, stores, onAdd, onBulkFrom
     <Card
       number={number}
       title="QR コード"
-      description="このアンケートに紐づく QR コードを、店舗ごと・置き場所ごとに発行します。店舗を紐づけた QR から開くと、来店客の画面はその店舗名になり、投稿ボタンはその店舗の Google マップに飛びます。回答は QR ごとに集計されます。"
+      description="このアンケートに紐づく QR コードを、店舗ごと・置き場所ごとに発行します。店舗を紐づけた QR から開くと、来店客の画面はその店舗名になり、投稿ボタンはその店舗の Google マップに飛びます。回答は QR ごとに集計されます。来店客の画面は端末の言語（日本語・英語・中国語 簡体 / 繁体・韓国語）に合わせて自動で切り替わります（テンプレートの質問は用意した訳、書き換えた質問は AI が訳して保存）。"
       actions={
         unlinkedStores.length > 0 && !full ? (
           <Button type="button" size="sm" variant="secondary" onClick={bulk} loading={busy === "bulk"} disabled={busy !== null}>

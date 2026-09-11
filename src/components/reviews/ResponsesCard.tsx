@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { channelDisplayName, type ReviewChannel, type ReviewForm } from "@/lib/reviews/forms";
+import { LOCALE_LABELS_JA } from "@/lib/reviews/i18n";
 import { answerLines, NOTE_MAX } from "@/lib/reviews/questions";
 import { RESPONSE_STATUS_LABELS, RESPONSE_STATUSES, type ResponseStatus, type ReviewResponse } from "@/lib/reviews/responses";
 import { formatDateTime } from "@/lib/report/format";
@@ -156,6 +157,7 @@ export function ResponsesCard({ number, form, channels, responses, loading, erro
                   <span className="w-28 shrink-0 truncate text-muted">{r.channelId ? (labelOf.get(r.channelId) ?? "QR なし") : "QR なし"}</span>
                   <span className="min-w-0 flex-1 truncate text-ink">{textPreview || <span className="text-muted">（自由記述なし）</span>}</span>
                   <span className="flex shrink-0 items-center gap-1">
+                    {r.lang && r.lang !== "ja" && <Badge tone="neutral">{LOCALE_LABELS_JA[r.lang]}</Badge>}
                     {r.directMessage && <Badge tone="fail">直接連絡</Badge>}
                     {r.clickedReviewAt && <Badge tone="info">投稿ボタン</Badge>}
                     <Badge tone={r.status === "done" ? "pass" : r.status === "in_progress" ? "warn" : "neutral"}>{RESPONSE_STATUS_LABELS[r.status]}</Badge>
@@ -222,7 +224,7 @@ function ResponseDetail({
   return (
     <div className="grid gap-4 px-2 pb-4 pt-1 md:grid-cols-2">
       <div className="space-y-3">
-        <h4 className="text-[12px] font-bold text-muted">回答</h4>
+        <h4 className="text-[12px] font-bold text-muted">回答{response.lang && response.lang !== "ja" ? `（${LOCALE_LABELS_JA[response.lang]}の画面で回答。自由記述はその言語のまま）` : ""}</h4>
         <dl className="space-y-2 text-[13px]">
           {answerLines(form.questions, response.answers).map((l) => (
             <div key={l.label}>

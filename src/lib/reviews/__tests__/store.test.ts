@@ -106,15 +106,20 @@ describe("行の変換", () => {
       slug: "abcDEF123456",
       title: "ご来店アンケート",
       storeName: "〇〇食堂",
-      questions: form.questions,
+      locale: "ja",
+      questions: [{ id: "rating01", type: "rating", label: "満足度", options: [], required: true }],
       lowRatingMax: 2,
       hasWriteReviewUrl: true,
     });
     expect(JSON.stringify(pub)).not.toContain("writereview");
+    // 訳を渡すと表示だけ変わる（アンケート名・質問文）。locale が付く
+    expect(toPublicForm(form, null, "en", { 満足度: "Satisfaction", ご来店アンケート: "Customer survey" })).toMatchObject({ locale: "en", title: "Customer survey", questions: [{ label: "Satisfaction" }] });
   });
 
   it("回答の行 → 形。知らない状態は open、壊れた回答は空", () => {
-    expect(fromResponseRow(RESPONSE_ROW)).toMatchObject({ isLow: true, draftSource: "ai", status: "open", answers: { rating01: 2 } });
+    expect(fromResponseRow(RESPONSE_ROW)).toMatchObject({ isLow: true, draftSource: "ai", status: "open", answers: { rating01: 2 }, lang: null });
+    expect(fromResponseRow({ ...RESPONSE_ROW, lang: "en" }).lang).toBe("en");
+    expect(fromResponseRow({ ...RESPONSE_ROW, lang: "xx" }).lang).toBeNull();
     expect(fromResponseRow({ ...RESPONSE_ROW, status: "weird", draft_source: "x", answers: "broken" })).toMatchObject({ status: "open", draftSource: "none", answers: {} });
   });
 

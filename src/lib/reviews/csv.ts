@@ -3,6 +3,7 @@
  * 先頭が = + - @ のセルには ' を付ける。第三者（来店客）が書いた文字列が入るため。
  */
 import { resolveStore, type ReviewChannel, type ReviewForm } from "./forms";
+import { LOCALE_LABELS_JA } from "./i18n";
 import { answerLines, type ReviewQuestion } from "./questions";
 import { RESPONSE_STATUS_LABELS, type ReviewResponse } from "./responses";
 
@@ -29,6 +30,7 @@ export function responsesToCsv(
     "経路（QR）",
     "評価",
     "低評価",
+    "言語",
     ...questions.map((q) => q.label),
     "AI 下書き",
     "投稿時の本文",
@@ -46,6 +48,7 @@ export function responsesToCsv(
       r.channelId ? (labelOf.get(r.channelId) ?? "") : "",
       r.rating,
       r.isLow ? "はい" : "",
+      LOCALE_LABELS_JA[r.lang ?? "ja"],
       ...questions.map((q) => lines.get(q.label) ?? ""),
       r.draft,
       r.draftFinal,
