@@ -9,11 +9,12 @@
  * 1 人分が失敗しても一覧全体は出す（Promise.allSettled）。
  */
 import { clerkClient } from "@clerk/nextjs/server";
+import { planFromStripeState, stripeStateFromMetadata } from "@/lib/billing/state";
 import { defaultPlanFromEnv } from "@/lib/plans/current";
 import { overridesFromMetadata, toggleOverride, OVERRIDES_KEY } from "@/lib/plans/overrides";
 import { resolveUserPlan, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
-import { summarizeSubscription, type BillingSummary } from "./billing";
+import { summarizeStripeState, summarizeSubscription, type BillingSummary } from "./billing";
 
 /** 1 回に読む人数。Clerk の上限は 500 */
 export const PAGE_SIZE = 100;
@@ -74,10 +75,12 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
     const result = settled[i];
     // 契約が無いユーザーは 404 で落ちる。これは異常ではないので「契約なし」として扱う
     const subscription = result.status === "fulfilled" ? result.value : null;
-    const billing = summarizeSubscription(subscription);
+    // Stripe 直結の契約があればそれが正（Clerk Billing はドルのみのため使っていない）
+    const stripe = stripeStateFromMetadata(user.publicMetadata);
+    const billing = stripe ? summarizeStripeState(stripe) : summarizeSubscription(subscription);
     const overrides = overridesFromMetadata(user.publicMetadata);
     const { plan, source } = resolveUserPlan({
-      billingPlan: billing.plan,
+      billingPlan: stripe ? planFromStripeState(stripe) : billing.plan,
       metadataPlan: (user.publicMetadata as Record<string, unknown> | null)?.plan,
       envDefault,
     });

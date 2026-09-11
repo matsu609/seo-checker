@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r40 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r41 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -80,7 +80,7 @@
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
 | Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
-| Stripe / Clerk Billing | 未使用 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` 未設定。プランは `DEFAULT_PLAN=pro` |
+| Stripe（直結） | **コードは完成（r41）、Stripe 側の設定と Vercel の環境変数が未了** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま |
 
 ### Vercel の環境変数（Production）
 
@@ -90,6 +90,7 @@
 | `CLERK_SECRET_KEY` | 設定済み（`sk_live_`、Production のみ） | **要ローテーション**（会話に貼られた） |
 | `ADMIN_EMAILS` | `matsumatsu452@gmail.com` | マスター画面の管理者 |
 | `DEFAULT_PLAN` | `pro` | Production and Preview |
+| `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` | 未設定 | 決済（r41）。#58。まずテストキー（`sk_test_`）で確認 → 本番キーに差し替え |
 | `SITE_MAX_PAGES` | `100` | Production and Preview（一度誤って Preview のみにしたが復旧済み） |
 | `ANTHROPIC_API_KEY` | **設定済み**（09-10 17:30 設定画面で「設定済み」を確認） | Claude Console のクレジット購入済み |
 | `PAGESPEED_API_KEY` | **登録済み**（利用者報告 09-10 17:4x「AB 完了」）。設定画面での確認は未 | |
@@ -207,8 +208,9 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 40 | 無料 MEO 診断を「要点のみ」に絞る案 B: 総合評価・4 カテゴリ・改善点上位 3・口コミの数字だけ表示し、21 項目の一覧・口コミ本文・PDF は「無料登録で開放」。登録後は free プランで /tools/maps に自社 1 店舗（履歴 1 件・一斉更新対象外・競合なし・AI 総評なし） | Claude | 利用者の判断待ち（推奨 B） |
 | 41 | 料金: **オールインワン 9,800 円の 1 本に決定（r26）**。割引は「使わない機能ごとに 3,000 円引き」の個別対応 → 運用者が Clerk の `publicMetadata.plan` に `standard`（6,800 円相当）を割り当て、決済は Stripe の支払いリンク等で手動。旧案:: ライト 2,980（1 領域）/ スタンダード 5,980 / プロ 9,800 / 追加店舗 +300。実装: `PlanId` に `light` 追加、選択領域（seo/aio/meo）を publicMetadata、`category` でゲート、店舗数・KW 数の上限（`meo_stores` 件数・順位計測の登録数）、PlanTable・紹介サイト・Clerk Billing のプラン | 利用者 → Claude | 数字の判断待ち |
 | 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | 未 |
-| 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho`（事業者名・代表者・連絡先・価格・支払方法・解約・返金。所在地と電話は請求時開示）。PUBLIC_PAGES に追加、フッターにリンク。Stripe 審査と Clerk Billing 開始の前提 | Claude | 未（利用者の GO で着手） |
-| 44 | 決済の開始（Clerk Billing）: Stripe 登録 → Clerk Billing 有効化・Stripe 接続 → プラン `pro`（月 9,800 円、スラッグはコードの `user:pro` と一致。standard は作らない）→ Vercel `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1`、`DEFAULT_PLAN=free` → Redeploy → 管理画面で自分に個別開放 → テストカードで購入確認。モニターは管理画面の個別開放で無料に | 利用者 | 未 |
+| 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho` | Claude | **完了（r41）**。内容（解約は期間末まで利用可・日割り返金なし・運営責任者「松下」）は Claude の仮置き。利用者が確認して直す点があれば伝える |
+| 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
+| 58 | **決済を有効にする（Stripe 側と Vercel の作業）**: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
 | 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
@@ -230,6 +232,21 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 4 | 本番 → 口コミへの返信 | https://app.seo-checker.tokyo/tools/replies | 「1. 接続」の「Google に口コミ返信の権限を追加する」→ Google の確認画面で**ビジネスのオーナー / 管理者のアカウント**（`wolf@wolf-info.org` 側にオーナー権限がある。`matsumatsu452@gmail.com` は管理者として追加済み）で「ビジネス プロフィールの管理」を許可 → 戻ったらビジネスの一覧が出る |
 
 ①が終わる前に④を押しても害は無い（権限は付くが、口コミ一覧が「利用申請が承認され…」のエラーになる）。承認後に画面を開き直せばそのまま動く。
+
+### Stripe を有効にする手順（#58。すべて利用者の作業。まずテストモードで通し、最後に本番キーへ）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Stripe → 商品カタログ | https://dashboard.stripe.com/test/products | 「商品を追加」→ 名前 `オールインワン`、説明 `SEO・AIO・MEO の全機能`、**継続**、**¥9,800 / 月**（通貨 JPY。税別で売るなら「税込みかどうか」は「税別」）→ 保存 → 価格の行を開いて **Price ID（`price_…`）** をコピー |
+| 2 | Stripe → 開発者 → Webhook | https://dashboard.stripe.com/test/webhooks | 「エンドポイントを追加」→ URL `https://app.seo-checker.tokyo/api/billing/webhook` → イベントを 4 つ選ぶ: `checkout.session.completed`、`customer.subscription.created`、`customer.subscription.updated`、`customer.subscription.deleted` → 追加 → **署名シークレット（`whsec_…`）** をコピー |
+| 3 | Stripe → 設定 → 請求 → カスタマーポータル | https://dashboard.stripe.com/test/settings/billing/portal | 有効にして保存。「お支払い方法の更新」「請求書の履歴」「サブスクリプションのキャンセル」を ON（キャンセルは「期間末」）。プランの変更は OFF（プランは 1 つ） |
+| 4 | Stripe → 設定 → 公開事業者情報 | https://dashboard.stripe.com/settings/public | 事業者名 `SEO 研究所`、サポートメール `contact@seo-checker.tokyo`、サイト `https://app.seo-checker.tokyo/legal/tokushoho`（特商法の表記。本番アカウントの審査で見られる） |
+| 5 | Stripe → 開発者 → API キー | https://dashboard.stripe.com/test/apikeys | **シークレットキー（`sk_test_…`）** をコピー（公開可能キー `pk_` は使わない） |
+| 6 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | `STRIPE_SECRET_KEY`（5 の値）、`STRIPE_PRICE_PRO`（1 の値）、`STRIPE_WEBHOOK_SECRET`（2 の値）を Production に追加 → Deployments で Redeploy |
+| 7 | 本番 → 料金プラン | https://app.seo-checker.tokyo/plans | 「テストモード」の表示と「申し込む」ボタンを確認 → 申し込む → テストカード `4242 4242 4242 4242`（有効期限は未来、CVC 任意）→ 戻ったら「契約中」→「お支払い方法の変更・請求書・解約」でカードを変えてみる → 解約 → 「期間末で解約予定」になる |
+| 8 | Stripe → 本番モードに切替 | https://dashboard.stripe.com/products | 1〜3・5 を**本番モード**でもう一度（商品・Webhook・ポータル・`sk_live_`）→ 6 の 3 つを本番の値に差し替え → Redeploy。あわせて `DEFAULT_PLAN` を `free` に（#39）、自分は管理画面で個別開放 |
+
+自分（運用者）のプランは Stripe に関係なく、Clerk の `publicMetadata.plan` か管理画面の個別開放で開く。Webhook が届かないときは Stripe → Webhook → 該当エンドポイント → 「イベントの試行」で応答（200 / 400 / 500）を見る。400 は署名不一致（`STRIPE_WEBHOOK_SECRET` の貼り間違い）、500 は Clerk の更新失敗（Vercel のログ）。
 
 ### 入力待ち（利用者からの回答が要るもの）
 
@@ -445,6 +462,8 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 - **基本情報掲載は「配信代行の代替」ではなく「自分で登録する手間を最小にする」ツール（2026-09-11）**: 利用者は配信代行の画面（26 媒体を一括同期）を見て「無料で一斉登録」を求めたが、地図・検索・ディレクトリに無料で一括登録できる API は無い（Apple / Bing / Yahoo! / HERE / TomTom はそれぞれ無料のオーナー登録画面があるだけ。Acompio / Opendi / Uber などは配信代行の契約先からしか載らない）。嘘の「一括同期」ボタンは作らず、できること（無料登録の窓口・手順・コピー・状況管理・AI 説明文・構造化データ）とできないこと（有料の配信代行のみ）を画面で明記した。配信代行を契約するなら #57。
 
+- **決済は Clerk Billing ではなく Stripe 直結（2026-09-11）**: 利用者が「登録済みのカード変更機能」と Stripe 連携を求めた時点で調べ直したところ、Clerk Billing は請求通貨がドルのみ（円建て 9,800 円が作れない）。Clerk 側の手数料 0.7% も乗る。Stripe を直接使えば円建て・プロモーションコード（クーポン。利用者が以前求めていた）・カスタマーポータル（カード変更・請求書・解約を Stripe の画面で完結、カード番号をアプリが扱わない）が揃う。契約状態は Webhook が Clerk の `publicMetadata.stripe` に書く（データベースは増やさない）。Clerk Billing のコードは残すが出さない。
+
 ## 進行中の開発の設計メモ
 
 ### MEO（Google マップ・店舗情報）— 3 フェーズ
@@ -455,6 +474,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **フェーズ 2.6（r28、Google から取れる項目の拡張）**: `client.ts` の `DETAIL_FIELDS` を拡張（`primaryType` / `addressComponents` / `location` / `priceLevel` / `priceRange` / `googleMapsLinks` / `generativeSummary` / `reviewSummary` / `pureServiceAreaBusiness` / `consumerAlert` / 属性 26 種）。**料金は変わらない**（1 回の呼び出しは要求した中で最も高い区分 = 既に reviews で Enterprise + Atmosphere）。フィールド名は `@googlemaps/places` 3.0.0 の `place.proto` で確認（ドキュメントサイトはこの環境から読めない）。Google が項目名を拒否（400）したら基本項目だけで 1 回取り直す（ログ `[maps] 拡張フィールドマスクが拒否…`）。`PlaceDetail` の新しい項目は optional（古い保存分は undefined → 採点は「次回の一斉更新から取得」の unavailable）。採点は `scoreProfile(place, now, owner, { extended })`: **有料 = 28 項目（`WEIGHTS.extended`）、無料 `/meo` = 21 項目（`WEIGHTS.base`）、どちらも合計 100**。有料で足した 7 項目: 追加カテゴリ（汎用 type を除く）、属性 5 個以上、オーナー投稿の写真（Google が返す最大 10 枚のうち投稿者名 = 店名が 3 枚以上）、写真の解像度（長辺 1,024px 未満があれば注意）、口コミ内のキーワード（カテゴリ名 + 対策キーワード）、口コミ本文（20 文字以上が 60%）、Google の警告（`consumerAlert`、不審な口コミ活動・ポリシー違反）。住所は premise / subpremise の有無を detail に表示（点数は変えない）。報告書に「4. Google マップの付加情報」（有料のみ）: 追加カテゴリ・価格帯・住所の詳しさ・座標・属性チップ・**口コミ依頼リンク（`writeAReviewUri`）**・AI 要約（日本ではほぼ無い）・警告。比較表に属性の数。**Places から取れない項目で残るもの**: 投稿・返信・説明文・ロゴ/カバー・開業日（`openingDate` は開店予定のときだけ）・インサイト（表示回数・電話・経路）→ オーナー入力（r27）か Business Profile API（#11）。
 - **フェーズ 2.7（r29、検索順位と周辺の同業）**: 有料の自社店舗にだけ付く（無料 `/meo`・競合の報告書には無い。`MeoReport.rank` / `.area`、r29 より前の保存分は undefined）。**検索順位** `src/lib/maps/rank.ts`: 対策キーワード（`meo_owner_inputs.input.keywords`、最大 5）ごとに Text Search（`locationBias` = 店舗の座標、半径 3 km、`pageSize` 20、フィールドは `places.id,places.displayName` だけ = **Pro 区分**）を 1 回叩き、自社と登録済み競合の順位・上位 3 件・前回の順位（`previous`）を記録。Google の「ローカル検索順位」そのものではなく Places API の並び（画面に明記）。**周辺の同業** `src/lib/maps/area.ts`: Nearby Search（`locationRestriction` 半径 1.5 km、`includedPrimaryTypes` = 自社の `primaryType`、`rankPreference: POPULARITY`、20 件、`rating` / `userRatingCount` が要るので **Enterprise 区分**）から、自社を除いた中での評価・件数の順位（同点は同順位）、平均評価、件数の中央値、件数順の上位 5 件。**いつ叩くか** `src/lib/maps/enrich.ts`: 店舗の登録直後（順位 + 周辺）、毎週の一斉更新（順位は全キーワード取り直し + 前回値、周辺も取り直し。`refresh.ts` の `deps.enrich`、失敗しても保存は止めない）、オーナー情報の保存（増えたキーワードだけ検索、周辺は取り直さない）。位置（`location`）が無い店舗は計測しない。順位・周辺とも 6 時間キャッシュ（`fetch.ts`）。画面: 報告書の「5. 検索順位」（キーワード × 自社・競合の表、前回比、上位 3 件）「6. 周辺の同業との比較」（StatStrip + 上位 5 件の表）。**推移グラフは未実装**（各週の報告書に順位が入っているので、履歴から線グラフにできる。要望が出たら）。
 - **コンサル解説（r30）**: `src/lib/maps/guide.ts` に 28 項目ぶんの `CHECK_GUIDE`（why / goal / keep）、`MEO_CONCLUSION`、`IDEAL_STATE`（評価 4.3〜4.7、口コミ数は競合上位 3 社超・最低 50、口コミの質、返信率 100% / 24〜48h、写真 100 枚以上・毎週追加、投稿週 1、基本情報 NAP 一致・サブカテゴリ最大 9、Q&A 5〜10 問（未計測）、星の分布）。有料の報告書に「3. 目指すべき状態」の節と、各項目の下に 3 行の解説（`ChecklistSection` の `guide` prop）。無料 `/meo` には出さない（`guide` を true にすれば出る）。文章を変えるときは guide.ts だけ。`guide.test.ts` が採点の項目 ID と過不足なく一致することを確認する（項目を足したら解説も足す）。
+- **決済（r41、Stripe 直結）**: `src/lib/billing/state.ts`（契約状態の形 `publicMetadata.stripe`: subscriptionId / status / priceId / amount / currency / currentPeriodEnd / cancelAtPeriodEnd / eventCreated。`planFromStripeState`: active・trialing・past_due → pro。`shouldApplyEvent`: 古いイベントで上書きしない）、`stripe.ts`（`isStripeConfigured` = 3 変数、Checkout: mode subscription・`client_reference_id` と `subscription_data.metadata.userId` にユーザー ID・`allow_promotion_codes`・locale ja・戻り先 `/plans?checkout=success|cancel`、カスタマーポータル、Webhook の署名検証）、`sync.ts`（Clerk の `publicMetadata.stripe` と `privateMetadata.stripeCustomerId` を更新。他のキーは残す）。API `/api/billing/checkout`・`portal`（ログイン必須）・`webhook`（公開。署名で守る。`checkout.session.completed` と `customer.subscription.*` だけ処理。保存失敗は 500 で Stripe に再送させる）。`current.ts` の順番: 認証無効 → Clerk Billing の has（使っていない）→ **Stripe の状態** → publicMetadata.plan → DEFAULT_PLAN → free。マスター画面（`clients.ts`）も Stripe の状態を優先（`summarizeStripeState`）。画面 `StripeBillingCard`（`/plans`）: 契約前「申し込む」、契約後「お支払い方法の変更・請求書・解約」、テストキーなら「テストモード」表示、`?checkout=` の案内。特商法ページ `/legal/tokushoho`（`src/components/legal/Tokushoho.tsx`。事業者名・連絡先は operator.ts、価格は catalog.ts から。所在地・電話は請求時開示）。**未検証**: 実際の Stripe に対しては利用者の設定後に本番（テストモード）で確認。
 - **基本情報掲載（r39、`/tools/listings`。利用者の指示「配信先メディア一括連携のような機能を AIO に。無料ですぐ一斉に登録できるように」）**: AIO タブ「生成」グループ、pro、`requires: ["supabase"]`。**無料で全媒体に一斉登録できる API は存在しない**（利用者が見た画面は Uberall 系の配信代行 = 有料。Acompio / Opendi / Uber / Where To? などはその経由でしか載らない）ので、r39 は「1 か所で決めた基本情報（NAP）を各媒体にそのまま貼る手間を最小にし、掲載状況を管理する」ツールにした。画面上部の Callout に「できること・できないこと」を明記。`src/lib/listings/media.ts`: 30 媒体（配信代行の画面の 26 + Yahoo!プレイス・Facebook・Yelp・OpenStreetMap）を 3 種類に分ける（`self` = 無料で自分で登録: Google / Apple Business Connect / Bing Places / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OSM / Facebook / Yelp / Petal / Hotfrog / Showmelocal / Tupalo / iGlobal、`fed` = 元の媒体から自動で流れる: Siri ← Apple、カーナビ各社 ← HERE / TomTom、Navmii ← OSM、Uber / Where To?、`aggregator` = 配信代行のみ: Acompio / Opendi）。登録画面の URL と手順、重要度（必須 = Google / Apple / Bing / Yahoo!）。`profile.ts`: `ListingProfileSchema`、Google の公開情報からの取り込み（空欄だけ）、表記ゆれの比較 `compareNap`（NFKC・空白・ハイフン・末尾スラッシュを無視、住所は包含）、貼り付け用の文、営業時間の行 → schema.org、`toJsonLd` / `jsonLdScript`（LocalBusiness。`</script>` をエスケープ）。`describe.ts`: AI の説明文（短い 150 / 長い 750。事実だけ、最上級・約束・URL・電話を禁止。口コミは untrusted ブロック。モデル `REVIEW_DRAFT_MODEL`）。`store.ts`: `listing_profiles` の upsert（user_id で絞る）。API `/api/listings/stores`（MEO の自社店舗 + 保存済み報告書の Google 情報 + 記録）、`profile`（PUT。自社店舗以外は 404、知らない媒体 ID は捨てる、サイトは https のみ）、`describe`。画面 `ListingsTool`: 店舗と集計 → 基本情報（取り込み・ずれの警告・AI 説明文・保存・まとめてコピー）→ 媒体一覧（種類ごと。登録画面を開く / 状況 / URL・メモ。項目ごとのコピー）→ 構造化データ。
 - **口コミへの返信（r37、`/tools/replies`）**: MEO タブ「生成」グループ、pro。`src/lib/google/business-profile.ts`（Account Management v1 → accounts、Business Information v1 → locations（Place ID 付き）、My Business v4 → reviews / reply の PUT・DELETE。応答は落ちない `parse*`。403 は「利用申請・API 有効化」を案内）。スコープ `business.manage` は `scopes.ts` の `GoogleService: "business-profile"`（REQUIRED_SCOPES には入れない = 設定画面の通常接続では要求しない。`ConnectBusinessButton` が読み取り 2 つと一緒に reauthorize で要求）。AI 返信案は `src/lib/replies/draft.ts`（評価 3 以下は謝罪 → 受け止め → 改善 → 個別連絡の型、4 以上は感謝の型。氏名・来店日時・特典の約束を禁止。口コミは untrusted ブロック。モデル `REVIEW_REPLY_MODEL`、既定は高速モデル）。API: `/api/replies/status`（接続・権限・ビジネス一覧・MEO の自社店舗・AI の有無）、`reviews`（50 件ずつ、`pageToken`）、`reply`（PUT / DELETE）、`draft`、`places`（接続前の代替 = 保存済み報告書の最新 5 件、費用ゼロ）。画面 `RepliesTool`: 未返信 → 低評価 → 新しい順、返信の投稿・更新・削除は `window.confirm`。設定（トーン・補足・署名・最後のビジネス）は localStorage `repliesSettings`。口コミと返信は保存しない（Google が正）。**Google 側の作業 4 つ（#54）が終わるまで投稿は動かない。接続前は公開情報の口コミで返信案 → コピー → GBP。**
 - **フェーズ 3（承認後）**: Business Profile API（Business Information / v4 reviews・localPosts・media / Performance API）で `score.ts` の `unavailable` 9 項目を埋める。インサイト 8 指標（表示回数 モバイル/PC、電話、ルート、サイト、メニュー、平均クリック率）を期間比較・CSV・詳細グラフつきで。スコープ `business.manage` を追加 → 同意画面のスコープ追加と再審査に注意。
@@ -639,3 +659,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者が配信代行の「配信先メディア一括連携」画面（Acompio / Apple Maps / Audi / BMW / Bing / … / iGlobal の 26 媒体、状態 SYNCED / SUBMITTED / UPDATING）を共有し「他にもこれを追加して。無料ですぐ一斉に登録できるように。AIO のところに基本情報掲載を機能として追加して」→ **r39**: `/tools/listings`（上の「基本情報掲載（r39）」）。**無料の一括登録 API は無い**ことを伝え、無料で自分で登録できる媒体（登録画面へ直接 + コピー用の基本情報）/ 自動で流れる媒体 / 配信代行のみの媒体を区別する形にした。テスト 4 ファイル（媒体の一覧に 26 媒体が全部あること、表記ゆれ、営業時間 → schema.org、保存の user_id、AI の入力）。lint / tsc / test（1,416 件）/ build と、モック + Playwright のスモーク（保存 → 再読み込み → 媒体の状況 → 構造化データ → AIO のサイドバー）通過。**利用者の作業: #56 の SQL**（`listing_profiles`）。#57（配信代行の契約）は判断待ち。
 - 利用者「このサイテーション機能によって AIO でどのような効果があるのか、インバウンドや LLM（ChatGPT など）での上位表示につながるという説明を添えて。API 料金はいくら？」→ **r40**: `/tools/listings` の先頭に「なぜ AIO・インバウンドに効くのか」カード（生成 AI は複数媒体で一致した事実を信じる / Bing Places = ChatGPT 対策 / インバウンドは Apple マップ・Siri・Yelp・カーナビ / 説明文は「何の店か」を教える唯一の文章 / 構造化データと llms.txt。「AI に順位は無く、回答に含まれるかが勝負」と表現し、保証はしない）。registry の details にも 1 行。料金は会話で回答: AI の説明文は 1 回 1 円程度（Haiku 4.5、入力 $1 / 出力 $5 per 100 万トークン）、配信代行は Yext 月額 $16〜$76/店舗（米国自社向け）〜年 $1,000〜$3,000/店舗（代理店の小規模契約）、Uberall は非公開。#57 の判断待ちのまま。
 - 利用者が Supabase の SQL Editor で r38（2 列の追加）と r39（`listing_profiles`）の SQL 12 行を実行し「Success. No rows returned」を共有 → **#55・#56 完了**。Supabase のテーブルは 7 つ（`meo_reports` / `meo_stores` / `meo_owner_inputs` / `review_forms` / `review_channels` / `review_responses` / `listing_profiles`）。残りは本番での確認: `/tools/listings` で基本情報を保存できるか、英語端末でアンケートを開いて回答の一覧に「英語」バッジが出るか。
+- 利用者「登録済みのカード変更機能をつけたい。Stripe の連携を進めたい。アカウントは作ってある」→ 調べ直したところ **Clerk Billing はドルのみ**（円建て 9,800 円が作れない）と判明 → **r41: Stripe 直結**に切り替え（上の「決済（r41）」）。カードの変更・請求書・解約は Stripe のカスタマーポータル。特商法ページ `/legal/tokushoho`（#43）も作成。テスト（契約状態・古いイベントの無視・要約・公開パス）、lint / tsc / test / build 通過。**利用者の作業: #58 の 8 手順**（テストモードで商品・Webhook・ポータル・環境変数 → 動作確認 → 本番キー）。実 Stripe に対しては未検証。

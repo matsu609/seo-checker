@@ -256,6 +256,16 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         >
           プライバシー
         </Link>
+        <span className="mx-1.5" aria-hidden="true">
+          ·
+        </span>
+        <Link
+          href="/legal/tokushoho"
+          onClick={onNavigate}
+          className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60"
+        >
+          特商法表記
+        </Link>
       </div>
     </nav>
   );

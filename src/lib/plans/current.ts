@@ -3,7 +3,8 @@
  *
  * 判定の順番:
  *   1. 認証が無効（開発・E2E）… いちばん上のプラン扱い。今までどおり全部使える
- *   2. Clerk Billing の has({ plan }) … 決済を有効にしたらこれが効く
+ *   2. Stripe の契約状態（publicMetadata.stripe。Webhook が書く）… 決済の本命（円建て）
+ *      Clerk Billing の has({ plan }) も残してあるが、Clerk Billing はドルのみのため使っていない
  *   3. Clerk の publicMetadata.plan … 決済を入れる前に、運用者がダッシュボードで割り当てる
  *   4. 環境変数 DEFAULT_PLAN … 単一テナント運用でまとめて開けたいとき
  *   5. どれも無ければ free
@@ -13,6 +14,7 @@
  */
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { isAuthEnabled } from "@/lib/auth/config";
+import { planFromStripeState, stripeStateFromMetadata } from "@/lib/billing/state";
 import { PLANS, PLAN_RANK, toPlanId, type PlanId } from "./catalog";
 
 /** 環境変数で指定した既定プラン（未設定・不正な値なら null） */
@@ -48,10 +50,14 @@ export async function getCurrentPlan(): Promise<CurrentPlan> {
     // Billing が未設定のときは has() が投げることがある。次の手段へ落ちる
   }
 
-  // 2. 運用者が Clerk ダッシュボードで割り当てた値
   try {
     const user = await currentUser();
-    const fromMetadata = toPlanId((user?.publicMetadata as Record<string, unknown>)?.plan);
+    const metadata = user?.publicMetadata as Record<string, unknown> | undefined;
+    // 2. Stripe の契約（Webhook が publicMetadata.stripe に書く）
+    const fromStripe = planFromStripeState(stripeStateFromMetadata(metadata));
+    if (fromStripe) return { plan: fromStripe, source: "billing" };
+    // 3. 運用者が Clerk ダッシュボードで割り当てた値
+    const fromMetadata = toPlanId(metadata?.plan);
     if (fromMetadata) return { plan: fromMetadata, source: "metadata" };
   } catch {
     // ユーザーを取れなくても既定に落ちるだけ

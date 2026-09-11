@@ -8,6 +8,7 @@
  * 金額は最小単位（円なら 1 = 1 円、ドルなら 1 = 1 セント）で来るので、
  * 通貨ごとの桁を見て表示用の文字列を作る。
  */
+import { planFromStripeState, type StripeState } from "@/lib/billing/state";
 import { toPlanId, type PlanId } from "@/lib/plans/catalog";
 
 /** 小数を持たない通貨。円はここに入るので 100 で割ってはいけない */
@@ -192,5 +193,29 @@ export function summarizeSubscription(subscription: unknown): BillingSummary {
     nextPaymentAt: nextPayment ? num(nextPayment.date) : null,
     periodEndAt: item ? num(item.periodEnd) : null,
     coupon: discounts ? toCoupon(discounts.discount) : null,
+  };
+}
+
+/** Stripe 直結の契約状態（publicMetadata.stripe）→ マスター画面用。金額は Stripe の Price から */
+export function summarizeStripeState(state: StripeState): BillingSummary {
+  const status: ContractStatus =
+    state.status === "trialing" ? "trial"
+    : state.status === "active" ? (state.cancelAtPeriodEnd ? "canceled" : "active")
+    : state.status === "past_due" ? "past_due"
+    : state.status === "canceled" || state.status === "incomplete_expired" || state.status === "unpaid" ? "ended"
+    : state.status === "incomplete" ? "upcoming"
+    : "unknown";
+  const monthly = state.amount !== null && state.currency ? toMoney({ amount: state.amount, currency: state.currency }) : null;
+  const periodEnd = state.currentPeriodEnd ? Date.parse(state.currentPeriodEnd) : null;
+  return {
+    status,
+    statusLabel: STATUS_LABELS[status],
+    plan: planFromStripeState(state),
+    planName: "Stripe: オールインワン",
+    monthly,
+    subtotal: monthly,
+    nextPaymentAt: state.cancelAtPeriodEnd ? null : periodEnd,
+    periodEndAt: periodEnd,
+    coupon: null,
   };
 }

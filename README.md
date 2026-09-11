@@ -141,28 +141,25 @@ npm run dev                  # http://localhost:3000
 上から順に見て、最初に決まったものを使います。
 
 1. **ログインが未設定** … すべて `pro` 扱い（開発・E2E で全機能を開けたままにするため）
-2. **Clerk Billing の契約プラン** … 決済を有効にすると `has({ plan })` が効きます
+2. **Stripe の契約状態**（`publicMetadata.stripe`。Webhook が書く）… 有効・トライアル・支払い遅延なら `pro`。Clerk Billing の `has({ plan })` も残っていますが使っていません
 3. **Clerk の `publicMetadata.plan`** … 決済を入れる前に、運用者がダッシュボードで `"free"` / `"standard"` / `"pro"` を割り当てます
 4. **`DEFAULT_PLAN` 環境変数** … 全員へ一律で開放したいとき
 5. どれも無ければ `free`
 
-### 決済（Clerk Billing / Stripe）
+### 決済（Stripe 直結）
 
-カード決済は **Clerk Billing** で行います。決済の実体は Stripe ですが、契約状態は Clerk が持つため、**ここでもデータベースは要りません**。
+カード決済は **Stripe** を直接使います（Checkout で申し込み → サブスクリプション。カードの変更・請求書・解約は Stripe のカスタマーポータル）。契約状態は Stripe の Webhook が Clerk のユーザーの `publicMetadata.stripe` に書くので、**ここでもデータベースは要りません**。Clerk Billing はドルにしか対応していないため（2026-09 時点）、円建ての 9,800 円は Stripe 直結にしています。
 
-準備は 1 回だけです。
+準備は 1 回だけです（画面つきの手順は `docs/dev/OPERATIONS.md` の「Stripe を有効にする手順」）。
 
-1. Clerk ダッシュボード → **「請求する」(Billing)** を開き、**Stripe アカウントを接続**する（無ければその場で作れます）
-2. プランを 2 つ作る。**スラッグ（slug）は必ず `standard` と `pro`** にする
-   - `pro` … 月額 9,800 円（オールインワン。Clerk で作るのはこれだけ）
-   - `standard` … 販売しない（割引の個別対応は `publicMetadata.plan` で）
-3. `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1` を設定して再起動（Vercel なら環境変数に足して Redeploy）
+1. Stripe ダッシュボードで商品「オールインワン」と月額 9,800 円（JPY、継続）の価格を作り、**Price ID（`price_…`）** を控える
+2. 開発者 → Webhook で `https://app.seo-checker.tokyo/api/billing/webhook` を登録し、イベント `checkout.session.completed` / `customer.subscription.created` / `customer.subscription.updated` / `customer.subscription.deleted` を選ぶ → **署名シークレット（`whsec_…`）** を控える
+3. 設定 → カスタマーポータルを有効にする（お支払い方法の更新・請求書・解約を許可）
+4. Vercel の環境変数に `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` を入れて Redeploy
 
-スラッグは `src/lib/plans/catalog.ts` の `clerkPlan`（`user:standard` / `user:pro`）と一致している必要があります。ずれると**決済は通ったのに機能が開かない**ので、`plans.test.ts` で `user:<プラン id>` の形を固定しています。
+3 つがそろうと `/plans` に「申し込む」（契約前）と「お支払い方法の変更・請求書・解約」（契約後）が出ます（`src/components/plans/StripeBillingCard.tsx`）。テストキー（`sk_test_`）のときは画面に「テストモード」と出ます。未設定なら案内文が「プラン変更は運用者までご連絡ください」に変わり、上の 3（`publicMetadata.plan`）を手で割り当てる運用になります。申し込み画面では Stripe のプロモーションコード（クーポン）を入力できます。
 
-`NEXT_PUBLIC_CLERK_BILLING_ENABLED=1` のときだけ、`/plans` に Clerk の料金表（購入・変更・解約）が出ます（`src/components/plans/BillingTable.tsx`）。未設定なら料金表は出ず、案内文が「プラン変更は運用者までご連絡ください」に変わり、上の 3（`publicMetadata.plan`）を手で割り当てる運用になります。
-
-> **費用の注意**: Clerk Billing を使うと、Stripe の決済手数料に加えて **Clerk 側の手数料**がかかります。料率と、利用に必要な Clerk のプランは変わることがあるので、Clerk ダッシュボードの「請求する」画面か Clerk の料金ページで最新を確認してください。手数料を抑えたい場合は Clerk Billing を使わず、Stripe を直接組み込む形にもできます（その場合はこの変数を未設定のままにします）。
+`NEXT_PUBLIC_CLERK_BILLING_ENABLED=1` の Clerk Billing の料金表（`BillingTable.tsx`）は残してありますが、Stripe が設定されているときは出しません。
 
 ### バージョン（マージ回数）
 
@@ -293,7 +290,8 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `CRON_SECRET` | 毎週月曜 5:00 の一斉更新（`vercel.json` の Cron → `/api/cron/maps-refresh`）。未設定なら一斉更新は動かない |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |
-| `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（Stripe）の料金表を出す |
+| `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・オールインワンの Price ID・Webhook の署名シークレット。3 つそろうと `/plans` に申し込みとお支払いの管理が出る |
+| `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（ドルのみ）の料金表を出す。Stripe が設定されていれば出さない |
 | `ADMIN_EMAILS` | マスター画面（`/admin`）を開けるメールアドレス。未設定なら誰も入れない |
 | `SITE_MAX_PAGES` | クロール上限（既定 300、最大 1000） |
 | `NEXT_PUBLIC_SERVICE_GUIDE_URL` | サービス資料の配布ファイル。未設定ならアプリが資料を組み立てて PDF にする |

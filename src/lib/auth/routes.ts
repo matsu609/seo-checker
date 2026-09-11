@@ -13,7 +13,7 @@
  */
 
 /** ログイン不要で開けるページ（無料診断 2 本と、登録前に読める利用規約・プライバシーポリシー） */
-const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy"]);
+const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy", "/legal/tokushoho"]);
 
 /**
  * ログイン不要で開けるページの前方一致（末尾のスラッシュまで含めて比べる）。
@@ -34,7 +34,7 @@ const PUBLIC_PAGE_PREFIXES = ["/r/"] as const;
  * `/api/cron/maps-refresh` は Vercel の Cron が叩く（ログインは無い）。
  * ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
  */
-const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/cron/maps-refresh"]);
+const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/cron/maps-refresh", "/api/billing/webhook"]);
 
 /**
  * ログイン不要で叩ける API の前方一致。`/api/r/<slug>/...` は来店客のアンケート

@@ -129,7 +129,7 @@ describe("保護パス", () => {
 
 describe("公開パスの一覧", () => {
   it("増えていないか（増やすときは意図的に更新する）", () => {
-    expect(PUBLIC_PATHS.pages).toEqual(["/", "/meo", "/terms", "/privacy"]);
+    expect(PUBLIC_PATHS.pages).toEqual(["/", "/meo", "/terms", "/privacy", "/legal/tokushoho"]);
     expect(PUBLIC_PATHS.apis).toEqual([
       "/api/analyze",
       "/api/site",
@@ -137,6 +137,7 @@ describe("公開パスの一覧", () => {
       "/api/meo/search",
       "/api/meo/report",
       "/api/cron/maps-refresh",
+      "/api/billing/webhook",
     ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);
     expect(PUBLIC_PATHS.pagePrefixes).toEqual(["/r/"]);
