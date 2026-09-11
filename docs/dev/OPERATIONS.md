@@ -214,7 +214,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
 | 52 | 口コミへの返信（段階 1）: 公開情報の口コミ（最新 5 件）→ AI 返信案 → コピーして GBP へ | Claude | **完了（r37、`/tools/replies` の「接続前の代替」）** |
 | 53 | 口コミへの返信（段階 2）: Business Profile API で全件取得・ツール内から投稿・更新・削除 | Claude | **コードは完了（r37）**。動くのは #54 の 4 手順が終わってから |
-| 54 | **口コミ返信を有効にする（Google 側の作業）**: ① Business Profile API の利用申請 → ② 承認後、Google Cloud で API 3 つを有効化 → ③ OAuth の同意画面に `business.manage` スコープを追加 → ④ 本番 `/tools/replies` で「Google に口コミ返信の権限を追加する」→ Google の確認画面で許可（下の「口コミ返信を有効にする手順」） | 利用者 | **①申請済み（09-11、ケース ID `0-4126000041187`、7〜10 営業日）**。②〜④は承認メール後 |
+| 54 | **口コミ返信を有効にする（Google 側の作業）**: ① Business Profile API の利用申請 → ② 承認後、Google Cloud で API 3 つを有効化 → ③ OAuth の同意画面に `business.manage` スコープを追加 → ④ 本番 `/tools/replies` で「Google に口コミ返信の権限を追加する」→ Google の確認画面で許可（下の「口コミ返信を有効にする手順」） | 利用者 | **①申請済み（09-11、ケース ID `0-4126000041187`、7〜10 営業日）**。②は Account Management / Business Information の 2 つが有効化済み（09-11 確認）。残りの「Google My Business API」（v4）と③④は承認メール後 |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
@@ -222,7 +222,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
 | 1 | Google → Business Profile API のアクセス申請 | https://developers.google.com/my-business/content/prereqs | 前提 1〜3 は済み。4（組織アカウント）は個人アカウントのプロジェクトなので不要。5 のリンクから英語のフォームへ。**`matsumatsu452@gmail.com` でログインした状態で送る**（審査対象はログイン中のアカウント）。Application for Basic API Access / 連絡先 contact@seo-checker.tokyo / SEO 研究所 / https://seo-checker.tokyo/ / Project ID `seo-checker-508104` と Project number（Cloud のダッシュボードの数字）/ 確認済み 60 日以上のプロフィール / 用途の英文は 09-11 の会話に記載（口コミの取得・返信の投稿更新削除・基本情報の取得、OAuth business.manage、サービスアカウント不使用）。**審査は数日〜数週間**。承認メールが来たら次へ |
-| 2 | Google Cloud → API ライブラリ（3 つを有効化） | https://console.cloud.google.com/apis/library?project=seo-checker-508104 | 「My Business Account Management API」「My Business Business Information API」「Google My Business API」（v4）をそれぞれ検索して「有効にする」。承認前は一覧に出ないか、有効化しても 403 になる |
+| 2 | Google Cloud → API ライブラリ（3 つを有効化） | https://console.cloud.google.com/apis/library?project=seo-checker-508104 | 「My Business Account Management API」「My Business Business Information API」「Google My Business API」（v4）をそれぞれ検索して「有効にする」。**前 2 つは 09-11 に有効化済み**（「有効な API とサービス」に表示を確認）。残りは v4（https://console.cloud.google.com/apis/library/mybusiness.googleapis.com?project=seo-checker-508104 ）。承認前は一覧に出ないか、有効化しても 403 になる |
 | 3 | Google Cloud → OAuth → データアクセス（スコープ） | https://console.cloud.google.com/auth/scopes?project=seo-checker-508104 | 「スコープを追加または削除」で `https://www.googleapis.com/auth/business.manage` を追加して保存。テスト状態のままでよい（テストユーザーは使える。本番公開の審査時にこのスコープの説明とデモが要る） |
 | 4 | 本番 → 口コミへの返信 | https://app.seo-checker.tokyo/tools/replies | 「1. 接続」の「Google に口コミ返信の権限を追加する」→ Google の確認画面で**ビジネスのオーナー / 管理者のアカウント**（`wolf@wolf-info.org` 側にオーナー権限がある。`matsumatsu452@gmail.com` は管理者として追加済み）で「ビジネス プロフィールの管理」を許可 → 戻ったらビジネスの一覧が出る |
 
@@ -597,4 +597,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者が `wolf@` の Gmail で businessprofile-noreply を検索した画面を共有（5 件中最古が 7/14 JST の「オーナーになりました」。確認完了メール無し）→ Wolf のプロフィールは 60 日条件を満たすか確認できない（今日で 59 日目）。**推奨: 翠煙のオーナーに `matsumatsu452@gmail.com` を管理者として追加してもらい、翠煙のプロフィールで申請**（確認済み 60 日以上を確実に満たす）。代替は Wolf のまま 10/1 以降。
 - 利用者の決定: **Wolf のプロフィールで申請を進める**（wolf@ がそれ以前から作っているはず、との判断で「はい」）。却下されたら 10/1 以降に再申請（ペナルティ無し）。
 - 申請フォームの最後の質問「許可リスト登録済みのプロジェクト ID を持っているか」→ 初回なので「いいえ」。**送信完了（09-11 20:52）。サポートケース ID `0-4126000041187`、審査 7〜10 営業日**。結果は `matsumatsu452@gmail.com` にメール。承認後は #54 ②〜④。
-
+- 利用者が Google Cloud「有効な API とサービス」の一覧を共有（Places API (New) 11 リクエスト、My Business Account Management API と My Business Business Information API がリクエスト「—」で表示。Google My Business API v4 は無し）→ Places の 11 件は MEO 診断が本番で動いている証拠。**#54 ②のうち 2 つは有効化済み**（この画面は有効化済みの API だけが並ぶ）。v4 は承認前はライブラリに出ない / 有効化できないことがあるので承認メール後に有効化するよう案内。承認前の呼び出しは 403 のまま。
