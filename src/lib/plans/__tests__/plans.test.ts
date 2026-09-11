@@ -6,11 +6,15 @@ import { describe, expect, it } from "vitest";
 import { features, FEATURE_GROUPS } from "@/lib/features/registry";
 import {
   PLANS,
+  PLAN_BY_ID,
   PLAN_IDS,
   PLAN_RANK,
+  SELLABLE_PLANS,
   planAllows,
   planPriceLabel,
+  planShortLabel,
   toPlanId,
+  upgradeTarget,
   type PlanId,
 } from "../catalog";
 
@@ -56,8 +60,8 @@ describe("プラン ID の正規化", () => {
 describe("価格の表示", () => {
   it("金額どおりに出す", () => {
     expect(planPriceLabel("free")).toBe("無料");
-    expect(planPriceLabel("standard")).toBe("月額 5,000 円");
-    expect(planPriceLabel("pro")).toBe("月額 10,000 円");
+    expect(planPriceLabel("standard")).toBe("月額 6,800 円");
+    expect(planPriceLabel("pro")).toBe("月額 9,800 円");
   });
 });
 
@@ -89,9 +93,11 @@ describe("機能とプランの対応", () => {
   });
 
   it("プラン一覧のハイライトが実態と矛盾しない", () => {
-    // pro は standard を含む、と書いてあること
+    // オールインワン（pro）は SEO / AIO / MEO と AI が作る機能をすべて含む、と書いてあること
     const pro = PLANS.find((p) => p.id === "pro")!;
-    expect(pro.highlights.some((h) => h.includes("スタンダード"))).toBe(true);
+    for (const word of ["SEO", "AIO", "MEO", "AI が作る"]) {
+      expect(pro.highlights.some((h) => h.includes(word)), word).toBe(true);
+    }
   });
 
   it("サイドバーに出る機能はすべてプランを持つ", () => {
@@ -100,6 +106,27 @@ describe("機能とプランの対応", () => {
         expect(PLAN_IDS as readonly PlanId[]).toContain(f.plan);
       }
     }
+  });
+});
+
+describe("売るプランは 1 つ（オールインワン）", () => {
+  it("料金表に出るのは無料とオールインワンだけ。standard は内部の段階", () => {
+    expect(SELLABLE_PLANS.map((p) => p.id)).toEqual(["free", "pro"]);
+    expect(PLAN_BY_ID.pro.label).toBe("オールインワン");
+    expect(PLAN_BY_ID.standard.purchasable).toBe(false);
+  });
+
+  // standard の機能でも、案内する購入先はオールインワン（standard は売っていない）
+  it("案内する購入先は必ず購入できるプラン", () => {
+    expect(upgradeTarget("standard").id).toBe("pro");
+    expect(upgradeTarget("pro").id).toBe("pro");
+    expect(upgradeTarget("free").id).toBe("free");
+  });
+
+  it("鍵バッジの短い表示", () => {
+    expect(planShortLabel("free")).toBe("無料");
+    expect(planShortLabel("standard")).toBe("有料");
+    expect(planShortLabel("pro")).toBe("有料");
   });
 });
 

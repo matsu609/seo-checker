@@ -12,7 +12,7 @@ import {
   type Feature,
   type FeatureCategoryId,
 } from "@/lib/features/registry";
-import { planLabel } from "@/lib/plans/catalog";
+import { planShortLabel, upgradeTarget } from "@/lib/plans/catalog";
 import { useStore } from "@/lib/store/hooks";
 import { sidebarTabStore } from "@/lib/store/sidebar";
 import { useIntegrations } from "@/lib/store/useIntegrations";
@@ -175,10 +175,10 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                     <span className="min-w-0 flex-1 truncate">{f.shortLabel}</span>
                     {locked ? (
                       <span
-                        title={`${planLabel(f.plan)}プラン以上でご利用いただけます`}
+                        title={`「${upgradeTarget(f.plan).label}」プランでご利用いただけます`}
                         className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted"
                       >
-                        {planLabel(f.plan)}
+                        {planShortLabel(f.plan)}
                       </span>
                     ) : setup ? (
                       <span

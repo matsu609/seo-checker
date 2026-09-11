@@ -6,7 +6,7 @@
  */
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { findFeatureById } from "@/lib/features/registry";
-import { PLAN_BY_ID, planAllows, planLabel, planPriceLabel, type PlanId } from "./catalog";
+import { PLAN_BY_ID, planAllows, planLabel, planPriceLabel, upgradeTarget, type PlanId } from "./catalog";
 import { getCurrentPlan } from "./current";
 import { overridesFromMetadata } from "./overrides";
 
@@ -24,7 +24,7 @@ export async function checkPlan(required: PlanId): Promise<PlanDenial | null> {
     required,
     current: plan,
     message:
-      `この機能は「${planLabel(required)}」（${planPriceLabel(required)}）以上でご利用いただけます。` +
+      `この機能は「${upgradeTarget(required).label}」（${planPriceLabel(upgradeTarget(required).id)}）でご利用いただけます。` +
       `現在のプランは「${planLabel(plan)}」です。`,
   };
 }
