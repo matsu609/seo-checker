@@ -5,8 +5,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addChannel,
+  channelDisplayName,
   createForm,
   deleteForm,
+  fromChannelRow,
   fromFormRow,
   getForm,
   getPublicForm,
@@ -14,6 +16,7 @@ import {
   listForms,
   newChannelCode,
   newSlug,
+  resolveStore,
   toPublicForm,
   updateForm,
   writeReviewUrlFor,
@@ -35,7 +38,25 @@ const FORM_ROW = {
   updated_at: "2026-09-11T00:00:00Z",
 };
 
-const CHANNEL_ROW = { id: "0b2f0b8e-0000-4000-8000-000000000002", form_id: FORM_ROW.id, code: "abc234", label: "テーブル 3", created_at: "2026-09-11T00:00:00Z" };
+const CHANNEL_ROW = {
+  id: "0b2f0b8e-0000-4000-8000-000000000002",
+  form_id: FORM_ROW.id,
+  code: "abc234",
+  label: "テーブル 3",
+  store_name: null,
+  place_id: null,
+  write_review_url: null,
+  created_at: "2026-09-11T00:00:00Z",
+};
+const STORE_CHANNEL_ROW = {
+  ...CHANNEL_ROW,
+  id: "0b2f0b8e-0000-4000-8000-000000000004",
+  code: "def567",
+  label: "駅前店",
+  store_name: "駅前店",
+  place_id: "ChIJekimae1234",
+  write_review_url: "https://search.google.com/local/writereview?placeid=ChIJekimae1234",
+};
 
 const RESPONSE_ROW = {
   id: "0b2f0b8e-0000-4000-8000-000000000003",
@@ -148,11 +169,45 @@ describe("店舗側の問い合わせは user_id で絞る", () => {
 });
 
 describe("QR の発行単位", () => {
-  it("form_id を付けて登録する", async () => {
+  it("form_id を付けて登録する（店舗の紐づけは null）", async () => {
     fetchMock.mockResolvedValueOnce(Response.json([CHANNEL_ROW]));
-    const ch = await addChannel(FORM_ROW.id, "テーブル 3", "abc234");
-    expect(ch.label).toBe("テーブル 3");
-    expect(body()).toMatchObject({ form_id: FORM_ROW.id, code: "abc234" });
+    const ch = await addChannel(FORM_ROW.id, { label: "テーブル 3" }, "abc234");
+    expect(ch).toMatchObject({ label: "テーブル 3", storeName: null, placeId: null, writeReviewUrl: null });
+    expect(body()).toMatchObject({ form_id: FORM_ROW.id, code: "abc234", store_name: null, place_id: null, write_review_url: null });
+  });
+
+  it("店舗を紐づけて登録する", async () => {
+    fetchMock.mockResolvedValueOnce(Response.json([STORE_CHANNEL_ROW]));
+    const ch = await addChannel(FORM_ROW.id, { label: "駅前店", storeName: "駅前店", placeId: "ChIJekimae1234", writeReviewUrl: STORE_CHANNEL_ROW.write_review_url }, "def567");
+    expect(ch).toMatchObject({ storeName: "駅前店", placeId: "ChIJekimae1234" });
+    expect(body()).toMatchObject({ store_name: "駅前店", place_id: "ChIJekimae1234", write_review_url: STORE_CHANNEL_ROW.write_review_url });
+  });
+
+  it("古い行（店舗の列が無い）も読める", () => {
+    const { store_name: _s, place_id: _p, write_review_url: _w, ...legacy } = CHANNEL_ROW;
+    void _s;
+    void _p;
+    void _w;
+    expect(fromChannelRow(legacy as typeof CHANNEL_ROW)).toMatchObject({ label: "テーブル 3", storeName: null, writeReviewUrl: null });
+  });
+
+  it("店舗つきの QR なら来店客の画面と投稿先はその店舗、無ければ本体の店舗", () => {
+    const form = fromFormRow(FORM_ROW);
+    const plain = fromChannelRow(CHANNEL_ROW);
+    const store = fromChannelRow(STORE_CHANNEL_ROW);
+    expect(resolveStore(form, null)).toEqual({ storeName: "〇〇食堂", writeReviewUrl: FORM_ROW.write_review_url });
+    expect(resolveStore(form, plain)).toEqual({ storeName: "〇〇食堂", writeReviewUrl: FORM_ROW.write_review_url });
+    expect(resolveStore(form, store)).toEqual({ storeName: "駅前店", writeReviewUrl: STORE_CHANNEL_ROW.write_review_url });
+    // 店舗つきだが投稿 URL が無い（Place ID 未設定）→ 本体の投稿先に落ちる
+    expect(resolveStore(form, { ...store, writeReviewUrl: null })).toEqual({ storeName: "駅前店", writeReviewUrl: FORM_ROW.write_review_url });
+    expect(toPublicForm(form, store).storeName).toBe("駅前店");
+    expect(toPublicForm({ ...form, writeReviewUrl: null }, { ...store, writeReviewUrl: null }).hasWriteReviewUrl).toBe(false);
+  });
+
+  it("表示名は「店名（ラベル）」。店名とラベルが同じなら店名だけ", () => {
+    expect(channelDisplayName({ label: "テーブル 3", storeName: null })).toBe("テーブル 3");
+    expect(channelDisplayName({ label: "駅前店", storeName: "駅前店" })).toBe("駅前店");
+    expect(channelDisplayName({ label: "レジ", storeName: "駅前店" })).toBe("駅前店（レジ）");
   });
 });
 

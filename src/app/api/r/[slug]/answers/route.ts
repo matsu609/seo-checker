@@ -24,7 +24,7 @@ import {
   takeDailyToken,
 } from "@/lib/free/ratelimit";
 import { generateReviewDraft } from "@/lib/reviews/draft";
-import { findChannelByCode, getPublicForm, isValidSlug } from "@/lib/reviews/forms";
+import { findChannelByCode, getPublicForm, isValidSlug, resolveStore } from "@/lib/reviews/forms";
 import { isLowRating, RawAnswersSchema, validateAnswers } from "@/lib/reviews/questions";
 import { insertResponse, newEditToken, type DraftSource } from "@/lib/reviews/responses";
 
@@ -80,10 +80,12 @@ export async function POST(request: Request, context: Ctx) {
     }
 
     const channel = parsed.data.code ? await findChannelByCode(form.id, parsed.data.code) : null;
+    // QR に店舗が紐づいていれば、下書きの店名と投稿先はその店舗
+    const store = resolveStore(form, channel);
     const isLow = isLowRating(validated.rating, form.settings);
     const allowAi = takeDailyToken("review-ai", envInt("REVIEW_AI_DAILY_LIMIT", REVIEW_AI_DAILY_DEFAULT));
     const { draft, source } = await generateReviewDraft(
-      { storeName: form.storeName, questions: form.questions, answers: validated.answers, rating: validated.rating, settings: form.settings },
+      { storeName: store.storeName, questions: form.questions, answers: validated.answers, rating: validated.rating, settings: form.settings },
       { allowAi, signal: request.signal },
     );
 
@@ -104,7 +106,7 @@ export async function POST(request: Request, context: Ctx) {
       isLow,
       draft,
       draftSource: source,
-      writeReviewUrl: form.writeReviewUrl,
+      writeReviewUrl: store.writeReviewUrl,
     };
     return Response.json(body, { status: 201, headers: NO_STORE });
   } catch (err) {

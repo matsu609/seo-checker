@@ -26,7 +26,7 @@ function rate(clicks: number, total: number): string {
 }
 
 const CHANNEL_COLUMNS: readonly Column<ChannelStat>[] = [
-  { key: "label", header: "経路（QR）", accessor: (r) => r.label, sortable: true },
+  { key: "label", header: "店舗・経路（QR）", accessor: (r) => r.label, sortable: true },
   { key: "total", header: "回答数", accessor: (r) => r.total, align: "right", sortable: true },
   { key: "avg", header: "平均評価", accessor: (r) => r.averageRating, render: (r) => rating(r.averageRating), align: "right", sortable: true },
   { key: "low", header: "低評価", accessor: (r) => r.low, align: "right", sortable: true },
@@ -79,7 +79,7 @@ export function MetricsCard({ number, metrics, limit, filtered }: MetricsCardPro
         })}
       </ol>
 
-      <h3 className="mt-6 text-sm font-bold text-ink">経路別</h3>
+      <h3 className="mt-6 text-sm font-bold text-ink">店舗・経路別（QR ごと）</h3>
       <DataTable className="mt-2" rows={metrics.byChannel} columns={CHANNEL_COLUMNS} rowKey={(r) => r.channelId ?? "none"} dense emptyText="回答がまだありません。" />
 
       <h3 className="mt-6 text-sm font-bold text-ink">週別の推移（直近 8 週）</h3>

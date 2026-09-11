@@ -2,7 +2,7 @@
  * 回答の CSV（純粋関数）。Excel で開いたときの式インジェクション対策として、
  * 先頭が = + - @ のセルには ' を付ける。第三者（来店客）が書いた文字列が入るため。
  */
-import type { ReviewChannel } from "./forms";
+import { resolveStore, type ReviewChannel, type ReviewForm } from "./forms";
 import { answerLines, type ReviewQuestion } from "./questions";
 import { RESPONSE_STATUS_LABELS, type ReviewResponse } from "./responses";
 
@@ -16,12 +16,16 @@ export function csvCell(value: string | number | null | undefined): string {
 
 export function responsesToCsv(
   responses: readonly ReviewResponse[],
-  questions: readonly ReviewQuestion[],
+  form: Pick<ReviewForm, "questions" | "storeName" | "writeReviewUrl">,
   channels: readonly ReviewChannel[],
 ): string {
+  const questions: readonly ReviewQuestion[] = form.questions;
+  const byId = new Map(channels.map((c) => [c.id, c]));
+  const storeOf = (id: string | null) => resolveStore(form, (id && byId.get(id)) || null).storeName;
   const labelOf = new Map(channels.map((c) => [c.id, c.label]));
   const header = [
     "回答日時",
+    "店舗",
     "経路（QR）",
     "評価",
     "低評価",
@@ -38,6 +42,7 @@ export function responsesToCsv(
     const lines = new Map(answerLines(questions, r.answers).map((l) => [l.label, l.value]));
     return [
       r.createdAt,
+      storeOf(r.channelId),
       r.channelId ? (labelOf.get(r.channelId) ?? "") : "",
       r.rating,
       r.isLow ? "はい" : "",

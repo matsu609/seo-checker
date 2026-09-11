@@ -3,14 +3,14 @@
  *
  * GET  … { forms, stores }。stores は MEO に登録済みの自社店舗（Google の投稿 URL を引くため。無ければ []）
  * POST … { title, storeName, industry, placeId?, writeReviewUrl? } → 業種テンプレートの質問で作り、
- *        QR の発行単位「店舗（共通）」を 1 つ付けて返す
+ *        QR の発行単位「店舗（共通）」を 1 つ付けて返す。店舗ごとの QR は /api/reviews/forms/[id]/channels で足す
  */
 import { z } from "zod";
 import { dbErrorResponse } from "@/lib/db/supabase";
-import { latestReports } from "@/lib/maps/history";
 import { listStores } from "@/lib/maps/stores";
 import { badRequest, NO_STORE, readJson, requireReviewsUser } from "@/lib/reviews/api";
-import { addChannel, createForm, listForms, MAX_FORMS, writeReviewUrlFor, type ReviewChannel, type ReviewForm } from "@/lib/reviews/forms";
+import { addChannel, createForm, listForms, MAX_FORMS, type ReviewChannel, type ReviewForm } from "@/lib/reviews/forms";
+import { resolveWriteReviewUrl } from "@/lib/reviews/links";
 import { INDUSTRIES, questionsFromTemplate, ReviewFormSettingsSchema, STORE_NAME_MAX, TITLE_MAX } from "@/lib/reviews/questions";
 
 export const runtime = "nodejs";
@@ -59,20 +59,6 @@ export async function GET() {
   }
 }
 
-/** 投稿 URL: 指定 → 保存済み報告書の writeReview → Place ID から組み立て → null */
-async function resolveWriteReviewUrl(userId: string, placeId: string | null, given: string | null): Promise<string | null> {
-  if (given) return given;
-  if (!placeId) return null;
-  try {
-    const entry = (await latestReports(userId, [placeId])).get(placeId);
-    const link = entry?.report.detail.links?.writeReview;
-    if (link) return link;
-  } catch {
-    // 報告書が無い・テーブルが無い → 組み立てる
-  }
-  return writeReviewUrlFor(placeId);
-}
-
 export async function POST(request: Request) {
   const userId = await requireReviewsUser();
   if (userId instanceof Response) return userId;
@@ -95,7 +81,7 @@ export async function POST(request: Request) {
       questions: questionsFromTemplate(industry),
       settings: ReviewFormSettingsSchema.parse({ industry, keywords: [storeName] }),
     });
-    const channel = await addChannel(form.id, "店舗（共通）");
+    const channel = await addChannel(form.id, { label: "店舗（共通）" });
     const body: ReviewsFormCreateResponse = { form, channels: [channel] };
     return Response.json(body, { status: 201, headers: NO_STORE });
   } catch (err) {

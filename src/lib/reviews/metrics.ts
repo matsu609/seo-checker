@@ -4,7 +4,7 @@
  * Google マップへの投稿はコールバックが取れないので、実投稿数は分からない。
  * 出せるのは「投稿ボタンの押下数・押下率」までで、画面にもそう明記する。
  */
-import type { ReviewChannel } from "./forms";
+import { channelDisplayName, type ReviewChannel } from "./forms";
 import type { ReviewResponse } from "./responses";
 
 export interface ReviewMetrics {
@@ -74,7 +74,7 @@ export function computeMetrics(responses: readonly ReviewResponse[], channels: r
   const byChannel: ChannelStat[] = [];
   for (const c of channels) {
     const list = groups.get(c.id) ?? [];
-    byChannel.push(channelStat(c.id, c.label, list));
+    byChannel.push(channelStat(c.id, channelDisplayName(c), list));
   }
   const unknown = groups.get(null) ?? [];
   if (unknown.length > 0) byChannel.push(channelStat(null, "QR なし（直リンク）", unknown));

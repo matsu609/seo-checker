@@ -9,8 +9,8 @@ import type { ReviewQuestion } from "../questions";
 import type { ReviewResponse } from "../responses";
 
 const CH: ReviewChannel[] = [
-  { id: "c1", formId: "f", code: "aaa111", label: "テーブル 1", createdAt: "2026-09-01T00:00:00Z" },
-  { id: "c2", formId: "f", code: "bbb222", label: "レジ", createdAt: "2026-09-01T00:00:00Z" },
+  { id: "c1", formId: "f", code: "aaa111", label: "テーブル 1", storeName: null, placeId: null, writeReviewUrl: null, createdAt: "2026-09-01T00:00:00Z" },
+  { id: "c2", formId: "f", code: "bbb222", label: "レジ", storeName: "駅前店", placeId: "ChIJekimae", writeReviewUrl: "https://example.test/w", createdAt: "2026-09-01T00:00:00Z" },
 ];
 
 function resp(over: Partial<ReviewResponse>): ReviewResponse {
@@ -56,7 +56,7 @@ describe("集計", () => {
     expect(m.directMessages).toBe(1);
     expect(m.byChannel.map((c) => [c.label, c.total])).toEqual([
       ["テーブル 1", 2],
-      ["レジ", 1],
+      ["駅前店（レジ）", 1],
       ["QR なし（直リンク）", 1],
     ]);
     expect(m.byWeek.map((w) => [w.weekStart, w.total, w.reviewClicks])).toEqual([
@@ -93,12 +93,21 @@ describe("CSV", () => {
     expect(csvCell(3)).toBe("3");
   });
 
-  it("見出しに質問文が入り、行に回答・下書き・対応状態が入る", () => {
-    const csv = responsesToCsv([resp({ rating: 2, isLow: true, answers: { rating01: 2, text0001: "=悪い" }, draft: "下書き", status: "done" })], QS, CH);
+  it("見出しに質問文が入り、行に店舗・回答・下書き・対応状態が入る", () => {
+    const form = { questions: QS, storeName: "本店", writeReviewUrl: null };
+    const csv = responsesToCsv(
+      [
+        resp({ id: "a", rating: 2, isLow: true, answers: { rating01: 2, text0001: "=悪い" }, draft: "下書き", status: "done" }),
+        resp({ id: "b", channelId: "c2", rating: 5, answers: { rating01: 5 } }),
+      ],
+      form,
+      CH,
+    );
     const lines = csv.replace(/^﻿/, "").trim().split("\r\n");
-    expect(lines[0]).toContain("満足度,感想,AI 下書き");
-    expect(lines[1]).toContain("テーブル 1,2,はい,2 / 5,'=悪い,下書き");
+    expect(lines[0]).toContain("回答日時,店舗,経路（QR）,評価,低評価,満足度,感想,AI 下書き");
+    expect(lines[1]).toContain("本店,テーブル 1,2,はい,2 / 5,'=悪い,下書き");
     expect(lines[1]).toContain("対応済み");
+    expect(lines[2]).toContain("駅前店,レジ,5,,5 / 5");
     expect(csv.startsWith("﻿")).toBe(true);
   });
 });
