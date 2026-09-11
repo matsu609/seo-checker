@@ -116,6 +116,7 @@ npm run dev                  # http://localhost:3000
 |---|---|---|---|
 | [キーワード調査](src/lib/keywords) | C1 | Google サジェスト・関連キーワードの展開と検索意図の分類 | 不要（意図分類のみ任意で AI） |
 | [AI ライティング・エディター](src/lib/writing) | D1-D4 | 構成案 → 本文のストリーミング生成、企画書モード（PDF 添付可）、範囲選択リライトと差分、ファクト / コピペ / 薬機法チェック | Anthropic（薬機法チェックは辞書のみで動作） |
+| [基本情報掲載（NAP 一括登録）](src/lib/listings) | — | 店名・住所・電話・営業時間・説明文を 1 か所で決め（Google マップの公開情報から取り込み、表記ゆれを検出）、Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap など 30 媒体に同じ内容で載せる。無料で自分で登録できる媒体は登録画面へ直接、自動で流れる媒体（Siri・カーナビ各社・Uber）と配信代行（有料）でしか載らない媒体は区別。媒体ごとの掲載状況・URL・メモ、AI の説明文（150 / 750 文字）、サイトに貼る構造化データ（LocalBusiness） | Supabase（説明文は Anthropic 任意） |
 | [llms.txt 生成](src/lib/llms-txt) | D6 | 6 ステップのウィザードで llms.txt を生成。既存 llms.txt の検証 | 不要 |
 
 ### 設定（`/settings`）

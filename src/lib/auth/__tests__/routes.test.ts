@@ -175,6 +175,10 @@ describe("来店客向けアンケート（口コミ支援）は公開、店舗�
       "/api/replies/reply",
       "/api/replies/draft",
       "/api/replies/places",
+      "/tools/listings",
+      "/api/listings/stores",
+      "/api/listings/profile",
+      "/api/listings/describe",
     ]) {
       expect(isProtectedPath(p), p).toBe(true);
     }

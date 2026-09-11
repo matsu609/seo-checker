@@ -200,7 +200,17 @@ const ICONS: Record<FeatureIcon, (p: IconProps) => React.JSX.Element> = {
   map: MapIcon,
   qr: QrIcon,
   reply: ReplyIcon,
+  broadcast: BroadcastIcon,
 };
+
+function BroadcastIcon({ className = "" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <circle cx="12" cy="12" r="2" />
+      <path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5" />
+    </svg>
+  );
+}
 
 function QrIcon({ className = "" }: IconProps) {
   return (

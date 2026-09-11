@@ -81,7 +81,7 @@ describe("機能とプランの対応", () => {
   // AI が成果物を作る機能は pro に置く（値付けの根拠）
   it("AI が成果物を作る機能は pro", () => {
     const pro = features.filter((f) => f.plan === "pro").map((f) => f.id).sort();
-    expect(pro).toEqual(["improvement", "llms-txt", "replies", "reviews", "writing"]);
+    expect(pro).toEqual(["improvement", "listings", "llms-txt", "replies", "reviews", "writing"]);
   });
 
   it("残りは standard", () => {

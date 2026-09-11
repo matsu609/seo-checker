@@ -50,7 +50,8 @@ export type FeatureIcon =
   | "settings"
   | "map"
   | "qr"
-  | "reply";
+  | "reply"
+  | "broadcast";
 
 export interface Feature {
   /** URL セグメント（例: "site-audit"）。無料診断は "free"、設定は "settings" */
@@ -486,6 +487,28 @@ const GENERATE: readonly Feature[] = [
     optional: ["anthropic", "supabase", "places"],
     group: "generate",
     category: "meo",
+    plan: "pro",
+  },
+  {
+    id: "listings",
+    path: "/tools/listings",
+    label: "基本情報掲載（NAP 一括登録）",
+    shortLabel: "基本情報掲載",
+    description:
+      "店名・住所・電話・営業時間・説明文を 1 か所で決め、Google / Apple / Bing / Yahoo! など 30 の地図・検索・ディレクトリに同じ内容で載せます。無料で自分で登録できる媒体は登録画面へ直接進み、掲載状況を店舗ごとに管理します。",
+    details: [
+      "MEO の自社店舗ごとに基本情報（NAP）を決め、Google マップの公開情報から取り込み・表記ゆれを確認",
+      "無料で登録できる媒体（Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap ほか）の登録画面と手順、コピー用の基本情報",
+      "自動で流れる媒体（Siri・カーナビ各社・Navmii・Uber）と、配信代行（有料）でしか載らない媒体の区別",
+      "AI が説明文（短い 150 文字 / 長い 750 文字）を作成、サイトに貼る構造化データ（LocalBusiness）を生成",
+    ],
+    featureIds: [],
+    icon: "broadcast",
+    status: "beta",
+    requires: ["supabase"],
+    optional: ["anthropic", "places"],
+    group: "generate",
+    category: "aio",
     plan: "pro",
   },
   {
