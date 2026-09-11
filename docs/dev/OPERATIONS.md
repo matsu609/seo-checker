@@ -201,6 +201,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 38 | 無料 MEO 診断の回数制限を Supabase に移す（候補）: いまはプロセス内メモリで、Vercel の複数インスタンスでは上限の数倍まで通る。利用が増えたら `free_usage` テーブルで日次カウント | Claude | 利用が増えたら |
 | 39 | **公開前に必須**: Vercel `DEFAULT_PLAN` を `free` に（自分は ADMIN_EMAILS なのでマスター画面で pro を個別開放）→ Redeploy。Clerk Production → Configure → Restrictions で招待制 / 許可リスト（決済がつながるまで） | 利用者 | 未 |
 | 40 | 無料 MEO 診断を「要点のみ」に絞る案 B: 総合評価・4 カテゴリ・改善点上位 3・口コミの数字だけ表示し、21 項目の一覧・口コミ本文・PDF は「無料登録で開放」。登録後は free プランで /tools/maps に自社 1 店舗（履歴 1 件・一斉更新対象外・競合なし・AI 総評なし） | Claude | 利用者の判断待ち（推奨 B） |
+| 41 | 料金改定案（提案中）: ライト 2,980（1 領域）/ スタンダード 5,980 / プロ 9,800 / 追加店舗 +300。実装: `PlanId` に `light` 追加、選択領域（seo/aio/meo）を publicMetadata、`category` でゲート、店舗数・KW 数の上限（`meo_stores` 件数・順位計測の登録数）、PlanTable・紹介サイト・Clerk Billing のプラン | 利用者 → Claude | 数字の判断待ち |
+| 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | 未 |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 入力待ち（利用者からの回答が要るもの）
@@ -405,6 +407,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「MEO 診断だけ無料に追加したい。無料で何が出せる？」→ 公開情報 1 回分（検索 + 詳細）で今の報告書の全部（採点・21 項目・ルール総評・口コミ・PDF）+ #33 が無料で出せる（1 店舗 ≤ 4 円、6h キャッシュ）。無料に入れない: 競合比較・週次更新と履歴・AI 総評・#34。出し方 A（ログイン不要 `/meo`、IP 制限 + 日次上限 + キャッシュ）か B（登録あり、自社 1 店舗）。推奨 A + 報告書末尾に有料導線。実装 1 日。判断待ち（#37）。
 - 利用者の指示「無料 SEO・MEO・AIO 診断に改称して無料診断をアップグレード」→ **r25**: `FREE_SUITE_LABEL`、`/meo`（`FREE_MEO_FEATURE`、requires places、force-dynamic）、公開 API `/api/meo/search` `/api/meo/report`、`src/lib/free/ratelimit.ts`（IP ごと 検索 30 / 報告書 10 回/時、全体 1 日 検索 1,500 / 報告書 500、`FREE_MEO_DAILY_LIMIT` `FREE_MEO_DAILY_SEARCH_LIMIT`、0 で停止。キャッシュ命中は消費しない）、`peekPlaceCached`、`FreeTargetSwitch`、サイドバー無料ブロックに 2 本、AppShell の `isFree` を group=free 判定に。タイトル・manifest・料金表・README・ARCHITECTURE・紹介サイト（料金カード・概要表・ヒーロー・llms.txt）更新。ローカルで next start + Playwright で / と /meo の描画確認。lint / tsc / test（91 ファイル・1291 件）/ build 通過。**回数制限はプロセス内メモリ（Vercel の複数インスタンスでは上限の数倍まで許容）。厳密にするなら Supabase に移す（#38）。**
 - 利用者「無料でやりすぎ？」→ **先に直すべきは `DEFAULT_PLAN=pro`（誰でも登録すれば pro が無料）と Clerk の登録制限なし**（#39、公開前に必須）。無料 MEO 診断は A（今のまま）/ B（要点のみ: 総合・4 カテゴリ・改善点上位 3・口コミの数字。全項目と PDF は無料登録後）/ C（点数のみ）を提示、B を推奨（#40、2 時間）。
+- 利用者「競合より価格を下げたい。ベストな提案を」→ 原価は 1 契約あたり数百円（順位計測の SerpApi だけ高い）。提案: 無料 0 / ライト 2,980（1 領域、MEO 3 店舗、順位 10 KW）/ スタンダード 5,980（3 領域、MEO 10 店舗、順位 30 KW）/ プロ 9,800（+AI 生成物、MEO 30 店舗、順位 100 KW）/ 追加店舗 +300 円。**商用化前に Vercel Hobby → Pro（月 20 ドル）が必要**。実装: light プラン（選択領域を Clerk メタデータ）、プランごとの店舗数・KW 上限、料金表と Clerk Billing の整合（#41）。判断待ち。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
