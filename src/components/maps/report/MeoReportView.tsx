@@ -13,7 +13,9 @@ import type { MeoReport } from "@/lib/maps/report";
 import { latestReviewAgeDays } from "@/lib/maps/score";
 import { formatCount, formatRating } from "../format";
 import { ChecklistSection } from "./ChecklistSection";
+import { AreaSection } from "./AreaSection";
 import { ExtraInfoSection } from "./ExtraInfoSection";
+import { RankSection } from "./RankSection";
 
 export interface MeoReportViewProps {
   report: MeoReport;
@@ -35,6 +37,7 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
     sublabel: `${c.measured} / ${c.total} 項目を測定`,
   }));
 
+  const checklistStart = score.extended ? 5 + (report.rank !== undefined ? 1 : 0) + (report.area !== undefined ? 1 : 0) : 4;
   const rated = detail.reviews.filter((r) => r.rating !== null);
   const dist = STARS.map((star) => ({ star, count: rated.filter((r) => Math.round(r.rating ?? 0) === star).length }));
   const age = latestReviewAgeDays(detail, new Date(report.generatedAt));
@@ -181,9 +184,12 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
         </ReportSection>
 
         {score.extended && <ExtraInfoSection detail={detail} number={4} />}
+        {/* 順位・周辺は有料の自社店舗にだけ付く（無料診断・競合の報告書には無い） */}
+        {score.extended && report.rank !== undefined && <RankSection rank={report.rank} number={5} />}
+        {score.extended && report.area !== undefined && <AreaSection area={report.area} number={report.rank !== undefined ? 6 : 5} />}
 
         {score.categories.map((c, i) => (
-          <ChecklistSection key={c.id} category={c} number={(score.extended ? 5 : 4) + i} />
+          <ChecklistSection key={c.id} category={c} number={checklistStart + i} />
         ))}
 
         <p className="mt-6 text-[11px] text-muted">

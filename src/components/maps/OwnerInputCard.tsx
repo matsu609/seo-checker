@@ -263,7 +263,7 @@ export function OwnerInputCard({ number, store, ratingCount, onSaved }: OwnerInp
         >
           <Field
             label="対策キーワード（任意・5 つまで）"
-            hint="地域名・業種・強みなど。説明文・最新の投稿・口コミ返信に含まれているかを判定します。カンマ区切り"
+            hint="例: 渋谷 美容室、縮毛矯正。カンマ区切り。説明文・投稿・返信・口コミに含まれているかの判定と、Google マップ検索での順位計測（店舗の位置を中心に毎週）に使います"
           >
             <Input value={draft.keywords} onChange={(e) => set("keywords", e.target.value)} placeholder="渋谷 美容室, 縮毛矯正, 駅近" maxLength={200} />
           </Field>

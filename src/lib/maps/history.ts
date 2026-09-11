@@ -166,13 +166,22 @@ export async function attachAiCommentary(userId: string, id: string, paragraphs:
  * 診断日時（Google 情報を取った時刻）は変えない。AI 総評は前提が変わるので外す。
  * 報告書が無い店舗なら null（次回の一斉更新で申告込みの報告書が作られる）。
  */
-export async function rescoreLatestReport(userId: string, placeId: string, owner: MeoOwnerData | null): Promise<MeoHistoryEntry | null> {
+export async function rescoreLatestReport(
+  userId: string,
+  placeId: string,
+  owner: MeoOwnerData | null,
+  /** 順位・周辺を差し替えるとき（省略時は保存済みのものを引き継ぐ） */
+  extras?: (latest: MeoReport) => Promise<Pick<MeoReport, "rank" | "area">>,
+): Promise<MeoHistoryEntry | null> {
   const latest = (await latestReports(userId, [placeId])).get(placeId);
   if (!latest) return null;
   const at = new Date(latest.report.generatedAt);
   const report: SavedMeoReport = {
     ...buildMeoReport(latest.report.detail, Number.isNaN(at.getTime()) ? new Date() : at, owner),
     generatedAt: latest.report.generatedAt,
+    rank: latest.report.rank ?? null,
+    area: latest.report.area ?? null,
+    ...(extras ? await extras(latest.report) : {}),
     aiCommentary: null,
   };
   const row = toRow(userId, report);

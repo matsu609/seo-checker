@@ -1,7 +1,9 @@
 /**
  * MEO 診断レポートの形（画面がそのまま描けるもの）。純粋関数。
  */
+import type { AreaResult } from "./area";
 import { buildRuleCommentary } from "./commentary-input";
+import type { MeoRankResult } from "./rank";
 import type { MeoOwnerData } from "./owner-input";
 import { scoreProfile, type ProfileScore, type ScoreOptions } from "./score";
 import type { PlaceDetail } from "./types";
@@ -15,6 +17,10 @@ export interface MeoReport {
   commentary: string[];
   /** 採点に使ったオーナー申告の日時（ISO 8601）。無ければ null。r27 より前の保存分には無い（undefined） */
   ownerInputAt?: string | null;
+  /** 検索順位（r29、有料の自社店舗のみ）。無料診断・競合・r29 より前の保存分には無い */
+  rank?: MeoRankResult | null;
+  /** 周辺の同業との比較（r29、有料の自社店舗のみ） */
+  area?: AreaResult | null;
 }
 
 /** owner を渡すと、公開情報では取れない 9 項目も申告で採点する。無料診断は options.extended = false */

@@ -148,3 +148,22 @@ describe("一斉更新とオーナー申告", () => {
     expect(report.ownerInputAt).toBeNull();
   });
 });
+
+describe("一斉更新と順位・周辺（r29）", () => {
+  it("自社の報告書にだけ enrich の結果を付け、失敗しても保存は止めない", async () => {
+    const enrich = vi.fn(async (userId: string) => {
+      if (userId === "u3") throw new Error("Google の上限");
+      return { rank: { center: { lat: 0, lng: 0 }, radiusM: 3000, limit: 20, keywords: [] }, area: null };
+    });
+    // u1: A を自社、u2: A を競合、u3: A を自社（enrich が失敗）
+    const { d, save } = deps([row("A", "u1"), row("A", "u2", "B"), row("A", "u3")], { enrich });
+    const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+    expect(summary.saved).toBe(3);
+    expect(enrich).toHaveBeenCalledTimes(2);
+    const byUser = new Map(save.mock.calls.map((c) => c as unknown as [string, { rank?: unknown; area?: unknown }]));
+    expect(byUser.get("u1")!.rank).toBeTruthy();
+    expect(byUser.get("u1")!.area).toBeNull();
+    expect(byUser.get("u2")!.rank).toBeUndefined();
+    expect(byUser.get("u3")!.rank).toBeUndefined();
+  });
+});
