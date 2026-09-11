@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r36 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r37 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -168,7 +168,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 45 | r27 の SQL を Supabase で実行（`meo_owner_inputs`） | 利用者 | **完了（09-11 17:21、画面で Success を確認）**。残りは本番 `/tools/maps` の「オーナー情報の入力」で保存できるかの確認 |
 | 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
-| 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
+| 5 | Business Profile API の利用申請（#54 の①と同じ。`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
 | 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | **切り替え完了（09-11 0:04、バージョン `9ef76797` = コミット `c60fe42` がアクティブ）**。残りは `https://seo-checker.tokyo/` の表示確認と、旧リポジトリのアーカイブだけ |
 | 30 | 紹介サイトの文面反映（運営者情報、SEO/AIO/MEO の説明、Google 連携の説明、フッターのリンク、CTA をアプリへ） | Claude | **完了。09-11 1:00 に本番 https://seo-checker.tokyo/ の表示を利用者の画面で確認** |
@@ -212,15 +212,27 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
 | 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
-| 52 | 口コミへの返信（段階 1）: `/tools/maps` に「口コミへの返信」カード（Places の最新 5 件 → AI 返信案 → 編集 → コピーして GBP へ。返信済みの印は手動）。口コミ支援の「お店に直接伝える」への返事案も | Claude | **利用者の GO 待ち** |
-| 53 | 口コミへの返信（段階 2、#5 承認後）: Business Profile API で全件取得・ツール内から投稿・返信済み管理・新着の自動下書き | Claude | #5 待ち |
+| 52 | 口コミへの返信（段階 1）: 公開情報の口コミ（最新 5 件）→ AI 返信案 → コピーして GBP へ | Claude | **完了（r37、`/tools/replies` の「接続前の代替」）** |
+| 53 | 口コミへの返信（段階 2）: Business Profile API で全件取得・ツール内から投稿・更新・削除 | Claude | **コードは完了（r37）**。動くのは #54 の 4 手順が終わってから |
+| 54 | **口コミ返信を有効にする（Google 側の作業）**: ① Business Profile API の利用申請 → ② 承認後、Google Cloud で API 3 つを有効化 → ③ OAuth の同意画面に `business.manage` スコープを追加 → ④ 本番 `/tools/replies` で「Google に口コミ返信の権限を追加する」→ Google の確認画面で許可（下の「口コミ返信を有効にする手順」） | 利用者 | **未**。①は Google の審査（数日〜数週間） |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
+
+### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Google → Business Profile API のアクセス申請 | https://developers.google.com/my-business/content/prereqs | 「Request access」のフォームで、プロジェクト `seo-checker-508104`、用途（自社店舗の口コミ返信・投稿を管理する SaaS）、確認済みのビジネスを記入して送信。**審査は数日〜数週間**。承認メールが来たら次へ |
+| 2 | Google Cloud → API ライブラリ（3 つを有効化） | https://console.cloud.google.com/apis/library?project=seo-checker-508104 | 「My Business Account Management API」「My Business Business Information API」「Google My Business API」（v4）をそれぞれ検索して「有効にする」。承認前は一覧に出ないか、有効化しても 403 になる |
+| 3 | Google Cloud → OAuth → データアクセス（スコープ） | https://console.cloud.google.com/auth/scopes?project=seo-checker-508104 | 「スコープを追加または削除」で `https://www.googleapis.com/auth/business.manage` を追加して保存。テスト状態のままでよい（テストユーザーは使える。本番公開の審査時にこのスコープの説明とデモが要る） |
+| 4 | 本番 → 口コミへの返信 | https://app.seo-checker.tokyo/tools/replies | 「1. 接続」の「Google に口コミ返信の権限を追加する」→ Google の確認画面で**ビジネスのオーナー / 管理者のアカウント**（`wolf@wolf-info.org` 側にオーナー権限がある。`matsumatsu452@gmail.com` は管理者として追加済み）で「ビジネス プロフィールの管理」を許可 → 戻ったらビジネスの一覧が出る |
+
+①が終わる前に④を押しても害は無い（権限は付くが、口コミ一覧が「利用申請が承認され…」のエラーになる）。承認後に画面を開き直せばそのまま動く。
 
 ### 入力待ち（利用者からの回答が要るもの）
 
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
-- Business Profile API の承認結果（#5）
+- Business Profile API の承認結果（#5 / #54 ①）。承認されたら #54 の②〜④へ
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
 - 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 
@@ -408,6 +420,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **フェーズ 2.6（r28、Google から取れる項目の拡張）**: `client.ts` の `DETAIL_FIELDS` を拡張（`primaryType` / `addressComponents` / `location` / `priceLevel` / `priceRange` / `googleMapsLinks` / `generativeSummary` / `reviewSummary` / `pureServiceAreaBusiness` / `consumerAlert` / 属性 26 種）。**料金は変わらない**（1 回の呼び出しは要求した中で最も高い区分 = 既に reviews で Enterprise + Atmosphere）。フィールド名は `@googlemaps/places` 3.0.0 の `place.proto` で確認（ドキュメントサイトはこの環境から読めない）。Google が項目名を拒否（400）したら基本項目だけで 1 回取り直す（ログ `[maps] 拡張フィールドマスクが拒否…`）。`PlaceDetail` の新しい項目は optional（古い保存分は undefined → 採点は「次回の一斉更新から取得」の unavailable）。採点は `scoreProfile(place, now, owner, { extended })`: **有料 = 28 項目（`WEIGHTS.extended`）、無料 `/meo` = 21 項目（`WEIGHTS.base`）、どちらも合計 100**。有料で足した 7 項目: 追加カテゴリ（汎用 type を除く）、属性 5 個以上、オーナー投稿の写真（Google が返す最大 10 枚のうち投稿者名 = 店名が 3 枚以上）、写真の解像度（長辺 1,024px 未満があれば注意）、口コミ内のキーワード（カテゴリ名 + 対策キーワード）、口コミ本文（20 文字以上が 60%）、Google の警告（`consumerAlert`、不審な口コミ活動・ポリシー違反）。住所は premise / subpremise の有無を detail に表示（点数は変えない）。報告書に「4. Google マップの付加情報」（有料のみ）: 追加カテゴリ・価格帯・住所の詳しさ・座標・属性チップ・**口コミ依頼リンク（`writeAReviewUri`）**・AI 要約（日本ではほぼ無い）・警告。比較表に属性の数。**Places から取れない項目で残るもの**: 投稿・返信・説明文・ロゴ/カバー・開業日（`openingDate` は開店予定のときだけ）・インサイト（表示回数・電話・経路）→ オーナー入力（r27）か Business Profile API（#11）。
 - **フェーズ 2.7（r29、検索順位と周辺の同業）**: 有料の自社店舗にだけ付く（無料 `/meo`・競合の報告書には無い。`MeoReport.rank` / `.area`、r29 より前の保存分は undefined）。**検索順位** `src/lib/maps/rank.ts`: 対策キーワード（`meo_owner_inputs.input.keywords`、最大 5）ごとに Text Search（`locationBias` = 店舗の座標、半径 3 km、`pageSize` 20、フィールドは `places.id,places.displayName` だけ = **Pro 区分**）を 1 回叩き、自社と登録済み競合の順位・上位 3 件・前回の順位（`previous`）を記録。Google の「ローカル検索順位」そのものではなく Places API の並び（画面に明記）。**周辺の同業** `src/lib/maps/area.ts`: Nearby Search（`locationRestriction` 半径 1.5 km、`includedPrimaryTypes` = 自社の `primaryType`、`rankPreference: POPULARITY`、20 件、`rating` / `userRatingCount` が要るので **Enterprise 区分**）から、自社を除いた中での評価・件数の順位（同点は同順位）、平均評価、件数の中央値、件数順の上位 5 件。**いつ叩くか** `src/lib/maps/enrich.ts`: 店舗の登録直後（順位 + 周辺）、毎週の一斉更新（順位は全キーワード取り直し + 前回値、周辺も取り直し。`refresh.ts` の `deps.enrich`、失敗しても保存は止めない）、オーナー情報の保存（増えたキーワードだけ検索、周辺は取り直さない）。位置（`location`）が無い店舗は計測しない。順位・周辺とも 6 時間キャッシュ（`fetch.ts`）。画面: 報告書の「5. 検索順位」（キーワード × 自社・競合の表、前回比、上位 3 件）「6. 周辺の同業との比較」（StatStrip + 上位 5 件の表）。**推移グラフは未実装**（各週の報告書に順位が入っているので、履歴から線グラフにできる。要望が出たら）。
 - **コンサル解説（r30）**: `src/lib/maps/guide.ts` に 28 項目ぶんの `CHECK_GUIDE`（why / goal / keep）、`MEO_CONCLUSION`、`IDEAL_STATE`（評価 4.3〜4.7、口コミ数は競合上位 3 社超・最低 50、口コミの質、返信率 100% / 24〜48h、写真 100 枚以上・毎週追加、投稿週 1、基本情報 NAP 一致・サブカテゴリ最大 9、Q&A 5〜10 問（未計測）、星の分布）。有料の報告書に「3. 目指すべき状態」の節と、各項目の下に 3 行の解説（`ChecklistSection` の `guide` prop）。無料 `/meo` には出さない（`guide` を true にすれば出る）。文章を変えるときは guide.ts だけ。`guide.test.ts` が採点の項目 ID と過不足なく一致することを確認する（項目を足したら解説も足す）。
+- **口コミへの返信（r37、`/tools/replies`）**: MEO タブ「生成」グループ、pro。`src/lib/google/business-profile.ts`（Account Management v1 → accounts、Business Information v1 → locations（Place ID 付き）、My Business v4 → reviews / reply の PUT・DELETE。応答は落ちない `parse*`。403 は「利用申請・API 有効化」を案内）。スコープ `business.manage` は `scopes.ts` の `GoogleService: "business-profile"`（REQUIRED_SCOPES には入れない = 設定画面の通常接続では要求しない。`ConnectBusinessButton` が読み取り 2 つと一緒に reauthorize で要求）。AI 返信案は `src/lib/replies/draft.ts`（評価 3 以下は謝罪 → 受け止め → 改善 → 個別連絡の型、4 以上は感謝の型。氏名・来店日時・特典の約束を禁止。口コミは untrusted ブロック。モデル `REVIEW_REPLY_MODEL`、既定は高速モデル）。API: `/api/replies/status`（接続・権限・ビジネス一覧・MEO の自社店舗・AI の有無）、`reviews`（50 件ずつ、`pageToken`）、`reply`（PUT / DELETE）、`draft`、`places`（接続前の代替 = 保存済み報告書の最新 5 件、費用ゼロ）。画面 `RepliesTool`: 未返信 → 低評価 → 新しい順、返信の投稿・更新・削除は `window.confirm`。設定（トーン・補足・署名・最後のビジネス）は localStorage `repliesSettings`。口コミと返信は保存しない（Google が正）。**Google 側の作業 4 つ（#54）が終わるまで投稿は動かない。接続前は公開情報の口コミで返信案 → コピー → GBP。**
 - **フェーズ 3（承認後）**: Business Profile API（Business Information / v4 reviews・localPosts・media / Performance API）で `score.ts` の `unavailable` 9 項目を埋める。インサイト 8 指標（表示回数 モバイル/PC、電話、ルート、サイト、メニュー、平均クリック率）を期間比較・CSV・詳細グラフつきで。スコープ `business.manage` を追加 → 同意画面のスコープ追加と再審査に注意。
 
 ### 口コミ支援（アンケート QR）— r34〜r36
@@ -571,3 +584,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者が `meo_owner_inputs` の SQL を実行（55〜63 行目に追記して Run）し「Success」を共有 → **#45 完了**。Supabase のテーブルは `meo_reports` / `meo_stores` / `meo_owner_inputs` / `review_forms` / `review_channels` / `review_responses` の 6 つが揃った。残りは本番での動作確認（`/tools/reviews` と `/tools/maps` のオーナー情報の入力）。
 - 利用者が本番 `/tools/reviews` で店舗（シーシャカフェ＆バー翠煙 新宿歌舞伎町店）の QR を発行できたことをスクリーンショットで確認（DB 接続 OK）。あわせて「QR コードはダウンロードできるように」「削除ボタンは基本 1 回警告を挟んで」→ **r36**: QR の「SVG を保存」「PNG を保存」を `download=1` の添付に（日本語ファイル名）、QR と質問の削除に `window.confirm` を追加（アンケート本体と回答は既にインライン確認あり）。アプリ内の他の削除（MEO の店舗・報告書、設定のプロジェクト、オーナー情報）は以前から `window.confirm` 済み。テスト 3 件追加（`url.test.ts`）。
 - 利用者「口コミに対する返信もこのツール内で完結させたい。AI が返信を提案するところまでできる？」→ 回答: **返信案の生成は今すぐ可、ツール内からの投稿は Business Profile API の承認（#5、未申請）が要る**。段階 1（今できる、1 日）: `/tools/maps` に「口コミへの返信」カード。Places で取れる最新 5 件の口コミに「AI で返信案」（店名・トーン・評価と本文。低評価は謝罪 → 事実確認 → 改善 → 個別連絡、高評価は感謝 → 具体的な言及 → 再来店）→ 編集 → コピーして GBP を開く。返信済みは手動の印。口コミ支援の「お店に直接伝える」への返事案も同じ仕組みで可。費用は 1 件数円。段階 2（承認後）: 全件取得・ツール内から投稿・返信済み管理・新着の自動下書き・返信率の自動計測。スコープ `business.manage` の追加と同意画面の再審査が要る。ポリシー面は問題なし（GBP 自身が AI 返信案を出している。公開されるので個人情報を書かない注意書き）。**段階 1 の着手は利用者の GO 待ち。#5 の申請を並行して出すよう案内。**
+- 利用者「段階 2 をさっさと終えたい」→ **r37**: Google の承認を待たずに済むところ（コード）をすべて先に作った。`/tools/replies`（上の「口コミへの返信（r37）」）。Business Profile API の承認・API 有効化・スコープ追加・権限の許可は Google 側と利用者側の作業なので **#54 に 4 手順を URL つきで整理**。承認前でも同じ画面で「公開情報の口コミ → AI 返信案 → コピーして GBP」が使える。テスト: `business-profile.test.ts`（解析・URL・PUT/DELETE・403 の案内）、`replies/draft.test.ts`、routes / plans の期待値。lint / tsc / test / build 通過、モック + Playwright で返信画面（接続不可の案内、店舗の選択、設定の保存、API の検証）を確認。**Google の実 API に対しては未検証**（承認後に利用者の画面で確認。エラーが出たら文言ごと共有してもらう）。
+
