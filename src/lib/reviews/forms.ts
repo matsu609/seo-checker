@@ -34,12 +34,21 @@ export interface ReviewForm {
   updatedAt: string;
 }
 
+/**
+ * QR の発行単位。店舗を紐づけると（storeName / placeId / writeReviewUrl）、その QR から開いた
+ * 来店客の画面はその店舗名になり、投稿ボタンはその店舗の Google マップに飛ぶ。
+ * 紐づけが無ければアンケート本体の店舗（storeName / writeReviewUrl）を使う。
+ */
 export interface ReviewChannel {
   id: string;
   formId: string;
   /** QR に埋める ?c= の値（6 文字） */
   code: string;
+  /** 置き場所や担当（テーブル 3、レジ など）。店舗を紐づけただけなら店名と同じ */
   label: string;
+  storeName: string | null;
+  placeId: string | null;
+  writeReviewUrl: string | null;
   createdAt: string;
 }
 
@@ -56,7 +65,7 @@ export interface PublicReviewForm {
 const FORMS = "review_forms";
 const FORM_COLUMNS = "id,user_id,slug,title,store_name,place_id,write_review_url,questions,settings,active,created_at,updated_at";
 const CHANNELS = "review_channels";
-const CHANNEL_COLUMNS = "id,form_id,code,label,created_at";
+const CHANNEL_COLUMNS = "id,form_id,code,label,store_name,place_id,write_review_url,created_at";
 
 const FormRowSchema = z.object({
   id: z.string(),
@@ -79,6 +88,9 @@ const ChannelRowSchema = z.object({
   form_id: z.string(),
   code: z.string(),
   label: z.string(),
+  store_name: z.string().nullable().optional(),
+  place_id: z.string().nullable().optional(),
+  write_review_url: z.string().nullable().optional(),
   created_at: z.string(),
 });
 export type ReviewChannelRow = z.infer<typeof ChannelRowSchema>;
@@ -108,17 +120,41 @@ export function fromFormRow(row: ReviewFormRow): ReviewForm {
 }
 
 export function fromChannelRow(row: ReviewChannelRow): ReviewChannel {
-  return { id: row.id, formId: row.form_id, code: row.code, label: row.label, createdAt: row.created_at };
+  return {
+    id: row.id,
+    formId: row.form_id,
+    code: row.code,
+    label: row.label,
+    storeName: row.store_name ?? null,
+    placeId: row.place_id ?? null,
+    writeReviewUrl: row.write_review_url ?? null,
+    createdAt: row.created_at,
+  };
 }
 
-export function toPublicForm(form: ReviewForm): PublicReviewForm {
+/** QR に紐づく店舗（無ければアンケート本体の店舗）。来店客の画面・下書き・投稿先はこれで決まる */
+export function resolveStore(form: Pick<ReviewForm, "storeName" | "writeReviewUrl">, channel: ReviewChannel | null): { storeName: string; writeReviewUrl: string | null } {
+  if (channel?.storeName) {
+    return { storeName: channel.storeName, writeReviewUrl: channel.writeReviewUrl ?? form.writeReviewUrl };
+  }
+  return { storeName: form.storeName, writeReviewUrl: form.writeReviewUrl };
+}
+
+/** 一覧・集計・CSV に出す QR の名前。店舗つきなら「店名（ラベル）」、店名とラベルが同じなら店名だけ */
+export function channelDisplayName(channel: Pick<ReviewChannel, "label" | "storeName">): string {
+  if (!channel.storeName || channel.storeName === channel.label) return channel.storeName ?? channel.label;
+  return `${channel.storeName}（${channel.label}）`;
+}
+
+export function toPublicForm(form: ReviewForm, channel: ReviewChannel | null = null): PublicReviewForm {
+  const store = resolveStore(form, channel);
   return {
     slug: form.slug,
     title: form.title,
-    storeName: form.storeName,
+    storeName: store.storeName,
     questions: form.questions,
     lowRatingMax: form.settings.lowRatingMax,
-    hasWriteReviewUrl: form.writeReviewUrl !== null,
+    hasWriteReviewUrl: store.writeReviewUrl !== null,
   };
 }
 
@@ -249,10 +285,25 @@ export async function listChannels(formId: string): Promise<ReviewChannel[]> {
   return parseChannels(rows);
 }
 
-export async function addChannel(formId: string, label: string, code = newChannelCode()): Promise<ReviewChannel> {
+export interface NewChannel {
+  label: string;
+  storeName?: string | null;
+  placeId?: string | null;
+  writeReviewUrl?: string | null;
+}
+
+export async function addChannel(formId: string, input: NewChannel, code = newChannelCode()): Promise<ReviewChannel> {
   const rows = await supabaseRest<unknown>(`${CHANNELS}?select=${CHANNEL_COLUMNS}`, {
     method: "POST",
-    body: { form_id: formId, code, label, created_at: new Date().toISOString() },
+    body: {
+      form_id: formId,
+      code,
+      label: input.label,
+      store_name: input.storeName ?? null,
+      place_id: input.placeId ?? null,
+      write_review_url: input.writeReviewUrl ?? null,
+      created_at: new Date().toISOString(),
+    },
     prefer: "return=representation",
   });
   const ch = parseChannels(rows)[0];

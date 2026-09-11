@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SurveyPage } from "@/components/reviews/SurveyPage";
 import { isSupabaseConfigured } from "@/lib/db/supabase";
-import { getPublicForm, toPublicForm, type PublicReviewForm } from "@/lib/reviews/forms";
+import { findChannelByCode, getPublicForm, toPublicForm, type PublicReviewForm } from "@/lib/reviews/forms";
 
 /**
  * 来店客向けアンケート（/r/<slug>?c=<QR のコード>）。ログイン不要（src/lib/auth/routes.ts の PUBLIC_PAGE_PREFIXES）。
@@ -29,7 +29,9 @@ export default async function Page({ params, searchParams }: Props) {
   } else {
     try {
       const found = await getPublicForm(slug);
-      form = found ? toPublicForm(found) : null;
+      // QR に店舗が紐づいていれば、その店舗名で出す（投稿先も回答時にその店舗になる）
+      const channel = found && code ? await findChannelByCode(found.id, code) : null;
+      form = found ? toPublicForm(found, channel) : null;
       if (!form) error = "このアンケートは見つかりません（終了した可能性があります）。";
     } catch {
       error = "アンケートを読み込めませんでした。しばらくしてからもう一度お試しください。";

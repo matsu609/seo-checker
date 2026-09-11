@@ -11,7 +11,7 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
-import type { ReviewChannel, ReviewForm } from "@/lib/reviews/forms";
+import { channelDisplayName, type ReviewChannel, type ReviewForm } from "@/lib/reviews/forms";
 import { answerLines, NOTE_MAX } from "@/lib/reviews/questions";
 import { RESPONSE_STATUS_LABELS, RESPONSE_STATUSES, type ResponseStatus, type ReviewResponse } from "@/lib/reviews/responses";
 import { formatDateTime } from "@/lib/report/format";
@@ -68,7 +68,7 @@ export function ResponsesCard({ number, form, channels, responses, loading, erro
   const [order, setOrder] = useState<Order>("priority");
   const [openId, setOpenId] = useState<string | null>(null);
   const sorted = useMemo(() => sortResponses(responses, order), [responses, order]);
-  const labelOf = useMemo(() => new Map(channels.map((c) => [c.id, c.label])), [channels]);
+  const labelOf = useMemo(() => new Map(channels.map((c) => [c.id, channelDisplayName(c)])), [channels]);
   const csvParams = new URLSearchParams({ formId: form.id, format: "csv" });
   if (filter.status) csvParams.set("status", filter.status);
   if (filter.lowOnly) csvParams.set("low", "1");
@@ -105,12 +105,12 @@ export function ResponsesCard({ number, form, channels, responses, loading, erro
             ))}
           </Select>
         </Field>
-        <Field label="経路（QR）" htmlFor="resp-channel">
+        <Field label="店舗・経路（QR）" htmlFor="resp-channel">
           <Select id="resp-channel" value={filter.channelId} onChange={(e) => onFilterChange({ ...filter, channelId: e.target.value })}>
             <option value="">すべて</option>
             {channels.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.label}
+                {channelDisplayName(c)}
               </option>
             ))}
           </Select>

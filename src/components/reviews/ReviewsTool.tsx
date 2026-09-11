@@ -5,7 +5,7 @@
  *
  * 1. アンケートを選ぶ / 作る（業種テンプレート。MEO の登録店舗があれば Google の投稿先を引く）
  * 2. アンケートの設定（質問・AI 下書き・低評価の基準）
- * 3. QR コードの発行
+ * 3. QR コードの発行（店舗ごと・置き場所ごと。店舗を紐づけると来店客の画面と投稿先がその店舗になる）
  * 4. 集計
  * 5. 回答一覧（低評価を先頭に。対応メモ）
  *
@@ -26,7 +26,7 @@ import type { ReviewChannel, ReviewForm } from "@/lib/reviews/forms";
 import type { ReviewMetrics } from "@/lib/reviews/metrics";
 import { INDUSTRIES, INDUSTRY_LABELS, STORE_NAME_MAX, TITLE_MAX, type Industry } from "@/lib/reviews/questions";
 import type { ResponseStatus, ReviewResponse } from "@/lib/reviews/responses";
-import { ChannelsCard } from "./ChannelsCard";
+import { ChannelsCard, type NewChannelInput } from "./ChannelsCard";
 import { FormEditor } from "./FormEditor";
 import { MetricsCard } from "./MetricsCard";
 import { EMPTY_FILTER, ResponsesCard, type ResponsesFilter } from "./ResponsesCard";
@@ -164,10 +164,16 @@ export function ReviewsTool() {
     setCurrentId(null);
   }
 
-  async function onAddChannel(label: string) {
+  async function onAddChannel(input: NewChannelInput) {
     if (!current) return;
-    const data = await request<ReviewsChannelResponse>(`/api/reviews/forms/${current.id}/channels`, { method: "POST", body: JSON.stringify({ label }) });
-    setDetail((d) => ({ ...d, channels: [...d.channels, data.channel] }));
+    const data = await request<ReviewsChannelResponse>(`/api/reviews/forms/${current.id}/channels`, { method: "POST", body: JSON.stringify(input) });
+    setDetail((d) => ({ ...d, channels: [...d.channels, ...data.channels] }));
+  }
+
+  async function onBulkChannels() {
+    if (!current) return;
+    const data = await request<ReviewsChannelResponse>(`/api/reviews/forms/${current.id}/channels`, { method: "POST", body: JSON.stringify({ bulk: "stores" }) });
+    setDetail((d) => ({ ...d, channels: [...d.channels, ...data.channels] }));
   }
 
   async function onRemoveChannel(channelId: string) {
@@ -203,7 +209,7 @@ export function ReviewsTool() {
       <Card
         number={1}
         title="アンケート"
-        description="店舗ごと（または目的ごと）にアンケートを作ります。来店客の画面・QR コード・回答はアンケート単位で分かれます。"
+        description="アンケート（質問と AI の設定）を作ります。複数店舗で同じ質問を使うなら 1 つ作り、「3. QR コード」で店舗ごとの QR を発行してください。店舗ごとに質問を変えたいときはアンケートを分けます。"
       >
         {forms.error && (
           <Callout tone="fail" className="mb-4">
@@ -295,7 +301,7 @@ export function ReviewsTool() {
       {current && (
         <>
           <FormEditor number={2} form={current} onSave={onSaveForm} onDelete={onDeleteForm} />
-          <ChannelsCard number={3} form={current} channels={detail.channels} onAdd={onAddChannel} onRemove={onRemoveChannel} />
+          <ChannelsCard number={3} form={current} channels={detail.channels} stores={forms.stores} onAdd={onAddChannel} onBulkFromStores={onBulkChannels} onRemove={onRemoveChannel} />
           {detail.metrics && <MetricsCard number={4} metrics={detail.metrics} limit={detail.limit} filtered={filtered} />}
           <ResponsesCard
             number={5}

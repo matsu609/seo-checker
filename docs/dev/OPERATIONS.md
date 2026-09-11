@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r34 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r35 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -210,7 +210,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho`（事業者名・代表者・連絡先・価格・支払方法・解約・返金。所在地と電話は請求時開示）。PUBLIC_PAGES に追加、フッターにリンク。Stripe 審査と Clerk Billing 開始の前提 | Claude | 未（利用者の GO で着手） |
 | 44 | 決済の開始（Clerk Billing）: Stripe 登録 → Clerk Billing 有効化・Stripe 接続 → プラン `pro`（月 9,800 円、スラッグはコードの `user:pro` と一致。standard は作らない）→ Vercel `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1`、`DEFAULT_PLAN=free` → Redeploy → 管理画面で自分に個別開放 → テストカードで購入確認。モニターは管理画面の個別開放で無料に | 利用者 | 未 |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
-| 51 | **r34 の SQL を Supabase で実行**（下記「フェーズ 2 で使うテーブル」の 4 つ目 `review_forms` / `review_channels` / `review_responses`）。実行するまで `/tools/reviews` は「テーブルが見つかりません」になる | 利用者 | **未（r34 で追加）** |
+| 51 | **r34〜r35 の SQL を Supabase で実行**（下記「フェーズ 2 で使うテーブル」の 4 つ目 `review_forms` / `review_channels` / `review_responses`。r34 の SQL を実行済みなら `alter table` の方）。実行するまで `/tools/reviews` は「テーブルが見つかりません」になる | 利用者 | **未（r34 で追加、r35 で列 3 つ追加）** |
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
@@ -221,7 +221,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 - r27 の SQL（`meo_owner_inputs`）を実行したという連絡（#45）
 - Business Profile API の承認結果（#5）
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
-- r34 の SQL（`review_forms` / `review_channels` / `review_responses`）を実行したという連絡（#51）
+- r34〜r35 の SQL（`review_forms` / `review_channels` / `review_responses`）を実行したという連絡（#51）
 - 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 
 ### フェーズ 2 で使うテーブル（Supabase SQL Editor で実行）
@@ -279,7 +279,7 @@ alter table meo_owner_inputs enable row level security;
 
 `input` は `src/lib/maps/owner-input.ts` の `MeoOwnerInputSchema` の形（キーワード最大 5、説明文 750 文字、投稿数、最新投稿の本文、写真の日付、ロゴ・カバー、返信済み件数、返信文。null = 未回答）。利用者 × 自社店舗で 1 行。競合には無い。
 
-4 つ目（r34、口コミ支援。**未実行 → #51**）:
+4 つ目（r34 + r35、口コミ支援。**未実行 → #51**）:
 
 ```sql
 create table if not exists review_forms (
@@ -303,6 +303,9 @@ create table if not exists review_channels (
   form_id uuid not null references review_forms (id) on delete cascade,
   code text not null,
   label text not null,
+  store_name text,          -- r35: QR に紐づく店舗（無ければアンケート本体の店舗）
+  place_id text,
+  write_review_url text,
   created_at timestamptz not null default now(),
   unique (form_id, code)
 );
@@ -333,6 +336,15 @@ create index if not exists review_responses_low_idx on review_responses (form_id
 alter table review_forms enable row level security;
 alter table review_channels enable row level security;
 alter table review_responses enable row level security;
+```
+
+r34 の SQL を先に実行していた場合は、代わりに次を実行する（r35 で列を 3 つ足した）:
+
+```sql
+alter table review_channels
+  add column if not exists store_name text,
+  add column if not exists place_id text,
+  add column if not exists write_review_url text;
 ```
 
 `review_forms.questions` は `src/lib/reviews/questions.ts` の `QuestionsSchema`（最大 8 問、評価は 1 問）、`settings` は `ReviewFormSettingsSchema`（業種・トーン・キーワード最大 5・低評価の閾値）。`review_responses` には user_id が無いので、店舗側は必ず `review_forms`（user_id）経由で触る。`edit_token` は来店客が押下の記録・「お店に直接伝える」を送るための鍵（回答時に発行、画面にだけ返す）。
@@ -398,9 +410,10 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **コンサル解説（r30）**: `src/lib/maps/guide.ts` に 28 項目ぶんの `CHECK_GUIDE`（why / goal / keep）、`MEO_CONCLUSION`、`IDEAL_STATE`（評価 4.3〜4.7、口コミ数は競合上位 3 社超・最低 50、口コミの質、返信率 100% / 24〜48h、写真 100 枚以上・毎週追加、投稿週 1、基本情報 NAP 一致・サブカテゴリ最大 9、Q&A 5〜10 問（未計測）、星の分布）。有料の報告書に「3. 目指すべき状態」の節と、各項目の下に 3 行の解説（`ChecklistSection` の `guide` prop）。無料 `/meo` には出さない（`guide` を true にすれば出る）。文章を変えるときは guide.ts だけ。`guide.test.ts` が採点の項目 ID と過不足なく一致することを確認する（項目を足したら解説も足す）。
 - **フェーズ 3（承認後）**: Business Profile API（Business Information / v4 reviews・localPosts・media / Performance API）で `score.ts` の `unavailable` 9 項目を埋める。インサイト 8 指標（表示回数 モバイル/PC、電話、ルート、サイト、メニュー、平均クリック率）を期間比較・CSV・詳細グラフつきで。スコープ `business.manage` を追加 → 同意画面のスコープ追加と再審査に注意。
 
-### 口コミ支援（アンケート QR）— r34
+### 口コミ支援（アンケート QR）— r34〜r35
 
 - **何をするか**: 店舗が `/tools/reviews`（MEO タブ、pro、`requires: ["supabase"]`、`optional: ["anthropic", "places"]`）でアンケートを作る（業種テンプレート: 飲食 / サロン / クリニック / 汎用。質問は評価 1〜5・単一選択・複数選択・自由記述、最大 8 問）→ QR を発行（店舗別・テーブル別・スタッフ別など最大 30、SVG / PNG はサーバーが `qrcode` で描く）→ 来店客が `/r/<slug>?c=<code>`（ログイン不要、サイドバー無し = `AppShell` の `isBare`、`robots: noindex`）で回答 → **AI が口コミの下書き**（`src/lib/reviews/draft.ts`。トーン 3 種と「含めたい語」最大 5 は店舗の設定。モデルは `REVIEW_DRAFT_MODEL`、既定は `LLM_FAST_MODEL`。回答は untrusted ブロック。キー無し / 上限超え / 失敗時は自由記述をそのまま並べる `fallback`）→ 完了画面「店舗にフィードバックを送信しました」+ 編集できる下書き + **「Google マップに投稿する」（評価に関係なく全員同じ。押すと下書きをクリップボードにコピーし、押下を `/api/r/[slug]/events` に記録してから Google の投稿画面 `writeAReviewUri` を新しいタブで開く）** + 低評価（既定 2 以下、店舗が 1〜4 で変更）のときは **「お店に直接伝える」を並列で追加**（本文 + 任意の連絡先 → `/api/r/[slug]/direct`）。
+- **店舗ごとの QR（r35）**: 1 つのアンケート（質問・AI 設定）を複数店舗で共有できる。QR（`review_channels`）に店舗（`store_name` / `place_id` / `write_review_url`）を紐づけると、その QR から開いた来店客の画面はその店舗名、AI 下書きの店名と投稿ボタンの飛び先もその店舗（`resolveStore`。紐づけが無い QR は本体の店舗）。発行は「店舗ごと（MEO の登録店舗から選ぶ / 店名と Place ID を手入力）」と「置き場所ごと（本体の店舗のまま）」、MEO に登録済みの自社店舗にまとめて発行（`{ bulk: "stores" }`。紐づけ済みの Place ID は飛ばす）。集計・絞り込み・CSV は「店名（ラベル）」で店舗ごとに分かれる（CSV に「店舗」列）。投稿先の解決は `src/lib/reviews/links.ts`（指定 → 保存済み報告書の `writeReview` → Place ID から組み立て）。
 - **店舗側**: 回答一覧（既定の並びは「低評価・直接連絡・未対応を先に」。新しい順 / 評価が低い順、対応状態・経路・期間・低評価だけで絞り込み）、行を開くと回答全文・AI 下書き・投稿時の本文・直接連絡・対応状態（未対応 / 対応中 / 対応済み）・対応メモ。集計（回答数・平均評価・分布・低評価・**投稿ボタン押下率（実投稿数は取れないと明記）**・経路別・週別 8 週）。CSV（式インジェクション対策済み）。未対応の低評価があればカード 1 に件数の注意。メール通知は無し（送信サービスが無い）。
 - **守り**: 公開パスは `routes.ts` の接頭辞 `/r/` と `/api/r/`（接頭辞そのものは公開しない。`routes.test.ts` で固定）。回数制限は IP ごと（取得 120 / 回答 30 / イベント 60 / 時。店内 Wi-Fi で IP が共有されるため緩め）+ アンケートごとの 1 日 500 件（`REVIEW_FORM_DAILY_LIMIT`）+ AI 下書きの 1 日全体 2,000 件（`REVIEW_AI_DAILY_LIMIT`。超えたら fallback）。来店客側の更新は `edit_token`。管理 API は `ownedForm`（user_id）で所有確認 → form_id。来店客に返すのは `PublicReviewForm`（質問・店名・低評価の閾値・投稿 URL の有無だけ）。
 - **投稿 URL**: 作成時に Place ID を指定すると、保存済みの MEO 報告書の `links.writeReview`（r28）→ 無ければ `https://search.google.com/local/writereview?placeid=` を組み立て。MEO 未登録なら Place ID か URL を手入力。無ければ投稿ボタンは出ない。
@@ -550,4 +563,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **コードは触っていない**（ドキュメントのみ。`add-release.mjs` 不要）。作業ブランチ `claude/review-support-service-design-n8k2x3` に同じ内容を push し、ドキュメントのみなので main にも直接反映。
 - 次: 利用者が #50（原文確認）と #49（§9 の 9 項目）に回答 → v1 実装に着手。
 - 利用者「問題ありません。Google は AI によって調整された文章の口コミを正式に禁止と明言はしていません。先ほど送った用件でアンケート機能を実装してください」→ **利用者の決定として、たたき台どおり（AI 下書き・トーン・キーワード設定を含む）実装。r34**。新規: `src/lib/reviews/`（questions / forms / responses / draft / metrics / csv / url / api）、`src/app/api/reviews/*`（forms・channels・qr・responses）、`src/app/api/r/[slug]/*`（取得・answers・events・direct）、`src/app/tools/reviews`、`src/app/r/[slug]`、`src/components/reviews/*`（ReviewsTool / FormEditor / ChannelsCard / MetricsCard / ResponsesCard / SurveyPage）。変更: `routes.ts`（公開接頭辞）、`registry.ts`（機能 `reviews`、アイコン `qr`）、`AppShell`（`/r/` は素の画面）、`ratelimit.ts`、`catalog.ts`（pro のハイライト）、`PrivacyPolicy`（第 12 条）、README / ARCHITECTURE。依存を 1 つ追加（`qrcode`、devDependencies に `@types/qrcode`）。テスト 4 ファイル追加 + routes / plans の期待値更新。詳細は上の「口コミ支援（アンケート QR）— r34」。**利用者側の作業は SQL の実行 1 つ（#51）。**
+- 利用者「お店ごとにアンケートにひもついた QR コードを発行できるようにしたい」→ **r35**: 1 つのアンケートを複数店舗で共有し、QR ごとに店舗を紐づける形にした（上の「店舗ごとの QR（r35）」）。`review_channels` に `store_name` / `place_id` / `write_review_url` を追加（SQL は #51 に含めた。r34 を実行済みなら `alter table`）。`ChannelsCard` を「店舗ごと（登録店舗から選ぶ / 手入力）」「置き場所ごと」の 2 モードに、「登録済みの自社店舗にまとめて発行」ボタン。来店客の画面（`/r/[slug]?c=`）と公開 API は QR の店舗名で返し、回答時の下書きの店名・投稿先もその店舗（`resolveStore`）。集計・絞り込み・CSV は「店名（ラベル）」。テスト 4 件追加。lint / tsc / test / build 通過、モック + Playwright で「2 店舗にまとめて発行 + 手入力 1 店舗 → 駅前店の QR で回答 → 見出しと投稿先が駅前店 → 集計と CSV に店舗」を確認。
 

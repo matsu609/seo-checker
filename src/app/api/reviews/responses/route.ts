@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     if (form instanceof Response) return form;
     const [responses, channels] = await Promise.all([listResponses(form.id, filter), listChannels(form.id)]);
     if (params.get("format") === "csv") {
-      const csv = responsesToCsv(responses, form.questions, channels);
+      const csv = responsesToCsv(responses, form, channels);
       return new Response(csv, {
         headers: {
           ...NO_STORE,
