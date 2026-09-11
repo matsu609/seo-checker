@@ -24,7 +24,7 @@ describe("項目ごとの解説", () => {
   });
 
   it("目指すべき状態の表と結論", () => {
-    expect(IDEAL_STATE.map((r) => r.item)).toEqual(["評価", "口コミ数", "口コミの質", "返信率", "写真", "投稿（最新情報）", "基本情報", "Q&A", "星の分布"]);
+    expect(IDEAL_STATE.map((r) => r.item)).toEqual(["評価", "口コミ数", "口コミの質", "返信率", "写真", "投稿（最新情報）", "基本情報", "Q&A（廃止）", "星の分布"]);
     expect(MEO_CONCLUSION).toContain("競合上位 3 社");
     expect(guideFor("nope")).toBeUndefined();
   });
