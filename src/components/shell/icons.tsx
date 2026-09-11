@@ -199,6 +199,7 @@ const ICONS: Record<FeatureIcon, (p: IconProps) => React.JSX.Element> = {
   settings: SettingsIcon,
   map: MapIcon,
   qr: QrIcon,
+  reply: ReplyIcon,
 };
 
 function QrIcon({ className = "" }: IconProps) {
@@ -208,6 +209,15 @@ function QrIcon({ className = "" }: IconProps) {
       <rect x="14" y="3" width="7" height="7" rx="1" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
       <path d="M14 14h3v3h-3zM20 14v3M17 20h3M14 20h.01" />
+    </svg>
+  );
+}
+
+function ReplyIcon({ className = "" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M4 12a8 8 0 0 1 8-8h1a7 7 0 0 1 7 7v1a7 7 0 0 1-7 7H9l-5 3z" />
+      <path d="M9 11l-2 2 2 2M7 13h6a3 3 0 0 0 3-3V9" />
     </svg>
   );
 }

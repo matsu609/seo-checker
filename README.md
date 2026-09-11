@@ -106,6 +106,7 @@ npm run dev                  # http://localhost:3000
 | [検索パフォーマンス](src/lib/google/search-console) | — | 連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を期間比較つきで取得。日別の推移と、クリックの多いクエリ・ページの一覧。推定ではなく Google の実測値 | Google 連携（利用者ごと） |
 | [Google マップ・店舗情報（MEO）](src/lib/maps) | — | 店名・地域で検索して自社 1 件と競合を最大 5 件選ぶ。自社のビジネス プロフィールを基本情報 / 投稿 / 写真 / レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF 出力）を作成。総評は `ANTHROPIC_API_KEY` があれば AI が執筆。オーナー権限が要る項目は「未取得」として採点から外し、Business Profile 連携後に埋まる。自社の店舗と競合を登録すると、登録直後に 1 回、その後は毎週月曜 5:00 に一斉更新して履歴に保存（手動の取り直しは不可）。最新診断結果と前回との差分、競合との比較表 | Places API (New) + Supabase（総評は Anthropic 任意。一斉更新は `CRON_SECRET`） |
 | [口コミ支援（アンケート QR）](src/lib/reviews) | — | 店内の QR コード（1 つのアンケートを複数店舗で共有し、店舗ごと・テーブル別・スタッフ別に発行。店舗を紐づけた QR は来店客の画面と Google の投稿先がその店舗になる。MEO の登録店舗にまとめて発行も可）から来店客がログイン不要のアンケート（`/r/<slug>`）に答える。回答をもとに AI が口コミの下書きを作り（トーンと含めたい語は店舗が設定）、来店客が自由に編集して「Google マップに投稿する」から自分の意思で投稿する。投稿ボタンは評価に関係なく全員に同じ。低評価のときは「お店に直接伝える」を並べて出す（隠さない）。回答・下書き・投稿時の本文は店舗がすべて閲覧でき、低評価と直接連絡は先頭に並ぶ。対応状態とメモ、経路別・週別の集計、投稿ボタンの押下率（Google 側の実投稿数は取れないため近似）、CSV | Supabase（下書きは Anthropic 任意。無ければ回答をそのまま並べる） |
+| [口コミへの返信（AI 返信案）](src/lib/google/business-profile.ts) | — | Google ビジネス プロフィールを接続（`business.manage`）すると、口コミの全件取得と返信の投稿・更新・削除が画面で完結。AI が返信案を作る（トーン・店舗からの補足・署名。低評価はお詫び → 改善 → 個別連絡の型）。接続前は MEO の保存済み報告書の口コミ（最新 5 件）で返信案を作り、コピーして Google の管理画面へ | Google 連携（利用者ごと。Business Profile API の利用申請と API 有効化が必要）。返信案は Anthropic |
 | [生成 AI 流入分析](src/lib/ai-traffic) | B6 | GA4 の参照元から生成 AI の流入を切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベント | GA4（利用者ごとの Google 連携でも可） |
 | [サイトレポート](src/lib/site-report) | E8 | GA4 の KPI の前期比、チャネル別流入と登録キーワードの平均順位・ファインダビリティスコア、自社・競合の最新順位表 | GA4（利用者ごとの Google 連携でも可）+ SerpApi |
 
@@ -286,6 +287,7 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（MEO）。Places API (New) 専用に制限したキー。請求先アカウントが必要（無料枠あり） |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗と診断報告書の履歴（Supabase）。テーブルは `docs/dev/OPERATIONS.md` の SQL |
 | `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きのモデル（既定は `LLM_FAST_MODEL` = `claude-haiku-4-5`） |
+| `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定は `LLM_FAST_MODEL`） |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援: アンケート 1 つあたりの 1 日の回答数（既定 500）と、AI 下書きの 1 日の全体上限（既定 2,000。超えたら回答は受け付け、下書きは回答をそのまま並べる） |
 | `CRON_SECRET` | 毎週月曜 5:00 の一斉更新（`vercel.json` の Cron → `/api/cron/maps-refresh`）。未設定なら一斉更新は動かない |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |

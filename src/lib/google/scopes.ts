@@ -12,18 +12,28 @@ export const SEARCH_CONSOLE_SCOPE = "https://www.googleapis.com/auth/webmasters.
 /** GA4（Data API / Admin API の読み取り） */
 export const ANALYTICS_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 
+/**
+ * Google ビジネス プロフィール（口コミの取得と返信の投稿）。書き込みを含む広いスコープで、
+ * これより狭いものは無い。設定画面の通常の接続では要求せず、口コミ返信の画面から
+ * 「権限を追加」したときだけ要求する（REQUIRED_SCOPES には入れない）。
+ */
+export const BUSINESS_PROFILE_SCOPE = "https://www.googleapis.com/auth/business.manage";
+
+/** 設定画面の接続で必ず要求する（読み取り専用の 2 つ） */
 export const REQUIRED_SCOPES = [SEARCH_CONSOLE_SCOPE, ANALYTICS_SCOPE] as const;
 
-export type GoogleService = "search-console" | "analytics";
+export type GoogleService = "search-console" | "analytics" | "business-profile";
 
 export const SCOPE_BY_SERVICE: Record<GoogleService, string> = {
   "search-console": SEARCH_CONSOLE_SCOPE,
   analytics: ANALYTICS_SCOPE,
+  "business-profile": BUSINESS_PROFILE_SCOPE,
 };
 
 export const SERVICE_LABELS: Record<GoogleService, string> = {
   "search-console": "Search Console",
   analytics: "Google アナリティクス（GA4）",
+  "business-profile": "Google ビジネス プロフィール",
 };
 
 /**

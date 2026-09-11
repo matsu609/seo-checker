@@ -26,7 +26,7 @@ interface Guide {
   note?: string;
 }
 
-const GUIDES: Record<GoogleService, Guide> = {
+const GUIDES: Record<Exclude<GoogleService, "business-profile">, Guide> = {
   "search-console": {
     title: "Search Console に、使えるサイトがありません",
     lead: "このツールは、接続した Google アカウントで所有権が確認済みのサイトだけを読み取れます。サイトの登録と所有権の確認は Google 側での作業になり、このツールからは代行できません。",
@@ -80,7 +80,7 @@ export function GoogleSetupGuide({
   onRefresh,
   refreshing = false,
 }: {
-  service: GoogleService;
+  service: Exclude<GoogleService, "business-profile">;
   onRefresh: () => void;
   refreshing?: boolean;
 }) {

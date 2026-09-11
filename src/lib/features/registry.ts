@@ -49,7 +49,8 @@ export type FeatureIcon =
   | "file-text"
   | "settings"
   | "map"
-  | "qr";
+  | "qr"
+  | "reply";
 
 export interface Feature {
   /** URL セグメント（例: "site-audit"）。無料診断は "free"、設定は "settings" */
@@ -463,6 +464,28 @@ const GENERATE: readonly Feature[] = [
     requires: ["anthropic"],
     group: "generate",
     category: "seo",
+    plan: "pro",
+  },
+  {
+    id: "replies",
+    path: "/tools/replies",
+    label: "口コミへの返信（AI 返信案）",
+    shortLabel: "口コミへの返信",
+    description:
+      "Google マップの口コミに、AI が作った返信案を編集してそのまま投稿します。Google ビジネス プロフィールを接続すると全件の取得と投稿がこの画面で完結し、接続前でも公開情報の口コミから返信案を作ってコピーできます。",
+    details: [
+      "未返信の口コミを先頭に、評価・本文・既存の返信を一覧で確認",
+      "AI が返信案を作成（トーン、店舗からの補足、署名を設定）。低評価はお詫び → 事実確認 → 改善 → 個別連絡の型",
+      "編集してそのまま Google に投稿・返信の修正・削除（Google ビジネス プロフィール接続時）",
+      "接続前は Google マップの公開情報の口コミ（最新 5 件）で返信案を作り、コピーして Google の管理画面で返信",
+    ],
+    featureIds: [],
+    icon: "reply",
+    status: "beta",
+    requires: [],
+    optional: ["anthropic", "supabase", "places"],
+    group: "generate",
+    category: "meo",
     plan: "pro",
   },
   {

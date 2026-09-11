@@ -169,6 +169,12 @@ describe("来店客向けアンケート（口コミ支援）は公開、店舗�
       "/api/reviews/forms/0b2f0b8e-0000-4000-8000-000000000000/qr",
       "/api/reviews/responses",
       "/api/reviews/responses/0b2f0b8e-0000-4000-8000-000000000000",
+      "/tools/replies",
+      "/api/replies/status",
+      "/api/replies/reviews",
+      "/api/replies/reply",
+      "/api/replies/draft",
+      "/api/replies/places",
     ]) {
       expect(isProtectedPath(p), p).toBe(true);
     }
