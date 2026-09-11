@@ -12,7 +12,7 @@
  */
 import { useState, type FormEvent } from "react";
 import type { ReviewsStoreOption } from "@/app/api/reviews/forms/route";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, buttonClass } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -106,6 +106,8 @@ export function ChannelsCard({ number, form, channels, stores, onAdd, onBulkFrom
   }
 
   async function remove(id: string) {
+    const target = channels.find((c) => c.id === id);
+    if (!window.confirm(`QR コード「${target ? channelDisplayName(target) : ""}」を削除します。印刷済みの QR は読めなくなります（届いた回答は残ります）。よろしいですか？`)) return;
     setBusy(id);
     setError(null);
     try {
@@ -218,12 +220,12 @@ export function ChannelsCard({ number, form, channels, stores, onAdd, onBulkFrom
                     {url}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    <ButtonLink href={img} external size="sm">
-                      SVG
-                    </ButtonLink>
-                    <ButtonLink href={`${img}&format=png`} external size="sm">
-                      PNG
-                    </ButtonLink>
+                    <a href={`${img}&download=1`} download className={buttonClass("secondary", "sm")}>
+                      SVG を保存
+                    </a>
+                    <a href={`${img}&format=png&download=1`} download className={buttonClass("secondary", "sm")}>
+                      PNG を保存
+                    </a>
                     <Button type="button" size="sm" variant="secondary" onClick={() => copy(url, c.id)}>
                       {copied === c.id ? "コピーしました" : "URL をコピー"}
                     </Button>
@@ -238,7 +240,7 @@ export function ChannelsCard({ number, form, channels, stores, onAdd, onBulkFrom
         </ul>
       )}
       <p className="mt-3 text-[11px] leading-relaxed text-muted">
-        QR を消しても、その QR から届いた回答は残ります（経路が「QR なし」になります）。印刷は SVG を推奨（拡大しても荒れません）。
+        「SVG を保存」「PNG を保存」でファイルがダウンロードされます（印刷は SVG を推奨。拡大しても荒れません。PNG は 1024px）。QR を消しても、その QR から届いた回答は残ります（経路が「QR なし」になります）。
       </p>
     </Card>
   );

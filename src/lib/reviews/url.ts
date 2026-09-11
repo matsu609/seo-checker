@@ -17,3 +17,14 @@ export function originOf(request: Request): string {
   if (host) return `${proto}://${host.split(",")[0]!.trim()}`;
   return new URL(request.url).origin;
 }
+
+/**
+ * QR 画像などの Content-Disposition。日本語のファイル名は filename*（UTF-8、RFC 5987）で付け、
+ * 古いクライアント向けに ASCII の代替名（filename=）も添える。download が false ならインライン表示。
+ */
+export function contentDisposition(download: boolean, name: string, asciiFallback: string, ext: string): string {
+  const safe = name.replace(/[\\/:*?"<>|\r\n]+/g, "_").trim().slice(0, 80) || asciiFallback;
+  const type = download ? "attachment" : "inline";
+  return `${type}; filename="${asciiFallback}.${ext}"; filename*=UTF-8''${encodeURIComponent(`${safe}.${ext}`)}`;
+}
+

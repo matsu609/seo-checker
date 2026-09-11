@@ -131,6 +131,8 @@ export function FormEditor({ number, form, onSave, onDelete }: FormEditorProps) 
   }
 
   function removeQuestion(index: number) {
+    const q = draft.questions[index];
+    if (!window.confirm(`質問 Q${index + 1}「${q?.label || "（未入力）"}」を削除します。よろしいですか？（保存するまでは反映されません）`)) return;
     setDraft((d) => ({ ...d, questions: d.questions.filter((_, i) => i !== index) }));
   }
 
@@ -325,7 +327,7 @@ export function FormEditor({ number, form, onSave, onDelete }: FormEditorProps) 
                 <Button type="button" size="sm" variant="ghost" aria-label="下へ" disabled={i === draft.questions.length - 1} onClick={() => moveQuestion(i, 1)}>
                   ↓
                 </Button>
-                <Button type="button" size="sm" variant="ghost" aria-label="削除" onClick={() => removeQuestion(i)}>
+                <Button type="button" size="sm" variant="ghost" aria-label={`質問 ${i + 1} を削除`} onClick={() => removeQuestion(i)}>
                   ×
                 </Button>
               </div>
