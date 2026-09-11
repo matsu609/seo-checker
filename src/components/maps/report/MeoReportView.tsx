@@ -15,6 +15,7 @@ import { formatCount, formatRating } from "../format";
 import { ChecklistSection } from "./ChecklistSection";
 import { AreaSection } from "./AreaSection";
 import { ExtraInfoSection } from "./ExtraInfoSection";
+import { GoalSection } from "./GoalSection";
 import { RankSection } from "./RankSection";
 
 export interface MeoReportViewProps {
@@ -37,7 +38,8 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
     sublabel: `${c.measured} / ${c.total} 項目を測定`,
   }));
 
-  const checklistStart = score.extended ? 5 + (report.rank !== undefined ? 1 : 0) + (report.area !== undefined ? 1 : 0) : 4;
+  // 有料: 1 総合 / 2 総評 / 3 目指すべき状態 / 4 口コミ / 5 付加情報 / (6 順位) / (7 周辺) / チェックリスト。無料: 1 / 2 / 3 口コミ / チェックリスト
+  const checklistStart = score.extended ? 6 + (report.rank !== undefined ? 1 : 0) + (report.area !== undefined ? 1 : 0) : 4;
   const rated = detail.reviews.filter((r) => r.rating !== null);
   const dist = STARS.map((star) => ({ star, count: rated.filter((r) => Math.round(r.rating ?? 0) === star).length }));
   const age = latestReviewAgeDays(detail, new Date(report.generatedAt));
@@ -133,7 +135,9 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
           </p>
         </ReportSection>
 
-        <ReportSection number={3} title="口コミ情報" lead="評価と件数は Google マップの公開情報です。口コミ本文は Google が返す最新 5 件までを表示します。">
+        {score.extended && <GoalSection number={3} />}
+
+        <ReportSection number={score.extended ? 4 : 3} title="口コミ情報" lead="評価と件数は Google マップの公開情報です。口コミ本文は Google が返す最新 5 件までを表示します。">
           <StatStrip
             items={[
               { label: "平均評価", value: formatRating(detail.rating), unit: "/ 5.0" },
@@ -183,13 +187,13 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
           )}
         </ReportSection>
 
-        {score.extended && <ExtraInfoSection detail={detail} number={4} />}
+        {score.extended && <ExtraInfoSection detail={detail} number={5} />}
         {/* 順位・周辺は有料の自社店舗にだけ付く（無料診断・競合の報告書には無い） */}
-        {score.extended && report.rank !== undefined && <RankSection rank={report.rank} number={5} />}
-        {score.extended && report.area !== undefined && <AreaSection area={report.area} number={report.rank !== undefined ? 6 : 5} />}
+        {score.extended && report.rank !== undefined && <RankSection rank={report.rank} number={6} />}
+        {score.extended && report.area !== undefined && <AreaSection area={report.area} number={report.rank !== undefined ? 7 : 6} />}
 
         {score.categories.map((c, i) => (
-          <ChecklistSection key={c.id} category={c} number={checklistStart + i} />
+          <ChecklistSection key={c.id} category={c} number={checklistStart + i} guide={score.extended === true} />
         ))}
 
         <p className="mt-6 text-[11px] text-muted">

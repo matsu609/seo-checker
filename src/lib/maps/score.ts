@@ -87,6 +87,8 @@ export const REVIEW_GOOD = 100;
 export const REVIEW_SOME = 30;
 export const RATING_GOOD = 4.4;
 export const RATING_OK = 4.0;
+/** これ以上は「サクラ感」で信用を落とすことがある（合格のまま注記だけ出す） */
+export const RATING_SUSPICIOUS = 4.8;
 /** 直近の口コミがこの日数以内なら活発とみなす */
 export const RECENT_DAYS = 90;
 export const STALE_DAYS = 365;
@@ -496,7 +498,9 @@ export function scoreProfile(
       rating === null
         ? { status: "warn", detail: "評価がまだありません" }
         : rating >= RATING_GOOD
-          ? { status: "pass", detail: rating.toFixed(1) }
+          ? rating >= RATING_SUSPICIOUS
+            ? { status: "pass", detail: `${rating.toFixed(1)}（${RATING_SUSPICIOUS} 以上は不自然に見えることがあります。件数の増加と本文つきの口コミで裏づけてください）` }
+            : { status: "pass", detail: rating.toFixed(1) }
           : rating >= RATING_OK
             ? { status: "warn", detail: rating.toFixed(1), advice: "低評価の口コミに丁寧に返信し、指摘された点を改善してください" }
             : { status: "fail", detail: rating.toFixed(1), advice: `評価が ${RATING_OK} を下回っています。指摘の多い点から改善してください` },
