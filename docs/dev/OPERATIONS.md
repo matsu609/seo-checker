@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r39 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r40 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -238,7 +238,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 - Business Profile API の承認結果（#5 / #54 ①。09-11 申請、ケース ID `0-4126000041187`、7〜10 営業日）。承認されたら #54 の②〜④へ
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
 - 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
-- 基本情報掲載（#57）: 配信代行（Uberall / Yext など）を契約して「ワンクリック一括同期」を実装するか。無料の一括登録 API は存在しないため、r39 は「1 か所で決めて各媒体に貼る + 掲載状況の管理」まで。契約するなら API キーを Vercel に置き、`src/lib/listings/` に同期の実装を足す
+- 基本情報掲載（#57）: 配信代行（Uberall / Yext など）を契約して「ワンクリック一括同期」を実装するか。料金の目安（09-11 に検索。日本の正式価格は代理店の見積もり）: Yext は米国の自社向けプランで店舗あたり月額 $16〜$76、代理店経由の小規模契約は店舗あたり年 $1,000〜$3,000 の例もある。Uberall は非公開（日本代理店に問い合わせ）。AI の説明文は 1 回 1 円程度（Haiku 4.5）。無料の一括登録 API は存在しないため、r39 は「1 か所で決めて各媒体に貼る + 掲載状況の管理」まで。契約するなら API キーを Vercel に置き、`src/lib/listings/` に同期の実装を足す
 
 ### フェーズ 2 で使うテーブル（Supabase SQL Editor で実行）
 
@@ -637,3 +637,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者が Google Cloud「有効な API とサービス」の一覧を共有（Places API (New) 11 リクエスト、My Business Account Management API と My Business Business Information API がリクエスト「—」で表示。Google My Business API v4 は無し）→ Places の 11 件は MEO 診断が本番で動いている証拠。**#54 ②のうち 2 つは有効化済み**（この画面は有効化済みの API だけが並ぶ）。v4 は承認前はライブラリに出ない / 有効化できないことがあるので承認メール後に有効化するよう案内。承認前の呼び出しは 403 のまま。
 - 利用者「アンケート機能について、ユーザーのスマホの言語設定に合わせてアンケートの言語を切り替えるようにして」→ **r38**: 日本語・英語・中国語（簡体 / 繁体）・韓国語の 5 言語。`Accept-Language` で自動判定、右上の 🌐 で切替、テンプレートの質問は静的な訳、書き換えた質問は AI 訳を `review_forms.translations` に保存、AI 下書きも来店客の言語、回答に `lang` を記録して店舗側にバッジと CSV 列（上の「口コミ支援 … r38（多言語）」）。**利用者の作業: #55 の SQL 2 行**（実行前でも動く）。lint / tsc / test（1,401 件）/ build と、モック + Playwright の多言語スモーク・従来のスモークを通過。AI 訳は実 API で未検証。
 - 利用者が配信代行の「配信先メディア一括連携」画面（Acompio / Apple Maps / Audi / BMW / Bing / … / iGlobal の 26 媒体、状態 SYNCED / SUBMITTED / UPDATING）を共有し「他にもこれを追加して。無料ですぐ一斉に登録できるように。AIO のところに基本情報掲載を機能として追加して」→ **r39**: `/tools/listings`（上の「基本情報掲載（r39）」）。**無料の一括登録 API は無い**ことを伝え、無料で自分で登録できる媒体（登録画面へ直接 + コピー用の基本情報）/ 自動で流れる媒体 / 配信代行のみの媒体を区別する形にした。テスト 4 ファイル（媒体の一覧に 26 媒体が全部あること、表記ゆれ、営業時間 → schema.org、保存の user_id、AI の入力）。lint / tsc / test（1,416 件）/ build と、モック + Playwright のスモーク（保存 → 再読み込み → 媒体の状況 → 構造化データ → AIO のサイドバー）通過。**利用者の作業: #56 の SQL**（`listing_profiles`）。#57（配信代行の契約）は判断待ち。
+- 利用者「このサイテーション機能によって AIO でどのような効果があるのか、インバウンドや LLM（ChatGPT など）での上位表示につながるという説明を添えて。API 料金はいくら？」→ **r40**: `/tools/listings` の先頭に「なぜ AIO・インバウンドに効くのか」カード（生成 AI は複数媒体で一致した事実を信じる / Bing Places = ChatGPT 対策 / インバウンドは Apple マップ・Siri・Yelp・カーナビ / 説明文は「何の店か」を教える唯一の文章 / 構造化データと llms.txt。「AI に順位は無く、回答に含まれるかが勝負」と表現し、保証はしない）。registry の details にも 1 行。料金は会話で回答: AI の説明文は 1 回 1 円程度（Haiku 4.5、入力 $1 / 出力 $5 per 100 万トークン）、配信代行は Yext 月額 $16〜$76/店舗（米国自社向け）〜年 $1,000〜$3,000/店舗（代理店の小規模契約）、Uberall は非公開。#57 の判断待ちのまま。

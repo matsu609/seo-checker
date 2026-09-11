@@ -501,6 +501,7 @@ const GENERATE: readonly Feature[] = [
       "無料で登録できる媒体（Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap ほか）の登録画面と手順、コピー用の基本情報",
       "自動で流れる媒体（Siri・カーナビ各社・Navmii・Uber）と、配信代行（有料）でしか載らない媒体の区別",
       "AI が説明文（短い 150 文字 / 長い 750 文字）を作成、サイトに貼る構造化データ（LocalBusiness）を生成",
+      "AIO への効果: ChatGPT（Bing）・Gemini（Google）・Copilot / Perplexity は複数の媒体で一致した基本情報を「実在する店」と認識して回答に含める。インバウンドは Apple マップ・Siri・Yelp・カーナビにも届く",
     ],
     featureIds: [],
     icon: "broadcast",

@@ -219,6 +219,27 @@ export function ListingsTool() {
         </ul>
       </Callout>
 
+      <Card title="なぜ AIO・インバウンドに効くのか" description="サイテーション（複数の媒体に同じ基本情報が載っていること）は、生成 AI と海外からの検索に「実在する、この店」と認識させる土台です。">
+        <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-ink">
+          <li>
+            <strong>生成 AI は「複数の情報源で一致している事実」を信じます。</strong>ChatGPT の検索は Bing、Gemini は Google 検索と Google マップ、Copilot / Perplexity は Bing・Yelp・Apple などのデータを参照して答えます。店名・住所・電話が媒体ごとに違うと「同じ店」と認識されず、回答から漏れたり古い情報を答えられたりします。揃っているほど「新宿で〇〇ができる店は？」のような質問で名前が挙がりやすくなります（AI に順位はなく、「回答に含まれるか」が勝負です）。
+          </li>
+          <li>
+            <strong>Bing Places は ChatGPT 対策そのものです。</strong>ChatGPT・Copilot の検索は Bing のインデックスに依存します。Google には出るのに Bing に無い店は、ChatGPT の回答から漏れます。
+          </li>
+          <li>
+            <strong>インバウンドは Google マップだけでは届きません。</strong>訪日客の iPhone は Apple マップ・Siri が標準、欧米は Yelp・TripAdvisor・Foursquare、車移動は HERE / TomTom のカーナビ、中華圏は Petal マップも使います。Apple Business Connect に載せるだけで iPhone のマップ・Siri・Where To? に出ます。英語の店名・カテゴリ・説明文が揃っていると、海外からの「near me」検索と AI の英語回答に出やすくなります。
+          </li>
+          <li>
+            <strong>説明文は「何の店か」を AI に教える唯一の文章です。</strong>1 文目に店名・業種・地名を入れ、同じ文面を Google / Apple / Yahoo! / Bing に載せると、AI の要約がぶれません。
+          </li>
+          <li>
+            <strong>自社サイトの構造化データと llms.txt</strong> は、AI クローラが基本情報を読む入口です。媒体の情報とサイトの情報が一致していることが、引用される条件になります。
+          </li>
+        </ul>
+        <p className="mt-3 text-[12px] text-muted">効果の出方: 各媒体の反映に数日〜数週間、AI の回答への反映はさらに数週間〜数か月かかります。掲載後は MEO の診断と Google マップの検索順位で変化を追ってください。</p>
+      </Card>
+
       <Card number={1} title="店舗と掲載状況" description="基本情報掲載の対象は MEO の自社店舗です。店舗ごとに基本情報と掲載状況を持ちます。">
         {!data ? (
           <p className="text-[13px] text-muted">読み込んでいます…</p>
