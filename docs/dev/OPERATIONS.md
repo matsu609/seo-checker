@@ -165,7 +165,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports`~~ → ~~Vercel に環境変数 2 つ~~ → ~~`meo_stores`~~（09-10 17:03 作成、Table Editor で 2 テーブル確認）→ 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: 動作確認のみ |
-| 45 | **r27 の SQL を Supabase で実行**（下記「フェーズ 2 で使うテーブル」の 3 つ目 `meo_owner_inputs`）。実行するまで `/tools/maps` の「オーナー情報の入力」カードは保存時に「テーブルが見つかりません」になる（他の機能は動く） | 利用者 | **未（r27 で追加）** |
+| 45 | r27 の SQL を Supabase で実行（`meo_owner_inputs`） | 利用者 | **完了（09-11 17:21、画面で Success を確認）**。残りは本番 `/tools/maps` の「オーナー情報の入力」で保存できるかの確認 |
 | 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
@@ -218,7 +218,6 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
-- r27 の SQL（`meo_owner_inputs`）を実行したという連絡（#45）
 - Business Profile API の承認結果（#5）
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
 - 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
@@ -263,7 +262,7 @@ alter table meo_stores enable row level security;
 
 `own_place_id` が空なら自社、入っていればその自社店舗の競合。
 
-3 つ目（r27、オーナー情報の入力。**未実行 → #45**）:
+3 つ目（r27、オーナー情報の入力。**09-11 17:21 実行済み**）:
 
 ```sql
 create table if not exists meo_owner_inputs (
@@ -566,4 +565,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「貼り付ける SQL をもう一度表示して」→ #51 の SQL（完全版と、r34 実行済み向けの `alter table`）を会話に再掲。実行の連絡待ち。#45（`meo_owner_inputs`）も未実行のままであることを伝えた。
 - 利用者が Supabase の SQL Editor で口コミ支援の SQL（完全版 54 行）を実行し「Success. No rows returned」のスクリーンショットを共有 → **#51 完了**。次は本番 `/tools/reviews` でアンケートを作り、店舗ごとの QR を発行して、スマホで開いて確認してもらう。#45（`meo_owner_inputs`）は引き続き未実行。
 - 利用者「MEO のオーナー情報入力用も入れたい。55 行目以降にコピペすればいいの？」→ 可（1〜54 行は `if not exists` なので再実行しても無害。選択範囲だけの Run でも可）と案内し、#45 の SQL（`meo_owner_inputs`）を再掲。実行の連絡待ち。
+- 利用者が `meo_owner_inputs` の SQL を実行（55〜63 行目に追記して Run）し「Success」を共有 → **#45 完了**。Supabase のテーブルは `meo_reports` / `meo_stores` / `meo_owner_inputs` / `review_forms` / `review_channels` / `review_responses` の 6 つが揃った。残りは本番での動作確認（`/tools/reviews` と `/tools/maps` のオーナー情報の入力）。
 
