@@ -198,7 +198,19 @@ const ICONS: Record<FeatureIcon, (p: IconProps) => React.JSX.Element> = {
   "file-text": FileTextIcon,
   settings: SettingsIcon,
   map: MapIcon,
+  qr: QrIcon,
 };
+
+function QrIcon({ className = "" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <path d="M14 14h3v3h-3zM20 14v3M17 20h3M14 20h.01" />
+    </svg>
+  );
+}
 
 /** registry の icon キー → 16px 線アイコン */
 export function FeatureIconSvg({ icon, className = "h-4 w-4" }: { icon: FeatureIcon; className?: string }) {

@@ -139,6 +139,39 @@ describe("公開パスの一覧", () => {
       "/api/cron/maps-refresh",
     ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);
+    expect(PUBLIC_PATHS.pagePrefixes).toEqual(["/r/"]);
+    expect(PUBLIC_PATHS.apiPrefixes).toEqual(["/api/r/"]);
+  });
+});
+
+describe("来店客向けアンケート（口コミ支援）は公開、店舗側の管理 API は保護", () => {
+  it("/r/<slug> と /api/r/<slug>/* は公開", () => {
+    expect(isPublicPath("/r/abcDEF123456")).toBe(true);
+    expect(isPublicPath("/r/abcDEF123456/")).toBe(true);
+    expect(isPublicPath("/api/r/abcDEF123456")).toBe(true);
+    expect(isPublicPath("/api/r/abcDEF123456/answers")).toBe(true);
+    expect(isPublicPath("/api/r/abcDEF123456/events")).toBe(true);
+    expect(isPublicPath("/api/r/abcDEF123456/direct")).toBe(true);
+  });
+
+  it("接頭辞そのものや似たパスは公開しない", () => {
+    for (const p of ["/r", "/r/", "/rank", "/reviews", "/api/r", "/api/r/", "/api/reviews", "/api/reviews/forms", "/api/rank/measure", "/tools/reviews"]) {
+      expect(isPublicPath(p), p).toBe(false);
+    }
+  });
+
+  it("店舗側の管理 API と画面は保護される", () => {
+    for (const p of [
+      "/tools/reviews",
+      "/api/reviews/forms",
+      "/api/reviews/forms/0b2f0b8e-0000-4000-8000-000000000000",
+      "/api/reviews/forms/0b2f0b8e-0000-4000-8000-000000000000/channels",
+      "/api/reviews/forms/0b2f0b8e-0000-4000-8000-000000000000/qr",
+      "/api/reviews/responses",
+      "/api/reviews/responses/0b2f0b8e-0000-4000-8000-000000000000",
+    ]) {
+      expect(isProtectedPath(p), p).toBe(true);
+    }
   });
 });
 

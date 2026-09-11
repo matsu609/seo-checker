@@ -73,7 +73,7 @@ export const PLANS: readonly Plan[] = [
     highlights: [
       "SEO: サイト診断・ページ診断・順位計測・検索パフォーマンス（Search Console）・サイトレポート・キーワード調査",
       "AIO: ページ最適化レポート・AIO 頻出トピック・LLMO モニタリング・プロンプト拡張・生成 AI 流入分析（GA4）",
-      "MEO: Google マップの店舗診断、毎週の自動更新と履歴、競合 5 店舗との比較、AI 総評",
+      "MEO: Google マップの店舗診断、毎週の自動更新と履歴、競合 5 店舗との比較、AI 総評、口コミ支援（アンケート QR と AI 下書き）",
       "AI が作る: HP 改修提案（before → after）・AI ライティング・llms.txt 生成",
       "使わない機能があれば、機能ごとに 3,000 円引きでご相談に応じます",
     ],

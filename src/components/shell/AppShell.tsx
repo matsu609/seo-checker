@@ -30,6 +30,8 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
   const feature = findFeatureByPath(pathname);
   // 無料診断（/ と /meo）は画面側が <main> を持つので、シェルは素の <div> で包む
   const isFree = feature?.group === "free";
+  // 来店客向けのアンケート（/r/<slug>）はサイドバーもトップバーも出さない（店舗の画面ではない）
+  const isBare = pathname.startsWith("/r/");
   const drawerId = useId();
 
   const [open, setOpen] = useState(false);
@@ -86,6 +88,8 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
       first.focus();
     }
   }
+
+  if (isBare) return <div className="min-h-screen">{children}</div>;
 
   return (
     <div className="app-shell min-h-screen md:grid md:grid-cols-[15rem_1fr]">

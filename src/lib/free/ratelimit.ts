@@ -121,3 +121,20 @@ export const FREE_MEO_DAILY_SEARCHES_DEFAULT = 1500;
 
 export const FREE_LIMIT_MESSAGE = "無料診断の本日の枠に達しました。明日またお試しいただくか、ログインしてツールをご利用ください。";
 export const CLIENT_LIMIT_MESSAGE = "短時間に多くの診断が行われました。1 時間ほど待ってからもう一度お試しください。";
+
+/* ───────────── 口コミ支援（来店客向けアンケート /api/r/*）の既定値 ───────────── */
+
+/**
+ * 店内の Wi-Fi 越しだと来店客の多くが同じ IP になるので、IP ごとの上限はゆるめにし、
+ * 荒らし対策はアンケートごとの 1 日の上限（REVIEW_FORM_DAILY_LIMIT）で行う。
+ */
+export const REVIEW_FORM_GET_PER_HOUR: WindowLimit = { windowMs: 60 * 60 * 1000, limit: 120 };
+export const REVIEW_ANSWER_PER_HOUR: WindowLimit = { windowMs: 60 * 60 * 1000, limit: 30 };
+export const REVIEW_EVENT_PER_HOUR: WindowLimit = { windowMs: 60 * 60 * 1000, limit: 60 };
+/** アンケート 1 つあたりの 1 日の回答数。環境変数 REVIEW_FORM_DAILY_LIMIT で上書き */
+export const REVIEW_FORM_DAILY_DEFAULT = 500;
+/** AI 下書きの 1 日の全体上限（超えたら回答は受け付け、下書きはルールに落とす）。REVIEW_AI_DAILY_LIMIT で上書き */
+export const REVIEW_AI_DAILY_DEFAULT = 2000;
+
+export const REVIEW_CLIENT_LIMIT_MESSAGE = "短時間に多くの送信がありました。しばらく待ってからもう一度お試しください。";
+export const REVIEW_FORM_LIMIT_MESSAGE = "本日のこのアンケートの受付枠に達しました。明日またお試しください。";

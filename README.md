@@ -14,7 +14,7 @@ npm run dev                  # http://localhost:3000
 
 ## 無料 SEO・MEO・AIO 診断（`/` と `/meo`）
 
-`/` はサイト（URL）の診断、`/meo` は Google マップの店舗（店名）の診断です。どちらもログイン不要。`/meo` は Google Places に実費が出るため、IP ごとの回数制限と 1 日の全体上限（`FREE_MEO_DAILY_LIMIT`）で守っています（`src/lib/free/ratelimit.ts`）。有料の MEO（`/tools/maps`）との違いは、保存・競合比較・毎週の更新・AI 総評が無いことです。
+`/` はサイト（URL）の診断、`/meo` は Google マップの店舗（店名）の診断です。どちらもログイン不要（このほか、口コミ支援の来店客向けアンケート `/r/<slug>` もログイン不要）。`/meo` は Google Places に実費が出るため、IP ごとの回数制限と 1 日の全体上限（`FREE_MEO_DAILY_LIMIT`）で守っています（`src/lib/free/ratelimit.ts`）。有料の MEO（`/tools/maps`）との違いは、保存・競合比較・毎週の更新・AI 総評が無いことです。
 
 ### サイトの診断（`/`）
 
@@ -105,6 +105,7 @@ npm run dev                  # http://localhost:3000
 | [プロンプト拡張](src/lib/llmo) | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
 | [検索パフォーマンス](src/lib/google/search-console) | — | 連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を期間比較つきで取得。日別の推移と、クリックの多いクエリ・ページの一覧。推定ではなく Google の実測値 | Google 連携（利用者ごと） |
 | [Google マップ・店舗情報（MEO）](src/lib/maps) | — | 店名・地域で検索して自社 1 件と競合を最大 5 件選ぶ。自社のビジネス プロフィールを基本情報 / 投稿 / 写真 / レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF 出力）を作成。総評は `ANTHROPIC_API_KEY` があれば AI が執筆。オーナー権限が要る項目は「未取得」として採点から外し、Business Profile 連携後に埋まる。自社の店舗と競合を登録すると、登録直後に 1 回、その後は毎週月曜 5:00 に一斉更新して履歴に保存（手動の取り直しは不可）。最新診断結果と前回との差分、競合との比較表 | Places API (New) + Supabase（総評は Anthropic 任意。一斉更新は `CRON_SECRET`） |
+| [口コミ支援（アンケート QR）](src/lib/reviews) | — | 店内の QR コード（店舗別・テーブル別・スタッフ別に複数発行）から来店客がログイン不要のアンケート（`/r/<slug>`）に答える。回答をもとに AI が口コミの下書きを作り（トーンと含めたい語は店舗が設定）、来店客が自由に編集して「Google マップに投稿する」から自分の意思で投稿する。投稿ボタンは評価に関係なく全員に同じ。低評価のときは「お店に直接伝える」を並べて出す（隠さない）。回答・下書き・投稿時の本文は店舗がすべて閲覧でき、低評価と直接連絡は先頭に並ぶ。対応状態とメモ、経路別・週別の集計、投稿ボタンの押下率（Google 側の実投稿数は取れないため近似）、CSV | Supabase（下書きは Anthropic 任意。無ければ回答をそのまま並べる） |
 | [生成 AI 流入分析](src/lib/ai-traffic) | B6 | GA4 の参照元から生成 AI の流入を切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベント | GA4（利用者ごとの Google 連携でも可） |
 | [サイトレポート](src/lib/site-report) | E8 | GA4 の KPI の前期比、チャネル別流入と登録キーワードの平均順位・ファインダビリティスコア、自社・競合の最新順位表 | GA4（利用者ごとの Google 連携でも可）+ SerpApi |
 
@@ -284,6 +285,8 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（MEO）。Places API (New) 専用に制限したキー。請求先アカウントが必要（無料枠あり） |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗と診断報告書の履歴（Supabase）。テーブルは `docs/dev/OPERATIONS.md` の SQL |
+| `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きのモデル（既定は `LLM_FAST_MODEL` = `claude-haiku-4-5`） |
+| `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援: アンケート 1 つあたりの 1 日の回答数（既定 500）と、AI 下書きの 1 日の全体上限（既定 2,000。超えたら回答は受け付け、下書きは回答をそのまま並べる） |
 | `CRON_SECRET` | 毎週月曜 5:00 の一斉更新（`vercel.json` の Cron → `/api/cron/maps-refresh`）。未設定なら一斉更新は動かない |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |

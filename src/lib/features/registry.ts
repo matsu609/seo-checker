@@ -48,7 +48,8 @@ export type FeatureIcon =
   | "pen"
   | "file-text"
   | "settings"
-  | "map";
+  | "map"
+  | "qr";
 
 export interface Feature {
   /** URL セグメント（例: "site-audit"）。無料診断は "free"、設定は "settings" */
@@ -310,6 +311,30 @@ const MEASURE: readonly Feature[] = [
     group: "measure",
     category: "meo",
     plan: "standard",
+  },
+  {
+    id: "reviews",
+    path: "/tools/reviews",
+    label: "口コミ支援（アンケート QR）",
+    shortLabel: "口コミ支援（アンケート）",
+    description:
+      "店内の QR コードから来店客がアンケートに答えると、回答をもとに AI が口コミの下書きを作り、来店客が自分で編集して Google マップに投稿できます。回答はすべて店舗に届き、低評価は先に店舗だけに知らされるので、口コミにならなかった不満も改善に活かせます。",
+    details: [
+      "業種別テンプレート（飲食 / サロン / クリニック）から質問を作り、並び替え・追加・編集する",
+      "AI 下書きのトーン（丁寧 / カジュアル / 親しみやすい）と、含めたい語（店名・看板メニュー）を設定",
+      "QR コードを店舗別・テーブル別・スタッフ別など複数発行し、経路ごとの回答数を見る",
+      "回答・生成された下書き・投稿時の本文を時系列で確認。低評価は先頭に並べ、対応メモを記録",
+      "投稿ボタンの押下数・押下率（Google 側の実投稿数は取得できないため近似値）、経路別・週別の推移",
+      "回答の CSV 出力",
+    ],
+    featureIds: [],
+    icon: "qr",
+    status: "beta",
+    requires: ["supabase"],
+    optional: ["anthropic", "places"],
+    group: "measure",
+    category: "meo",
+    plan: "pro",
   },
   {
     id: "llmo",
