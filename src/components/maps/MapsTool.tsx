@@ -4,9 +4,10 @@
  * Google マップ・店舗情報（MEO）。
  *
  * 1. 店名や地域で候補を探し、自社の店舗と、その競合（最大 5 件）を登録する
- * 2. 自社の最新の診断レポート（4 カテゴリの採点・総評・口コミ情報）を見て、PDF に出す
- * 3. 保存された履歴（前回との差分）
- * 4. 競合と並べて比較する
+ * 2. 公開情報では取れない 9 項目をオーナーが入力する（OwnerInputCard。その場で採点し直す）
+ * 3. 自社の最新の診断レポート（4 カテゴリの採点・総評・口コミ情報）を見て、PDF に出す
+ * 4. 保存された履歴（前回との差分）
+ * 5. 競合と並べて比較する
  *
  * 数字は利用者が取り直せない。登録直後に 1 回、その後は毎週月曜 5:00 の一斉更新だけ
  * （src/lib/maps/refresh.ts）。登録店舗はサーバー（Supabase）、画面の状態だけ localStorage。
@@ -37,6 +38,7 @@ import { mapsViewStore } from "@/lib/store/maps";
 import { useToolRun } from "@/lib/tools/run";
 import { formatCount, formatRating, hostOf, statusLabel } from "./format";
 import { MeoHistoryCard } from "./MeoHistoryCard";
+import { OwnerInputCard } from "./OwnerInputCard";
 import { MeoReportView } from "./report/MeoReportView";
 
 type PdfState = "idle" | "working" | "failed";
@@ -500,10 +502,21 @@ export function MapsTool() {
         </div>
       </Card>
 
-      <Card
+      <OwnerInputCard
         number={2}
+        store={own}
+        ratingCount={shown && !shown.fromHistory ? shown.report.detail.ratingCount : null}
+        onSaved={(rescored) => {
+          commentary.reset();
+          if (rescored) setShown({ id: rescored.item.id, report: rescored.report, fromHistory: false });
+          if (ownId) void loadHistory(ownId);
+        }}
+      />
+
+      <Card
+        number={3}
         title="診断レポート（自社）"
-        description="Google マップ上の公開情報から、基本情報・投稿・写真・レビューの 4 カテゴリで採点します。オーナー権限が要る項目は「未取得」として採点から外します。"
+        description="Google マップ上の公開情報と、上で入力したオーナー情報から、基本情報・投稿・写真・レビューの 4 カテゴリ 21 項目で採点します。未入力の項目は「未取得」として採点から外します。"
         padding="sm"
       >
         {!own && !stores.loading && (
@@ -552,7 +565,7 @@ export function MapsTool() {
       </Card>
 
       <MeoHistoryCard
-        number={3}
+        number={4}
         placeName={own?.name ?? null}
         items={history.items}
         loading={history.loading}
@@ -567,7 +580,7 @@ export function MapsTool() {
       />
 
       <Card
-        number={4}
+        number={5}
         title="競合との比較"
         description="自社と登録した競合を、最新の一斉更新の数字で並べます。口コミは Google が返す最大 5 件です。"
         className="no-print"

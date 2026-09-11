@@ -9,7 +9,8 @@
  */
 import { z } from "zod";
 import { supabaseRest } from "@/lib/db/supabase";
-import type { MeoReport } from "./report";
+import type { MeoOwnerData } from "./owner-input";
+import { buildMeoReport, type MeoReport } from "./report";
 import { CATEGORY_ORDER, type CategoryId } from "./score";
 
 /** 一覧 1 行分（本文は含まない） */
@@ -158,6 +159,31 @@ export async function attachAiCommentary(userId: string, id: string, paragraphs:
     prefer: "return=representation",
   });
   return Array.isArray(rows) && rows.length > 0;
+}
+
+/**
+ * 最新の報告書を、保存済みの Google 情報のまま、オーナー申告だけ変えて採点し直す。
+ * 診断日時（Google 情報を取った時刻）は変えない。AI 総評は前提が変わるので外す。
+ * 報告書が無い店舗なら null（次回の一斉更新で申告込みの報告書が作られる）。
+ */
+export async function rescoreLatestReport(userId: string, placeId: string, owner: MeoOwnerData | null): Promise<MeoHistoryEntry | null> {
+  const latest = (await latestReports(userId, [placeId])).get(placeId);
+  if (!latest) return null;
+  const at = new Date(latest.report.generatedAt);
+  const report: SavedMeoReport = {
+    ...buildMeoReport(latest.report.detail, Number.isNaN(at.getTime()) ? new Date() : at, owner),
+    generatedAt: latest.report.generatedAt,
+    aiCommentary: null,
+  };
+  const row = toRow(userId, report);
+  const rows = await supabaseRest<unknown>(`${TABLE}?select=${LIST_COLUMNS}&user_id=${eq(userId)}&id=${eq(latest.item.id)}`, {
+    method: "PATCH",
+    body: { score: row.score, grade: row.grade, category_scores: row.category_scores, report: row.report },
+    prefer: "return=representation",
+  });
+  const parsed = z.array(RowSchema).min(1).safeParse(rows);
+  if (!parsed.success) throw new Error("採点し直した報告書を保存できませんでした");
+  return { item: fromRow(parsed.data[0]), report };
 }
 
 /** 消せたら true（他人の行や無い行は false） */

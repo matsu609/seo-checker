@@ -49,7 +49,7 @@ describe("ルール生成の総評", () => {
     expect(p[1]).toContain("投稿は未測定");
     // 全項目合格なので改善点は「維持」の文になる
     expect(p[2]).toContain("基準を満たしています");
-    expect(p[p.length - 1]).toContain("Business Profile 連携");
+    expect(p[p.length - 1]).toContain("オーナー情報の入力");
   });
 
   it("改善点は fail → warn の順で、重い項目から並ぶ", () => {

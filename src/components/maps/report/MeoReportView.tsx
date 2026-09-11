@@ -80,7 +80,7 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
           </div>
           <div>
             <dt className="text-on-brand-muted">データ</dt>
-            <dd className="mt-0.5">Google マップ公開情報</dd>
+            <dd className="mt-0.5">{report.ownerInputAt ? "Google マップ公開情報 + オーナー入力" : "Google マップ公開情報"}</dd>
           </div>
         </dl>
       </header>
@@ -184,8 +184,9 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
         ))}
 
         <p className="mt-6 text-[11px] text-muted">
-          データ: Google Places API（Google マップ上の公開情報）。「未取得」の項目はオーナー権限が要るため、Business Profile
-          連携の有効化後に評価に含まれます。
+          データ: Google Places API（Google マップ上の公開情報）
+          {report.ownerInputAt ? `と、オーナー入力（${formatDateTime(report.ownerInputAt)} 時点）` : ""}。
+          「未取得」の項目は Google マップの公開情報では取れないため、オーナーの入力があるときだけ評価に含まれます。
         </p>
       </ReportSheet>
     </div>

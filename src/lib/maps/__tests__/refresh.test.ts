@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import fixture from "./fixtures/place.json";
 import { PlacesError } from "../client";
 import { parseDetailResponse } from "../parse";
+import { emptyOwnerInput } from "../owner-input";
 import { lastRefreshAt, nextRefreshAt, refreshStores, type RefreshDeps } from "../refresh";
 import type { MeoStoreRow } from "../stores";
 
@@ -34,13 +35,13 @@ describe("次回の一斉更新", () => {
   });
 });
 
-function row(placeId: string, userId: string): MeoStoreRow {
+function row(placeId: string, userId: string, ownPlaceId = ""): MeoStoreRow {
   return {
     id: `${placeId}-${userId}`,
     user_id: userId,
     place_id: placeId,
     place_name: placeId,
-    own_place_id: "",
+    own_place_id: ownPlaceId,
     created_at: "2026-09-01T00:00:00Z",
     last_refreshed_at: null,
   };
@@ -117,5 +118,33 @@ describe("一斉更新のループ", () => {
     const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
     expect(summary).toMatchObject({ fetched: 1, saved: 1, failed: 1, aborted: null });
     spy.mockRestore();
+  });
+});
+
+describe("一斉更新とオーナー申告", () => {
+  it("自社として登録した利用者の報告書にだけ申告を足す（競合として登録した利用者は公開情報だけ）", async () => {
+    const getOwnerInput = vi.fn(async (userId: string) =>
+      userId === "u1" ? { input: { ...emptyOwnerInput(), openingDate: true, menu: true }, updatedAt: "2026-09-09T00:00:00Z" } : null,
+    );
+    // u1 は A を自社、u2 は A を（自社 B の）競合として登録
+    const { d, save } = deps([row("A", "u1"), row("A", "u2", "B")], { getOwnerInput });
+    const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+    expect(summary.saved).toBe(2);
+    expect(getOwnerInput).toHaveBeenCalledTimes(1);
+    expect(getOwnerInput).toHaveBeenCalledWith("u1", "A");
+    const byUser = new Map(save.mock.calls.map((c) => c as unknown as [string, { score: { checks: { id: string; status: string }[] }; ownerInputAt: string | null }]));
+    const u1 = byUser.get("u1")!;
+    const u2 = byUser.get("u2")!;
+    expect(u1.ownerInputAt).toBe("2026-09-09T00:00:00Z");
+    expect(u1.score.checks.find((c) => c.id === "openingDate")?.status).toBe("pass");
+    expect(u2.ownerInputAt).toBeNull();
+    expect(u2.score.checks.find((c) => c.id === "openingDate")?.status).toBe("unavailable");
+  });
+
+  it("getOwnerInput が無ければ従来どおり", async () => {
+    const { d, save } = deps([row("A", "u1")]);
+    await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+    const [, report] = save.mock.calls[0] as unknown as [string, { ownerInputAt: string | null }];
+    expect(report.ownerInputAt).toBeNull();
   });
 });
