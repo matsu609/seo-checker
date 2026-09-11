@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r25 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r26 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -201,10 +201,10 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 38 | 無料 MEO 診断の回数制限を Supabase に移す（候補）: いまはプロセス内メモリで、Vercel の複数インスタンスでは上限の数倍まで通る。利用が増えたら `free_usage` テーブルで日次カウント | Claude | 利用が増えたら |
 | 39 | **公開前に必須**: Vercel `DEFAULT_PLAN` を `free` に（自分は ADMIN_EMAILS なのでマスター画面で pro を個別開放）→ Redeploy。Clerk Production → Configure → Restrictions で招待制 / 許可リスト（決済がつながるまで） | 利用者 | 未 |
 | 40 | 無料 MEO 診断を「要点のみ」に絞る案 B: 総合評価・4 カテゴリ・改善点上位 3・口コミの数字だけ表示し、21 項目の一覧・口コミ本文・PDF は「無料登録で開放」。登録後は free プランで /tools/maps に自社 1 店舗（履歴 1 件・一斉更新対象外・競合なし・AI 総評なし） | Claude | 利用者の判断待ち（推奨 B） |
-| 41 | 料金改定案（提案中）: ライト 2,980（1 領域）/ スタンダード 5,980 / プロ 9,800 / 追加店舗 +300。実装: `PlanId` に `light` 追加、選択領域（seo/aio/meo）を publicMetadata、`category` でゲート、店舗数・KW 数の上限（`meo_stores` 件数・順位計測の登録数）、PlanTable・紹介サイト・Clerk Billing のプラン | 利用者 → Claude | 数字の判断待ち |
+| 41 | 料金: **オールインワン 9,800 円の 1 本に決定（r26）**。割引は「使わない機能ごとに 3,000 円引き」の個別対応 → 運用者が Clerk の `publicMetadata.plan` に `standard`（6,800 円相当）を割り当て、決済は Stripe の支払いリンク等で手動。旧案:: ライト 2,980（1 領域）/ スタンダード 5,980 / プロ 9,800 / 追加店舗 +300。実装: `PlanId` に `light` 追加、選択領域（seo/aio/meo）を publicMetadata、`category` でゲート、店舗数・KW 数の上限（`meo_stores` 件数・順位計測の登録数）、PlanTable・紹介サイト・Clerk Billing のプラン | 利用者 → Claude | 数字の判断待ち |
 | 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | 未 |
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho`（事業者名・代表者・連絡先・価格・支払方法・解約・返金。所在地と電話は請求時開示）。PUBLIC_PAGES に追加、フッターにリンク。Stripe 審査と Clerk Billing 開始の前提 | Claude | 未（利用者の GO で着手） |
-| 44 | 決済の開始（Clerk Billing）: Stripe 登録 → Clerk Billing 有効化・Stripe 接続 → プラン `standard` `pro`（コードの `user:standard` `user:pro` と一致）→ Vercel `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1`、`DEFAULT_PLAN=free` → Redeploy → 管理画面で自分に個別開放 → テストカードで購入確認。モニターは管理画面の個別開放で無料に | 利用者 | 未 |
+| 44 | 決済の開始（Clerk Billing）: Stripe 登録 → Clerk Billing 有効化・Stripe 接続 → プラン `pro`（月 9,800 円、スラッグはコードの `user:pro` と一致。standard は作らない）→ Vercel `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1`、`DEFAULT_PLAN=free` → Redeploy → 管理画面で自分に個別開放 → テストカードで購入確認。モニターは管理画面の個別開放で無料に | 利用者 | 未 |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 入力待ち（利用者からの回答が要るもの）
@@ -412,6 +412,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「競合より価格を下げたい。ベストな提案を」→ 原価は 1 契約あたり数百円（順位計測の SerpApi だけ高い）。提案: 無料 0 / ライト 2,980（1 領域、MEO 3 店舗、順位 10 KW）/ スタンダード 5,980（3 領域、MEO 10 店舗、順位 30 KW）/ プロ 9,800（+AI 生成物、MEO 30 店舗、順位 100 KW）/ 追加店舗 +300 円。**商用化前に Vercel Hobby → Pro（月 20 ドル）が必要**。実装: light プラン（選択領域を Clerk メタデータ）、プランごとの店舗数・KW 上限、料金表と Clerk Billing の整合（#41）。判断待ち。
 - 利用者の提案「Stripe を連携して無料クーポンコードを発行」→ 決済は Clerk Billing（Stripe 裏側、コード対応済み、`NEXT_PUBLIC_CLERK_BILLING_ENABLED`）。Clerk Billing にはクーポンコードが無い（把握の範囲）ため、無料枠は**マスター画面の個別開放**で代替（メール指定、拡散しない）。`DEFAULT_PLAN=free` に戻せる。手順: Stripe 登録 → Clerk Billing 有効化・Stripe 接続 → プラン `standard` / `pro` → Vercel 環境変数 → 管理画面で自分に開放 → テストカードで購入確認。**特商法ページが必要**（#43、Claude が作成）。コード配布が必須なら Stripe 直結（1〜2 日）。
 - 利用者「テスト中の間は」（続き未入力）→ テスト中の推奨: Clerk の登録制限（Restricted / Allowlist）を先に入れれば `DEFAULT_PLAN=pro` のままで可、Stripe はテストモード、モニターは許可リストに追加。公開時に `DEFAULT_PLAN=free` + 個別開放へ、と回答。
+- 利用者の決定「面倒なので全部込みで 9,800 円。要望があれば機能ごとに 3,000 円ずつ割引」→ **r26**: catalog を pro = オールインワン 9,800 円、standard は `purchasable: false`（個別割引用、6,800 円）。`upgradeTarget` が購入可能プランを返すので、standard 機能の案内もオールインワンに。サイドバーの鍵は「有料」。PlanTable / ServiceGuide は SELLABLE_PLANS。README・紹介サイト（料金 2 枚、FAQ「使わない機能があれば安くなりますか」、概要表、JSON-LD offers/FAQPage、llms.txt）更新。lint / tsc / test（91 ファイル・1294 件）/ build / wrangler dry-run 通過。**Clerk Billing で作るプランは `pro`（9,800 円）だけ**。割引客は Stripe 支払いリンク + `publicMetadata.plan=standard` か、pro を Clerk 側で割引価格の別プランにするか（要検討）。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
