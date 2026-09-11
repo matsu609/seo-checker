@@ -559,7 +559,7 @@ export function MapsTool() {
               </div>
             </div>
             <div ref={reportRef}>
-              <MeoReportView report={shown.report} aiCommentary={aiCommentary} />
+              <MeoReportView report={shown.report} aiCommentary={aiCommentary} variant="paid" />
             </div>
           </>
         )}

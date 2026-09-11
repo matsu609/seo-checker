@@ -22,14 +22,23 @@ export interface MeoReportViewProps {
   report: MeoReport;
   /** AI 総評（取得済みなら段落）。無ければルール生成の総評を出す */
   aiCommentary: string[] | null;
+  /**
+   * paid = 有料ツール（/tools/maps）: 目指すべき状態・各項目の解説・付加情報・順位・周辺を出す
+   * （r28 より前に保存した古い報告書でも出す。数字が無い節は「次回の一斉更新から」と表示）。
+   * free = 無料診断（/meo）: 21 項目の採点と口コミ情報だけ。
+   */
+  variant?: "paid" | "free";
 }
 
 const STARS = [5, 4, 3, 2, 1] as const;
 
-export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
+export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoReportViewProps) {
   const { detail, score } = report;
   const grade = score.grade;
   const commentary = aiCommentary ?? report.commentary;
+  const paid = variant === "paid";
+  /** 古い形式（r28 より前の 21 項目）の報告書を有料ツールで見ている */
+  const legacy = paid && score.extended !== true;
 
   const categoryRows: HBarRow[] = score.categories.map((c) => ({
     label: c.label,
@@ -39,7 +48,7 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
   }));
 
   // 有料: 1 総合 / 2 総評 / 3 目指すべき状態 / 4 口コミ / 5 付加情報 / (6 順位) / (7 周辺) / チェックリスト。無料: 1 / 2 / 3 口コミ / チェックリスト
-  const checklistStart = score.extended ? 6 + (report.rank !== undefined ? 1 : 0) + (report.area !== undefined ? 1 : 0) : 4;
+  const checklistStart = paid ? 8 : 4;
   const rated = detail.reviews.filter((r) => r.rating !== null);
   const dist = STARS.map((star) => ({ star, count: rated.filter((r) => Math.round(r.rating ?? 0) === star).length }));
   const age = latestReviewAgeDays(detail, new Date(report.generatedAt));
@@ -135,9 +144,9 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
           </p>
         </ReportSection>
 
-        {score.extended && <GoalSection number={3} />}
+        {paid && <GoalSection number={3} />}
 
-        <ReportSection number={score.extended ? 4 : 3} title="口コミ情報" lead="評価と件数は Google マップの公開情報です。口コミ本文は Google が返す最新 5 件までを表示します。">
+        <ReportSection number={paid ? 4 : 3} title="口コミ情報" lead="評価と件数は Google マップの公開情報です。口コミ本文は Google が返す最新 5 件までを表示します。">
           <StatStrip
             items={[
               { label: "平均評価", value: formatRating(detail.rating), unit: "/ 5.0" },
@@ -187,13 +196,20 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
           )}
         </ReportSection>
 
-        {score.extended && <ExtraInfoSection detail={detail} number={5} />}
-        {/* 順位・周辺は有料の自社店舗にだけ付く（無料診断・競合の報告書には無い） */}
-        {score.extended && report.rank !== undefined && <RankSection rank={report.rank} number={6} />}
-        {score.extended && report.area !== undefined && <AreaSection area={report.area} number={report.rank !== undefined ? 7 : 6} />}
+        {paid && <ExtraInfoSection detail={detail} number={5} />}
+        {/* 順位・周辺は有料の自社店舗にだけ付く（無料診断には無い。数字が無ければ各節が「次回から」と案内する） */}
+        {paid && <RankSection rank={report.rank ?? null} number={6} />}
+        {paid && <AreaSection area={report.area ?? null} number={7} />}
+
+        {legacy && (
+          <p className="mt-6 rounded-sm border border-line bg-surface px-3 py-2 text-[12px] leading-relaxed text-muted">
+            この報告書は古い形式（21 項目）で保存されています。「オーナー情報の入力」を保存するか、次回の一斉更新で
+            28 項目（属性・オーナー写真・口コミのキーワード・Google の警告など）の採点になります。
+          </p>
+        )}
 
         {score.categories.map((c, i) => (
-          <ChecklistSection key={c.id} category={c} number={checklistStart + i} guide={score.extended === true} />
+          <ChecklistSection key={c.id} category={c} number={checklistStart + i} guide={paid} />
         ))}
 
         <p className="mt-6 text-[11px] text-muted">
