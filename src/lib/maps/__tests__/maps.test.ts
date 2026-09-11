@@ -15,6 +15,7 @@ import {
   scoreProfile,
   type ProfileCheck,
 } from "../score";
+import { emptyOwnerInput, type MeoOwnerData } from "../owner-input";
 import type { PlaceDetail } from "../types";
 
 const NOW = new Date("2026-09-10T00:00:00Z");
@@ -198,5 +199,110 @@ describe("充実度の採点", () => {
     const by = statusById(scoreProfile(empty({ hours: week.slice(0, 5) }), NOW).checks);
     expect(by.hours).toBe("pass");
     expect(by.hoursAccuracy).toBe("warn");
+  });
+});
+
+/* ───────────── オーナー申告での採点 ───────────── */
+
+function owner(partial: Partial<MeoOwnerData["input"]>, updatedAt = "2026-09-09T00:00:00Z"): MeoOwnerData {
+  return { input: { ...emptyOwnerInput(), ...partial }, updatedAt };
+}
+
+const GOOD_OWNER = owner({
+  keywords: ["渋谷", "美容室"],
+  description: "渋谷駅から徒歩 3 分の美容室です。".repeat(15),
+  openingDate: true,
+  menu: true,
+  postsLast4Weeks: 4,
+  latestPostText: "渋谷の美容室から秋のキャンペーンのお知らせです",
+  ownerPhotoLastAt: "2026-09-01",
+  logo: true,
+  cover: true,
+  repliedReviews: 128,
+  replyText: "この度は当店（フィクスチャの店）をご利用いただきありがとうございました。渋谷でお待ちしています",
+});
+
+describe("オーナー申告での採点", () => {
+  it("全部答えると 21 項目すべて測定され、良い申告なら 100 点", () => {
+    const d = parseDetailResponse(fixture)!;
+    const s = scoreProfile(d, NOW, GOOD_OWNER);
+    expect(s.checks.some((c) => c.status === "unavailable")).toBe(false);
+    expect(s.measuredWeight).toBe(100);
+    expect(s.score).toBe(100);
+    expect(s.checks.filter((c) => c.source === "owner")).toHaveLength(9);
+    expect(s.categories.map((c) => `${c.measured}/${c.total}`)).toEqual(["11/11", "2/2", "3/3", "5/5"]);
+  });
+
+  it("答えた項目だけが採点に入る（未回答は unavailable のまま）", () => {
+    const d = parseDetailResponse(fixture)!;
+    const s = scoreProfile(d, NOW, owner({ openingDate: false, menu: true }));
+    const by = statusById(s.checks);
+    expect(by.openingDate).toBe("fail");
+    expect(by.menu).toBe("pass");
+    expect(by.description).toBe("unavailable");
+    expect(by.postFrequency).toBe("unavailable");
+    expect(s.checks.filter((c) => c.status === "unavailable")).toHaveLength(7);
+  });
+
+  it("申告なし（null / 未指定）は従来どおり 9 項目が unavailable", () => {
+    const d = parseDetailResponse(fixture)!;
+    expect(scoreProfile(d, NOW, null).checks.filter((c) => c.status === "unavailable")).toHaveLength(9);
+    expect(scoreProfile(d, NOW, owner({})).checks.filter((c) => c.status === "unavailable")).toHaveLength(9);
+  });
+
+  it("説明文: 未設定は fail、短い / URL 入り / キーワード無しは warn、十分なら pass", () => {
+    const d = parseDetailResponse(fixture)!;
+    const run = (partial: Partial<MeoOwnerData["input"]>) => statusById(scoreProfile(d, NOW, owner(partial)).checks).description;
+    expect(run({ description: "" })).toBe("fail");
+    expect(run({ description: "短い説明" })).toBe("warn");
+    expect(run({ description: `${"渋谷の美容室です。".repeat(30)} https://example.com` })).toBe("warn");
+    expect(run({ description: "新宿の美容室です。".repeat(30), keywords: ["渋谷"] })).toBe("warn");
+    expect(run({ description: "渋谷の美容室です。".repeat(30), keywords: ["渋谷"] })).toBe("pass");
+    expect(run({ description: "新宿の美容室です。".repeat(30) })).toBe("pass");
+  });
+
+  it("投稿: 4 週間に 4 件以上で pass、1〜3 件 warn、0 件 fail（キーワードも fail）", () => {
+    const d = parseDetailResponse(fixture)!;
+    const run = (partial: Partial<MeoOwnerData["input"]>) => statusById(scoreProfile(d, NOW, owner(partial)).checks);
+    expect(run({ postsLast4Weeks: 4 }).postFrequency).toBe("pass");
+    expect(run({ postsLast4Weeks: 2 }).postFrequency).toBe("warn");
+    const none = run({ postsLast4Weeks: 0 });
+    expect(none.postFrequency).toBe("fail");
+    expect(none.postKeywords).toBe("fail");
+    // 投稿はあるが本文は未回答 → キーワードは unavailable
+    expect(run({ postsLast4Weeks: 4 }).postKeywords).toBe("unavailable");
+    expect(run({ postsLast4Weeks: 4, latestPostText: "渋谷でイベント", keywords: ["渋谷"] }).postKeywords).toBe("pass");
+    expect(run({ postsLast4Weeks: 4, latestPostText: "イベント", keywords: ["渋谷"] }).postKeywords).toBe("fail");
+    // キーワード未設定なら判定できないので warn
+    expect(run({ postsLast4Weeks: 4, latestPostText: "イベント" }).postKeywords).toBe("warn");
+  });
+
+  it("写真: オーナー写真が 31 日以内 pass、90 日以内 warn、それ以上 fail。ロゴとカバーは両方で pass", () => {
+    const d = parseDetailResponse(fixture)!;
+    const run = (partial: Partial<MeoOwnerData["input"]>) => statusById(scoreProfile(d, NOW, owner(partial)).checks);
+    expect(run({ ownerPhotoLastAt: "2026-08-20" }).photoFreshness).toBe("pass");
+    expect(run({ ownerPhotoLastAt: "2026-07-01" }).photoFreshness).toBe("warn");
+    expect(run({ ownerPhotoLastAt: "2026-01-01" }).photoFreshness).toBe("fail");
+    expect(run({ logo: true, cover: true }).logoCover).toBe("pass");
+    expect(run({ logo: true, cover: null }).logoCover).toBe("warn");
+    expect(run({ logo: false, cover: false }).logoCover).toBe("fail");
+  });
+
+  it("返信率: 口コミ 128 件に対して 90% 以上 pass、50% 以上 warn、未満 fail。返信文は店名かキーワードで pass", () => {
+    const d = parseDetailResponse(fixture)!;
+    const run = (partial: Partial<MeoOwnerData["input"]>) => statusById(scoreProfile(d, NOW, owner(partial)).checks);
+    expect(run({ repliedReviews: 120 }).replyRate).toBe("pass");
+    expect(run({ repliedReviews: 70 }).replyRate).toBe("warn");
+    expect(run({ repliedReviews: 10 }).replyRate).toBe("fail");
+    const none = run({ repliedReviews: 0 });
+    expect(none.replyRate).toBe("fail");
+    expect(none.reviewReply).toBe("fail");
+    expect(run({ repliedReviews: 120 }).reviewReply).toBe("unavailable");
+    expect(run({ repliedReviews: 120, replyText: `${d.name} をご利用いただきありがとうございます` }).reviewReply).toBe("pass");
+    expect(run({ repliedReviews: 120, replyText: "渋谷でお待ちしています", keywords: ["渋谷"] }).reviewReply).toBe("pass");
+    expect(run({ repliedReviews: 120, replyText: "ありがとうございました" }).reviewReply).toBe("fail");
+    // 口コミ件数が取れない店舗では返信率を出せない → warn
+    const noCount = scoreProfile({ ...d, ratingCount: null }, NOW, owner({ repliedReviews: 5 }));
+    expect(statusById(noCount.checks).replyRate).toBe("warn");
   });
 });

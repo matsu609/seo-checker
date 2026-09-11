@@ -11,6 +11,7 @@ import { isCronAuthorized, isCronConfigured } from "@/lib/auth/cron";
 import { isSupabaseConfigured } from "@/lib/db/supabase";
 import { getPlace } from "@/lib/maps/client";
 import { saveMeoReport } from "@/lib/maps/history";
+import { getOwnerInputOrNull } from "@/lib/maps/owner-store";
 import { refreshStores, type RefreshSummary } from "@/lib/maps/refresh";
 import { listStoresDue, markRefreshed } from "@/lib/maps/stores";
 
@@ -39,6 +40,7 @@ export async function GET(request: Request) {
       getDetail: getPlace,
       save: (userId, report) => saveMeoReport(userId, { ...report, aiCommentary: null }),
       markRefreshed,
+      getOwnerInput: getOwnerInputOrNull,
     },
     { limit: ROW_LIMIT, budgetMs: BUDGET_MS },
   );

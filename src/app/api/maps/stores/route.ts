@@ -12,6 +12,7 @@ import { dbErrorResponse } from "@/lib/db/supabase";
 import { PlacesError } from "@/lib/maps/client";
 import { getPlaceCached } from "@/lib/maps/fetch";
 import { saveMeoReport } from "@/lib/maps/history";
+import { getOwnerInputOrNull } from "@/lib/maps/owner-store";
 import { nextRefreshAt } from "@/lib/maps/refresh";
 import { buildMeoReport } from "@/lib/maps/report";
 import { addStore, listStores, markRefreshed, MAX_COMPETITORS_PER_STORE, MAX_OWN_STORES, type MeoStore } from "@/lib/maps/stores";
@@ -103,7 +104,9 @@ export async function POST(request: Request) {
     try {
       const { detail } = await getPlaceCached(placeId);
       const now = new Date();
-      await saveMeoReport(userId, { ...buildMeoReport(detail, now), aiCommentary: null });
+      // 自社なら、以前に入力したオーナー申告があれば採点に入れる（登録し直しても消えない）
+      const owner = ownPlaceId === "" ? await getOwnerInputOrNull(userId, placeId) : null;
+      await saveMeoReport(userId, { ...buildMeoReport(detail, now, owner), aiCommentary: null });
       await markRefreshed(placeId, now);
       fetched = true;
     } catch (err) {

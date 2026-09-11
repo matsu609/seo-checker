@@ -45,6 +45,11 @@ export function ChecklistSection({ category, number }: { category: CategoryScore
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className="font-bold text-ink">{c.label}</span>
                 <span className="text-[11px] text-muted">{c.question}</span>
+                {c.source === "owner" && (
+                  <Badge tone="neutral" icon={false} className="text-[10px]">
+                    オーナー入力
+                  </Badge>
+                )}
               </div>
               <p className="mt-0.5 break-all text-ink">{c.detail}</p>
               {c.advice && <Advice>{c.advice}</Advice>}

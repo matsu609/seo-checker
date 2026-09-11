@@ -91,6 +91,7 @@ describe("保護パス", () => {
       "/api/maps/history/0b2f0b8e-0000-4000-8000-000000000000",
       "/api/maps/stores",
       "/api/maps/stores/0b2f0b8e-0000-4000-8000-000000000000",
+      "/api/maps/stores/0b2f0b8e-0000-4000-8000-000000000000/owner",
       "/api/maps/compare",
       "/api/maps/search",
       "/api/page-diagnosis",

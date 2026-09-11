@@ -9,6 +9,7 @@
  * ここは依存を注入できる純粋なループにして、テストでは Google も DB も使わない。
  */
 import { PlacesError } from "./client";
+import type { MeoOwnerData } from "./owner-input";
 import { buildMeoReport, type MeoReport } from "./report";
 import type { MeoStoreRow } from "./stores";
 import type { PlaceDetail } from "./types";
@@ -43,6 +44,8 @@ export interface RefreshDeps {
   /** 利用者ごとに履歴へ保存 */
   save: (userId: string, report: MeoReport) => Promise<unknown>;
   markRefreshed: (placeId: string, at: Date) => Promise<void>;
+  /** 自社店舗のオーナー申告（無ければ null）。省略時は申告なしとして採点 */
+  getOwnerInput?: (userId: string, placeId: string) => Promise<MeoOwnerData | null>;
   now?: () => Date;
 }
 
@@ -105,10 +108,14 @@ export async function refreshStores(deps: RefreshDeps, options: RefreshOptions):
       break;
     }
     const at = now();
-    const report = buildMeoReport(detail, at);
+    const shared = buildMeoReport(detail, at);
     const userIds = [...new Set(owners.map((o) => o.user_id))];
     for (const userId of userIds) {
       try {
+        // 自社として登録している利用者にはオーナー申告を足して採点する（競合としてだけなら共通の報告書）
+        const isOwn = owners.some((o) => o.user_id === userId && o.own_place_id === "");
+        const ownerData = isOwn && deps.getOwnerInput ? await deps.getOwnerInput(userId, placeId) : null;
+        const report = ownerData ? buildMeoReport(detail, at, ownerData) : shared;
         await deps.save(userId, report);
         summary.saved++;
       } catch (err) {

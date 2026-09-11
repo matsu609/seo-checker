@@ -43,7 +43,7 @@ export function buildRuleCommentary(detail: PlaceDetail, score: ProfileScore): s
 
   const parts = score.categories.map((c) =>
     c.score === null || c.grade === null
-      ? `${c.label}は未測定（${c.total} 項目とも Business Profile 連携が必要）`
+      ? `${c.label}は未測定（${c.total} 項目ともオーナー情報の入力が必要）`
       : `${c.label}は ${c.grade.grade}（${c.measured} / ${c.total} 項目を測定）`,
   );
   paragraphs.push(`カテゴリ別では、${parts.join("、")}です。`);
@@ -60,7 +60,7 @@ export function buildRuleCommentary(detail: PlaceDetail, score: ProfileScore): s
   if (unavailable > 0) {
     paragraphs.push(
       `投稿・返信・説明文などの ${unavailable} 項目は、Google マップの公開情報からは取得できないため今回は採点対象外です。` +
-        "Business Profile 連携を有効にすると、これらも含めた評価になります。",
+        "「オーナー情報の入力」で答えると、これらも含めた評価になります。",
     );
   }
   return paragraphs;
