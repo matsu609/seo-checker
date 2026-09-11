@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r26 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r27 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -165,6 +165,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports`~~ → ~~Vercel に環境変数 2 つ~~ → ~~`meo_stores`~~（09-10 17:03 作成、Table Editor で 2 テーブル確認）→ 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: 動作確認のみ |
+| 45 | **r27 の SQL を Supabase で実行**（下記「フェーズ 2 で使うテーブル」の 3 つ目 `meo_owner_inputs`）。実行するまで `/tools/maps` の「オーナー情報の入力」カードは保存時に「テーブルが見つかりません」になる（他の機能は動く） | 利用者 | **未（r27 で追加）** |
 | 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
 | 5 | Business Profile API の利用申請（`https://developers.google.com/my-business/content/prereqs` → Request access。プロジェクト ID、用途、確認済みビジネス） | 利用者 | 未 |
@@ -178,7 +179,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 8 | Google Auth Platform → ブランディングに利用規約 / プライバシーの URL | 利用者 | 未 |
 | 9 | 鍵のローテーション: Clerk Production `sk_live_`（Instance → API keys → Regenerate → Vercel 更新 → Redeploy）、Clerk Development `sk_test_`、Google OAuth クライアントシークレット（シークレットを追加 → Clerk に貼り替え → 古い方を無効化） | 利用者 | 未 |
 | 10 | GSC / GA4 の権限付与（上記「Google 側のデータの持ち主」）→ 設定画面「一覧を取り直す」→ 検索パフォーマンス・生成 AI 流入分析で数値確認 | 利用者 | 未 |
-| 11 | フェーズ 3（承認後）: Business Profile API で未取得 9 項目を埋め、インサイト（8 指標・期間比較・CSV・詳細グラフ）を追加 | Claude | 承認待ち |
+| 11 | フェーズ 3（承認後）: Business Profile API で 9 項目（r27 ではオーナー申告で埋めている）を API の値に置き換え、インサイト（8 指標・期間比較・CSV・詳細グラフ）を追加 | Claude | 承認待ち |
 | 12 | 規約・ポリシーの専門家レビュー | 利用者 | 推奨 |
 | 13 | Google OAuth の本番公開申請（GA4 の `analytics.readonly` が機密スコープ。2〜6 週間）。準備: #6 運営者情報 → 紹介サイト seo-checker.tokyo に説明 + /privacy /terms リンク → Search Console で seo-checker.tokyo の所有確認 → #8 ブランディング URL → 用途説明文（Claude が文案）→ デモ動画 2〜3 分（Claude が台本）→ Google Auth Platform で「公開」→ 審査申請。**テスト中はトークンが 7 日で失効**。それまではテストユーザー（100 人まで） | 利用者 + Claude | 未 |
 | 15 | Places API の **利用者ごとの月間上限**（例: レポート 50 回 / 月）を Supabase で数えて 429 を返す。お客様に開放する前に入れる。費用は運営者のプロジェクト 1 本に集中するため | Claude | 提案中（利用者の判断待ち） |
@@ -197,7 +198,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 34 | MEO「AI 検索での見つかり方」カード（提案中）: 地域 + 業種から質問 5 本を自動生成（prompt-expansion 流用）→ LLMO の仕組みで Claude（Web 検索つき）に投げ、自社名 + 競合名の言及を判定 → 質問 × AI の表と店名の出現集計。まず Claude のみ（1 店舗 1 回 15〜30 円）、月 1 回の自動実行 + 推移。他社 LLM は各 API キーが要る。競合未登録なら Places 検索で同地域・同業種の上位 5 件を自動投入も可 | Claude | 利用者の GO 待ち |
 | 37 | **無料 MEO 診断** | Claude | **完了（r25、案 A = ログイン不要 `/meo`）**。旧メモ:: A = ログイン不要の公開ページ `/meo` + 公開 API（`PUBLIC_PAGES` / `PUBLIC_APIS` に追加）、IP ごとの回数制限（/api/site の仕組み流用）、日次の全体上限（環境変数、超過時は「本日の無料枠は終了」）、6h キャッシュ、報告書末尾に有料導線。B = free プランで自社 1 店舗のみ登録。料金表（catalog / PlanTable）と紹介サイト・README を更新 | 利用者 → Claude | A/B 判断待ち |
 | 35 | 無料プランの線引き | — | r25 で確定: ログイン不要 = サイト診断 + MEO 診断（1 店舗、保存・競合・更新・AI 総評なし）。#33 / #34 を無料に入れるかは別途。旧メモ:: free プランに MEO 自社 1 店舗 1 回（店舗登録 1 件・履歴 1 件・一斉更新対象外・競合なし・AI 総評なし）と #33、#34（Claude のみ 3 質問 1 回）を入れる案。決まったら料金表（PlanTable / plans catalog / 紹介サイト）と登録制限を実装 | 利用者 → Claude | 判断待ち |
-| 36 | MEO の自己申告入力（候補）: Places に無い店舗向けに店名・住所・電話・営業時間・写真枚数などを手入力して同じ採点を通す簡易版。半日 | Claude | 要望が出てから |
+| 36 | MEO の自己申告入力: **9 項目分は r27 の「オーナー情報の入力」で実装済み**。残りは「Places に無い店舗」向けに店名・住所・電話・営業時間・写真枚数まで手入力する簡易版（要望が出てから） | Claude | 一部完了（r27） |
 | 38 | 無料 MEO 診断の回数制限を Supabase に移す（候補）: いまはプロセス内メモリで、Vercel の複数インスタンスでは上限の数倍まで通る。利用が増えたら `free_usage` テーブルで日次カウント | Claude | 利用が増えたら |
 | 39 | **公開前に必須**: Vercel `DEFAULT_PLAN` を `free` に（自分は ADMIN_EMAILS なのでマスター画面で pro を個別開放）→ Redeploy。Clerk Production → Configure → Restrictions で招待制 / 許可リスト（決済がつながるまで） | 利用者 | 未 |
 | 40 | 無料 MEO 診断を「要点のみ」に絞る案 B: 総合評価・4 カテゴリ・改善点上位 3・口コミの数字だけ表示し、21 項目の一覧・口コミ本文・PDF は「無料登録で開放」。登録後は free プランで /tools/maps に自社 1 店舗（履歴 1 件・一斉更新対象外・競合なし・AI 総評なし） | Claude | 利用者の判断待ち（推奨 B） |
@@ -211,6 +212,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
+- r27 の SQL（`meo_owner_inputs`）を実行したという連絡（#45）
 - Business Profile API の承認結果（#5）
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
 
@@ -253,6 +255,21 @@ alter table meo_stores enable row level security;
 ```
 
 `own_place_id` が空なら自社、入っていればその自社店舗の競合。
+
+3 つ目（r27、オーナー情報の入力。**未実行 → #45**）:
+
+```sql
+create table if not exists meo_owner_inputs (
+  user_id text not null,
+  place_id text not null,
+  input jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, place_id)
+);
+alter table meo_owner_inputs enable row level security;
+```
+
+`input` は `src/lib/maps/owner-input.ts` の `MeoOwnerInputSchema` の形（キーワード最大 5、説明文 750 文字、投稿数、最新投稿の本文、写真の日付、ロゴ・カバー、返信済み件数、返信文。null = 未回答）。利用者 × 自社店舗で 1 行。競合には無い。
 
 **テーブルの形を変えるときは、`alter table` の SQL をここに追記し、コード（`src/lib/maps/history.ts` / `stores.ts`）も同時に直す。**利用者には SQL を渡して実行してもらう。
 
@@ -307,6 +324,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 - **フェーズ 1（r15〜r16、完了）**: `/tools/maps`。検索 → 自社 / 競合の選択（localStorage）→ `/api/maps/report` で 4 カテゴリ採点の報告書 → `/api/maps/commentary` で AI 総評（任意）→ PDF。競合比較は `/api/maps/compare`。詳細は `src/lib/maps/fetch.ts` で 6 時間キャッシュ（Places の詳細は最も高い料金区分）。
 - **フェーズ 2（r19 → r21 で週次更新に再設計）**: 数字は利用者が取り直せない。店舗を登録（`/api/maps/stores` POST）した直後に 1 回取得して `meo_reports` に保存、以後は毎週月曜 5:00 JST の Cron（`/api/cron/maps-refresh`、`src/lib/maps/refresh.ts`）が全店舗を取り直して保存。競合比較（`/api/maps/compare` GET）は保存済みの最新報告書から。画面: 店舗の登録・切り替え、最新の報告書＋次回更新日、履歴（開く・削除）、比較表（取得日時つき）。AI 総評は生成後に `PATCH /api/maps/history/[id]` で報告書に書き足す。機能は `requires: ["places", "supabase"]`。残り: アカウント削除時の行削除（Clerk の Webhook。現状は手動）、Cron 1 回の上限は 2,000 行 / 240 秒（超えた分は次回。店舗が数百を超えたら分割か複数 Cron に）。
+- **フェーズ 2.5（r27、オーナー情報の入力）**: 公開情報で取れない 9 項目を自社店舗のオーナーが `/tools/maps` のカード 2 で答える → `PUT /api/maps/stores/[id]/owner` が `meo_owner_inputs` に保存し、**最新の報告書を保存済みの Google 情報のまま採点し直す**（`rescoreLatestReport`。Google に問い合わせないので費用ゼロ。診断日時は据え置き、AI 総評は外す）。以後の一斉更新（`refresh.ts` の `getOwnerInput`）と登録直後の取得にも自動で入る。競合として登録している利用者には入らない。判定（`score.ts` の `judge*`）: 説明文 = 空 fail / 200 文字未満・URL 入り・対策キーワード無し warn / それ以外 pass、開業日・メニュー = はい/いいえ、投稿 = 直近 4 週で 4 件以上 pass・1〜3 warn・0 fail（0 ならキーワードも fail）、最新投稿のキーワード = 本文に対策キーワードがあるか（キーワード未設定なら warn）、写真 = オーナーの最新写真 31 日以内 pass・90 日 warn・それ以上 fail、ロゴ&カバー = 両方 pass・片方 warn・無し fail、返信率 = 返信済み ÷ Places の口コミ件数で 90% pass・50% warn・未満 fail、返信文 = 店名か対策キーワードを含めば pass。報告書の項目に「オーナー入力」の印、表紙の「データ」に「+ オーナー入力」。無料 `/meo` には入れていない（有料の差別化）。
 - **フェーズ 3（承認後）**: Business Profile API（Business Information / v4 reviews・localPosts・media / Performance API）で `score.ts` の `unavailable` 9 項目を埋める。インサイト 8 指標（表示回数 モバイル/PC、電話、ルート、サイト、メニュー、平均クリック率）を期間比較・CSV・詳細グラフつきで。スコープ `business.manage` を追加 → 同意画面のスコープ追加と再審査に注意。
 
 ### 既知の課題・メモ
@@ -430,3 +448,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - Cloudflare の画面に「エージェント Lee のアクセスを有効化」（API トークンを作る勧誘）が出ていた。**Claude が要求したものではない**ので、心当たりが無ければ許可しないよう伝えた。
 - 利用者の質問「HP が壊れたりしない？ アプリと HP が同じリポジトリで、ファイルの参照はどう分けている？」→ 分かれ目は ①ビルドの入口（Vercel はルートで `next build`、Cloudflare は `marketing/` で `wrangler deploy`）②URL の置き場所（`marketing/public/` は apex 直下、ルートの `public/` は `app.` 直下。同名の `favicon.ico` があっても別ドメインなので衝突しない）③`index.html` が自己完結（CSS 内蔵・JS 無し・外部は Google Fonts のみ）。`src/` や `next.config.ts` から `marketing` への参照が無いこと、`marketing/` に `.ts` が無いことを grep で確認済み。**ビルドが失敗しても直前の成功バージョンが配信され続ける**（白紙にはならない。バージョン履歴からロールバック可）。説明は `marketing/README.md` に追記した。
 - 利用者の質問「`next build` と `npx wrangler deploy` の違いは？」→ 前者は**変換**（TypeScript / React をブラウザが読める形にして `.next/` に出す。配置は Vercel が別途行う）、後者は**配置**（変換せずファイルを Cloudflare にアップロードして公開）。紹介サイトは最初からブラウザが読める HTML なので変換が要らず、Cloudflare のビルドコマンドを空にしたのはこのため（`npm run build` が入っていると `marketing/` に `package.json` が無くて失敗する）。
+- 利用者の依頼「MEO のガチの診断機能を追加して」+ 19 項目のチェックリスト（基本情報 10 / 投稿 2 / 写真 3 / レビュー 4）→ 項目は既存の `score.ts` の 21 項目（19 + 営業ステータス + 口コミの新しさ）と一致していたが、9 項目が Places で取れず「未取得」だった。**r27**: 「オーナー情報の入力」で 9 項目を申告してもらい、その場で採点し直す仕組みを実装（上の「フェーズ 2.5」）。新規: `owner-input.ts` / `owner-store.ts` / `/api/maps/stores/[id]/owner` / `OwnerInputCard.tsx`。変更: `score.ts`（`scoreProfile(place, now, owner)`、`CheckSource` に `owner`）、`report.ts`（`ownerInputAt`）、`history.ts`（`rescoreLatestReport`）、`refresh.ts` / cron / 店舗登録、報告書の表示、ルール総評の文言。テスト: `owner-input.test.ts` 新規、採点 7 件・一斉更新 2 件・公開範囲 1 件追加（92 ファイル・1,311 件）。lint / tsc / build 通過。ローカルで PostgREST のモックを立てて next start + Playwright で「入力 → 保存 → 21/21 項目で採点し直し（83 点 B）→ 履歴に反映」を確認。**利用者側の作業は SQL の実行 1 つ（#45）。**Business Profile API が承認されたら同じ `MeoOwnerData` の形に API の値を入れれば置き換わる（#11）。
