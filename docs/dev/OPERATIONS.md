@@ -411,6 +411,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「無料でやりすぎ？」→ **先に直すべきは `DEFAULT_PLAN=pro`（誰でも登録すれば pro が無料）と Clerk の登録制限なし**（#39、公開前に必須）。無料 MEO 診断は A（今のまま）/ B（要点のみ: 総合・4 カテゴリ・改善点上位 3・口コミの数字。全項目と PDF は無料登録後）/ C（点数のみ）を提示、B を推奨（#40、2 時間）。
 - 利用者「競合より価格を下げたい。ベストな提案を」→ 原価は 1 契約あたり数百円（順位計測の SerpApi だけ高い）。提案: 無料 0 / ライト 2,980（1 領域、MEO 3 店舗、順位 10 KW）/ スタンダード 5,980（3 領域、MEO 10 店舗、順位 30 KW）/ プロ 9,800（+AI 生成物、MEO 30 店舗、順位 100 KW）/ 追加店舗 +300 円。**商用化前に Vercel Hobby → Pro（月 20 ドル）が必要**。実装: light プラン（選択領域を Clerk メタデータ）、プランごとの店舗数・KW 上限、料金表と Clerk Billing の整合（#41）。判断待ち。
 - 利用者の提案「Stripe を連携して無料クーポンコードを発行」→ 決済は Clerk Billing（Stripe 裏側、コード対応済み、`NEXT_PUBLIC_CLERK_BILLING_ENABLED`）。Clerk Billing にはクーポンコードが無い（把握の範囲）ため、無料枠は**マスター画面の個別開放**で代替（メール指定、拡散しない）。`DEFAULT_PLAN=free` に戻せる。手順: Stripe 登録 → Clerk Billing 有効化・Stripe 接続 → プラン `standard` / `pro` → Vercel 環境変数 → 管理画面で自分に開放 → テストカードで購入確認。**特商法ページが必要**（#43、Claude が作成）。コード配布が必須なら Stripe 直結（1〜2 日）。
+- 利用者「テスト中の間は」（続き未入力）→ テスト中の推奨: Clerk の登録制限（Restricted / Allowlist）を先に入れれば `DEFAULT_PLAN=pro` のままで可、Stripe はテストモード、モニターは許可リストに追加。公開時に `DEFAULT_PLAN=free` + 個別開放へ、と回答。
 - r20: Data API 画面の URL が `/rest/v1/` 付きなので、そのまま貼っても動くように正規化。新形式の Secret key（`sb_secret_`）にも対応（apikey ヘッダのみ。JWT なら Bearer も）。
 - 利用者の質問「HP の内容をこのリポジトリに deploy できますか？」→ 3 案（Vercel に一本化 / Cloudflare のままソースだけ移す / アプリ内のページとして追加）を提示し、利用者は **「Cloudflare のまま・ソースだけ移す」** を選択。
   旧 `matsu609/seo-checker-HP` の `public/index.html`（45KB）と `wrangler.jsonc` をそのまま `marketing/` にコピー（内容は 1 バイトも変えていない）。`marketing/README.md` に配信の手順、README の「構成」と `services.md` に位置づけを追記。
