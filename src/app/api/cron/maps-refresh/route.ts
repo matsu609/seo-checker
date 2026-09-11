@@ -10,7 +10,8 @@
 import { isCronAuthorized, isCronConfigured } from "@/lib/auth/cron";
 import { isSupabaseConfigured } from "@/lib/db/supabase";
 import { getPlace } from "@/lib/maps/client";
-import { saveMeoReport } from "@/lib/maps/history";
+import { enrichOwnReport } from "@/lib/maps/enrich";
+import { latestReports, saveMeoReport } from "@/lib/maps/history";
 import { getOwnerInputOrNull } from "@/lib/maps/owner-store";
 import { refreshStores, type RefreshSummary } from "@/lib/maps/refresh";
 import { listStoresDue, markRefreshed } from "@/lib/maps/stores";
@@ -41,6 +42,11 @@ export async function GET(request: Request) {
       save: (userId, report) => saveMeoReport(userId, { ...report, aiCommentary: null }),
       markRefreshed,
       getOwnerInput: getOwnerInputOrNull,
+      // 検索順位は毎週取り直し（前回の順位を previous に）、周辺の同業も毎週取り直す
+      enrich: async (userId, detail, owner) => {
+        const previous = (await latestReports(userId, [detail.id])).get(detail.id)?.report ?? null;
+        return enrichOwnReport(userId, detail, owner?.input.keywords ?? [], { previous, refreshArea: true });
+      },
     },
     { limit: ROW_LIMIT, budgetMs: BUDGET_MS },
   );

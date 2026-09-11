@@ -11,7 +11,8 @@ import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { PlacesError } from "@/lib/maps/client";
 import { getPlaceCached } from "@/lib/maps/fetch";
-import { saveMeoReport } from "@/lib/maps/history";
+import { latestReports, saveMeoReport } from "@/lib/maps/history";
+import { enrichOwnReport } from "@/lib/maps/enrich";
 import { getOwnerInputOrNull } from "@/lib/maps/owner-store";
 import { nextRefreshAt } from "@/lib/maps/refresh";
 import { buildMeoReport } from "@/lib/maps/report";
@@ -106,7 +107,13 @@ export async function POST(request: Request) {
       const now = new Date();
       // 自社なら、以前に入力したオーナー申告があれば採点に入れる（登録し直しても消えない）
       const owner = ownPlaceId === "" ? await getOwnerInputOrNull(userId, placeId) : null;
-      await saveMeoReport(userId, { ...buildMeoReport(detail, now, owner), aiCommentary: null });
+      let report = buildMeoReport(detail, now, owner);
+      if (ownPlaceId === "") {
+        // 自社なら順位（キーワードがあれば）と周辺の同業も付ける。前回の報告書があれば順位の前回値に
+        const previous = (await latestReports(userId, [placeId])).get(placeId)?.report ?? null;
+        report = { ...report, ...(await enrichOwnReport(userId, detail, owner?.input.keywords ?? [], { previous, refreshArea: true })) };
+      }
+      await saveMeoReport(userId, { ...report, aiCommentary: null });
       await markRefreshed(placeId, now);
       fetched = true;
     } catch (err) {

@@ -3,6 +3,7 @@
  *
  * GET    … { owner: MeoOwnerData | null }
  * PUT    … { input: MeoOwnerInput } を保存し、最新の報告書を申告込みで採点し直す
+ *          （対策キーワードが増えていれば、その分だけ検索順位を計測する）
  * DELETE … 申告を消し、最新の報告書を公開情報だけで採点し直す
  *
  * 競合の店舗には申告できない（自社の行だけ）。採点し直しは保存済みの Google 情報を
@@ -12,6 +13,7 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse } from "@/lib/db/supabase";
+import { enrichOwnReport } from "@/lib/maps/enrich";
 import { rescoreLatestReport, type MeoHistoryEntry } from "@/lib/maps/history";
 import { MeoOwnerInputSchema, type MeoOwnerData } from "@/lib/maps/owner-input";
 import { deleteOwnerInput, getOwnerInput, putOwnerInput } from "@/lib/maps/owner-store";
@@ -86,7 +88,10 @@ export async function PUT(request: Request, context: Ctx) {
     const store = await ownStore(userId, id);
     if (store instanceof Response) return store;
     const owner = await putOwnerInput(userId, store.placeId, parsed.data.input);
-    const rescored = await rescoreLatestReport(userId, store.placeId, owner);
+    // 対策キーワードが増えていれば、その分だけ順位を計測する（同じキーワードは前回の結果を使い回す。周辺は取り直さない）
+    const rescored = await rescoreLatestReport(userId, store.placeId, owner, (latest) =>
+      enrichOwnReport(userId, latest.detail, owner.input.keywords, { reuse: latest, previous: latest, refreshArea: false }),
+    );
     const body: MapsOwnerSaveResponse = { owner, rescored };
     return Response.json(body, { headers: { "cache-control": "no-store" } });
   } catch (err) {

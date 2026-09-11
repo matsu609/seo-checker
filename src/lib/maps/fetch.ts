@@ -6,8 +6,9 @@
  * 一定時間は課金されないようにする。
  */
 import { globalCache } from "@/lib/cache";
-import { getPlace } from "./client";
-import type { PlaceDetail } from "./types";
+import { getPlace, searchNearby, searchRank } from "./client";
+import type { NearbyPlace, RankedPlace } from "./parse";
+import type { LatLng, PlaceDetail } from "./types";
 
 export const DETAIL_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -32,4 +33,33 @@ export async function getPlaceCached(placeId: string, refresh = false): Promise<
   const detail = await getPlace(placeId);
   cache.set(placeId, detail);
   return { detail, cached: false };
+}
+
+/* ───────────── r29: 順位・周辺（同じ 6 時間キャッシュ） ───────────── */
+
+const rankCache = globalCache<RankedPlace[]>("mapsRank", DETAIL_CACHE_TTL_MS, 1000);
+const nearbyCache = globalCache<NearbyPlace[]>("mapsNearby", DETAIL_CACHE_TTL_MS, 300);
+
+function centerKey(center: LatLng): string {
+  return `${center.lat.toFixed(3)},${center.lng.toFixed(3)}`;
+}
+
+/** 順位計測の検索（キーワード × 位置で 6 時間キャッシュ） */
+export async function searchRankCached(query: string, center: LatLng, radiusM: number, limit: number): Promise<RankedPlace[]> {
+  const key = `${query}@${centerKey(center)}/${radiusM}/${limit}`;
+  const hit = rankCache.get(key);
+  if (hit) return hit;
+  const results = await searchRank(query, center, radiusM, limit);
+  rankCache.set(key, results);
+  return results;
+}
+
+/** 周辺の同業（店舗ごとに 6 時間キャッシュ） */
+export async function searchNearbyCached(placeId: string, center: LatLng, primaryType: string | null, radiusM: number, limit: number): Promise<NearbyPlace[]> {
+  const key = `${placeId}/${primaryType ?? "-"}/${radiusM}/${limit}`;
+  const hit = nearbyCache.get(key);
+  if (hit) return hit;
+  const results = await searchNearby(center, primaryType, radiusM, limit);
+  nearbyCache.set(key, results);
+  return results;
 }

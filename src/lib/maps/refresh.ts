@@ -46,6 +46,8 @@ export interface RefreshDeps {
   markRefreshed: (placeId: string, at: Date) => Promise<void>;
   /** 自社店舗のオーナー申告（無ければ null）。省略時は申告なしとして採点 */
   getOwnerInput?: (userId: string, placeId: string) => Promise<MeoOwnerData | null>;
+  /** 自社店舗の報告書に検索順位・周辺の同業を付ける（r29）。省略時は付けない。失敗しても保存は止めない */
+  enrich?: (userId: string, detail: PlaceDetail, owner: MeoOwnerData | null) => Promise<Pick<MeoReport, "rank" | "area">>;
   now?: () => Date;
 }
 
@@ -115,7 +117,14 @@ export async function refreshStores(deps: RefreshDeps, options: RefreshOptions):
         // 自社として登録している利用者にはオーナー申告を足して採点する（競合としてだけなら共通の報告書）
         const isOwn = owners.some((o) => o.user_id === userId && o.own_place_id === "");
         const ownerData = isOwn && deps.getOwnerInput ? await deps.getOwnerInput(userId, placeId) : null;
-        const report = ownerData ? buildMeoReport(detail, at, ownerData) : shared;
+        let report = ownerData ? buildMeoReport(detail, at, ownerData) : shared;
+        if (isOwn && deps.enrich) {
+          try {
+            report = { ...report, ...(await deps.enrich(userId, detail, ownerData)) };
+          } catch (err) {
+            console.error("[maps-refresh] 順位・周辺の取得に失敗（報告書は保存する）", { placeId, userId, err });
+          }
+        }
         await deps.save(userId, report);
         summary.saved++;
       } catch (err) {

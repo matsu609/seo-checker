@@ -321,3 +321,50 @@ export function parseDetailResponse(body: unknown): PlaceDetail | null {
   const parsed = RawPlaceSchema.safeParse(body);
   return parsed.success ? toDetail(parsed.data) : null;
 }
+
+/* ───────────── r29: 検索順位・周辺の同業 ───────────── */
+
+/** 順位計測の 1 件（Text Search。id と表示名だけ = Pro 区分） */
+export interface RankedPlace {
+  id: string;
+  name: string;
+}
+
+/** 周辺の同業 1 件（Nearby Search。評価・件数が要るので Enterprise 区分） */
+export interface NearbyPlace extends RankedPlace {
+  rating: number | null;
+  ratingCount: number | null;
+}
+
+const RawRanked = z.object({ id: z.string().min(1), displayName: LocalizedText });
+const RawNearby = RawRanked.extend({ rating: z.number().optional(), userRatingCount: z.number().optional() });
+
+/** searchText（順位計測）の応答。順番が順位 */
+export function parseRankResponse(body: unknown): RankedPlace[] {
+  const list = (body as { places?: unknown })?.places;
+  if (!Array.isArray(list)) return [];
+  const out: RankedPlace[] = [];
+  for (const item of list) {
+    const parsed = RawRanked.safeParse(item);
+    if (parsed.success) out.push({ id: parsed.data.id, name: text(parsed.data.displayName) ?? "（名称不明）" });
+  }
+  return out;
+}
+
+/** searchNearby（周辺の同業）の応答 */
+export function parseNearbyResponse(body: unknown): NearbyPlace[] {
+  const list = (body as { places?: unknown })?.places;
+  if (!Array.isArray(list)) return [];
+  const out: NearbyPlace[] = [];
+  for (const item of list) {
+    const parsed = RawNearby.safeParse(item);
+    if (!parsed.success) continue;
+    out.push({
+      id: parsed.data.id,
+      name: text(parsed.data.displayName) ?? "（名称不明）",
+      rating: typeof parsed.data.rating === "number" ? parsed.data.rating : null,
+      ratingCount: typeof parsed.data.userRatingCount === "number" ? parsed.data.userRatingCount : null,
+    });
+  }
+  return out;
+}

@@ -1,21 +1,27 @@
 /**
  * Places API (New) のクライアント。サーバー専用（API キーを使う）。
  *
- * 呼ぶのは 2 本だけ。
- *   - POST /v1/places:searchText … 店名・地域で候補を探す
- *   - GET  /v1/places/{id}       … 比較・採点に使う詳細
+ * 呼ぶのは 3 本。
+ *   - POST /v1/places:searchText   … 店名・地域で候補を探す（Enterprise 区分）／検索順位の計測（Pro 区分）
+ *   - POST /v1/places:searchNearby … 周辺の同業（Enterprise 区分）
+ *   - GET  /v1/places/{id}         … 比較・採点に使う詳細（Enterprise + Atmosphere 区分）
  *
  * フィールドマスクで要求する項目が SKU（料金区分）を決める。detail は口コミと
  * 紹介文を含むため最も高い区分になるので、呼び出し側でキャッシュする。
  * 応答の解釈は parse.ts（純粋関数）に任せ、ここは通信とエラーの分類だけ。
  */
-import { parseDetailResponse, parseSearchResponse } from "./parse";
-import type { PlaceDetail, PlaceSummary } from "./types";
+import { parseDetailResponse, parseNearbyResponse, parseRankResponse, parseSearchResponse, type NearbyPlace, type RankedPlace } from "./parse";
+import type { LatLng, PlaceDetail, PlaceSummary } from "./types";
 
 const BASE = "https://places.googleapis.com/v1";
 const TIMEOUT_MS = 15_000;
 /** 1 回の検索で返す上限（Google の上限は 20） */
 export const SEARCH_LIMIT = 10;
+
+/** 順位計測は id と表示名だけ（Text Search Pro 区分。月 5,000 回まで無料） */
+const RANK_FIELDS = ["places.id", "places.displayName"].join(",");
+/** 周辺の同業は評価と件数が要る（Nearby Search Enterprise 区分。月 1,000 回まで無料） */
+const NEARBY_FIELDS = ["places.id", "places.displayName", "places.rating", "places.userRatingCount"].join(",");
 
 const SEARCH_FIELDS = [
   "places.id",
@@ -166,6 +172,48 @@ export async function searchPlaces(query: string, limit = SEARCH_LIMIT): Promise
     SEARCH_FIELDS,
   );
   return parseSearchResponse(body);
+}
+
+/**
+ * 検索順位の計測: 店舗の位置を中心に、キーワードで Google マップ検索したときの並び順を返す。
+ * locationBias（制限ではなく優先）なので、遠くの有名店が混ざることもある。
+ */
+export async function searchRank(query: string, center: LatLng, radiusM: number, limit = 20): Promise<RankedPlace[]> {
+  const body = await call(
+    "/places:searchText",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        textQuery: query,
+        languageCode: "ja",
+        regionCode: "JP",
+        pageSize: Math.min(Math.max(limit, 1), 20),
+        locationBias: { circle: { center: { latitude: center.lat, longitude: center.lng }, radius: radiusM } },
+      }),
+    },
+    RANK_FIELDS,
+  );
+  return parseRankResponse(body);
+}
+
+/** 周辺の同業: 店舗の位置から半径 radiusM 以内、同じメインカテゴリの店舗を人気順で最大 20 件 */
+export async function searchNearby(center: LatLng, primaryType: string | null, radiusM: number, limit = 20): Promise<NearbyPlace[]> {
+  const body = await call(
+    "/places:searchNearby",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        languageCode: "ja",
+        regionCode: "JP",
+        maxResultCount: Math.min(Math.max(limit, 1), 20),
+        rankPreference: "POPULARITY",
+        ...(primaryType ? { includedPrimaryTypes: [primaryType] } : {}),
+        locationRestriction: { circle: { center: { latitude: center.lat, longitude: center.lng }, radius: radiusM } },
+      }),
+    },
+    NEARBY_FIELDS,
+  );
+  return parseNearbyResponse(body);
 }
 
 /**

@@ -35,6 +35,11 @@ export interface PlaceReview {
   relative: string | null;
 }
 
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
 /** 設備・サービスなどの属性（Google が返した分だけ。true / false の両方があり得る） */
 export interface PlaceAttribute {
   /** 例: paymentOptions.acceptsCreditCards */
@@ -83,7 +88,7 @@ export interface PlaceDetail extends PlaceSummary {
   extraTypes?: string[];
   /** 住所にビル名・階・部屋番号（premise / subpremise / floor / room）が含まれるか。住所要素が無ければ null */
   hasBuilding?: boolean | null;
-  location?: { lat: number; lng: number } | null;
+  location?: LatLng | null;
   /** 価格帯の表示（例: "¥¥" や "¥1,000〜¥2,000"）。無ければ null */
   price?: string | null;
   attributes?: PlaceAttribute[];
