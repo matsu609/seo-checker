@@ -6,7 +6,7 @@
  */
 import Link from "next/link";
 import { Callout } from "@/components/ui/Callout";
-import { planLabel, planPriceLabel } from "@/lib/plans/catalog";
+import { planLabel, planPriceLabel, upgradeTarget } from "@/lib/plans/catalog";
 import { checkPlanForFeature } from "@/lib/plans/guard";
 
 export async function PlanGate({
@@ -20,9 +20,9 @@ export async function PlanGate({
   if (!denial) return <>{children}</>;
 
   return (
-    <Callout tone="info" title={`「${planLabel(denial.required)}」プランの機能です`}>
+    <Callout tone="info" title={`「${upgradeTarget(denial.required).label}」プランの機能です`}>
       <p>
-        この機能は{planLabel(denial.required)}（{planPriceLabel(denial.required)}
+        この機能は{upgradeTarget(denial.required).label}（{planPriceLabel(upgradeTarget(denial.required).id)}
         ）以上でご利用いただけます。現在のプランは「{planLabel(denial.current)}」です。
       </p>
       <p className="mt-2">

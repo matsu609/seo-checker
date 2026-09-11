@@ -4,20 +4,20 @@
  */
 import { Badge, Card } from "@/components/ui";
 import { FEATURE_GROUPS } from "@/lib/features/registry";
-import { PLANS, planAllows, planPriceLabel, type PlanId } from "@/lib/plans/catalog";
+import { SELLABLE_PLANS, planAllows, planPriceLabel, type PlanId } from "@/lib/plans/catalog";
 
-/** そのプランで使えるツール名（無料診断と設定は除く） */
+/** そのプランで使えるツール名（無料診断と設定は除く）。上位プランは下位の機能も含む */
 function toolsFor(plan: PlanId): string[] {
   return FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings")
     .flatMap((g) => g.features)
-    .filter((f) => f.plan === plan)
+    .filter((f) => f.plan !== "free" && planAllows(plan, f.plan))
     .map((f) => f.shortLabel);
 }
 
 export function PlanTable({ current }: { current: PlanId }) {
   return (
-    <div className="grid gap-4 @xl:grid-cols-3">
-      {PLANS.map((plan) => {
+    <div className="grid gap-4 @xl:grid-cols-2">
+      {SELLABLE_PLANS.map((plan) => {
         const included = planAllows(current, plan.id);
         const isCurrent = current === plan.id;
         const tools = toolsFor(plan.id);

@@ -129,10 +129,9 @@ npm run dev                  # http://localhost:3000
 | プラン | 月額 | 内容 |
 |---|---:|---|
 | **無料診断** | 0 円 | 無料 SEO・AIO 診断（`/`）と無料 MEO 診断（`/meo`、店舗 1 件）。ログイン不要 |
-| **スタンダード** | 5,000 円 | サイト診断・ページ最適化レポート・ページ診断・検索パフォーマンス・順位計測・LLMO モニタリング・生成 AI 流入分析・サイトレポート・キーワード調査など、**測る / 調べる**ツール |
-| **プロ** | 10,000 円 | スタンダードのすべて ＋ **AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成） |
+| **オールインワン** | 9,800 円 | SEO・AIO・MEO のすべてのツールと、**AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成）。使わない機能があれば機能ごとに 3,000 円引きで個別対応 |
 
-切り分けの考え方は「**読む・測る = スタンダード / AI が書く = プロ**」です。定義は `src/lib/plans/catalog.ts` と、機能ごとの `plan` フィールド（`src/lib/features/registry.ts`）の 2 か所だけにあり、`src/lib/plans/__tests__/plans.test.ts` が対応表を固定しています。
+売るのは「オールインワン」1 つです（2026-09-11 決定）。内部では機能ごとに `standard`（測る・調べる）/ `pro`（AI が作る）の 2 段階を持ったままで、オールインワン = `pro` が両方を含みます。`standard` は販売せず、割引の個別対応（運用者が Clerk の `publicMetadata.plan` に割り当てる）に残しています。定義は `src/lib/plans/catalog.ts` と、機能ごとの `plan` フィールド（`src/lib/features/registry.ts`）の 2 か所だけにあり、`src/lib/plans/__tests__/plans.test.ts` が対応表を固定しています。
 
 ### プランの決まり方
 
@@ -152,8 +151,8 @@ npm run dev                  # http://localhost:3000
 
 1. Clerk ダッシュボード → **「請求する」(Billing)** を開き、**Stripe アカウントを接続**する（無ければその場で作れます）
 2. プランを 2 つ作る。**スラッグ（slug）は必ず `standard` と `pro`** にする
-   - `standard` … 月額 5,000 円
-   - `pro` … 月額 10,000 円
+   - `pro` … 月額 9,800 円（オールインワン。Clerk で作るのはこれだけ）
+   - `standard` … 販売しない（割引の個別対応は `publicMetadata.plan` で）
 3. `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1` を設定して再起動（Vercel なら環境変数に足して Redeploy）
 
 スラッグは `src/lib/plans/catalog.ts` の `clerkPlan`（`user:standard` / `user:pro`）と一致している必要があります。ずれると**決済は通ったのに機能が開かない**ので、`plans.test.ts` で `user:<プラン id>` の形を固定しています。
