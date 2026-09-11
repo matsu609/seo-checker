@@ -210,7 +210,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho`（事業者名・代表者・連絡先・価格・支払方法・解約・返金。所在地と電話は請求時開示）。PUBLIC_PAGES に追加、フッターにリンク。Stripe 審査と Clerk Billing 開始の前提 | Claude | 未（利用者の GO で着手） |
 | 44 | 決済の開始（Clerk Billing）: Stripe 登録 → Clerk Billing 有効化・Stripe 接続 → プラン `pro`（月 9,800 円、スラッグはコードの `user:pro` と一致。standard は作らない）→ Vercel `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1`、`DEFAULT_PLAN=free` → Redeploy → 管理画面で自分に個別開放 → テストカードで購入確認。モニターは管理画面の個別開放で無料に | 利用者 | 未 |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
-| 51 | **r34〜r35 の SQL を Supabase で実行**（下記「フェーズ 2 で使うテーブル」の 4 つ目 `review_forms` / `review_channels` / `review_responses`。r34 の SQL を実行済みなら `alter table` の方）。実行するまで `/tools/reviews` は「テーブルが見つかりません」になる | 利用者 | **未（r34 で追加、r35 で列 3 つ追加）** |
+| 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
@@ -221,7 +221,6 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 - r27 の SQL（`meo_owner_inputs`）を実行したという連絡（#45）
 - Business Profile API の承認結果（#5）
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
-- r34〜r35 の SQL（`review_forms` / `review_channels` / `review_responses`）を実行したという連絡（#51）
 - 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 
 ### フェーズ 2 で使うテーブル（Supabase SQL Editor で実行）
@@ -279,7 +278,7 @@ alter table meo_owner_inputs enable row level security;
 
 `input` は `src/lib/maps/owner-input.ts` の `MeoOwnerInputSchema` の形（キーワード最大 5、説明文 750 文字、投稿数、最新投稿の本文、写真の日付、ロゴ・カバー、返信済み件数、返信文。null = 未回答）。利用者 × 自社店舗で 1 行。競合には無い。
 
-4 つ目（r34 + r35、口コミ支援。**未実行 → #51**）:
+4 つ目（r34 + r35、口コミ支援。**09-11 17:17 実行済み（完全版）**）:
 
 ```sql
 create table if not exists review_forms (
@@ -565,4 +564,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「問題ありません。Google は AI によって調整された文章の口コミを正式に禁止と明言はしていません。先ほど送った用件でアンケート機能を実装してください」→ **利用者の決定として、たたき台どおり（AI 下書き・トーン・キーワード設定を含む）実装。r34**。新規: `src/lib/reviews/`（questions / forms / responses / draft / metrics / csv / url / api）、`src/app/api/reviews/*`（forms・channels・qr・responses）、`src/app/api/r/[slug]/*`（取得・answers・events・direct）、`src/app/tools/reviews`、`src/app/r/[slug]`、`src/components/reviews/*`（ReviewsTool / FormEditor / ChannelsCard / MetricsCard / ResponsesCard / SurveyPage）。変更: `routes.ts`（公開接頭辞）、`registry.ts`（機能 `reviews`、アイコン `qr`）、`AppShell`（`/r/` は素の画面）、`ratelimit.ts`、`catalog.ts`（pro のハイライト）、`PrivacyPolicy`（第 12 条）、README / ARCHITECTURE。依存を 1 つ追加（`qrcode`、devDependencies に `@types/qrcode`）。テスト 4 ファイル追加 + routes / plans の期待値更新。詳細は上の「口コミ支援（アンケート QR）— r34」。**利用者側の作業は SQL の実行 1 つ（#51）。**
 - 利用者「お店ごとにアンケートにひもついた QR コードを発行できるようにしたい」→ **r35**: 1 つのアンケートを複数店舗で共有し、QR ごとに店舗を紐づける形にした（上の「店舗ごとの QR（r35）」）。`review_channels` に `store_name` / `place_id` / `write_review_url` を追加（SQL は #51 に含めた。r34 を実行済みなら `alter table`）。`ChannelsCard` を「店舗ごと（登録店舗から選ぶ / 手入力）」「置き場所ごと」の 2 モードに、「登録済みの自社店舗にまとめて発行」ボタン。来店客の画面（`/r/[slug]?c=`）と公開 API は QR の店舗名で返し、回答時の下書きの店名・投稿先もその店舗（`resolveStore`）。集計・絞り込み・CSV は「店名（ラベル）」。テスト 4 件追加。lint / tsc / test / build 通過、モック + Playwright で「2 店舗にまとめて発行 + 手入力 1 店舗 → 駅前店の QR で回答 → 見出しと投稿先が駅前店 → 集計と CSV に店舗」を確認。
 - 利用者「貼り付ける SQL をもう一度表示して」→ #51 の SQL（完全版と、r34 実行済み向けの `alter table`）を会話に再掲。実行の連絡待ち。#45（`meo_owner_inputs`）も未実行のままであることを伝えた。
+- 利用者が Supabase の SQL Editor で口コミ支援の SQL（完全版 54 行）を実行し「Success. No rows returned」のスクリーンショットを共有 → **#51 完了**。次は本番 `/tools/reviews` でアンケートを作り、店舗ごとの QR を発行して、スマホで開いて確認してもらう。#45（`meo_owner_inputs`）は引き続き未実行。
 
