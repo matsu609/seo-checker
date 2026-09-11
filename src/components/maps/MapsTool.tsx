@@ -388,6 +388,7 @@ export function MapsTool() {
     { key: "rating", header: "評価", align: "right", accessor: (r) => r.detail.rating, sortable: true, render: (r) => formatRating(r.detail.rating) },
     { key: "reviews", header: "口コミ", align: "right", accessor: (r) => r.detail.ratingCount, sortable: true, render: (r) => formatCount(r.detail.ratingCount) },
     { key: "photos", header: "写真", align: "right", accessor: (r) => r.detail.photoCount, sortable: true, render: (r) => `${r.detail.photoCount}${r.detail.photoCount >= 10 ? "+" : ""}` },
+    { key: "attributes", header: "属性", align: "right", accessor: (r) => r.detail.attributes?.length ?? null, sortable: true, render: (r) => (r.detail.attributes ? `${r.detail.attributes.length} 個` : "—") },
     { key: "hours", header: "営業時間", align: "center", render: (r) => (r.detail.hours.length > 0 ? "あり" : "なし") },
     { key: "phone", header: "電話", align: "center", render: (r) => (r.detail.phone ? "あり" : "なし") },
     {
@@ -516,7 +517,7 @@ export function MapsTool() {
       <Card
         number={3}
         title="診断レポート（自社）"
-        description="Google マップ上の公開情報と、上で入力したオーナー情報から、基本情報・投稿・写真・レビューの 4 カテゴリ 21 項目で採点します。未入力の項目は「未取得」として採点から外します。"
+        description="Google マップ上の公開情報（属性・写真・口コミ・Google の警告を含む）と、上で入力したオーナー情報から、基本情報・投稿・写真・レビューの 4 カテゴリ 28 項目で採点します。未入力の項目は「未取得」として採点から外します。"
         padding="sm"
       >
         {!own && !stores.loading && (

@@ -35,6 +35,31 @@ export interface PlaceReview {
   relative: string | null;
 }
 
+/** 設備・サービスなどの属性（Google が返した分だけ。true / false の両方があり得る） */
+export interface PlaceAttribute {
+  /** 例: paymentOptions.acceptsCreditCards */
+  key: string;
+  label: string;
+  value: boolean;
+}
+
+/** Google が返す写真の情報（最大 10 枚。画像そのものは取らない） */
+export interface PlacePhoto {
+  widthPx: number | null;
+  heightPx: number | null;
+  /** 投稿者名（オーナー投稿なら店名になる） */
+  author: string | null;
+}
+
+/** Google マップ内の各画面へのリンク（口コミ投稿画面など） */
+export interface PlaceLinks {
+  directions: string | null;
+  place: string | null;
+  writeReview: string | null;
+  reviews: string | null;
+  photos: string | null;
+}
+
 /** 比較・採点に使う詳細 */
 export interface PlaceDetail extends PlaceSummary {
   phone: string | null;
@@ -49,4 +74,25 @@ export interface PlaceDetail extends PlaceSummary {
   mapsUrl: string | null;
   /** カテゴリの内部 ID（例: hair_salon） */
   types: string[];
+
+  /* ── r28 で追加（フィールドマスクの拡張。料金区分は変わらない）。古い保存分には無い（undefined） ── */
+
+  /** メインカテゴリの内部 ID（例: hair_salon） */
+  primaryType?: string | null;
+  /** 追加カテゴリ（メインと汎用的な type を除いた内部 ID） */
+  extraTypes?: string[];
+  /** 住所にビル名・階・部屋番号（premise / subpremise / floor / room）が含まれるか。住所要素が無ければ null */
+  hasBuilding?: boolean | null;
+  location?: { lat: number; lng: number } | null;
+  /** 価格帯の表示（例: "¥¥" や "¥1,000〜¥2,000"）。無ければ null */
+  price?: string | null;
+  attributes?: PlaceAttribute[];
+  photos?: PlacePhoto[];
+  links?: PlaceLinks | null;
+  /** Google の AI 要約（generativeSummary / reviewSummary）。日本では無いことが多い */
+  aiSummary?: string | null;
+  /** 店舗を持たない出張型ビジネス */
+  serviceArea?: boolean;
+  /** Google の警告（不審な口コミ活動やポリシー違反）。無ければ null */
+  consumerAlert?: string | null;
 }

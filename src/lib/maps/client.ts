@@ -27,7 +27,8 @@ const SEARCH_FIELDS = [
   "places.businessStatus",
 ].join(",");
 
-const DETAIL_FIELDS = [
+/** r27 までの詳細（reviews と editorialSummary が入るので最も高い区分 Enterprise + Atmosphere） */
+const DETAIL_FIELDS_BASE = [
   "id",
   "displayName",
   "formattedAddress",
@@ -43,7 +44,54 @@ const DETAIL_FIELDS = [
   "reviews",
   "editorialSummary",
   "googleMapsUri",
-].join(",");
+];
+
+/**
+ * r28 で足した項目。すべて Enterprise + Atmosphere 以下の区分なので、1 回の料金は変わらない
+ * （1 回の呼び出しは、要求した中で最も高い区分で課金される）。
+ * フィールド名は @googlemaps/places 3.0.0 の proto（place.proto）で確認したもの。
+ */
+const DETAIL_FIELDS_EXTRA = [
+  "primaryType",
+  "addressComponents",
+  "location",
+  "priceLevel",
+  "priceRange",
+  "googleMapsLinks",
+  "generativeSummary",
+  "reviewSummary",
+  "pureServiceAreaBusiness",
+  "consumerAlert",
+  "accessibilityOptions",
+  "parkingOptions",
+  "paymentOptions",
+  "takeout",
+  "delivery",
+  "dineIn",
+  "curbsidePickup",
+  "reservable",
+  "servesBreakfast",
+  "servesLunch",
+  "servesDinner",
+  "servesBeer",
+  "servesWine",
+  "servesBrunch",
+  "servesVegetarianFood",
+  "outdoorSeating",
+  "liveMusic",
+  "menuForChildren",
+  "servesCocktails",
+  "servesDessert",
+  "servesCoffee",
+  "goodForChildren",
+  "allowsDogs",
+  "restroom",
+  "goodForGroups",
+  "goodForWatchingSports",
+];
+
+export const DETAIL_FIELDS = [...DETAIL_FIELDS_BASE, ...DETAIL_FIELDS_EXTRA].join(",");
+const DETAIL_FIELDS_FALLBACK = DETAIL_FIELDS_BASE.join(",");
 
 export type PlacesErrorCode = "not_configured" | "denied" | "rate_limited" | "not_found" | "invalid" | "upstream";
 
@@ -120,13 +168,21 @@ export async function searchPlaces(query: string, limit = SEARCH_LIMIT): Promise
   return parseSearchResponse(body);
 }
 
-/** Place ID から詳細を取る */
+/**
+ * Place ID から詳細を取る。
+ * Google がフィールドマスクの項目名を受け付けなかったとき（400。API 側で名前が変わった場合）は、
+ * r27 までの項目だけで 1 回だけ取り直す（追加項目は空になるが、報告書は止めない）。
+ */
 export async function getPlace(placeId: string): Promise<PlaceDetail> {
-  const body = await call(
-    `/places/${encodeURIComponent(placeId)}?languageCode=ja&regionCode=JP`,
-    { method: "GET" },
-    DETAIL_FIELDS,
-  );
+  const path = `/places/${encodeURIComponent(placeId)}?languageCode=ja&regionCode=JP`;
+  let body: unknown;
+  try {
+    body = await call(path, { method: "GET" }, DETAIL_FIELDS);
+  } catch (err) {
+    if (!(err instanceof PlacesError && err.code === "invalid")) throw err;
+    console.warn("[maps] 拡張フィールドマスクが拒否されたため基本項目だけで取り直します", err.message);
+    body = await call(path, { method: "GET" }, DETAIL_FIELDS_FALLBACK);
+  }
   const detail = parseDetailResponse(body);
   if (!detail) throw new PlacesError("Google マップの応答を読み取れませんでした。", "upstream");
   return detail;

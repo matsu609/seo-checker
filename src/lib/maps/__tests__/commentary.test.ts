@@ -71,7 +71,7 @@ describe("AI 総評の入力", () => {
     const d = parseDetailResponse(fixture)!;
     const input = toCommentaryInput(d, scoreProfile(d, NOW));
     expect(MeoCommentaryInputSchema.safeParse(input).success).toBe(true);
-    expect(input.checks.length).toBe(21);
+    expect(input.checks.length).toBe(28);
     expect(input.reviews.length).toBe(2);
   });
 
@@ -96,9 +96,11 @@ describe("AI 総評の入力", () => {
 describe("レポート", () => {
   it("日時・採点・総評をまとめ、ファイル名に記号を残さない", () => {
     const d = parseDetailResponse(fixture)!;
-    const r = buildMeoReport({ ...d, name: "A/B:店 名?" }, NOW);
+    // 店名を変えるとオーナー投稿の写真（店名で判定）が合わなくなるので、無料 21 項目版で見る
+    const r = buildMeoReport({ ...d, name: "A/B:店 名?" }, NOW, null, { extended: false });
     expect(r.generatedAt).toBe(NOW.toISOString());
     expect(r.score.score).toBe(100);
+    expect(r.score.extended).toBe(false);
     expect(r.commentary.length).toBeGreaterThan(0);
     expect(meoReportFileName(r)).toBe("MEO診断_A_B_店_名__20260910");
   });

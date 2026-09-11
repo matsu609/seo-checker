@@ -3,7 +3,7 @@
  */
 import { buildRuleCommentary } from "./commentary-input";
 import type { MeoOwnerData } from "./owner-input";
-import { scoreProfile, type ProfileScore } from "./score";
+import { scoreProfile, type ProfileScore, type ScoreOptions } from "./score";
 import type { PlaceDetail } from "./types";
 
 export interface MeoReport {
@@ -17,9 +17,9 @@ export interface MeoReport {
   ownerInputAt?: string | null;
 }
 
-/** owner を渡すと、公開情報では取れない 9 項目も申告で採点する */
-export function buildMeoReport(detail: PlaceDetail, now = new Date(), owner: MeoOwnerData | null = null): MeoReport {
-  const score = scoreProfile(detail, now, owner);
+/** owner を渡すと、公開情報では取れない 9 項目も申告で採点する。無料診断は options.extended = false */
+export function buildMeoReport(detail: PlaceDetail, now = new Date(), owner: MeoOwnerData | null = null, options: ScoreOptions = {}): MeoReport {
+  const score = scoreProfile(detail, now, owner, options);
   return {
     generatedAt: now.toISOString(),
     detail,

@@ -13,6 +13,7 @@ import type { MeoReport } from "@/lib/maps/report";
 import { latestReviewAgeDays } from "@/lib/maps/score";
 import { formatCount, formatRating } from "../format";
 import { ChecklistSection } from "./ChecklistSection";
+import { ExtraInfoSection } from "./ExtraInfoSection";
 
 export interface MeoReportViewProps {
   report: MeoReport;
@@ -179,8 +180,10 @@ export function MeoReportView({ report, aiCommentary }: MeoReportViewProps) {
           )}
         </ReportSection>
 
+        {score.extended && <ExtraInfoSection detail={detail} number={4} />}
+
         {score.categories.map((c, i) => (
-          <ChecklistSection key={c.id} category={c} number={4 + i} />
+          <ChecklistSection key={c.id} category={c} number={(score.extended ? 5 : 4) + i} />
         ))}
 
         <p className="mt-6 text-[11px] text-muted">
