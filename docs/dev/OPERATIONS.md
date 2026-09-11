@@ -61,13 +61,13 @@
 
 ---
 
-## 現在の状態（2026-09-10 時点）
+## 現在の状態（2026-09-11 時点）
 
 ### サービスの構成と稼働状況
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r33 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r34 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -209,6 +209,9 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | 未 |
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho`（事業者名・代表者・連絡先・価格・支払方法・解約・返金。所在地と電話は請求時開示）。PUBLIC_PAGES に追加、フッターにリンク。Stripe 審査と Clerk Billing 開始の前提 | Claude | 未（利用者の GO で着手） |
 | 44 | 決済の開始（Clerk Billing）: Stripe 登録 → Clerk Billing 有効化・Stripe 接続 → プラン `pro`（月 9,800 円、スラッグはコードの `user:pro` と一致。standard は作らない）→ Vercel `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1`、`DEFAULT_PLAN=free` → Redeploy → 管理画面で自分に個別開放 → テストカードで購入確認。モニターは管理画面の個別開放で無料に | 利用者 | 未 |
+| 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
+| 51 | **r34 の SQL を Supabase で実行**（下記「フェーズ 2 で使うテーブル」の 4 つ目 `review_forms` / `review_channels` / `review_responses`）。実行するまで `/tools/reviews` は「テーブルが見つかりません」になる | 利用者 | **未（r34 で追加）** |
+| 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 入力待ち（利用者からの回答が要るもの）
@@ -218,6 +221,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 - r27 の SQL（`meo_owner_inputs`）を実行したという連絡（#45）
 - Business Profile API の承認結果（#5）
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
+- r34 の SQL（`review_forms` / `review_channels` / `review_responses`）を実行したという連絡（#51）
+- 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 
 ### フェーズ 2 で使うテーブル（Supabase SQL Editor で実行）
 
@@ -274,6 +279,64 @@ alter table meo_owner_inputs enable row level security;
 
 `input` は `src/lib/maps/owner-input.ts` の `MeoOwnerInputSchema` の形（キーワード最大 5、説明文 750 文字、投稿数、最新投稿の本文、写真の日付、ロゴ・カバー、返信済み件数、返信文。null = 未回答）。利用者 × 自社店舗で 1 行。競合には無い。
 
+4 つ目（r34、口コミ支援。**未実行 → #51**）:
+
+```sql
+create table if not exists review_forms (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  slug text not null unique,
+  title text not null,
+  store_name text not null,
+  place_id text,
+  write_review_url text,
+  questions jsonb not null,
+  settings jsonb not null default '{}'::jsonb,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists review_forms_user_idx on review_forms (user_id, created_at);
+
+create table if not exists review_channels (
+  id uuid primary key default gen_random_uuid(),
+  form_id uuid not null references review_forms (id) on delete cascade,
+  code text not null,
+  label text not null,
+  created_at timestamptz not null default now(),
+  unique (form_id, code)
+);
+
+create table if not exists review_responses (
+  id uuid primary key default gen_random_uuid(),
+  form_id uuid not null references review_forms (id) on delete cascade,
+  channel_id uuid references review_channels (id) on delete set null,
+  rating int,
+  answers jsonb not null,
+  is_low boolean not null default false,
+  draft text,
+  draft_source text,
+  draft_final text,
+  edit_token text not null,
+  direct_message text,
+  direct_contact text,
+  clicked_review_at timestamptz,
+  clicked_direct_at timestamptz,
+  status text not null default 'open',
+  note text,
+  handled_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists review_responses_form_idx on review_responses (form_id, created_at desc);
+create index if not exists review_responses_low_idx on review_responses (form_id, is_low, status);
+
+alter table review_forms enable row level security;
+alter table review_channels enable row level security;
+alter table review_responses enable row level security;
+```
+
+`review_forms.questions` は `src/lib/reviews/questions.ts` の `QuestionsSchema`（最大 8 問、評価は 1 問）、`settings` は `ReviewFormSettingsSchema`（業種・トーン・キーワード最大 5・低評価の閾値）。`review_responses` には user_id が無いので、店舗側は必ず `review_forms`（user_id）経由で触る。`edit_token` は来店客が押下の記録・「お店に直接伝える」を送るための鍵（回答時に発行、画面にだけ返す）。
+
 **テーブルの形を変えるときは、`alter table` の SQL をここに追記し、コード（`src/lib/maps/history.ts` / `stores.ts`）も同時に直す。**利用者には SQL を渡して実行してもらう。
 
 RLS は有効のまま。アプリはサーバーの service_role だけで読み書きする（ブラウザからは触らない）。`user_id` は Clerk のユーザー ID（Clerk 無効の開発環境では `"local"`）。
@@ -318,6 +381,8 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 | 09-10 | プライバシーポリシー第 5 条に **Limited Use** 準拠の文言 | Google OAuth 審査の必須要件。変更不可 |
 | 09-10 | 紹介サイトのリポジトリは **1 つに寄せる**（利用者が案 A を選択） | 運営者名・連絡先・料金・アイコンが両方に出るため、分けたままだと片方だけ古くなる。実際に `public/service-guide.html` と HP の内容がずれ、HP には配布前のプレースホルダとアイコン未設定が残っていた。分けたまま旧リポジトリに直接 push する案 B も示したうえでの決定 |
 | 09-10 | 紹介サイトのソースを `marketing/` に取り込み、**配信は Cloudflare Workers のまま**にした | リポジトリが 2 つあると運営者名・料金を直したときに片方だけ古くなる。一方で apex を Vercel に向け直すと DNS とドメイン移設が要り、審査中の Google OAuth の入口を止めるリスクがある。利用者の選択は「Cloudflare のまま・ソースだけ移す」 |
+| 09-11 | 口コミ支援サービスは **AI が口コミの下書きを作らない**設計にする（回答者の自由記述をそのまま見せてコピーできるだけ） | Google は 2025 年から AI 生成の口コミ本文を削除対象にし、2026-04-17 の改定で「特定の内容・キーワード・従業員名を含める依頼」「従業員のノルマ」を名指しで禁止。景表法でも店舗の設定を反映した文案は「事業者が表示内容の決定に関与」= 事業者の表示になり得る。たたき台の定義（AI が書くのではなく、書きやすくする）とも一致する。詳細は [review-support-design.md](./review-support-design.md) §2 |
+| 09-11 | 口コミ支援は **AI 下書きを含めて実装**（利用者の決定） | Claude は Google の 2025〜2026 年の方針（AI 生成の口コミ本文の削除、キーワード・従業員名の依頼の禁止）を理由に外す案を出したが、利用者は「Google は AI で調整した文章の口コミを正式に禁止とは明言していない」と判断し、たたき台どおりの実装を指示。下書きは来店客が必ず編集できる状態で提示し、投稿ボタンは評価に関係なく全員同じ、特典機能は作らない、という線引きは維持。照合結果は review-support-design.md §2 に残す |
 
 ---
 
@@ -332,6 +397,17 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **フェーズ 2.7（r29、検索順位と周辺の同業）**: 有料の自社店舗にだけ付く（無料 `/meo`・競合の報告書には無い。`MeoReport.rank` / `.area`、r29 より前の保存分は undefined）。**検索順位** `src/lib/maps/rank.ts`: 対策キーワード（`meo_owner_inputs.input.keywords`、最大 5）ごとに Text Search（`locationBias` = 店舗の座標、半径 3 km、`pageSize` 20、フィールドは `places.id,places.displayName` だけ = **Pro 区分**）を 1 回叩き、自社と登録済み競合の順位・上位 3 件・前回の順位（`previous`）を記録。Google の「ローカル検索順位」そのものではなく Places API の並び（画面に明記）。**周辺の同業** `src/lib/maps/area.ts`: Nearby Search（`locationRestriction` 半径 1.5 km、`includedPrimaryTypes` = 自社の `primaryType`、`rankPreference: POPULARITY`、20 件、`rating` / `userRatingCount` が要るので **Enterprise 区分**）から、自社を除いた中での評価・件数の順位（同点は同順位）、平均評価、件数の中央値、件数順の上位 5 件。**いつ叩くか** `src/lib/maps/enrich.ts`: 店舗の登録直後（順位 + 周辺）、毎週の一斉更新（順位は全キーワード取り直し + 前回値、周辺も取り直し。`refresh.ts` の `deps.enrich`、失敗しても保存は止めない）、オーナー情報の保存（増えたキーワードだけ検索、周辺は取り直さない）。位置（`location`）が無い店舗は計測しない。順位・周辺とも 6 時間キャッシュ（`fetch.ts`）。画面: 報告書の「5. 検索順位」（キーワード × 自社・競合の表、前回比、上位 3 件）「6. 周辺の同業との比較」（StatStrip + 上位 5 件の表）。**推移グラフは未実装**（各週の報告書に順位が入っているので、履歴から線グラフにできる。要望が出たら）。
 - **コンサル解説（r30）**: `src/lib/maps/guide.ts` に 28 項目ぶんの `CHECK_GUIDE`（why / goal / keep）、`MEO_CONCLUSION`、`IDEAL_STATE`（評価 4.3〜4.7、口コミ数は競合上位 3 社超・最低 50、口コミの質、返信率 100% / 24〜48h、写真 100 枚以上・毎週追加、投稿週 1、基本情報 NAP 一致・サブカテゴリ最大 9、Q&A 5〜10 問（未計測）、星の分布）。有料の報告書に「3. 目指すべき状態」の節と、各項目の下に 3 行の解説（`ChecklistSection` の `guide` prop）。無料 `/meo` には出さない（`guide` を true にすれば出る）。文章を変えるときは guide.ts だけ。`guide.test.ts` が採点の項目 ID と過不足なく一致することを確認する（項目を足したら解説も足す）。
 - **フェーズ 3（承認後）**: Business Profile API（Business Information / v4 reviews・localPosts・media / Performance API）で `score.ts` の `unavailable` 9 項目を埋める。インサイト 8 指標（表示回数 モバイル/PC、電話、ルート、サイト、メニュー、平均クリック率）を期間比較・CSV・詳細グラフつきで。スコープ `business.manage` を追加 → 同意画面のスコープ追加と再審査に注意。
+
+### 口コミ支援（アンケート QR）— r34
+
+- **何をするか**: 店舗が `/tools/reviews`（MEO タブ、pro、`requires: ["supabase"]`、`optional: ["anthropic", "places"]`）でアンケートを作る（業種テンプレート: 飲食 / サロン / クリニック / 汎用。質問は評価 1〜5・単一選択・複数選択・自由記述、最大 8 問）→ QR を発行（店舗別・テーブル別・スタッフ別など最大 30、SVG / PNG はサーバーが `qrcode` で描く）→ 来店客が `/r/<slug>?c=<code>`（ログイン不要、サイドバー無し = `AppShell` の `isBare`、`robots: noindex`）で回答 → **AI が口コミの下書き**（`src/lib/reviews/draft.ts`。トーン 3 種と「含めたい語」最大 5 は店舗の設定。モデルは `REVIEW_DRAFT_MODEL`、既定は `LLM_FAST_MODEL`。回答は untrusted ブロック。キー無し / 上限超え / 失敗時は自由記述をそのまま並べる `fallback`）→ 完了画面「店舗にフィードバックを送信しました」+ 編集できる下書き + **「Google マップに投稿する」（評価に関係なく全員同じ。押すと下書きをクリップボードにコピーし、押下を `/api/r/[slug]/events` に記録してから Google の投稿画面 `writeAReviewUri` を新しいタブで開く）** + 低評価（既定 2 以下、店舗が 1〜4 で変更）のときは **「お店に直接伝える」を並列で追加**（本文 + 任意の連絡先 → `/api/r/[slug]/direct`）。
+- **店舗側**: 回答一覧（既定の並びは「低評価・直接連絡・未対応を先に」。新しい順 / 評価が低い順、対応状態・経路・期間・低評価だけで絞り込み）、行を開くと回答全文・AI 下書き・投稿時の本文・直接連絡・対応状態（未対応 / 対応中 / 対応済み）・対応メモ。集計（回答数・平均評価・分布・低評価・**投稿ボタン押下率（実投稿数は取れないと明記）**・経路別・週別 8 週）。CSV（式インジェクション対策済み）。未対応の低評価があればカード 1 に件数の注意。メール通知は無し（送信サービスが無い）。
+- **守り**: 公開パスは `routes.ts` の接頭辞 `/r/` と `/api/r/`（接頭辞そのものは公開しない。`routes.test.ts` で固定）。回数制限は IP ごと（取得 120 / 回答 30 / イベント 60 / 時。店内 Wi-Fi で IP が共有されるため緩め）+ アンケートごとの 1 日 500 件（`REVIEW_FORM_DAILY_LIMIT`）+ AI 下書きの 1 日全体 2,000 件（`REVIEW_AI_DAILY_LIMIT`。超えたら fallback）。来店客側の更新は `edit_token`。管理 API は `ownedForm`（user_id）で所有確認 → form_id。来店客に返すのは `PublicReviewForm`（質問・店名・低評価の閾値・投稿 URL の有無だけ）。
+- **投稿 URL**: 作成時に Place ID を指定すると、保存済みの MEO 報告書の `links.writeReview`（r28）→ 無ければ `https://search.google.com/local/writereview?placeid=` を組み立て。MEO 未登録なら Place ID か URL を手入力。無ければ投稿ボタンは出ない。
+- **プライバシーポリシー**: 第 12 条「店舗のアンケートに回答する方の情報」を追加（第 8 条にも一言）。改定は第 13 条に繰り下げ。
+- **設計時の照合**（[review-support-design.md](./review-support-design.md) §2）: Google の 2025〜2026 年の方針では AI 生成本文・キーワード指定・スタッフ別ノルマが禁止側。利用者の判断で AI 下書きを含めて実装した。店舗向けの注意（全員同じボタン・特典を付けない・語は参考だけ）は画面上部の Callout に明記。
+- **未実装 / 候補**: 低評価のメール通知（Resend 等）、連絡先の自動削除（Cron）、回答 1,000 件超の集計（いまは新しい順 1,000 件の範囲）、QR の印刷用 PDF、課金（店舗数課金にするなら `review_forms` の件数で判定）。
+- **検証**: lint / tsc / test（98 ファイル・1,369 件）/ build 通過。PostgREST のモック + `next start` + Playwright で「作成 → 保存 → QR（SVG / PNG）→ スマホ幅で回答（評価 2）→ 下書き → 投稿ボタン（新タブ + 押下記録）→ お店に直接伝える → 管理画面に低評価 1 件・直接連絡・押下時の本文・メモ保存 → CSV → 偽トークンは 404」を確認。
 
 ### 既知の課題・メモ
 
@@ -463,3 +539,15 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「/tools/maps に無くない？」→ 原因: r28 より前に保存した報告書には `score.extended` が無く、r30 の解説・目指すべき状態が `score.extended` 判定で隠れていた（本番の報告書は r27 以前の保存分の可能性が高い）。**r31**: `MeoReportView` に `variant: "paid" | "free"` を追加し、有料ツールは報告書の新旧に関係なく「3. 目指すべき状態 / 5. 付加情報 / 6. 順位 / 7. 周辺 / 各項目の解説」を出す（数字が無い節は「次回の一斉更新から」の案内、古い形式には「オーナー情報の保存か次回の一斉更新で 28 項目になる」の案内）。無料 `/meo` は従来どおり。Vercel の反映（数分）後に再確認を依頼。
 - 利用者「Q&A の機能は廃止に向かってるの？」→ Web 検索で確認: **Google ビジネス プロフィールの「質問と回答」は廃止済み**（2025-09 に Q&A API 終了告知、2025-11-03 に機能終了、2025-12-03 から表示の段階的削除、新規質問は不可。後継は Gemini ベースの「Ask Maps」で、日本は旧 Q&A が消えて Ask Maps が未提供の空白期間）。前回の回答（「5〜10 問先回りして登録」）は古い情報だったので訂正。**r32**: `guide.ts` の IDEAL_STATE の Q&A 行を「廃止」+ 代替策（説明文・属性・メニュー・投稿・自社サイトの FAQ に先回りして書く）に更新。
 - 利用者「じゃツールからその機能消さなきゃ」→ **r33**: 「目指すべき状態」の表から Q&A の行を削除（表は 8 行）。代替策は「基本情報」行の補足に一言だけ残した。Q&A はもともと採点項目ではなく表の 1 行だけだったので、それ以外に消すものは無い。
+
+### 2026-09-11（別セッション: 口コミ支援サービスの設計）
+
+- 利用者が「店舗向け口コミ支援サービス 設計メモ（たたき台）」を提示（QR → アンケート → AI が口コミの下書き → 編集 → Google マップへ投稿ボタン。低評価には「お店に直接伝える」を並列。店舗側は質問・トーン・キーワード・QR 複数発行・回答一覧・低評価通知・押下率。特典なし、出し分けなし）。
+- Web 検索で Google のマップ投稿ポリシーと消費者庁のステマ規制を照合（**support.google.com / caa.go.jp / 解説記事の多くはこの環境のネットワークポリシーで開けず、検索の要約に基づく。原文確認は #50**）。判明: ① Google は 2025 年から AI 生成の口コミ本文を削除対象（体験が本物でも）。② 2026-04-17 の改定で「特定の内容・キーワード・従業員名を含める依頼」「従業員の口コミノルマ」を明示的に禁止。③ 2026 年からマップ利用者に「この店は口コミの見返りに特典を出しているか」を尋ね、過去分ごと削除。④ 消費者庁 Q&A: 内容指示なし・割引程度の謝礼なら事業者の表示に当たらないが、「星 5」等を条件にすると当たる。
+- 結果を [review-support-design.md](./review-support-design.md) に整理: たたき台の骨格は使える。**外すもの = AI 下書き・トーン設定・含めたいキーワード**（代替: 回答者の自由記述をそのまま完了画面に出してコピーできるようにする）。条件つき = スタッフ別 QR（ノルマに近づくので発行単位は店舗 / テーブル / レジ）、アンケート謝礼（v1 は提供しない推奨）、クリニック（医療広告ガイドラインの確認後）。「お店に直接伝える」は低評価だけでなく全員に出す方が安全。
+- 既存アプリへの載せ方も同ドキュメントに: `/tools/reviews`（MEO タブ、pro、Supabase 必須）、公開ページ `/r/[slug]`（`routes.ts` に前方一致の `PUBLIC_PAGE_PREFIXES` を追加する必要あり）、公開 API 4 本（`ratelimit.ts` 流用 + フォームごとの日次上限）、テーブル 3 つ、QR は `qrcode` を 1 つ足すか URL だけ返す、Places の追加費用なし・Anthropic 不要、口コミ件数の推移は週次の `meo_reports` から流用。業種別の質問テンプレート案（飲食・サロン）。v1 の目安 2〜3 日。
+- 課金モデルは **店舗数課金を推奨**（オールインワンに自社 1 店舗を含め、2 店舗目から +N 円。回答数課金は成功するほど高くなる）。N は利用者の判断。
+- **コードは触っていない**（ドキュメントのみ。`add-release.mjs` 不要）。作業ブランチ `claude/review-support-service-design-n8k2x3` に同じ内容を push し、ドキュメントのみなので main にも直接反映。
+- 次: 利用者が #50（原文確認）と #49（§9 の 9 項目）に回答 → v1 実装に着手。
+- 利用者「問題ありません。Google は AI によって調整された文章の口コミを正式に禁止と明言はしていません。先ほど送った用件でアンケート機能を実装してください」→ **利用者の決定として、たたき台どおり（AI 下書き・トーン・キーワード設定を含む）実装。r34**。新規: `src/lib/reviews/`（questions / forms / responses / draft / metrics / csv / url / api）、`src/app/api/reviews/*`（forms・channels・qr・responses）、`src/app/api/r/[slug]/*`（取得・answers・events・direct）、`src/app/tools/reviews`、`src/app/r/[slug]`、`src/components/reviews/*`（ReviewsTool / FormEditor / ChannelsCard / MetricsCard / ResponsesCard / SurveyPage）。変更: `routes.ts`（公開接頭辞）、`registry.ts`（機能 `reviews`、アイコン `qr`）、`AppShell`（`/r/` は素の画面）、`ratelimit.ts`、`catalog.ts`（pro のハイライト）、`PrivacyPolicy`（第 12 条）、README / ARCHITECTURE。依存を 1 つ追加（`qrcode`、devDependencies に `@types/qrcode`）。テスト 4 ファイル追加 + routes / plans の期待値更新。詳細は上の「口コミ支援（アンケート QR）— r34」。**利用者側の作業は SQL の実行 1 つ（#51）。**
+

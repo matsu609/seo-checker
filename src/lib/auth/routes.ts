@@ -16,6 +16,13 @@
 const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy"]);
 
 /**
+ * ログイン不要で開けるページの前方一致（末尾のスラッシュまで含めて比べる）。
+ * `/r/<slug>` は来店客が店内の QR から開くアンケート（口コミ支援）。
+ * `/r` 単体や `/rank` のような別のパスに広がらないよう、必ず `/` で終わる接頭辞にする。
+ */
+const PUBLIC_PAGE_PREFIXES = ["/r/"] as const;
+
+/**
  * ログイン不要で叩ける API。
  *
  * 前方一致ではなく完全一致で持つ。`/api/site` を前方一致にすると
@@ -28,6 +35,14 @@ const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy"]);
  * ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
  */
 const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/cron/maps-refresh"]);
+
+/**
+ * ログイン不要で叩ける API の前方一致。`/api/r/<slug>/...` は来店客のアンケート
+ * （取得・回答・押下の記録・お店に直接伝える）。ハンドラ側が IP ごとの回数制限と
+ * アンケートごとの 1 日の上限で守る（src/lib/free/ratelimit.ts）。
+ * `/api/reviews/*`（店舗側の管理 API）は `/api/r/` に前方一致しないので保護されたまま。
+ */
+const PUBLIC_API_PREFIXES = ["/api/r/"] as const;
 
 /**
  * Clerk のサインイン・サインアップ画面（ここを保護するとログインできない）と、
@@ -46,6 +61,9 @@ export function isPublicPath(pathname: string): boolean {
   const path = normalizePath(pathname);
   if (PUBLIC_PAGES.has(path)) return true;
   if (PUBLIC_APIS.has(path)) return true;
+  // 接頭辞のあとに 1 文字以上あるときだけ（"/r/" や "/api/r/" そのものは公開しない）
+  if (PUBLIC_PAGE_PREFIXES.some((p) => path.startsWith(p) && path.length > p.length)) return true;
+  if (PUBLIC_API_PREFIXES.some((p) => path.startsWith(p) && path.length > p.length)) return true;
   // /sign-in, /sign-in/factor-one のようなキャッチオールも通す
   return AUTH_PAGE_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
 }
@@ -58,7 +76,9 @@ export function isProtectedPath(pathname: string): boolean {
 /** 一覧の確認・ドキュメント生成用 */
 export const PUBLIC_PATHS = {
   pages: [...PUBLIC_PAGES],
+  pagePrefixes: [...PUBLIC_PAGE_PREFIXES],
   apis: [...PUBLIC_APIS],
+  apiPrefixes: [...PUBLIC_API_PREFIXES],
   authPrefixes: [...AUTH_PAGE_PREFIXES],
 } as const;
 
