@@ -203,7 +203,7 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
 
         <div className="mt-4 border-t border-line pt-4">
           <p className="text-[12px] leading-relaxed text-muted">
-            競合との比較、毎週の自動更新と推移、AI による総評は有料プランで使えます。
+            競合との比較、毎週の自動更新と推移、AI による総評、Google の属性・写真の品質・口コミのキーワード・警告を含む 28 項目の採点と、オーナー情報の入力（説明文・投稿・返信など 9 項目）は有料プランで使えます。
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
             <ServiceGuideButton />
@@ -233,7 +233,7 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
             <MeoReportView report={report.data.report} aiCommentary={null} />
           </div>
           <Callout tone="info" className="no-print mt-6" title="続きは有料プランで">
-            登録すると、この店舗を毎週月曜に自動で取り直して推移を記録し、競合 5 店舗との比較表と AI による総評が使えます。
+            登録すると、この店舗を毎週月曜に自動で取り直して推移を記録し、競合 5 店舗との比較表と AI による総評が使えます。採点は 21 項目から 28 項目（属性・オーナー写真・写真の解像度・口コミのキーワード・口コミ本文・Google の警告）に増え、オーナー情報の入力で残りの項目も採点できます。
             <span className="mt-2 block">
               <Link href="/sign-up" className="font-bold text-accent underline underline-offset-2">
                 無料で登録する

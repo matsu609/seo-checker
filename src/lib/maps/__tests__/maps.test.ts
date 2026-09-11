@@ -6,13 +6,14 @@
  */
 import { describe, expect, it } from "vitest";
 import fixture from "./fixtures/place.json";
-import { parseDetailResponse, parseSearchResponse, toBusinessStatus } from "../parse";
+import { parseDetailResponse, parseSearchResponse, toBusinessStatus, toPrice } from "../parse";
 import {
   CATEGORY_ORDER,
   hoursLookComplete,
   latestReviewAgeDays,
   looksKeywordStuffed,
   scoreProfile,
+  WEIGHTS,
   type ProfileCheck,
 } from "../score";
 import { emptyOwnerInput, type MeoOwnerData } from "../owner-input";
@@ -35,6 +36,51 @@ describe("応答の読み取り", () => {
     expect(d!.reviews).toHaveLength(2);
     expect(d!.description).toBe("落ち着いた雰囲気のヘアサロン。");
     expect(d!.status).toBe("OPERATIONAL");
+  });
+
+  it("r28 で足した項目（追加カテゴリ・住所要素・属性・写真・リンク・価格・警告）を読む", () => {
+    const d = parseDetailResponse(fixture)!;
+    expect(d.primaryType).toBe("hair_salon");
+    expect(d.extraTypes).toEqual(["beauty_salon"]);
+    expect(d.hasBuilding).toBe(true);
+    expect(d.location).toEqual({ lat: 35.6595, lng: 139.7005 });
+    expect(d.price).toBeNull();
+    expect(d.attributes!.map((a) => `${a.label}=${a.value}`)).toEqual([
+      "車いす対応の入口=true",
+      "車いす対応のトイレ=false",
+      "クレジットカード=true",
+      "現金のみ=false",
+      "タッチ決済（NFC）=true",
+      "予約可=true",
+    ]);
+    expect(d.photos).toHaveLength(10);
+    expect(d.photos!.filter((ph) => ph.author === d.name)).toHaveLength(3);
+    expect(d.photos![0]).toEqual({ widthPx: 4032, heightPx: 3024, author: "サンプル美容室 渋谷店" });
+    expect(d.links?.writeReview).toContain("action=review");
+    expect(d.aiSummary).toBeNull();
+    expect(d.serviceArea).toBe(false);
+    expect(d.consumerAlert).toBeNull();
+  });
+
+  it("価格帯: 範囲があればそれ、無ければレベル", () => {
+    expect(toPrice({ priceLevel: "PRICE_LEVEL_MODERATE" })).toBe("¥¥（普通）");
+    expect(toPrice({ priceRange: { startPrice: { currencyCode: "JPY", units: "1000" }, endPrice: { currencyCode: "JPY", units: 2000 } } })).toBe("¥1,000〜¥2,000");
+    expect(toPrice({ priceRange: { startPrice: { currencyCode: "JPY", units: "5000" } } })).toBe("¥5,000〜");
+    expect(toPrice({})).toBeNull();
+    expect(toPrice({ priceLevel: "PRICE_LEVEL_UNSPECIFIED" })).toBeNull();
+  });
+
+  it("r28 の項目が欠けていても落ちず、無いものは null / 空", () => {
+    const d = parseDetailResponse({ id: "x" })!;
+    expect(d.extraTypes).toEqual([]);
+    expect(d.hasBuilding).toBeNull();
+    expect(d.location).toBeNull();
+    expect(d.attributes).toEqual([]);
+    expect(d.photos).toEqual([]);
+    expect(d.links).toBeNull();
+    expect(d.consumerAlert).toBeNull();
+    // 警告があれば文字列
+    expect(parseDetailResponse({ id: "x", consumerAlert: { overview: "不審な口コミ" } })!.consumerAlert).toBe("不審な口コミ");
   });
 
   it("翻訳文が無い口コミは原文を使う", () => {
@@ -104,23 +150,33 @@ function statusById(checks: readonly ProfileCheck[]): Record<string, ProfileChec
 }
 
 describe("充実度の採点", () => {
-  it("フィクスチャは測定できた項目がすべて合格で 100 点", () => {
+  it("フィクスチャは測定できた項目がすべて合格で 100 点（無料 21 項目・有料 28 項目とも）", () => {
     const d = parseDetailResponse(fixture)!;
-    const s = scoreProfile(d, NOW);
-    expect(s.score).toBe(100);
-    expect(s.grade?.grade).toBe("A");
-    expect(s.checks.filter((c) => c.status !== "unavailable").every((c) => c.status === "pass")).toBe(true);
+    for (const extended of [false, true]) {
+      const s = scoreProfile(d, NOW, null, { extended });
+      expect(s.extended).toBe(extended);
+      expect(s.score).toBe(100);
+      expect(s.grade?.grade).toBe("A");
+      expect(s.checks.filter((c) => c.status !== "unavailable").every((c) => c.status === "pass")).toBe(true);
+    }
   });
 
-  it("重みの合計は 100、カテゴリは 4 つで順番どおり", () => {
-    const s = scoreProfile(empty(), NOW);
-    expect(s.totalWeight).toBe(100);
-    expect(s.categories.map((c) => c.id)).toEqual([...CATEGORY_ORDER]);
-    expect(s.categories.map((c) => c.total)).toEqual([11, 2, 3, 5]);
+  it("重みの合計は 100、カテゴリは 4 つで順番どおり（無料 21 項目 / 有料 28 項目）", () => {
+    const base = scoreProfile(empty(), NOW, null, { extended: false });
+    expect(base.totalWeight).toBe(100);
+    expect(base.categories.map((c) => c.id)).toEqual([...CATEGORY_ORDER]);
+    expect(base.categories.map((c) => c.total)).toEqual([11, 2, 3, 5]);
+    const ext = scoreProfile(empty(), NOW);
+    expect(ext.totalWeight).toBe(100);
+    expect(ext.categories.map((c) => c.total)).toEqual([13, 2, 5, 8]);
+    expect(ext.checks).toHaveLength(28);
+    // 表の合計もそれぞれ 100
+    expect(Object.values(WEIGHTS.base).reduce((a, b) => a + b, 0)).toBe(100);
+    expect(Object.values(WEIGHTS.extended).reduce((a, b) => a + b, 0)).toBe(100);
   });
 
   it("オーナー権限が要る項目は unavailable で、採点の分母に入らない", () => {
-    const s = scoreProfile(parseDetailResponse(fixture)!, NOW);
+    const s = scoreProfile(parseDetailResponse(fixture)!, NOW, null, { extended: false });
     const unavailable = s.checks.filter((c) => c.status === "unavailable");
     expect(unavailable.every((c) => c.source === "profile")).toBe(true);
     expect(unavailable.map((c) => c.id)).toEqual([
@@ -230,7 +286,7 @@ describe("オーナー申告での採点", () => {
     expect(s.measuredWeight).toBe(100);
     expect(s.score).toBe(100);
     expect(s.checks.filter((c) => c.source === "owner")).toHaveLength(9);
-    expect(s.categories.map((c) => `${c.measured}/${c.total}`)).toEqual(["11/11", "2/2", "3/3", "5/5"]);
+    expect(s.categories.map((c) => `${c.measured}/${c.total}`)).toEqual(["13/13", "2/2", "5/5", "8/8"]);
   });
 
   it("答えた項目だけが採点に入る（未回答は unavailable のまま）", () => {
@@ -248,6 +304,13 @@ describe("オーナー申告での採点", () => {
     const d = parseDetailResponse(fixture)!;
     expect(scoreProfile(d, NOW, null).checks.filter((c) => c.status === "unavailable")).toHaveLength(9);
     expect(scoreProfile(d, NOW, owner({})).checks.filter((c) => c.status === "unavailable")).toHaveLength(9);
+  });
+
+  it("全部答えると 21 項目すべて測定され、良い申告なら 100 点（無料 21 項目版）", () => {
+    const d = parseDetailResponse(fixture)!;
+    const s = scoreProfile(d, NOW, GOOD_OWNER, { extended: false });
+    expect(s.checks).toHaveLength(21);
+    expect(s.score).toBe(100);
   });
 
   it("説明文: 未設定は fail、短い / URL 入り / キーワード無しは warn、十分なら pass", () => {
@@ -304,5 +367,83 @@ describe("オーナー申告での採点", () => {
     // 口コミ件数が取れない店舗では返信率を出せない → warn
     const noCount = scoreProfile({ ...d, ratingCount: null }, NOW, owner({ repliedReviews: 5 }));
     expect(statusById(noCount.checks).replyRate).toBe("warn");
+  });
+});
+
+/* ───────────── r28: Google から取れる 7 項目 ───────────── */
+
+describe("Google 取得の追加 7 項目（有料のみ）", () => {
+  const d = parseDetailResponse(fixture)!;
+  const run = (patch: Partial<PlaceDetail>, o: MeoOwnerData | null = null) => statusById(scoreProfile({ ...d, ...patch }, NOW, o).checks);
+
+  it("無料 21 項目版には含まれない", () => {
+    const ids = scoreProfile(d, NOW, null, { extended: false }).checks.map((c) => c.id);
+    for (const id of ["extraCategories", "attributes", "ownerPhotos", "photoQuality", "reviewKeywords", "reviewText", "consumerAlert"]) {
+      expect(ids).not.toContain(id);
+    }
+  });
+
+  it("追加カテゴリ: 無ければ warn", () => {
+    expect(run({}).extraCategories).toBe("pass");
+    expect(run({ extraTypes: [] }).extraCategories).toBe("warn");
+  });
+
+  it("属性: 5 個以上 pass、1〜4 warn、0 fail", () => {
+    expect(run({}).attributes).toBe("pass");
+    expect(run({ attributes: d.attributes!.slice(0, 2) }).attributes).toBe("warn");
+    expect(run({ attributes: [] }).attributes).toBe("fail");
+  });
+
+  it("オーナー投稿の写真: 3 枚以上 pass、1〜2 warn、0 fail。投稿者情報が無ければ unavailable", () => {
+    expect(run({}).ownerPhotos).toBe("pass");
+    const photos = d.photos!;
+    expect(run({ photos: [photos[0], ...photos.slice(3)] }).ownerPhotos).toBe("warn");
+    expect(run({ photos: photos.slice(3) }).ownerPhotos).toBe("fail");
+    expect(run({ photos: photos.map((p) => ({ ...p, author: null })) }).ownerPhotos).toBe("unavailable");
+    expect(run({ photos: [], photoCount: 0 }).ownerPhotos).toBe("fail");
+    // 店名の空白違いは同じ投稿者とみなす
+    expect(run({ photos: photos.map((p) => ({ ...p, author: "サンプル美容室渋谷店" })) }).ownerPhotos).toBe("pass");
+  });
+
+  it("写真の解像度: 長辺 1024px 未満があれば warn、大きさが無ければ unavailable", () => {
+    expect(run({}).photoQuality).toBe("pass");
+    const photos = d.photos!;
+    expect(run({ photos: [{ ...photos[0], widthPx: 800, heightPx: 600 }, ...photos.slice(1)] }).photoQuality).toBe("warn");
+    expect(run({ photos: photos.map((p) => ({ ...p, widthPx: null, heightPx: null })) }).photoQuality).toBe("unavailable");
+  });
+
+  it("口コミ内のキーワード: カテゴリか対策キーワードを含めば pass、含まなければ warn", () => {
+    // フィクスチャの口コミにカテゴリ「美容院」が含まれる
+    expect(run({}).reviewKeywords).toBe("pass");
+    expect(run({ category: "理容室" }).reviewKeywords).toBe("warn");
+    expect(run({ category: "理容室" }, owner({ keywords: ["カウンセリング"] })).reviewKeywords).toBe("pass");
+    // 判定に使う語が無ければ warn
+    expect(run({ category: null }, null).reviewKeywords).toBe("warn");
+    expect(run({ reviews: [] }).reviewKeywords).toBe("unavailable");
+  });
+
+  it("口コミ本文: 20 文字以上が 60% 以上で pass", () => {
+    expect(run({}).reviewText).toBe("pass");
+    const short = d.reviews.map((r) => ({ ...r, text: "良い" }));
+    expect(run({ reviews: short }).reviewText).toBe("warn");
+    expect(run({ reviews: [] }).reviewText).toBe("unavailable");
+  });
+
+  it("Google の警告: 無ければ pass、あれば fail", () => {
+    expect(run({}).consumerAlert).toBe("pass");
+    expect(run({ consumerAlert: "不審な口コミ活動が検出されました" }).consumerAlert).toBe("fail");
+  });
+
+  it("r28 より前に保存した詳細（項目が undefined）では、追加項目は unavailable で採点を止めない", () => {
+    const legacy = { ...d } as Record<string, unknown>;
+    for (const k of ["extraTypes", "attributes", "photos", "consumerAlert", "hasBuilding", "links"]) delete legacy[k];
+    const s = scoreProfile(legacy as unknown as PlaceDetail, NOW);
+    const by = statusById(s.checks);
+    expect(by.extraCategories).toBe("unavailable");
+    expect(by.attributes).toBe("unavailable");
+    expect(by.ownerPhotos).toBe("unavailable");
+    expect(by.consumerAlert).toBe("unavailable");
+    expect(by.reviewText).toBe("pass");
+    expect(s.score).not.toBeNull();
   });
 });

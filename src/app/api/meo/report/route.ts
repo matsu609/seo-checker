@@ -21,8 +21,12 @@ import {
 import { isPlacesConfigured, placesErrorResponse } from "@/lib/maps/client";
 import { getPlaceCached, peekPlaceCached } from "@/lib/maps/fetch";
 import { buildMeoReport, type MeoReport } from "@/lib/maps/report";
+import type { ScoreOptions } from "@/lib/maps/score";
 
 export const runtime = "nodejs";
+
+/** 無料診断は r27 までの 21 項目（r28 で足した Google 取得の 7 項目は有料のみ） */
+const FREE_SCORE: ScoreOptions = { extended: false };
 export const maxDuration = 30;
 
 const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
@@ -54,7 +58,7 @@ export async function POST(request: Request) {
   // キャッシュにあれば上限を消費せずに返す（Google への費用が出ない）
   const hit = peekPlaceCached(placeId);
   if (hit) {
-    const body: FreeMeoReportResponse = { report: buildMeoReport(hit), cached: true };
+    const body: FreeMeoReportResponse = { report: buildMeoReport(hit, new Date(), null, FREE_SCORE), cached: true };
     return Response.json(body, { headers: NO_STORE });
   }
   if (!takeClientToken("meo-report", clientKeyOf(request), FREE_MEO_REPORT_PER_HOUR)) {
@@ -66,7 +70,7 @@ export async function POST(request: Request) {
 
   try {
     const { detail, cached } = await getPlaceCached(placeId);
-    const body: FreeMeoReportResponse = { report: buildMeoReport(detail), cached };
+    const body: FreeMeoReportResponse = { report: buildMeoReport(detail, new Date(), null, FREE_SCORE), cached };
     return Response.json(body, { headers: NO_STORE });
   } catch (err) {
     return placesErrorResponse(err);

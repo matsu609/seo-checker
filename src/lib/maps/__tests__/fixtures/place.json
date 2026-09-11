@@ -1,11 +1,22 @@
 {
   "id": "ChIJN1t_tDeuEmsRUsoyG83frY4",
-  "displayName": { "text": "サンプル美容室 渋谷店", "languageCode": "ja" },
+  "displayName": {
+    "text": "サンプル美容室 渋谷店",
+    "languageCode": "ja"
+  },
   "formattedAddress": "日本、〒150-0002 東京都渋谷区渋谷1-1-1",
   "rating": 4.6,
   "userRatingCount": 128,
-  "primaryTypeDisplayName": { "text": "美容院", "languageCode": "ja" },
-  "types": ["hair_salon", "beauty_salon", "point_of_interest", "establishment"],
+  "primaryTypeDisplayName": {
+    "text": "美容院",
+    "languageCode": "ja"
+  },
+  "types": [
+    "hair_salon",
+    "beauty_salon",
+    "point_of_interest",
+    "establishment"
+  ],
   "businessStatus": "OPERATIONAL",
   "nationalPhoneNumber": "03-1234-5678",
   "websiteUri": "https://example.com/",
@@ -21,33 +32,233 @@
     ]
   },
   "photos": [
-    { "name": "places/ChIJ/photos/a" },
-    { "name": "places/ChIJ/photos/b" },
-    { "name": "places/ChIJ/photos/c" },
-    { "name": "places/ChIJ/photos/d" },
-    { "name": "places/ChIJ/photos/e" },
-    { "name": "places/ChIJ/photos/f" },
-    { "name": "places/ChIJ/photos/g" },
-    { "name": "places/ChIJ/photos/h" },
-    { "name": "places/ChIJ/photos/i" },
-    { "name": "places/ChIJ/photos/j" }
+    {
+      "name": "places/ChIJ/photos/a",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "サンプル美容室 渋谷店",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/b",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "サンプル美容室 渋谷店",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/c",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "サンプル美容室 渋谷店",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/d",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "利用者 3",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/e",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "利用者 4",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/f",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "利用者 5",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/g",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "利用者 6",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/h",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "利用者 7",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/i",
+      "widthPx": 3000,
+      "heightPx": 2000,
+      "authorAttributions": [
+        {
+          "displayName": "利用者 8",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ/photos/j",
+      "widthPx": 3000,
+      "heightPx": 2000,
+      "authorAttributions": [
+        {
+          "displayName": "利用者 9",
+          "uri": "https://maps.google.com/maps/contrib/1",
+          "photoUri": "https://x"
+        }
+      ]
+    }
   ],
   "reviews": [
     {
       "rating": 5,
-      "text": { "text": "丁寧なカウンセリングで仕上がりも満足です。", "languageCode": "ja" },
+      "text": {
+        "text": "丁寧なカウンセリングで仕上がりも満足の美容院です。",
+        "languageCode": "ja"
+      },
       "publishTime": "2026-08-20T09:00:00Z",
       "relativePublishTimeDescription": "3 週間前",
-      "authorAttribution": { "displayName": "山田 太郎" }
+      "authorAttribution": {
+        "displayName": "山田 太郎"
+      }
     },
     {
       "rating": 4,
-      "originalText": { "text": "Good service, a bit pricey.", "languageCode": "en" },
+      "originalText": {
+        "text": "Good service, a bit pricey.",
+        "languageCode": "en"
+      },
       "publishTime": "2026-05-02T09:00:00Z",
       "relativePublishTimeDescription": "4 か月前",
-      "authorAttribution": { "displayName": "J. Smith" }
+      "authorAttribution": {
+        "displayName": "J. Smith"
+      }
     }
   ],
-  "editorialSummary": { "text": "落ち着いた雰囲気のヘアサロン。", "languageCode": "ja" },
-  "googleMapsUri": "https://maps.google.com/?cid=1234567890"
+  "editorialSummary": {
+    "text": "落ち着いた雰囲気のヘアサロン。",
+    "languageCode": "ja"
+  },
+  "googleMapsUri": "https://maps.google.com/?cid=1234567890",
+  "primaryType": "hair_salon",
+  "addressComponents": [
+    {
+      "longText": "1-1-1",
+      "shortText": "1-1-1",
+      "types": [
+        "premise"
+      ],
+      "languageCode": "ja"
+    },
+    {
+      "longText": "渋谷",
+      "shortText": "渋谷",
+      "types": [
+        "sublocality_level_2",
+        "sublocality",
+        "political"
+      ],
+      "languageCode": "ja"
+    },
+    {
+      "longText": "渋谷区",
+      "shortText": "渋谷区",
+      "types": [
+        "locality",
+        "political"
+      ],
+      "languageCode": "ja"
+    },
+    {
+      "longText": "東京都",
+      "shortText": "東京都",
+      "types": [
+        "administrative_area_level_1",
+        "political"
+      ],
+      "languageCode": "ja"
+    },
+    {
+      "longText": "日本",
+      "shortText": "JP",
+      "types": [
+        "country",
+        "political"
+      ],
+      "languageCode": "ja"
+    },
+    {
+      "longText": "150-0002",
+      "shortText": "150-0002",
+      "types": [
+        "postal_code"
+      ],
+      "languageCode": "ja"
+    }
+  ],
+  "location": {
+    "latitude": 35.6595,
+    "longitude": 139.7005
+  },
+  "googleMapsLinks": {
+    "directionsUri": "https://www.google.com/maps/dir/?api=1&destination=x",
+    "placeUri": "https://maps.google.com/?cid=1",
+    "writeAReviewUri": "https://www.google.com/maps/place/?q=place_id:ChIJN1t_tDeuEmsRUsoyG83frY4&action=review",
+    "reviewsUri": "https://www.google.com/maps/place/?q=place_id:ChIJN1t_tDeuEmsRUsoyG83frY4&tab=reviews",
+    "photosUri": "https://www.google.com/maps/place/?q=place_id:ChIJN1t_tDeuEmsRUsoyG83frY4&tab=photos"
+  },
+  "accessibilityOptions": {
+    "wheelchairAccessibleEntrance": true,
+    "wheelchairAccessibleRestroom": false
+  },
+  "paymentOptions": {
+    "acceptsCreditCards": true,
+    "acceptsNfc": true,
+    "acceptsCashOnly": false
+  },
+  "reservable": true
 }
