@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 無料診断の切り出し（scripts/extract-free.mjs）。テンプレートと出力はこのアプリの一部ではない
+    "scripts/extract-free/overrides/**",
+    "dist/**",
   ]),
 ]);
 
