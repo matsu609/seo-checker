@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r41 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r42 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -220,7 +220,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 57 | 基本情報掲載の「一括同期」を本当に自動化するなら、配信代行（Uberall / Yext）の契約と API 連携が要る（有料、店舗ごと月額）。契約するかは利用者の判断（下の「入力待ち」） | 利用者 → Claude | 判断待ち |
 | 55 | r38 の SQL を Supabase で実行（`review_forms.translations` と `review_responses.lang`） | 利用者 | **完了（09-11 22:24、r39 の SQL と同時に実行。画面で Success を確認）** |
 | 54 | **口コミ返信を有効にする（Google 側の作業）**: ① Business Profile API の利用申請 → ② 承認後、Google Cloud で API 3 つを有効化 → ③ OAuth の同意画面に `business.manage` スコープを追加 → ④ 本番 `/tools/replies` で「Google に口コミ返信の権限を追加する」→ Google の確認画面で許可（下の「口コミ返信を有効にする手順」） | 利用者 | **①申請済み（09-11、ケース ID `0-4126000041187`、7〜10 営業日）**。②は Account Management / Business Information の 2 つが有効化済み（09-11 確認）。残りの「Google My Business API」（v4）と③④は承認メール後 |
-| 59 | **無料診断の切り出し（zip）を main に入れるか**: 作業ブランチ `claude/happy-mendel-xul1eh` に `scripts/extract-free.mjs` をコミット済み（本体の動きは変えない。tsconfig / eslint の除外と `.gitignore` だけ変更）。マージするなら main へ → `add-release.mjs` | 利用者 → Claude | 判断待ち |
+| 59 | 無料診断の切り出し（zip）を作るスクリプト `scripts/extract-free.mjs` | Claude | **完了（r42、09-12 に利用者の判断で main へマージ）** |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
@@ -256,7 +256,6 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 - Business Profile API の承認結果（#5 / #54 ①。09-11 申請、ケース ID `0-4126000041187`、7〜10 営業日）。承認されたら #54 の②〜④へ
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
 - 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
-- 無料診断の切り出し（#59）: 作業ブランチのままでよいか、main にマージするか（マージすると Vercel が再デプロイされるが、本体の画面・API は何も変わらない）
 - 基本情報掲載（#57）: 配信代行（Uberall / Yext など）を契約して「ワンクリック一括同期」を実装するか。料金の目安（09-11 に検索。日本の正式価格は代理店の見積もり）: Yext は米国の自社向けプランで店舗あたり月額 $16〜$76、代理店経由の小規模契約は店舗あたり年 $1,000〜$3,000 の例もある。Uberall は非公開（日本代理店に問い合わせ）。AI の説明文は 1 回 1 円程度（Haiku 4.5）。無料の一括登録 API は存在しないため、r39 は「1 か所で決めて各媒体に貼る + 掲載状況の管理」まで。契約するなら API キーを Vercel に置き、`src/lib/listings/` に同期の実装を足す
 
 ### フェーズ 2 で使うテーブル（Supabase SQL Editor で実行）
@@ -674,4 +673,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 本体側の変更は 3 つだけ: `.gitignore` に `/dist`、`tsconfig.json` と `eslint.config.mjs` の除外に上書き用テンプレート（`scripts/extract-free/overrides`）と `dist`。テンプレートは本体の一部ではないので検査対象から外す（切り出し版の設定にはこの除外を入れない）。
 - 確認: 本体は lint / tsc / test（1,420 件）/ build すべて通過。切り出し版もリポジトリ外に展開して `npm install` → lint / tsc / test（320 件）/ build を通し、実際に `next start` で起動して ① ダミーサイト（`scripts/e2e/dummy-site.mjs`）の 1 ページ診断と「サイト全体」のクロール進捗、② `/meo` が「準備中」を出すこと（Places キー未設定）、③ `/api/faq` が `enabled:false` を返すこと、④ `/plans`・`/sign-up` が `https://app.seo-checker.tokyo/...` へ 307、⑤ トップに `/` と `/meo` 以外の内部リンクが無いことを確認。画面のスクリーンショットも取得。
 - **注意（切り出し版を公開して使う場合）**: 利用規約・プライバシーポリシー・特商法表記のページは入っていないので別途用意が必要。`/meo` は Google Places に実費が出るため、`FREE_MEO_DAILY_LIMIT` / `FREE_MEO_DAILY_SEARCH_LIMIT` を確認する（上限の記録はプロセス内のメモリなので、サーバーレスではインスタンスごとに独立する目安の歯止め）。
-- 作業ブランチ `claude/happy-mendel-xul1eh` に push 済み（コミット `6683b99`）。**main へマージするかは利用者の判断待ち（#59）。** 今回の指定ブランチが `claude/happy-mendel-xul1eh` だったため、main への直接反映は保留した。マージするときは lint / tsc / test / build は済んでいるので、`node scripts/add-release.mjs "無料診断だけを切り出して zip にするスクリプトを追加"` まで実行する。
+- 作業ブランチ `claude/happy-mendel-xul1eh` に push したあと、利用者の判断で **main へマージ（`e88b915`）し、`add-release.mjs` で r42 を追加**。本体の画面・API は変わらないが、main への push なので Vercel の再デプロイは走る。
