@@ -86,10 +86,26 @@ export interface ReportSummaryBase {
   commentary: CommentaryLine[];
 }
 
+/**
+ * 採点対象外（参考）にしたページ。
+ * もともと検索に載せないページ（サイト内検索の結果など）が noindex か robots.txt で
+ * 実際に検索から外されているもの。site では付録に一覧、page では注記に使う。
+ */
+export interface ExcludedPageRow {
+  url: string;
+  path: string;
+  /** 用途（例: 「サイト内検索の結果ページ」） */
+  label: string;
+  /** 何で外しているか: 「noindex」「robots.txt」「noindex・robots.txt」 */
+  how: string;
+}
+
 export interface PageReportSummary extends ReportSummaryBase {
   mode: "page";
   /** 未対応（fail）の項目ラベル */
   failedLabels: string[];
+  /** このページが検索に載せないページなら、その理由（採点は参考） */
+  excluded: ExcludedPageRow | null;
 }
 
 /** ページ別スコア分布の 1 区分（A〜E） */
@@ -155,6 +171,8 @@ export interface SiteReportSummary extends ReportSummaryBase {
   /** 総合の低い順（入力 URL は先頭固定） */
   rankedPages: RankedPage[];
   priorities: PriorityItem[];
+  /** 診断はしたが採点しなかったページ（平均点・一覧・集計に含めない） */
+  excludedPages: ExcludedPageRow[];
 }
 
 export type ReportSummary = PageReportSummary | SiteReportSummary;

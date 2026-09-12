@@ -6,7 +6,7 @@
  * PageSpeed Insights（A3）は取得に時間がかかるため、呼び出し側が結果を渡す。
  */
 import type { FetchedText } from "@/lib/analyzer/fetch";
-import { intentionalNoindex } from "@/lib/analyzer/page-kind";
+import { notForSearch } from "@/lib/analyzer/page-kind";
 import type { SiteFiles } from "@/lib/analyzer/robots";
 import type { PsiResult } from "@/lib/psi/types";
 import { PAGE_REPORT_THRESHOLDS, SECTION_LABELS, type SectionId } from "./config";
@@ -445,23 +445,38 @@ function robotsRows(
 ): ReportRow[] {
   const searchBlocked = robots.blocked.search;
   const trainingBlocked = robots.blocked.training;
-  // noindex は間違いとは限らない。サイト内検索の結果・買い物かご・ログイン後の画面
-  // などは検索に載せない方が正しいので、「要改善」にはしない（判定は page-kind.ts）
-  const intentional = m.noindex ? intentionalNoindex(pageUrl) : null;
+  // サイト内検索の結果・買い物かご・ログイン後の画面などは、検索に載せない方が正しい。
+  // noindex も robots.txt での拒否も「要改善」にはしない（判定は page-kind.ts）。
+  // ただしサイト全体が拒否されている（Disallow: /）ときは本物の問題なので、
+  // トップページが許可されている場合だけ意図した拒否とみなす。
+  const notForSearchPage = notForSearch(pageUrl);
+  const intentionalNoindex = m.noindex ? notForSearchPage : null;
+  const intendedBlock =
+    notForSearchPage !== null &&
+    searchBlocked > 0 &&
+    evaluateAiBots(siteFiles.robotsTxt, `${origin}/`, `${origin}/robots.txt`).blocked.search === 0
+      ? notForSearchPage
+      : null;
 
   return [
     {
       item: "検索用 AI クローラの許可",
-      status: searchBlocked === 0 ? "適切" : searchBlocked < robots.total.search ? "良好" : "要改善",
+      status:
+        searchBlocked === 0 || intendedBlock
+          ? "適切"
+          : searchBlocked < robots.total.search
+            ? "良好"
+            : "要改善",
       content:
         searchBlocked === 0
           ? `${robots.total.search} 種すべて許可（OAI-SearchBot・Claude-SearchBot・PerplexityBot・Googlebot など）`
           : `${robots.total.search} 種のうち ${searchBlocked} 種を拒否：${robots.bots
               .filter((b) => b.purpose === "search" && !b.allowed)
               .map((b) => b.ua)
-              .join(", ")}`,
-      note:
-        searchBlocked === 0
+              .join(", ")}${intendedBlock ? ` — ${intendedBlock.label}` : ""}`,
+      note: intendedBlock
+        ? `${intendedBlock.reason}robots.txt で拒否したままで問題ありません（トップページは許可されています）。`
+        : searchBlocked === 0
           ? "AI 検索の結果に引用される経路が確保されています。"
           : "検索用クローラを拒否すると、AI 検索の回答に載る機会そのものを失います。robots.txt の Disallow を見直してください。",
     },
@@ -493,14 +508,14 @@ function robotsRows(
     },
     {
       item: "meta robots",
-      status: !m.noindex || intentional ? "適切" : "要改善",
+      status: !m.noindex || intentionalNoindex ? "適切" : "要改善",
       content: m.noindex
-        ? `noindex が指定されています（${m.metaRobots || m.xRobotsTag}）${intentional ? ` — ${intentional.label}` : ""}`
+        ? `noindex が指定されています（${m.metaRobots || m.xRobotsTag}）${intentionalNoindex ? ` — ${intentionalNoindex.label}` : ""}`
         : `noindex はありません${m.metaRobots ? `（robots="${m.metaRobots}"）` : ""}`,
       note: !m.noindex
         ? "検索エンジンと AI 検索の両方に登録できる状態です。"
-        : intentional
-          ? intentional.reason
+        : intentionalNoindex
+          ? `${intentionalNoindex.reason}noindex のままにしておくのが正しい設定です。`
           : "このページは検索にも AI 検索にも登録されません。公開したいページであれば noindex を外してください。",
     },
   ];

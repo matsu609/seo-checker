@@ -114,6 +114,12 @@ export function MethodAppendix({
         </table>
       </div>
 
+      <p className="mt-3 text-[12px] leading-relaxed text-muted">
+        もともと検索に載せないページ（サイト内検索の結果・買い物かご・ログイン後の画面・送信完了・印刷用）が
+        noindex や robots.txt で検索から外されている場合、そのページは診断はしますが採点の対象外（参考）にします。
+        サイト全体の平均点・項目の集計にも含めません。
+      </p>
+
       <SubHeading>グレードの閾値</SubHeading>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[18rem]">

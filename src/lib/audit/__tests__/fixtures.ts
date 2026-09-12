@@ -67,6 +67,7 @@ export function makeContext(overrides: Partial<AuditContext> = {}): AuditContext
       llmsFullTxt: { present: false, length: 0 },
     },
     robotsExists: true,
+    rootRobotsAllowed: true,
     sitemapUrls: [],
     sitemapFound: true,
     faviconExists: true,

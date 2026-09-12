@@ -5,7 +5,7 @@
  * DOM もネットワークもここには出てこないので、HTML の断片から作った
  * AuditPage を渡すだけでテストできる。閾値は config.ts の 1 箇所にある。
  */
-import { intentionalNoindex } from "@/lib/analyzer/page-kind";
+import { notForSearch } from "@/lib/analyzer/page-kind";
 import { AUDIT_THRESHOLDS } from "../config";
 import { fullWidthCount } from "../parse";
 import type { AuditContext, AuditPage, Issue, PageRule } from "../types";
@@ -264,7 +264,7 @@ export const ruleNoindex: PageRule = (page) => {
   const source = page.metaRobots.includes("noindex") ? `meta robots="${page.metaRobots}"` : `X-Robots-Tag: ${page.xRobotsTag}`;
   // サイト内検索の結果・買い物かご・ログイン後の画面などは、検索に載せない方が正しい。
   // 事実として残すが警告にはしない（判定は page-kind.ts）
-  const intentional = intentionalNoindex(page.url);
+  const intentional = notForSearch(page.url);
   if (intentional) {
     return [
       issue(
@@ -273,7 +273,7 @@ export const ruleNoindex: PageRule = (page) => {
         "info",
         page.url,
         `${intentional.label}のため、検索結果に出さない指定があります（${source}）`,
-        `${intentional.reason}このままで対応は不要です。`,
+        `${intentional.reason}noindex のままで対応は不要です。`,
       ),
     ];
   }
@@ -289,19 +289,35 @@ export const ruleNoindex: PageRule = (page) => {
   ];
 };
 
-export const ruleRobotsBlocked: PageRule = (page) =>
-  page.robotsAllowed
-    ? []
-    : [
-        issue(
-          "ROBOTS_BLOCKED",
-          "基本的な設定",
-          "error",
-          page.url,
-          "robots.txt でクロールが拒否されています",
-          "robots.txt の Disallow がこの URL に当たっています。公開したいページであれば対象から外してください。robots.txt で拒否したページは検索にも AI 検索にも載りません。",
-        ),
-      ];
+export const ruleRobotsBlocked: PageRule = (page, ctx) => {
+  if (page.robotsAllowed) return [];
+  // サイト内検索の結果ページなどを robots.txt で止めるのも定石。ただしサイト全体が
+  // 拒否されている（Disallow: /）ときは本物の問題なので、トップページが許可されて
+  // いる場合だけ意図した拒否とみなす（判定は page-kind.ts）
+  const intentional = ctx.rootRobotsAllowed ? notForSearch(page.url) : null;
+  if (intentional) {
+    return [
+      issue(
+        "ROBOTS_BLOCKED",
+        "基本的な設定",
+        "info",
+        page.url,
+        `${intentional.label}のため、robots.txt でクロールが拒否されています`,
+        `${intentional.reason}robots.txt で拒否したままで対応は不要です。`,
+      ),
+    ];
+  }
+  return [
+    issue(
+      "ROBOTS_BLOCKED",
+      "基本的な設定",
+      "error",
+      page.url,
+      "robots.txt でクロールが拒否されています",
+      "robots.txt の Disallow がこの URL に当たっています。公開したいページであれば対象から外してください。robots.txt で拒否したページは検索にも AI 検索にも載りません。",
+    ),
+  ];
+};
 
 export const ruleDepth: PageRule = (page) => {
   if (page.depth === null || page.depth <= T.maxDepth) return [];

@@ -2,8 +2,8 @@ import robotsParser from "robots-parser";
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
 import { fetchText } from "./fetch";
-import { intentionalNoindex } from "./page-kind";
-import type { CheckResult, CheckStatus } from "./types";
+import { notForSearch, type NotForSearchPage } from "./page-kind";
+import type { CheckResult, CheckStatus, PageExclusion } from "./types";
 
 /* ─────────────────────────────────────────────────────────────
    AI クローラは用途で 2 つに分かれ、robots.txt でも別々に指定できる。
@@ -117,6 +117,60 @@ export function extractSitemaps(robotsTxt: string | null): string[] {
   return [...new Set(urls)];
 }
 
+/** meta robots / X-Robots-Tag の noindex を読む（小文字に揃えて返す） */
+export function readNoindex(
+  $: cheerio.CheerioAPI,
+  pageHeaders: Headers,
+): { noindex: boolean; metaRobots: string; xRobots: string } {
+  const metaRobots = ($('meta[name="robots"]').attr("content") ?? "").toLowerCase();
+  const xRobots = (pageHeaders.get("x-robots-tag") ?? "").toLowerCase();
+  return { noindex: metaRobots.includes("noindex") || xRobots.includes("noindex"), metaRobots, xRobots };
+}
+
+/** この URL で robots.txt に拒否されている検索用クローラ */
+function blockedSearchCrawlers(files: SiteFiles, url: string): string[] {
+  return evaluateRobots(files.robotsTxt, url, `${new URL(url).origin}/robots.txt`).blocked.filter(
+    (ua) => purposeOf(ua) === "search",
+  );
+}
+
+/**
+ * robots.txt の拒否が「意図した拒否」か。
+ *
+ * サイト内検索の結果ページなどを robots.txt で拒否するのも定石で、noindex と同じく
+ * 「直すべき問題」ではない。ただしサイト全体が拒否されている（Disallow: /）場合は
+ * それ自体が重大な問題なので、**トップページが許可されているときだけ**意図した拒否と
+ * みなす（そうしないと Disallow: / を見逃す）。
+ * 該当しなければ null（拒否されていない、ふつうのページ、サイト全体の拒否）。
+ */
+export function intendedRobotsBlock(pageUrl: URL, files: SiteFiles): NotForSearchPage | null {
+  if (blockedSearchCrawlers(files, pageUrl.toString()).length === 0) return null;
+  const kind = notForSearch(pageUrl.toString());
+  if (!kind) return null;
+  const homeAllowed = blockedSearchCrawlers(files, `${pageUrl.origin}/`).length === 0;
+  return homeAllowed ? kind : null;
+}
+
+/**
+ * 「もともと検索に載せないページ」が、実際に検索から外されているか。
+ * 該当するページは診断しても採点しない（参考扱い。types.ts の PageExclusion）。
+ * URL の用途だけでは判定しない: /search が検索に載る状態なら、その title や
+ * 説明文はふつうに問われるべきなので採点する。
+ */
+export function searchExclusion(
+  pageUrl: URL,
+  $: cheerio.CheerioAPI,
+  pageHeaders: Headers,
+  files: SiteFiles,
+): PageExclusion | null {
+  const kind = notForSearch(pageUrl.toString());
+  if (!kind) return null;
+  const noindex = readNoindex($, pageHeaders).noindex;
+  const robots = intendedRobotsBlock(pageUrl, files) !== null;
+  if (!noindex && !robots) return null;
+  return { label: kind.label, noindex, robots };
+}
+
 export function checkCrawlers(
   pageUrl: URL,
   $: cheerio.CheerioAPI,
@@ -137,8 +191,11 @@ export function checkCrawlers(
     (ua) => !blockedSearch.includes(ua),
   );
 
+  // 検索に載せないページの意図した拒否は減点しない（判定は intendedRobotsBlock）
+  const intendedBlock = intendedRobotsBlock(pageUrl, files);
+
   const searchStatus: CheckStatus =
-    blockedSearch.length === 0
+    blockedSearch.length === 0 || intendedBlock
       ? "pass"
       : blockedSearch.length === SEARCH_CRAWLERS.length
         ? "fail"
@@ -150,19 +207,25 @@ export function checkCrawlers(
       status: searchStatus,
       weight: 3,
       label:
-        searchStatus === "pass"
-          ? "AI 検索用クローラがアクセス可能"
-          : searchStatus === "fail"
-            ? "AI 検索用クローラがすべてブロックされている"
-            : "一部の AI 検索用クローラがブロックされている",
+        intendedBlock !== null
+          ? `${intendedBlock.label}のため robots.txt での拒否は適切`
+          : searchStatus === "pass"
+            ? "AI 検索用クローラがアクセス可能"
+            : searchStatus === "fail"
+              ? "AI 検索用クローラがすべてブロックされている"
+              : "一部の AI 検索用クローラがブロックされている",
       evidence:
         blockedSearch.length === 0
           ? info.exists
             ? `robots.txt で検索用 ${SEARCH_CRAWLERS.length} 種がすべて許可されています`
             : "robots.txt が無いため、すべてのクローラが許可されています"
-          : `拒否: ${blockedSearch.join(", ")}${allowedSearch.length > 0 ? ` / 許可: ${allowedSearch.join(", ")}` : ""}`,
+          : `拒否: ${blockedSearch.join(", ")}${allowedSearch.length > 0 ? ` / 許可: ${allowedSearch.join(", ")}` : ""}${
+              intendedBlock
+                ? ` — ${intendedBlock.reason}robots.txt で拒否したままで問題ありません（トップページは許可されています）。`
+                : ""
+            }`,
       advice:
-        "OAI-SearchBot・PerplexityBot・Claude-SearchBot などの検索用クローラは、AI が回答に引用元として載せるためにページを読みに来ます。これを robots.txt で拒否すると、AI 検索に出る機会そのものが無くなります。学習用（GPTBot など）とは別の User-agent なので、学習だけ止めて検索は許可する、という指定ができます。",
+        "OAI-SearchBot・PerplexityBot・Claude-SearchBot などの検索用クローラは、AI が回答に引用元として載せるためにページを読みに来ます。これを robots.txt で拒否すると、AI 検索に出る機会そのものが無くなります。学習用（GPTBot など）とは別の User-agent なので、学習だけ止めて検索は許可する、という指定ができます。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページであれば、拒否したままで問題ありません。",
     }),
   );
 
@@ -190,10 +253,8 @@ export function checkCrawlers(
   // などは検索に載せない方が正しく、外させると中身の薄いページが大量に登録される。
   // URL から用途が分かるページでは、jsonld-website と同じく配点を残したまま減点だけ
   // を外す（判定の一覧は page-kind.ts）。
-  const metaRobots = ($('meta[name="robots"]').attr("content") ?? "").toLowerCase();
-  const xRobots = (pageHeaders.get("x-robots-tag") ?? "").toLowerCase();
-  const noindex = metaRobots.includes("noindex") || xRobots.includes("noindex");
-  const intentional = noindex ? intentionalNoindex(pageUrl.toString()) : null;
+  const { noindex, metaRobots, xRobots } = readNoindex($, pageHeaders);
+  const intentional = noindex ? notForSearch(pageUrl.toString()) : null;
   const noindexSource = `meta robots="${metaRobots || "-"}" / X-Robots-Tag="${xRobots || "-"}"`;
   results.push(
     check({
@@ -209,7 +270,7 @@ export function checkCrawlers(
       evidence: !noindex
         ? undefined
         : intentional
-          ? `${noindexSource} — ${intentional.reason}`
+          ? `${noindexSource} — ${intentional.reason}noindex のままにしておくのが正しい設定です。`
           : noindexSource,
       advice:
         "このページは noindex が指定されており、検索エンジンにも AI 検索にも登録されません。公開したいページであれば meta robots / X-Robots-Tag の noindex を外してください。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページであれば、そのままで問題ありません。",

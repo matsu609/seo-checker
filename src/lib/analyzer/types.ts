@@ -55,12 +55,31 @@ export interface PageSnapshot {
   fetchedAt: string;
 }
 
+/**
+ * 採点対象外（参考）にしたページの理由。
+ *
+ * もともと検索に載せないページ（サイト内検索の結果・買い物かご・ログイン後の画面など。
+ * 判定は page-kind.ts）が、実際に noindex か robots.txt で検索から外されているときに付く。
+ * 診断はするが、サイト診断の平均点・項目の集計には入れない。/search に説明文が無いのは
+ * 当然で、それを「未対応」と数えるとサイト全体の点を意味なく下げるため。
+ */
+export interface PageExclusion {
+  /** 用途（例: 「サイト内検索の結果ページ」） */
+  label: string;
+  /** meta robots / X-Robots-Tag の noindex で外している */
+  noindex: boolean;
+  /** robots.txt の Disallow で外している（トップページは許可されている = 意図した拒否） */
+  robots: boolean;
+}
+
 export interface AnalysisResult {
   page: PageSnapshot;
   overall: number;
   categories: CategoryScore[];
   /** 診断中に起きた非致命的な問題 */
   notes: string[];
+  /** 参考扱い（採点対象外）にする理由。null なら採点対象 */
+  excluded: PageExclusion | null;
 }
 
 export const CATEGORY_LABELS: Record<CategoryId, string> = {
@@ -108,6 +127,11 @@ export interface SitePageFailure {
   message: string;
 }
 
+/** 診断はしたが採点しなかったページ（もともと検索に載せないページ） */
+export interface SiteExcludedPage extends PageExclusion {
+  url: string;
+}
+
 /** カテゴリごとの、ページ横断の集計 */
 export interface SiteCategoryScore {
   id: CategoryId;
@@ -141,9 +165,11 @@ export interface SiteAnalysisResult {
   /** 入力された URL */
   entryUrl: string;
   origin: string;
-  /** 実際に診断したページ（入力 URL を先頭に含む） */
+  /** 採点したページ（入力 URL が採点対象なら先頭に含む） */
   pages: SitePageResult[];
   failures: SitePageFailure[];
+  /** 診断はしたが採点しなかったページ（検索に載せないページ）。平均点・項目の集計に入れない */
+  excluded: SiteExcludedPage[];
   /** 全ページの総合スコアの平均 */
   overall: number;
   categories: SiteCategoryScore[];
@@ -179,8 +205,10 @@ export interface SiteCrawlStats {
   discovered: number;
   /** 取得を試みたページ数 */
   fetched: number;
-  /** 診断できたページ数（= pages.length） */
+  /** 採点したページ数（= pages.length） */
   analyzed: number;
+  /** 診断はしたが採点しなかったページ数（= excluded.length） */
+  excluded: number;
   /** 取得・診断に失敗したページ数（= failures.length） */
   failed: number;
   /** HTML 以外・別サイトへの転送・重複で対象外にした数 */
@@ -205,7 +233,7 @@ export interface SiteProgress {
   queued: number;
   /** これまでに見つかった一意な URL 数 */
   discovered: number;
-  /** 診断が終わったページ数 */
+  /** 診断が終わったページ数（採点対象外にするページも含む） */
   analyzed: number;
   /** 取得・診断に失敗したページ数 */
   failed: number;

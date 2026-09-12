@@ -16,6 +16,7 @@ import {
   type CategoryScore,
   type CheckResult,
   type CheckStatus,
+  type PageExclusion,
   type SiteAnalysisResult,
   type SiteCheckSummary,
   type SiteCrawlTruncation,
@@ -28,6 +29,7 @@ import type {
   CategoryRow,
   CommentaryLine,
   CommentaryPart,
+  ExcludedPageRow,
   Improvement,
   PageReportSummary,
   PriorityItem,
@@ -138,6 +140,14 @@ function spreadIndex(spread: "uniform" | "mixed" | undefined): number {
   return spread === "mixed" ? 1 : 0;
 }
 
+/** 採点対象外のページの 1 行（「noindex・robots.txt」のように外し方を並べる） */
+function excludedRow(url: string, exclusion: PageExclusion): ExcludedPageRow {
+  const how = [exclusion.noindex ? "noindex" : "", exclusion.robots ? "robots.txt" : ""]
+    .filter(Boolean)
+    .join("・");
+  return { url, path: pathOf(url), label: exclusion.label, how: how || "—" };
+}
+
 // ---------------------------------------------------------------------------
 // PAGE モード
 // ---------------------------------------------------------------------------
@@ -233,6 +243,7 @@ export function buildPageSummary(result: AnalysisResult): PageReportSummary {
       projectedGrade,
     }),
     failedLabels: improvements.filter((i) => i.status === "fail").map((i) => i.label),
+    excluded: result.excluded ? excludedRow(result.page?.finalUrl ?? "", result.excluded) : null,
   };
 }
 
@@ -483,10 +494,12 @@ export function buildSiteSummary(result: SiteAnalysisResult): SiteReportSummary 
   const checks = result.checks ?? [];
   const pageCount = pages.length;
 
-  const entryIndex = Math.max(
-    0,
-    pages.findIndex((p) => sameTarget(p.url, result.entryUrl)),
-  );
+  // 入力 URL が採点対象外（検索に載せないページ）だったときは、どのページも
+  // 「入力 URL」と印を付けない。それ以外で見つからないのは正規化のずれなので先頭に寄せる
+  const excludedPages = (result.excluded ?? []).map((e) => excludedRow(e.url, e));
+  const foundEntry = pages.findIndex((p) => sameTarget(p.url, result.entryUrl));
+  const entryExcluded = excludedPages.some((e) => sameTarget(e.url, result.entryUrl));
+  const entryIndex = foundEntry >= 0 ? foundEntry : entryExcluded ? -1 : 0;
   const entries: PageEntry[] = pages.map((page, index) => ({
     page,
     index,
@@ -580,6 +593,7 @@ export function buildSiteSummary(result: SiteAnalysisResult): SiteReportSummary 
     uniformFailCount,
     rankedPages,
     priorities: sitePriorities(checks, pageCount),
+    excludedPages,
   };
 }
 

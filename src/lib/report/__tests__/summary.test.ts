@@ -71,7 +71,7 @@ function overallOf(categories: CategoryScore[]): number {
 
 function mkPage(checks: CheckResult[]): AnalysisResult {
   const categories = mkCategories(checks);
-  return { page: SNAPSHOT, overall: overallOf(categories), categories, notes: [] };
+  return { page: SNAPSHOT, overall: overallOf(categories), categories, notes: [], excluded: null };
 }
 
 /** 総合スコアだけを指定したページ結果（グレード閾値の検証用） */
@@ -81,6 +81,7 @@ function pageWithOverall(overall: number): AnalysisResult {
     overall,
     categories: mkCategories([mkCheck("title", "meta", "pass", 3)]),
     notes: [],
+    excluded: null,
   };
 }
 
@@ -150,6 +151,7 @@ function mkSite(
     origin: "https://example.com",
     pages,
     failures: [],
+    excluded: [],
     overall,
     categories: mkSiteCategories(pages),
     checks,
@@ -158,6 +160,7 @@ function mkSite(
       discovered: pages.length,
       fetched: pages.length,
       analyzed: pages.length,
+      excluded: 0,
       failed: 0,
       skipped: 0,
       durationMs: 12_000,
@@ -358,8 +361,24 @@ describe("buildPageSummary", () => {
     }
   });
 
+  it("検索に載せないページを単体で診断したときは、その理由を返す", () => {
+    const page = mkPage([mkCheck("title", "meta", "fail", 3)]);
+    const s = buildPageSummary({
+      ...page,
+      page: { ...SNAPSHOT, url: "https://example.com/search?q=a", finalUrl: "https://example.com/search?q=a" },
+      excluded: { label: "サイト内検索の結果ページ", noindex: true, robots: true },
+    });
+    expect(s.excluded).toEqual({
+      url: "https://example.com/search?q=a",
+      path: "/search?q=a",
+      label: "サイト内検索の結果ページ",
+      how: "noindex・robots.txt",
+    });
+    expect(buildPageSummary(page).excluded).toBeNull();
+  });
+
   it("端ケース: カテゴリが空でも落ちない", () => {
-    const s = buildPageSummary({ page: SNAPSHOT, overall: 0, categories: [], notes: [] });
+    const s = buildPageSummary({ page: SNAPSHOT, overall: 0, categories: [], notes: [], excluded: null });
     expect(s.categories).toEqual([]);
     expect(s.best.id).toBe(CATEGORY_ORDER[0]);
     expect(s.worst.score).toBe(0);
@@ -604,6 +623,37 @@ describe("buildSiteSummary", () => {
       }),
     );
     expect(lineText(s.commentary[0])).toContain("制限時間で打ち切ったため");
+  });
+
+  it("採点対象外のページは一覧・件数に入れず、付録用の行にする", () => {
+    const s = buildSiteSummary(
+      mkSite(pages, checks, {
+        excluded: [
+          { url: "https://example.com/search?q=a", label: "サイト内検索の結果ページ", noindex: true, robots: false },
+          { url: "https://example.com/cart", label: "買い物かご・購入手続きのページ", noindex: false, robots: true },
+        ],
+      }),
+    );
+    expect(s.pageCount).toBe(4);
+    expect(s.rankedPages).toHaveLength(4);
+    expect(s.excludedPages).toEqual([
+      { url: "https://example.com/search?q=a", path: "/search?q=a", label: "サイト内検索の結果ページ", how: "noindex" },
+      { url: "https://example.com/cart", path: "/cart", label: "買い物かご・購入手続きのページ", how: "robots.txt" },
+    ]);
+    // 入力 URL は今までどおり先頭
+    expect(s.rankedPages[0].isEntry).toBe(true);
+  });
+
+  it("入力 URL が採点対象外のときは、どのページにも「入力 URL」の印を付けない", () => {
+    const s = buildSiteSummary(
+      mkSite(pages, checks, {
+        entryUrl: "https://example.com/search?q=a",
+        excluded: [{ url: "https://example.com/search?q=a", label: "サイト内検索の結果ページ", noindex: true, robots: false }],
+      }),
+    );
+    expect(s.rankedPages.every((p) => !p.isEntry)).toBe(true);
+    // 印が無いので、純粋に総合の低い順
+    expect(s.rankedPages.map((p) => p.path)).toEqual(["/a", "/c", "/b", "/（トップ）"]);
   });
 
   it("端ケース: 1 ページだけのサイト", () => {

@@ -5,7 +5,7 @@ import { normalizeUrl } from "../fetch";
 import { checkHeadings, findLevelSkips } from "../headings";
 import { checkStructuredData, extractJsonLd } from "../jsonld";
 import { checkMeta } from "../meta";
-import { checkCrawlers, evaluateRobots, type SiteFiles } from "../robots";
+import { checkCrawlers, evaluateRobots, searchExclusion, type SiteFiles } from "../robots";
 import { buildCategories, overallScore, scoreCategory } from "../scoring";
 import { check, optionalCheck } from "../check";
 import { extractSitemaps } from "../robots";
@@ -208,6 +208,127 @@ describe("checkCrawlers の noindex", () => {
     const byId = run("https://example.com/search");
     expect(byId["noindex"].status).toBe("pass");
     expect(byId["noindex"].label).toBe("noindex が設定されていない");
+  });
+});
+
+describe("checkCrawlers の robots.txt 拒否", () => {
+  const filesWith = (robotsTxt: string | null): SiteFiles => ({
+    origin: "https://example.com",
+    robotsTxt,
+    sitemaps: [],
+    llmsTxt: { present: false, length: 0, status: 404 },
+    llmsFullTxt: { present: false, length: 0 },
+  });
+  const run = (url: string, robotsTxt: string | null) =>
+    Object.fromEntries(
+      checkCrawlers(
+        new URL(url),
+        cheerio.load("<html><head></head><body></body></html>"),
+        new Headers(),
+        filesWith(robotsTxt),
+      ).map((r) => [r.id, r]),
+    );
+
+  const BLOCK_SEARCH = "User-agent: *\nAllow: /\nDisallow: /search";
+  const BLOCK_ALL = "User-agent: *\nDisallow: /";
+
+  it("公開したいページが拒否されていれば fail のまま", () => {
+    const byId = run("https://example.com/service", "User-agent: *\nDisallow: /service");
+    expect(byId["ai-crawlers-allowed"].status).toBe("fail");
+    expect(byId["ai-crawlers-allowed"].weight).toBe(3);
+  });
+
+  // 検索結果ページを robots.txt で止めるのも定石。減点しない
+  it("サイト内検索の結果ページの拒否は減点しない", () => {
+    const byId = run("https://example.com/search?q=seo", BLOCK_SEARCH);
+    expect(byId["ai-crawlers-allowed"].status).toBe("pass");
+    expect(byId["ai-crawlers-allowed"].weight).toBe(3);
+    expect(byId["ai-crawlers-allowed"].label).toBe(
+      "サイト内検索の結果ページのため robots.txt での拒否は適切",
+    );
+    expect(byId["ai-crawlers-allowed"].advice).toBeUndefined();
+  });
+
+  // ここを見逃すと、サイト全体を止めている致命的な設定を「適切」と言ってしまう
+  it("サイト全体が拒否されている（Disallow: /）ときは、検索ページでも fail", () => {
+    const byId = run("https://example.com/search?q=seo", BLOCK_ALL);
+    expect(byId["ai-crawlers-allowed"].status).toBe("fail");
+    expect(byId["ai-crawlers-allowed"].label).toBe("AI 検索用クローラがすべてブロックされている");
+  });
+
+  it("同じ robots.txt でも、ふつうのページは今までどおり判定する", () => {
+    expect(run("https://example.com/company", BLOCK_SEARCH)["ai-crawlers-allowed"].status).toBe(
+      "pass",
+    );
+    expect(run("https://example.com/", BLOCK_ALL)["ai-crawlers-allowed"].status).toBe("fail");
+  });
+
+  it("一部のクローラだけ拒否されている検索ページも減点しない", () => {
+    const byId = run(
+      "https://example.com/search",
+      "User-agent: *\nAllow: /\nUser-agent: PerplexityBot\nDisallow: /search",
+    );
+    expect(byId["ai-crawlers-allowed"].status).toBe("pass");
+    expect(byId["ai-crawlers-allowed"].evidence).toContain("PerplexityBot");
+  });
+});
+
+// 「検索に載せないページ」を採点対象外（参考）にする判定。
+// URL の用途だけでは決めず、実際に noindex か robots.txt で止まっているときだけ該当
+describe("searchExclusion", () => {
+  const files = (robotsTxt: string | null): SiteFiles => ({
+    origin: "https://example.com",
+    robotsTxt,
+    sitemaps: [],
+    llmsTxt: { present: false, length: 0, status: 404 },
+    llmsFullTxt: { present: false, length: 0 },
+  });
+  const NOINDEX = '<html><head><meta name="robots" content="noindex"></head><body></body></html>';
+  const PLAIN = "<html><head></head><body></body></html>";
+  const run = (url: string, html: string, robotsTxt: string | null, headers: Record<string, string> = {}) =>
+    searchExclusion(new URL(url), cheerio.load(html), new Headers(headers), files(robotsTxt));
+
+  it("検索結果ページが noindex なら該当（外し方も返す）", () => {
+    expect(run("https://example.com/search?q=seo", NOINDEX, "User-agent: *\nAllow: /")).toEqual({
+      label: "サイト内検索の結果ページ",
+      noindex: true,
+      robots: false,
+    });
+  });
+
+  it("robots.txt だけで止めていても該当。両方なら両方 true", () => {
+    const blockSearch = "User-agent: *\nAllow: /\nDisallow: /search";
+    expect(run("https://example.com/search", PLAIN, blockSearch)).toEqual({
+      label: "サイト内検索の結果ページ",
+      noindex: false,
+      robots: true,
+    });
+    expect(run("https://example.com/search", NOINDEX, blockSearch)).toMatchObject({ noindex: true, robots: true });
+    expect(run("https://example.com/cart", PLAIN, "User-agent: *\nAllow: /", { "x-robots-tag": "noindex" })).toMatchObject({
+      label: "買い物かご・購入手続きのページ",
+      noindex: true,
+    });
+  });
+
+  it("検索に載る状態の /search は採点対象のまま（title や説明文はふつうに問う）", () => {
+    expect(run("https://example.com/search?q=seo", PLAIN, "User-agent: *\nAllow: /")).toBeNull();
+    expect(run("https://example.com/search?q=seo", PLAIN, null)).toBeNull();
+  });
+
+  it("ふつうのページは noindex でも採点対象のまま（うっかり noindex を見逃さない）", () => {
+    expect(run("https://example.com/service", NOINDEX, "User-agent: *\nAllow: /")).toBeNull();
+    expect(run("https://example.com/", NOINDEX, "User-agent: *\nAllow: /")).toBeNull();
+  });
+
+  // サイト全体の拒否は「意図した拒否」ではないので、robots.txt だけでは該当にしない
+  it("Disallow: / のときは robots.txt を理由にしない", () => {
+    expect(run("https://example.com/search", PLAIN, "User-agent: *\nDisallow: /")).toBeNull();
+    // noindex があれば noindex だけを理由に該当する
+    expect(run("https://example.com/search", NOINDEX, "User-agent: *\nDisallow: /")).toEqual({
+      label: "サイト内検索の結果ページ",
+      noindex: true,
+      robots: false,
+    });
   });
 });
 
@@ -510,6 +631,7 @@ function fakeAnalysis(
       overall: 0,
       categories: buildCategories(built),
       notes: [],
+      excluded: null,
     },
   };
 }
