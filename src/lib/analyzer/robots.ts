@@ -2,6 +2,7 @@ import robotsParser from "robots-parser";
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
 import { fetchText } from "./fetch";
+import { intentionalNoindex } from "./page-kind";
 import type { CheckResult, CheckStatus } from "./types";
 
 /* ─────────────────────────────────────────────────────────────
@@ -185,21 +186,33 @@ export function checkCrawlers(
   );
 
   // --- noindex ---------------------------------------------------------------
+  // noindex は間違いとは限らない。サイト内検索の結果・買い物かご・ログイン後の画面
+  // などは検索に載せない方が正しく、外させると中身の薄いページが大量に登録される。
+  // URL から用途が分かるページでは、jsonld-website と同じく配点を残したまま減点だけ
+  // を外す（判定の一覧は page-kind.ts）。
   const metaRobots = ($('meta[name="robots"]').attr("content") ?? "").toLowerCase();
   const xRobots = (pageHeaders.get("x-robots-tag") ?? "").toLowerCase();
   const noindex = metaRobots.includes("noindex") || xRobots.includes("noindex");
+  const intentional = noindex ? intentionalNoindex(pageUrl.toString()) : null;
+  const noindexSource = `meta robots="${metaRobots || "-"}" / X-Robots-Tag="${xRobots || "-"}"`;
   results.push(
     check({
       id: "noindex",
       category: "crawlers",
-      status: noindex ? "fail" : "pass",
+      status: !noindex || intentional ? "pass" : "fail",
       weight: 2,
-      label: noindex ? "noindex が設定されている" : "noindex が設定されていない",
-      evidence: noindex
-        ? `meta robots="${metaRobots || "-"}" / X-Robots-Tag="${xRobots || "-"}"`
-        : undefined,
+      label: !noindex
+        ? "noindex が設定されていない"
+        : intentional
+          ? `${intentional.label}のため noindex は適切`
+          : "noindex が設定されている",
+      evidence: !noindex
+        ? undefined
+        : intentional
+          ? `${noindexSource} — ${intentional.reason}`
+          : noindexSource,
       advice:
-        "このページは noindex が指定されており、検索エンジンにも AI 検索にも登録されません。公開したいページであれば meta robots / X-Robots-Tag の noindex を外してください。",
+        "このページは noindex が指定されており、検索エンジンにも AI 検索にも登録されません。公開したいページであれば meta robots / X-Robots-Tag の noindex を外してください。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページであれば、そのままで問題ありません。",
     }),
   );
 

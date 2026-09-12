@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
+import { isHomePage } from "./page-kind";
 import type { CheckResult } from "./types";
 
 export interface JsonLdInfo {
@@ -142,16 +143,6 @@ export function hasFaqContent($: cheerio.CheerioAPI): boolean {
   return labelled && questionHeadings >= 1;
 }
 
-/** サイトのトップページか（/ と /index.* を同じとみなす） */
-export function isHomePage(pageUrl: string): boolean {
-  try {
-    const { pathname } = new URL(pageUrl);
-    return pathname === "/" || /^\/index\.[a-z0-9]+$/i.test(pathname);
-  } catch {
-    return false;
-  }
-}
-
 export function checkStructuredData($: cheerio.CheerioAPI, pageUrl: string): CheckResult[] {
   const info = extractJsonLd($);
   const has = (...names: string[]) => names.some((n) => info.types.includes(n));
@@ -245,17 +236,24 @@ export function checkStructuredData($: cheerio.CheerioAPI, pageUrl: string): Che
     }),
   );
 
+  // パンくずは「サイトのどの階層にいるか」を示すもの。トップページは階層の最上位
+  // そのもので、上位が無い以上「ホーム」1 件だけの BreadcrumbList になり、位置を
+  // 何も伝えない。WebSite と対になる扱いで、トップページでは配点を残したまま
+  // 減点だけを外す。
   results.push(
     check({
       id: "jsonld-breadcrumb",
       category: "structuredData",
-      status: has("BreadcrumbList") ? "pass" : "warn",
+      status: home || has("BreadcrumbList") ? "pass" : "warn",
       weight: 1,
-      label: has("BreadcrumbList")
-        ? "パンくず(BreadcrumbList)構造化データがある"
-        : "パンくず(BreadcrumbList)構造化データがない",
+      label: home
+        ? "パンくず(BreadcrumbList)はトップページには不要"
+        : has("BreadcrumbList")
+          ? "パンくず(BreadcrumbList)構造化データがある"
+          : "パンくず(BreadcrumbList)構造化データがない",
+      evidence: home ? "トップページは階層の最上位のため、この項目は対象外です" : undefined,
       advice:
-        "BreadcrumbList は、このページがサイトのどの階層にあるかを伝えます。トップ > サービス > 詳細 のような位置関係が AI に伝わり、ページの文脈を理解しやすくなります。",
+        "BreadcrumbList は、このページがサイトのどの階層にあるかを伝えます。トップ > サービス > 詳細 のような位置関係が AI に伝わり、ページの文脈を理解しやすくなります。階層の最上位であるトップページには不要です。",
     }),
   );
 

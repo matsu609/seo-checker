@@ -5,6 +5,7 @@
  * DOM もネットワークもここには出てこないので、HTML の断片から作った
  * AuditPage を渡すだけでテストできる。閾値は config.ts の 1 箇所にある。
  */
+import { intentionalNoindex } from "@/lib/analyzer/page-kind";
 import { AUDIT_THRESHOLDS } from "../config";
 import { fullWidthCount } from "../parse";
 import type { AuditContext, AuditPage, Issue, PageRule } from "../types";
@@ -261,6 +262,21 @@ export const ruleNoindex: PageRule = (page) => {
   const noindex = page.metaRobots.includes("noindex") || page.xRobotsTag.includes("noindex");
   if (!noindex) return [];
   const source = page.metaRobots.includes("noindex") ? `meta robots="${page.metaRobots}"` : `X-Robots-Tag: ${page.xRobotsTag}`;
+  // サイト内検索の結果・買い物かご・ログイン後の画面などは、検索に載せない方が正しい。
+  // 事実として残すが警告にはしない（判定は page-kind.ts）
+  const intentional = intentionalNoindex(page.url);
+  if (intentional) {
+    return [
+      issue(
+        "NOINDEX",
+        "基本的な設定",
+        "info",
+        page.url,
+        `${intentional.label}のため、検索結果に出さない指定があります（${source}）`,
+        `${intentional.reason}このままで対応は不要です。`,
+      ),
+    ];
+  }
   return [
     issue(
       "NOINDEX",

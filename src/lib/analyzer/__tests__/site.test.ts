@@ -8,9 +8,10 @@ import { analyzeSite } from "../site";
 /**
  * ローカルに立てたダミーサイトに対して、実際に fetch させて診断する。
  *
- * 再現したい状況: トップと /company は同じサイトだが、
- *  - トップだけ WebSite の JSON-LD があり、パンくずが無い
- *  - /company だけパンくずがあり、WebSite が無い
+ * 再現したい状況: トップと下層ページは同じサイトだが、
+ *  - トップだけ WebSite の JSON-LD があり、パンくずが無い（最上位なので不要）
+ *  - /company と /service はパンくずがあり、WebSite が無い
+ *  - /blog/article だけ、下層ページなのにパンくずが無い
  *  - /company は表組み中心で、本文の書き方もトップとは違う
  * この状態でページ単位のスコアが何によって変わるのかと、サイト診断がその差を
  * 「ページによって差がある項目」として拾えることを確かめる。
@@ -41,6 +42,12 @@ const COMPANY_JSONLD = JSON.stringify({
     { "@type": "Organization", name: "ダミー社", sameAs: ["https://example.com/x"] },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1 }] },
   ],
+});
+
+/** 下層ページなのにパンくずが無い（= 減点される）ページ用 */
+const ARTICLE_JSONLD = JSON.stringify({
+  "@context": "https://schema.org",
+  "@graph": [{ "@type": "Organization", name: "ダミー社", sameAs: ["https://example.com/x"] }],
 });
 
 const PARAGRAPH = "当社はダミーの会社です。事業内容や実績についてご紹介します。".repeat(40);
@@ -81,10 +88,24 @@ const SERVICE_HTML = `<!doctype html><html lang="ja">${HEAD("サービス | ダ�
   </body></html>`;
 
 /** サイトマップには無く、/service からだけリンクされている記事 */
-const ARTICLE_HTML = `<!doctype html><html lang="ja">${HEAD("記事 | ダミー社", COMPANY_JSONLD)}
+const ARTICLE_HTML = `<!doctype html><html lang="ja">${HEAD("記事 | ダミー社", ARTICLE_JSONLD)}
   <body>
     <nav><a href="/">ホーム</a></nav>
     <main><h1>記事</h1><h2>本文</h2><p>${PARAGRAPH}</p></main>
+  </body></html>`;
+
+/**
+ * サイト内検索の結果ページ。サイトマップにも内部リンクにも出さないので
+ * クロールでは見つからない（analyze で直接指定したときだけ診断される）。
+ */
+const SEARCH_HTML = `<!doctype html><html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <title>「テスト」の検索結果 | ダミー社</title>
+    <meta name="robots" content="noindex, follow">
+  </head>
+  <body>
+    <main><h1>「テスト」の検索結果</h1><p>3 件見つかりました。</p></main>
   </body></html>`;
 
 let server: Server;
@@ -110,6 +131,8 @@ beforeAll(async () => {
         return send(SERVICE_HTML.replace("</main>", `<a href="/blog/article">記事</a></main>`));
       case "/blog/article":
         return send(ARTICLE_HTML);
+      case "/search":
+        return send(SEARCH_HTML);
       case "/robots.txt":
         return send(`User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml`, "text/plain");
       case "/sitemap.xml":
@@ -142,27 +165,51 @@ afterAll(async () => {
 });
 
 describe("ページ単位の診断", () => {
-  it("同じサイトでもページごとに構造化データの点が変わる", async () => {
+  it("項目ごとに「そのページで問うべきか」で採点が分かれる", async () => {
     const top = await analyze(`${origin}/`);
     const company = await analyze(`${origin}/company`);
+    const article = await analyze(`${origin}/blog/article`);
 
     const types = (r: Awaited<ReturnType<typeof analyze>>) => r.page.jsonLdTypes;
     expect(types(top)).toContain("WebSite");
     expect(types(top)).not.toContain("BreadcrumbList");
     expect(types(company)).toContain("BreadcrumbList");
     expect(types(company)).not.toContain("WebSite");
+    expect(types(article)).not.toContain("BreadcrumbList");
 
     const sd = (r: Awaited<ReturnType<typeof analyze>>) =>
       r.categories.find((c) => c.id === "structuredData")!.score;
+    const sdWeight = (r: Awaited<ReturnType<typeof analyze>>) =>
+      r.categories.find((c) => c.id === "structuredData")!.checks.reduce((s, c) => s + c.weight, 0);
     const checkOf = (r: Awaited<ReturnType<typeof analyze>>, id: string) =>
       r.categories.flatMap((c) => c.checks).find((c) => c.id === id)!;
-    // WebSite はトップページに 1 つあれば足りるので、下層ページでは減点しない
-    // （配点＝分母は両ページとも同じままにして、判定だけ pass にする）。
-    // その結果、パンくずだけが無いトップの方が点が低くなる
+
+    // WebSite はトップページに 1 つあれば足り、パンくずは階層の位置を示すもの。
+    // どちらも、当てはまらないページでは減点しない
+    // （配点＝分母はどのページも同じままにして、判定だけ pass にする）
     expect(checkOf(company, "jsonld-website").status).toBe("pass");
     expect(checkOf(company, "jsonld-website").weight).toBe(1);
-    expect(checkOf(top, "jsonld-breadcrumb").status).toBe("warn");
-    expect(sd(company)).toBeGreaterThan(sd(top));
+    expect(checkOf(top, "jsonld-breadcrumb").status).toBe("pass");
+    expect(checkOf(top, "jsonld-breadcrumb").weight).toBe(1);
+    expect(sdWeight(top)).toBe(sdWeight(company));
+    expect(sd(top)).toBe(sd(company));
+
+    // 下層ページでパンくずが無い /blog/article だけが下がる
+    expect(checkOf(article, "jsonld-breadcrumb").status).toBe("warn");
+    expect(sd(company)).toBeGreaterThan(sd(article));
+  });
+
+  // 検索結果ページの noindex は「外してはいけない」正しい設定。
+  // 減点すると、利用者は低品質ページを大量に登録させる方向に直してしまう
+  it("サイト内検索の結果ページでは noindex を減点しない", async () => {
+    const search = await analyze(`${origin}/search?q=%E3%83%86%E3%82%B9%E3%83%88`);
+    const checkOf = (r: Awaited<ReturnType<typeof analyze>>, id: string) =>
+      r.categories.flatMap((c) => c.checks).find((c) => c.id === id)!;
+    expect(checkOf(search, "noindex").status).toBe("pass");
+    expect(checkOf(search, "noindex").label).toContain("noindex は適切");
+    // 配点（分母）はふつうのページと同じまま
+    const company = await analyze(`${origin}/company`);
+    expect(checkOf(search, "noindex").weight).toBe(checkOf(company, "noindex").weight);
   });
 
   // FAQ の無いページに「FAQPage を足せ」という助言は出さない
@@ -238,9 +285,12 @@ describe("analyzeSite", () => {
     const site = await analyzeSite(`${origin}/`);
     const byId = Object.fromEntries(site.checks.map((c) => [c.id, c]));
 
-    // トップだけパンくずが無い
+    // 下層ページでパンくずが無いのは /blog/article だけ
+    // （トップは階層の最上位なので、パンくずが無くても対象外）
     expect(byId["jsonld-breadcrumb"].spread).toBe("mixed");
-    expect(byId["jsonld-breadcrumb"].affected.map((a) => new URL(a.url).pathname)).toEqual(["/"]);
+    expect(byId["jsonld-breadcrumb"].affected.map((a) => new URL(a.url).pathname)).toEqual([
+      "/blog/article",
+    ]);
     // WebSite はトップに実在し、下層ページは対象外。どこも減点されないので uniform
     expect(byId["jsonld-website"].spread).toBe("uniform");
     expect(byId["jsonld-website"].counts.pass).toBe(4);

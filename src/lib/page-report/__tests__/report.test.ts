@@ -24,11 +24,15 @@ function siteFiles(overrides: Partial<SiteFiles> = {}): SiteFiles {
   };
 }
 
-function fetched(body: string, headers: Record<string, string> = {}): FetchedText {
+function fetched(
+  body: string,
+  headers: Record<string, string> = {},
+  finalUrl: string = URL_UNDER_TEST,
+): FetchedText {
   return {
     ok: true,
     status: 200,
-    finalUrl: URL_UNDER_TEST,
+    finalUrl,
     contentType: "text/html; charset=utf-8",
     body,
     headers: new Headers({ "content-type": "text/html; charset=utf-8", ...headers }),
@@ -368,6 +372,18 @@ describe("robots・llms", () => {
     const html = '<html lang="ja"><head><meta name="robots" content="noindex"></head><body></body></html>';
     const report = buildPageReport(fetched(html), siteFiles());
     expect(rowOf(report, "robots", "meta robots").status).toBe("要改善");
+  });
+
+  // サイト内検索の結果ページの noindex は正しい設定。外させてはいけない
+  it("サイト内検索の結果ページの noindex は要改善にしない", () => {
+    const html = '<html lang="ja"><head><meta name="robots" content="noindex"></head><body></body></html>';
+    const report = buildPageReport(
+      fetched(html, {}, "https://example.test/search?q=seo"),
+      siteFiles(),
+    );
+    const row = rowOf(report, "robots", "meta robots");
+    expect(row.status).toBe("適切");
+    expect(row.content).toContain("サイト内検索の結果ページ");
   });
 
   it("X-Robots-Tag の noindex も拾う", () => {
