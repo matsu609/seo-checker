@@ -288,5 +288,6 @@ Clerk Billing  ←→  Stripe
 
 ## 関連ドキュメント
 
+- [tool-map.md](./tool-map.md) — ツールと API キーの関係図。どのキーでどのツールが動くか、キーが切れると何が止まるか、ツール間のデータの受け渡し
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — ルーティング、ディレクトリ、コーディング規約
 - [README.md](../../README.md) — 機能の説明、環境変数の一覧、セットアップ手順
