@@ -223,7 +223,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 59 | 無料診断の切り出し（zip）を作るスクリプト `scripts/extract-free.mjs` | Claude | **完了（r42、09-12 に利用者の判断で main へマージ）** |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 | 60 | registry の食い違いを直す: `/tools/maps` の `optional` に `anthropic` を足す、`/tools/site-report` の `serpapi` を間接依存として書き直す（[tool-map.md](./tool-map.md) の ※1・※4） | Claude | 未（次にコードを触るときで可） |
-| 61 | 採点ツールの誤検出を直す: 意図した noindex（サイト内検索の結果ページなど）とトップページのパンくずを減点しない | Claude | **コードは完了**。作業ブランチ `claude/search-noindex-breadcrumb-bb0b70` に push 済み。main へマージするかは利用者の判断待ち |
+| 61 | 採点ツールの誤検出を直す: 意図した noindex（サイト内検索の結果ページなど）とトップページのパンくずを減点しない | Claude | **完了（r43、09-12 に利用者の指示で main へマージ）** |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
 
@@ -253,7 +253,6 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 ### 入力待ち（利用者からの回答が要るもの）
 
-- 採点ツールの修正（#61）を main へマージするか（コードは検証済み。マージすると Vercel の再デプロイが走る）
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
 - Business Profile API の承認結果（#5 / #54 ①。09-11 申請、ケース ID `0-4126000041187`、7〜10 営業日）。承認されたら #54 の②〜④へ
@@ -698,4 +697,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - ページ最適化レポート（A2）: 同じ noindex を「要改善」にしない。サイト診断（A1）: 同じ noindex は警告ではなく情報として残す（事実は見せるが、直す対象にはしない）。
 - 文言: 付録 B「診断方法と採点基準」（`src/lib/report/weights.ts` の `CATEGORY_CRITERIA`）と README の採点表・「採点しないもの」に、採点しない範囲を明記した。
 - 検証: lint / tsc / test（109 ファイル・1,436 件）/ build すべて通過。テストは `page-kind.test.ts`（URL の判定）、`analyzer.test.ts`（noindex の合格・未対応、パンくずのトップ / 下層）、`site.test.ts`（ローカルに立てた `/search` を実際に取得して減点されないこと、`/blog/article` をパンくず無しにして「下層ページだけが下がる」こと）、ページ最適化レポートとサイト診断にも 1 件ずつ追加。
-- **利用者の判断待ち**: このブランチを main へマージするか（#61）。マージしたら `add-release.mjs` で r43 を追加する。main への push なので Vercel の再デプロイが走る。
+- 利用者の指示で **main へマージ（`9f928bd`）し、`add-release.mjs` で r43 を追加**（`a150258`）。マージ後の main でも lint / tsc / test / build を通してから push した。Vercel の再デプロイが走るので、本番の診断結果に反映される（確認するなら `https://app.seo-checker.tokyo/admin` の「動いているコミット」が `a150258` になってから、`/search` を持つサイトで無料診断を実行する）。
