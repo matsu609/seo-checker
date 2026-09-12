@@ -6,6 +6,7 @@
  * PageSpeed Insights（A3）は取得に時間がかかるため、呼び出し側が結果を渡す。
  */
 import type { FetchedText } from "@/lib/analyzer/fetch";
+import { intentionalNoindex } from "@/lib/analyzer/page-kind";
 import type { SiteFiles } from "@/lib/analyzer/robots";
 import type { PsiResult } from "@/lib/psi/types";
 import { PAGE_REPORT_THRESHOLDS, SECTION_LABELS, type SectionId } from "./config";
@@ -41,7 +42,7 @@ export function buildPageReport(
     buildSection("head", headRows(m)),
     buildSection("semantic", semanticRows(m)),
     buildSection("internalLinks", linkRows(m)),
-    buildSection("robots", robotsRows(m, robots, siteFiles, origin)),
+    buildSection("robots", robotsRows(m, robots, siteFiles, origin, finalUrl)),
     buildSection("images", imageRows(m)),
   ];
 
@@ -440,9 +441,13 @@ function robotsRows(
   robots: ReturnType<typeof evaluateAiBots>,
   siteFiles: SiteFiles,
   origin: string,
+  pageUrl: string,
 ): ReportRow[] {
   const searchBlocked = robots.blocked.search;
   const trainingBlocked = robots.blocked.training;
+  // noindex は間違いとは限らない。サイト内検索の結果・買い物かご・ログイン後の画面
+  // などは検索に載せない方が正しいので、「要改善」にはしない（判定は page-kind.ts）
+  const intentional = m.noindex ? intentionalNoindex(pageUrl) : null;
 
   return [
     {
@@ -488,13 +493,15 @@ function robotsRows(
     },
     {
       item: "meta robots",
-      status: m.noindex ? "要改善" : "適切",
+      status: !m.noindex || intentional ? "適切" : "要改善",
       content: m.noindex
-        ? `noindex が指定されています（${m.metaRobots || m.xRobotsTag}）`
+        ? `noindex が指定されています（${m.metaRobots || m.xRobotsTag}）${intentional ? ` — ${intentional.label}` : ""}`
         : `noindex はありません${m.metaRobots ? `（robots="${m.metaRobots}"）` : ""}`,
-      note: m.noindex
-        ? "このページは検索にも AI 検索にも登録されません。公開したいページであれば noindex を外してください。"
-        : "検索エンジンと AI 検索の両方に登録できる状態です。",
+      note: !m.noindex
+        ? "検索エンジンと AI 検索の両方に登録できる状態です。"
+        : intentional
+          ? intentional.reason
+          : "このページは検索にも AI 検索にも登録されません。公開したいページであれば noindex を外してください。",
     },
   ];
 }

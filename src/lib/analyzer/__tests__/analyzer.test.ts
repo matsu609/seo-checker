@@ -5,7 +5,7 @@ import { normalizeUrl } from "../fetch";
 import { checkHeadings, findLevelSkips } from "../headings";
 import { checkStructuredData, extractJsonLd } from "../jsonld";
 import { checkMeta } from "../meta";
-import { evaluateRobots } from "../robots";
+import { checkCrawlers, evaluateRobots, type SiteFiles } from "../robots";
 import { buildCategories, overallScore, scoreCategory } from "../scoring";
 import { check, optionalCheck } from "../check";
 import { extractSitemaps } from "../robots";
@@ -145,6 +145,69 @@ describe("checkStructuredData", () => {
     const byId = run("<html><body></body></html>", "https://example.com/");
     expect(byId["jsonld-website"].status).toBe("warn");
     expect(byId["jsonld-website"].weight).toBe(1);
+  });
+
+  // トップは階層の最上位。「ホーム」1 件だけの BreadcrumbList は位置を何も伝えない
+  it("トップページではパンくずの不在を減点しない", () => {
+    const byId = run("<html><body></body></html>", "https://example.com/");
+    expect(byId["jsonld-breadcrumb"].status).toBe("pass");
+    expect(byId["jsonld-breadcrumb"].weight).toBe(1);
+    expect(byId["jsonld-breadcrumb"].label).toContain("トップページには不要");
+  });
+
+  it("下層ページではパンくずが無いと warn", () => {
+    const byId = run("<html><body></body></html>", "https://example.com/service/price");
+    expect(byId["jsonld-breadcrumb"].status).toBe("warn");
+    expect(byId["jsonld-breadcrumb"].weight).toBe(1);
+  });
+});
+
+describe("checkCrawlers の noindex", () => {
+  const files: SiteFiles = {
+    origin: "https://example.com",
+    robotsTxt: "User-agent: *\nAllow: /",
+    sitemaps: [],
+    llmsTxt: { present: false, length: 0, status: 404 },
+    llmsFullTxt: { present: false, length: 0 },
+  };
+  const run = (url: string, headers: Record<string, string> = {}, html = "<html><head></head><body></body></html>") =>
+    Object.fromEntries(
+      checkCrawlers(new URL(url), cheerio.load(html), new Headers(headers), files).map((r) => [
+        r.id,
+        r,
+      ]),
+    );
+  const NOINDEX = '<html><head><meta name="robots" content="noindex, follow"></head><body></body></html>';
+
+  it("公開したいページの noindex は fail のまま", () => {
+    const byId = run("https://example.com/service", {}, NOINDEX);
+    expect(byId["noindex"].status).toBe("fail");
+    expect(byId["noindex"].weight).toBe(2);
+    expect(byId["noindex"].advice).toBeDefined();
+  });
+
+  // 検索結果ページの noindex は正しい設定。外させると中身の薄いページが大量に登録される
+  it("サイト内検索の結果ページの noindex は減点しない", () => {
+    const byId = run("https://example.com/search?q=seo", {}, NOINDEX);
+    expect(byId["noindex"].status).toBe("pass");
+    expect(byId["noindex"].weight).toBe(2);
+    expect(byId["noindex"].label).toBe("サイト内検索の結果ページのため noindex は適切");
+    expect(byId["noindex"].advice).toBeUndefined();
+  });
+
+  it("X-Robots-Tag の noindex も同じ扱い", () => {
+    expect(run("https://example.com/service", { "x-robots-tag": "noindex" })["noindex"].status).toBe(
+      "fail",
+    );
+    expect(run("https://example.com/cart", { "x-robots-tag": "noindex" })["noindex"].status).toBe(
+      "pass",
+    );
+  });
+
+  it("noindex が無ければ pass", () => {
+    const byId = run("https://example.com/search");
+    expect(byId["noindex"].status).toBe("pass");
+    expect(byId["noindex"].label).toBe("noindex が設定されていない");
   });
 });
 

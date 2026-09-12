@@ -175,9 +175,21 @@ describe("基本的な設定", () => {
   it("meta robots / X-Robots-Tag の noindex を拾う", () => {
     const meta = pageFrom(html({ head: '<meta name="robots" content="noindex, follow">' }));
     expect(ruleIds(ruleNoindex(meta, ctx))).toEqual(["NOINDEX"]);
+    expect(ruleNoindex(meta, ctx)[0].severity).toBe("warning");
     const header = pageFrom(html({}), { headers: { "x-robots-tag": "noindex" } });
     expect(ruleIds(ruleNoindex(header, ctx))).toEqual(["NOINDEX"]);
     expect(ruleNoindex(pageFrom(html({})), ctx)).toEqual([]);
+  });
+
+  // サイト内検索の結果ページなどの noindex は正しい設定。事実は残すが警告にはしない
+  it("もともと検索に載せないページの noindex は警告にしない", () => {
+    const search = pageFrom(html({ head: '<meta name="robots" content="noindex">' }), {
+      url: `${ORIGIN}/search?q=seo`,
+    });
+    const [found] = ruleNoindex(search, ctx);
+    expect(found.severity).toBe("info");
+    expect(found.detail).toContain("サイト内検索の結果ページ");
+    expect(found.suggestion).toContain("対応は不要");
   });
 
   it("robots.txt で拒否されていれば ROBOTS_BLOCKED", () => {
