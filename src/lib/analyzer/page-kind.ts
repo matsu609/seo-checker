@@ -3,8 +3,8 @@
  *
  * 採点の前に「この項目はこのページで問うべきか」を決めるために使う。
  * 実在しない問題を指摘すると、利用者は正しい設定をわざわざ壊してしまう
- * （例: サイト内検索の noindex を外す → 中身の薄いページが大量に登録される）。
- * 判定の根拠はこのファイルに集める。
+ * （例: サイト内検索の noindex や robots.txt の Disallow を外す
+ * → 中身の薄いページが大量に登録される）。判定の根拠はこのファイルに集める。
  */
 
 /** サイトのトップページか（/ と /index.* を同じとみなす） */
@@ -18,26 +18,29 @@ export function isHomePage(pageUrl: string): boolean {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   noindex が「正しい設定」であるページ
+   もともと検索に載せないページ
 
-   noindex は間違いとは限らない。サイト内検索の結果・買い物かご・ログイン後の
-   画面などは、検索に載せない方が正しい。Google 自身も、サイト内検索の結果を
-   検索結果に出さないよう求めている（検索結果の中の検索結果は利用者の役に立たず、
-   URL の数だけ中身の薄いページが増えるため）。
-   URL から用途が分かるページでは減点しない。
+   サイト内検索の結果・買い物かご・ログイン後の画面などは、検索に載せない方が
+   正しい。Google 自身も、サイト内検索の結果を検索結果に出さないよう求めている
+   （検索結果の中の検索結果は利用者の役に立たず、URL の数だけ中身の薄いページが
+   増えるため）。止め方は noindex でも robots.txt の Disallow でもよく、
+   どちらも「直すべき問題」ではない。URL から用途が分かるページは減点しない。
    ───────────────────────────────────────────────────────────── */
 
-export type NoindexKind = "search" | "cart" | "account" | "thanks" | "duplicate";
+export type NotForSearchKind = "search" | "cart" | "account" | "thanks" | "duplicate";
 
-export interface IntentionalNoindex {
-  kind: NoindexKind;
+export interface NotForSearchPage {
+  kind: NotForSearchKind;
   /** 画面に出す短い名前（例: 「サイト内検索の結果ページ」） */
   label: string;
-  /** なぜ noindex のままでよいのか（そのまま備考欄に出す） */
+  /**
+   * なぜ検索に載せなくてよいのか。
+   * 使う側が「noindex のままで問題ありません」などの結論を後ろに足す。
+   */
   reason: string;
 }
 
-interface NoindexRule extends IntentionalNoindex {
+interface NotForSearchRule extends NotForSearchPage {
   /** パスの 1 区切りがこれと一致したら該当（拡張子は落として比較する） */
   segments: readonly string[];
   /** クエリにこの名前があれば該当 */
@@ -47,15 +50,16 @@ interface NoindexRule extends IntentionalNoindex {
 /**
  * 判定は「その名前が使われていたら、ほぼ確実にその用途」と言える語だけに絞る。
  * 誤って該当と判定すると本物の問題を見逃すため、迷う語（members・tag・category など）は
- * 入れない。なお、この判定を使うのは noindex が実際に設定されているときだけなので、
- * 「サイト側が意図して指定したものを咎めるかどうか」の判断にしかならない。
+ * 入れない。なお、この判定を使うのは noindex や robots.txt の Disallow が実際に
+ * 設定されているときだけなので、「サイト側が意図して止めたものを咎めるかどうか」の
+ * 判断にしかならない。
  */
-const NOINDEX_RULES: readonly NoindexRule[] = [
+const NOT_FOR_SEARCH_RULES: readonly NotForSearchRule[] = [
   {
     kind: "search",
     label: "サイト内検索の結果ページ",
     reason:
-      "サイト内検索の結果は、検索語の組み合わせの数だけ中身の薄いページが増えます。Google も検索結果ページを検索に登録しないよう求めており、noindex のままにしておくのが正しい設定です。",
+      "サイト内検索の結果は、検索語の組み合わせの数だけ中身の薄いページが増えます。Google も検索結果ページを検索に登録しないよう求めています。",
     segments: ["search", "searches", "searchresult", "searchresults", "search-result", "search-results", "search_result", "search_results"],
     params: ["s", "q", "query", "keyword", "keywords", "search", "search_word", "searchword"],
   },
@@ -63,14 +67,13 @@ const NOINDEX_RULES: readonly NoindexRule[] = [
     kind: "cart",
     label: "買い物かご・購入手続きのページ",
     reason:
-      "買い物かごや購入手続きの画面は、利用者ごとに中身が変わり、検索から直接訪れても意味がありません。検索に登録しないのが通例です。",
+      "買い物かごや購入手続きの画面は、利用者ごとに中身が変わり、検索から直接訪れても意味がありません。",
     segments: ["cart", "carts", "checkout", "basket", "shopping-cart", "shoppingcart"],
   },
   {
     kind: "account",
     label: "ログイン・会員向けページ",
-    reason:
-      "ログイン画面や会員専用ページは、検索から集客するページではありません。noindex のままで問題ありません。",
+    reason: "ログイン画面や会員専用ページは、検索から集客するページではありません。",
     segments: [
       "login",
       "signin",
@@ -95,7 +98,7 @@ const NOINDEX_RULES: readonly NoindexRule[] = [
     kind: "thanks",
     label: "送信完了・確認ページ",
     reason:
-      "問い合わせの確認・完了画面は、フォームを送った人だけが通る画面です。検索から直接訪れても意味が無いため、noindex のままにします。",
+      "問い合わせの確認・完了画面は、フォームを送った人だけが通る画面です。検索から直接訪れても意味がありません。",
     segments: [
       "thanks",
       "thankyou",
@@ -112,17 +115,17 @@ const NOINDEX_RULES: readonly NoindexRule[] = [
     kind: "duplicate",
     label: "印刷用・プレビュー用ページ",
     reason:
-      "印刷用やプレビュー用の URL は、本来のページと同じ内容が別の URL で増えたものです。片方だけを検索に載せるため noindex にするのは正しい対処です。",
+      "印刷用やプレビュー用の URL は、本来のページと同じ内容が別の URL で増えたものです。",
     segments: ["print", "preview"],
     params: ["print", "preview"],
   },
 ];
 
 /**
- * noindex が設定されていても咎めるべきでないページか。
- * 該当しなければ null（= 公開したいページに noindex が付いている可能性がある）。
+ * もともと検索に載せないページか（noindex や robots.txt で止まっていても咎めない）。
+ * 該当しなければ null（= 公開したいページが止められている可能性がある）。
  */
-export function intentionalNoindex(pageUrl: string): IntentionalNoindex | null {
+export function notForSearch(pageUrl: string): NotForSearchPage | null {
   let url: URL;
   try {
     url = new URL(pageUrl);
@@ -136,7 +139,7 @@ export function intentionalNoindex(pageUrl: string): IntentionalNoindex | null {
     .map(stripExtension);
   const params = new Set([...url.searchParams.keys()].map((k) => k.toLowerCase()));
 
-  for (const rule of NOINDEX_RULES) {
+  for (const rule of NOT_FOR_SEARCH_RULES) {
     const hit =
       segments.some((s) => rule.segments.includes(s)) ||
       (rule.params?.some((p) => params.has(p)) ?? false);

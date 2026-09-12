@@ -159,6 +159,7 @@ export async function runAudit(input: string, options: RunAuditOptions = {}): Pr
     entryUrl,
     siteFiles,
     robotsExists: siteFiles.robotsTxt !== null,
+    rootRobotsAllowed: robots ? robots.isAllowed(`${origin}/`, "Googlebot") !== false : true,
     sitemapUrls: discovery.urls,
     sitemapFound: discovery.sitemapFiles > 0,
     faviconExists,

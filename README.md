@@ -47,7 +47,7 @@ npm run dev                  # http://localhost:3000
 
 | カテゴリ | 重み | 見るもの |
 |---|---|---|
-| AI クローラ可否 | 20 | robots.txt での**検索用**クローラ（OAI-SearchBot / PerplexityBot / Claude-SearchBot など）の可否、noindex（もともと検索に載せないページを除く） |
+| AI クローラ可否 | 20 | robots.txt での**検索用**クローラ（OAI-SearchBot / PerplexityBot / Claude-SearchBot など）の可否、noindex（どちらも、もともと検索に載せないページを除く） |
 | 構造化データ | 25 | JSON-LD の有無と文法、Organization / sameAs、BreadcrumbList（下層ページのみ）、WebSite（トップのみ）、FAQPage（FAQ のあるページのみ） |
 | メタ情報 | 20 | title、meta description（長さ）、OGP、canonical、lang |
 | 見出し | 15 | h1 がちょうど 1 つか、h2 / h3 の階層が飛んでいないか |
@@ -62,11 +62,11 @@ npm run dev                  # http://localhost:3000
 - **学習用 AI クローラ**（GPTBot / ClaudeBot / Google-Extended / CCBot など）の拒否 — 各社が認めている正式な運用で、AI 検索での引用は減りません
 - **SearchAction** — Google がサイトリンク検索ボックスの提供を終了しています
 - そのページに当てはまらない項目 — FAQ の無いページの FAQPage、下層ページの WebSite、トップページのパンくず（階層の最上位なので「ホーム」1 件だけの BreadcrumbList は位置を何も伝えません）
-- **もともと検索に載せないページの noindex** — サイト内検索の結果・買い物かご・ログイン後の画面・送信完了・印刷用ページ。ここでの noindex は正しい設定で、外させると中身の薄いページが大量に登録されます（判定は `src/lib/analyzer/page-kind.ts`）
+- **もともと検索に載せないページを止めている設定** — サイト内検索の結果・買い物かご・ログイン後の画面・送信完了・印刷用ページ。ここでの noindex と robots.txt の Disallow はどちらも正しい設定で、外させると中身の薄いページが大量に登録されます（判定は `src/lib/analyzer/page-kind.ts`）。ただし**サイト全体が拒否されている（`Disallow: /`）ときは減点します** — トップページも拒否されているかどうかで見分けます
 
 スコアはこのツール独自の技術チェック表の達成率です。検索順位・流入・AI の回答への引用を測るものではなく、それらを予測するものでもありません。
 
-**配点はページ間で必ず揃えます。** 該当しないページでは項目を省かず `pass` として出します（`image-alt` / `js-rendering` / `jsonld-parse-error` / `jsonld-website` / `jsonld-breadcrumb` / `jsonld-faq` / `noindex`）。省くとカテゴリの分母がページごとに変わり、レポートの「改善するとこうなる」の見込み加点が実際の伸びとずれるためです。
+**配点はページ間で必ず揃えます。** 該当しないページでは項目を省かず `pass` として出します（`image-alt` / `js-rendering` / `jsonld-parse-error` / `jsonld-website` / `jsonld-breadcrumb` / `jsonld-faq` / `noindex` / `ai-crawlers-allowed`）。省くとカテゴリの分母がページごとに変わり、レポートの「改善するとこうなる」の見込み加点が実際の伸びとずれるためです。
 
 ### サービス資料
 

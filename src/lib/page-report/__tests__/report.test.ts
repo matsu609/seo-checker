@@ -386,6 +386,26 @@ describe("robots・llms", () => {
     expect(row.content).toContain("サイト内検索の結果ページ");
   });
 
+  // 検索結果ページを robots.txt で止めるのも定石
+  it("サイト内検索の結果ページの robots.txt 拒否は要改善にしない", () => {
+    const report = buildPageReport(
+      fetched(idealHtml(), {}, "https://example.test/search?q=seo"),
+      siteFiles({ robotsTxt: "User-agent: *\nAllow: /\nDisallow: /search\n" }),
+    );
+    const row = rowOf(report, "robots", "検索用 AI クローラの許可");
+    expect(row.status).toBe("適切");
+    expect(row.content).toContain("サイト内検索の結果ページ");
+  });
+
+  // サイト全体を止めている設定まで見逃さない
+  it("Disallow: / のときは検索ページでも要改善のまま", () => {
+    const report = buildPageReport(
+      fetched(idealHtml(), {}, "https://example.test/search?q=seo"),
+      siteFiles({ robotsTxt: "User-agent: *\nDisallow: /\n" }),
+    );
+    expect(rowOf(report, "robots", "検索用 AI クローラの許可").status).toBe("要改善");
+  });
+
   it("X-Robots-Tag の noindex も拾う", () => {
     const report = buildPageReport(
       fetched('<html lang="ja"><body></body></html>', { "x-robots-tag": "noindex, nofollow" }),

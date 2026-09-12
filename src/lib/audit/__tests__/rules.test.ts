@@ -195,7 +195,20 @@ describe("基本的な設定", () => {
   it("robots.txt で拒否されていれば ROBOTS_BLOCKED", () => {
     const blocked = pageFrom(html({}), { robotsAllowed: false });
     expect(ruleIds(ruleRobotsBlocked(blocked, ctx))).toEqual(["ROBOTS_BLOCKED"]);
+    expect(ruleRobotsBlocked(blocked, ctx)[0].severity).toBe("error");
     expect(ruleRobotsBlocked(pageFrom(html({})), ctx)).toEqual([]);
+  });
+
+  // 検索結果ページを robots.txt で止めるのも定石。重大ではなく情報として残す
+  it("もともと検索に載せないページの robots.txt 拒否は重大にしない", () => {
+    const search = pageFrom(html({}), { url: `${ORIGIN}/search?q=seo`, robotsAllowed: false });
+    const [found] = ruleRobotsBlocked(search, ctx);
+    expect(found.severity).toBe("info");
+    expect(found.detail).toContain("サイト内検索の結果ページ");
+
+    // サイト全体が拒否されている（Disallow: /）ときは重大のまま
+    const siteWide = makeContext({ rootRobotsAllowed: false });
+    expect(ruleRobotsBlocked(search, siteWide)[0].severity).toBe("error");
   });
 });
 

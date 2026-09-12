@@ -70,7 +70,7 @@ export function categoryIndex(id: CategoryId): number {
 /** 付録 B「診断方法と採点基準」に載せる、カテゴリごとの主な確認内容 */
 export const CATEGORY_CRITERIA: Record<CategoryId, string> = {
   crawlers:
-    "robots.txt での AI 検索用クローラ（OAI-SearchBot・PerplexityBot・Claude-SearchBot など）の許可、noindex の有無。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページの noindex は減点しません。学習用クローラ（GPTBot など）の拒否と llms.txt の有無は参考表示で、採点していません",
+    "robots.txt での AI 検索用クローラ（OAI-SearchBot・PerplexityBot・Claude-SearchBot など）の許可、noindex の有無。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページは、noindex も robots.txt での拒否も減点しません（サイト全体が拒否されている場合は減点します）。学習用クローラ（GPTBot など）の拒否と llms.txt の有無は参考表示で、採点していません",
   structuredData:
     "JSON-LD の有無と文法、Organization / パンくず / sameAs（公式 SNS 等）。WebSite はトップページのみ、パンくずは階層のある下層ページのみ、FAQPage は画面に FAQ が実在するページのみを採点します",
   meta: "title・meta description の有無と長さ、OGP、canonical、html の lang 属性",

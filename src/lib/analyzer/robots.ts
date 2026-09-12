@@ -2,7 +2,7 @@ import robotsParser from "robots-parser";
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
 import { fetchText } from "./fetch";
-import { intentionalNoindex } from "./page-kind";
+import { notForSearch } from "./page-kind";
 import type { CheckResult, CheckStatus } from "./types";
 
 /* ─────────────────────────────────────────────────────────────
@@ -137,8 +137,20 @@ export function checkCrawlers(
     (ua) => !blockedSearch.includes(ua),
   );
 
+  // サイト内検索の結果ページなどを robots.txt で拒否するのも定石で、noindex と
+  // 同じく「直すべき問題」ではない。ただしサイト全体が拒否されている（Disallow: /）
+  // 場合はそれ自体が重大な問題なので、**トップページが許可されているときだけ**
+  // 意図した拒否とみなす（そうしないと Disallow: / を見逃す）。
+  const notForSearchPage = blockedSearch.length > 0 ? notForSearch(pageUrl.toString()) : null;
+  const homeAllowed =
+    notForSearchPage !== null &&
+    evaluateRobots(files.robotsTxt, `${origin}/`, robotsUrl).blocked.every(
+      (ua) => purposeOf(ua) !== "search",
+    );
+  const intendedBlock = homeAllowed ? notForSearchPage : null;
+
   const searchStatus: CheckStatus =
-    blockedSearch.length === 0
+    blockedSearch.length === 0 || intendedBlock
       ? "pass"
       : blockedSearch.length === SEARCH_CRAWLERS.length
         ? "fail"
@@ -150,19 +162,25 @@ export function checkCrawlers(
       status: searchStatus,
       weight: 3,
       label:
-        searchStatus === "pass"
-          ? "AI 検索用クローラがアクセス可能"
-          : searchStatus === "fail"
-            ? "AI 検索用クローラがすべてブロックされている"
-            : "一部の AI 検索用クローラがブロックされている",
+        intendedBlock !== null
+          ? `${intendedBlock.label}のため robots.txt での拒否は適切`
+          : searchStatus === "pass"
+            ? "AI 検索用クローラがアクセス可能"
+            : searchStatus === "fail"
+              ? "AI 検索用クローラがすべてブロックされている"
+              : "一部の AI 検索用クローラがブロックされている",
       evidence:
         blockedSearch.length === 0
           ? info.exists
             ? `robots.txt で検索用 ${SEARCH_CRAWLERS.length} 種がすべて許可されています`
             : "robots.txt が無いため、すべてのクローラが許可されています"
-          : `拒否: ${blockedSearch.join(", ")}${allowedSearch.length > 0 ? ` / 許可: ${allowedSearch.join(", ")}` : ""}`,
+          : `拒否: ${blockedSearch.join(", ")}${allowedSearch.length > 0 ? ` / 許可: ${allowedSearch.join(", ")}` : ""}${
+              intendedBlock
+                ? ` — ${intendedBlock.reason}robots.txt で拒否したままで問題ありません（トップページは許可されています）。`
+                : ""
+            }`,
       advice:
-        "OAI-SearchBot・PerplexityBot・Claude-SearchBot などの検索用クローラは、AI が回答に引用元として載せるためにページを読みに来ます。これを robots.txt で拒否すると、AI 検索に出る機会そのものが無くなります。学習用（GPTBot など）とは別の User-agent なので、学習だけ止めて検索は許可する、という指定ができます。",
+        "OAI-SearchBot・PerplexityBot・Claude-SearchBot などの検索用クローラは、AI が回答に引用元として載せるためにページを読みに来ます。これを robots.txt で拒否すると、AI 検索に出る機会そのものが無くなります。学習用（GPTBot など）とは別の User-agent なので、学習だけ止めて検索は許可する、という指定ができます。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページであれば、拒否したままで問題ありません。",
     }),
   );
 
@@ -193,7 +211,7 @@ export function checkCrawlers(
   const metaRobots = ($('meta[name="robots"]').attr("content") ?? "").toLowerCase();
   const xRobots = (pageHeaders.get("x-robots-tag") ?? "").toLowerCase();
   const noindex = metaRobots.includes("noindex") || xRobots.includes("noindex");
-  const intentional = noindex ? intentionalNoindex(pageUrl.toString()) : null;
+  const intentional = noindex ? notForSearch(pageUrl.toString()) : null;
   const noindexSource = `meta robots="${metaRobots || "-"}" / X-Robots-Tag="${xRobots || "-"}"`;
   results.push(
     check({
@@ -209,7 +227,7 @@ export function checkCrawlers(
       evidence: !noindex
         ? undefined
         : intentional
-          ? `${noindexSource} — ${intentional.reason}`
+          ? `${noindexSource} — ${intentional.reason}noindex のままにしておくのが正しい設定です。`
           : noindexSource,
       advice:
         "このページは noindex が指定されており、検索エンジンにも AI 検索にも登録されません。公開したいページであれば meta robots / X-Robots-Tag の noindex を外してください。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページであれば、そのままで問題ありません。",

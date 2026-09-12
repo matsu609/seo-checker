@@ -143,6 +143,8 @@ export interface AuditContext {
   siteFiles: SiteFiles;
   /** robots.txt が読めたか */
   robotsExists: boolean;
+  /** トップページが robots.txt で許可されているか（Disallow: / の見分けに使う） */
+  rootRobotsAllowed: boolean;
   /** サイトマップから集めた URL（正規化済み） */
   sitemapUrls: string[];
   /** サイトマップファイルを 1 つでも読めたか */

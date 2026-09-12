@@ -134,7 +134,11 @@ beforeAll(async () => {
       case "/search":
         return send(SEARCH_HTML);
       case "/robots.txt":
-        return send(`User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml`, "text/plain");
+        // 検索結果ページは noindex と robots.txt の両方で止める（よくある構成）
+        return send(
+          `User-agent: *\nAllow: /\nDisallow: /search\nSitemap: ${origin}/sitemap.xml`,
+          "text/plain",
+        );
       case "/sitemap.xml":
         return send(
           `<?xml version="1.0"?><urlset>${["/", "/company", "/service"]
@@ -199,17 +203,24 @@ describe("ページ単位の診断", () => {
     expect(sd(company)).toBeGreaterThan(sd(article));
   });
 
-  // 検索結果ページの noindex は「外してはいけない」正しい設定。
+  // 検索結果ページの noindex と robots.txt の拒否は「外してはいけない」正しい設定。
   // 減点すると、利用者は低品質ページを大量に登録させる方向に直してしまう
-  it("サイト内検索の結果ページでは noindex を減点しない", async () => {
+  it("サイト内検索の結果ページでは noindex も robots.txt の拒否も減点しない", async () => {
     const search = await analyze(`${origin}/search?q=%E3%83%86%E3%82%B9%E3%83%88`);
     const checkOf = (r: Awaited<ReturnType<typeof analyze>>, id: string) =>
       r.categories.flatMap((c) => c.checks).find((c) => c.id === id)!;
     expect(checkOf(search, "noindex").status).toBe("pass");
     expect(checkOf(search, "noindex").label).toContain("noindex は適切");
+    expect(checkOf(search, "ai-crawlers-allowed").status).toBe("pass");
+    expect(checkOf(search, "ai-crawlers-allowed").label).toContain("robots.txt での拒否は適切");
     // 配点（分母）はふつうのページと同じまま
     const company = await analyze(`${origin}/company`);
     expect(checkOf(search, "noindex").weight).toBe(checkOf(company, "noindex").weight);
+    expect(checkOf(search, "ai-crawlers-allowed").weight).toBe(
+      checkOf(company, "ai-crawlers-allowed").weight,
+    );
+    // ふつうのページの判定は変わらない（robots.txt は /search だけを止めている）
+    expect(checkOf(company, "ai-crawlers-allowed").status).toBe("pass");
   });
 
   // FAQ の無いページに「FAQPage を足せ」という助言は出さない

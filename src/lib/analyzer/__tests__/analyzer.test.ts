@@ -211,6 +211,68 @@ describe("checkCrawlers の noindex", () => {
   });
 });
 
+describe("checkCrawlers の robots.txt 拒否", () => {
+  const filesWith = (robotsTxt: string | null): SiteFiles => ({
+    origin: "https://example.com",
+    robotsTxt,
+    sitemaps: [],
+    llmsTxt: { present: false, length: 0, status: 404 },
+    llmsFullTxt: { present: false, length: 0 },
+  });
+  const run = (url: string, robotsTxt: string | null) =>
+    Object.fromEntries(
+      checkCrawlers(
+        new URL(url),
+        cheerio.load("<html><head></head><body></body></html>"),
+        new Headers(),
+        filesWith(robotsTxt),
+      ).map((r) => [r.id, r]),
+    );
+
+  const BLOCK_SEARCH = "User-agent: *\nAllow: /\nDisallow: /search";
+  const BLOCK_ALL = "User-agent: *\nDisallow: /";
+
+  it("公開したいページが拒否されていれば fail のまま", () => {
+    const byId = run("https://example.com/service", "User-agent: *\nDisallow: /service");
+    expect(byId["ai-crawlers-allowed"].status).toBe("fail");
+    expect(byId["ai-crawlers-allowed"].weight).toBe(3);
+  });
+
+  // 検索結果ページを robots.txt で止めるのも定石。減点しない
+  it("サイト内検索の結果ページの拒否は減点しない", () => {
+    const byId = run("https://example.com/search?q=seo", BLOCK_SEARCH);
+    expect(byId["ai-crawlers-allowed"].status).toBe("pass");
+    expect(byId["ai-crawlers-allowed"].weight).toBe(3);
+    expect(byId["ai-crawlers-allowed"].label).toBe(
+      "サイト内検索の結果ページのため robots.txt での拒否は適切",
+    );
+    expect(byId["ai-crawlers-allowed"].advice).toBeUndefined();
+  });
+
+  // ここを見逃すと、サイト全体を止めている致命的な設定を「適切」と言ってしまう
+  it("サイト全体が拒否されている（Disallow: /）ときは、検索ページでも fail", () => {
+    const byId = run("https://example.com/search?q=seo", BLOCK_ALL);
+    expect(byId["ai-crawlers-allowed"].status).toBe("fail");
+    expect(byId["ai-crawlers-allowed"].label).toBe("AI 検索用クローラがすべてブロックされている");
+  });
+
+  it("同じ robots.txt でも、ふつうのページは今までどおり判定する", () => {
+    expect(run("https://example.com/company", BLOCK_SEARCH)["ai-crawlers-allowed"].status).toBe(
+      "pass",
+    );
+    expect(run("https://example.com/", BLOCK_ALL)["ai-crawlers-allowed"].status).toBe("fail");
+  });
+
+  it("一部のクローラだけ拒否されている検索ページも減点しない", () => {
+    const byId = run(
+      "https://example.com/search",
+      "User-agent: *\nAllow: /\nUser-agent: PerplexityBot\nDisallow: /search",
+    );
+    expect(byId["ai-crawlers-allowed"].status).toBe("pass");
+    expect(byId["ai-crawlers-allowed"].evidence).toContain("PerplexityBot");
+  });
+});
+
 describe("checkMeta", () => {
   it("すべて揃っていれば pass", () => {
     const html = `<html lang="ja"><head>
