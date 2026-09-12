@@ -9,7 +9,7 @@
 - **秘密の値（`sk_`、`GOCSPX-`、API キー、パスワード）は絶対に書かない。**変数名と「設定済み / 未設定」だけを書く。
 - 利用者への作業依頼は、手順ごとに**サービス名・画面名・URL**を必ず書く（利用者の指示。表: # / サービス・画面 / URL / やること）。よく使う URL は下記「よく使う画面の URL」。
 - 「現在の状態」「残タスク」「入力待ち」は常に最新に書き換える。「判断の経緯」「作業ログ」は追記する。
-- 全体像の説明は [services.md](./services.md)、開発規約は [ARCHITECTURE.md](./ARCHITECTURE.md)、機能説明は [README](../../README.md)。ここには重複させず、状態と判断だけを書く。
+- 全体像の説明は [services.md](./services.md)、**ツールと API キーの関係は [tool-map.md](./tool-map.md)**、開発規約は [ARCHITECTURE.md](./ARCHITECTURE.md)、機能説明は [README](../../README.md)。ここには重複させず、状態と判断だけを書く。
 
 ## よく使う画面の URL
 
@@ -222,6 +222,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 54 | **口コミ返信を有効にする（Google 側の作業）**: ① Business Profile API の利用申請 → ② 承認後、Google Cloud で API 3 つを有効化 → ③ OAuth の同意画面に `business.manage` スコープを追加 → ④ 本番 `/tools/replies` で「Google に口コミ返信の権限を追加する」→ Google の確認画面で許可（下の「口コミ返信を有効にする手順」） | 利用者 | **①申請済み（09-11、ケース ID `0-4126000041187`、7〜10 営業日）**。②は Account Management / Business Information の 2 つが有効化済み（09-11 確認）。残りの「Google My Business API」（v4）と③④は承認メール後 |
 | 59 | 無料診断の切り出し（zip）を作るスクリプト `scripts/extract-free.mjs` | Claude | **完了（r42、09-12 に利用者の判断で main へマージ）** |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
+| 60 | registry の食い違いを直す: `/tools/maps` の `optional` に `anthropic` を足す、`/tools/site-report` の `serpapi` を間接依存として書き直す（[tool-map.md](./tool-map.md) の ※1・※4） | Claude | 未（次にコードを触るときで可） |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
 
@@ -674,3 +675,13 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 確認: 本体は lint / tsc / test（1,420 件）/ build すべて通過。切り出し版もリポジトリ外に展開して `npm install` → lint / tsc / test（320 件）/ build を通し、実際に `next start` で起動して ① ダミーサイト（`scripts/e2e/dummy-site.mjs`）の 1 ページ診断と「サイト全体」のクロール進捗、② `/meo` が「準備中」を出すこと（Places キー未設定）、③ `/api/faq` が `enabled:false` を返すこと、④ `/plans`・`/sign-up` が `https://app.seo-checker.tokyo/...` へ 307、⑤ トップに `/` と `/meo` 以外の内部リンクが無いことを確認。画面のスクリーンショットも取得。
 - **注意（切り出し版を公開して使う場合）**: 利用規約・プライバシーポリシー・特商法表記のページは入っていないので別途用意が必要。`/meo` は Google Places に実費が出るため、`FREE_MEO_DAILY_LIMIT` / `FREE_MEO_DAILY_SEARCH_LIMIT` を確認する（上限の記録はプロセス内のメモリなので、サーバーレスではインスタンスごとに独立する目安の歯止め）。
 - 作業ブランチ `claude/happy-mendel-xul1eh` に push したあと、利用者の判断で **main へマージ（`e88b915`）し、`add-release.mjs` で r42 を追加**。本体の画面・API は変わらないが、main への push なので Vercel の再デプロイは走る。
+
+### 2026-09-12（ツールと API キーの関係図）
+
+- 利用者「このサービスのツールの関係性や API キーでのつながりを図式化して」→ **`docs/dev/tool-map.md` を追加**。作業ブランチ `claude/tool-relationships-api-diagram-jdyj3h` に push 済み（コードは 1 行も触っていないので 4 つの検証と `add-release.mjs` は不要）。
+- 中身: ①つながりの 3 種類（サーバーの API キー / 利用者ごとの Google 連携＝鍵は Clerk が預かる / ブラウザの localStorage）、②キー → 外部 API の図（環境変数 9 系統 = `INTEGRATION_KEYS`。GA4 と Supabase だけは 2 つ揃って有効）、③**ツール × キーの対応表 21 行**（● 必須 / ◍ いずれか 1 つ / ○ 任意。プランとログインの要否つき）、④ OAuth の流れと 3 スコープ（`webmasters.readonly` / `analytics.readonly` / `business.manage`）、⑤ツール間のデータの受け渡し（キーワード調査 → 順位計測 → サイトレポート、プロンプト拡張 → LLMO、AIO トピック → ページ診断・AI ライティング、`meo_stores` → 口コミ支援 / 基本情報掲載 / 口コミ返信）、⑥ Cron と決済の流れ、⑦**キーが切れたら何が止まるか**と実費のガード（Places の 1 日上限、SerpApi・LLM はログイン必須、`SITE_MAX_PAGES`、`CRON_SECRET`）、⑧切り分けの順番。
+- 図はコードから起こした（`src/lib/features/registry.ts` の `requires` / `requiresAny` / `optional`、`src/lib/features/integrations.ts`、`src/lib/integrations.ts`、各 `route.ts` の import）。**秘密の値は書いていない**（変数名だけ）。`services.md` と `ARCHITECTURE.md` からも参照を追加。
+- 書きながら見つかった食い違い 2 つ（実害は小さいので直さず #60 に残した）:
+  - `/tools/maps` の総評は `ANTHROPIC_API_KEY` があれば AI が書くのに、registry の `optional` に `anthropic` が入っていないため、設定の案内に「任意」として出ない。
+  - `/tools/site-report` は `requires: ["ga4","serpapi"]` だが、この API 自体は SerpApi を叩かない（順位はブラウザに溜まった順位計測の履歴から読む）。SerpApi が要るのは「順位計測で履歴を作るため」という間接的な依存。
+- **利用者の判断待ち**: このブランチを main へマージするか（ドキュメントだけなので本番の挙動は変わらない。main への push なので Vercel の再デプロイは走る）。
