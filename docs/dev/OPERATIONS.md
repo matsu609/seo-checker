@@ -224,7 +224,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 | 60 | registry の食い違いを直す: `/tools/maps` の `optional` に `anthropic` を足す、`/tools/site-report` の `serpapi` を間接依存として書き直す（[tool-map.md](./tool-map.md) の ※1・※4） | Claude | 未（次にコードを触るときで可） |
 | 61 | 採点ツールの誤検出を直す: 意図した noindex（サイト内検索の結果ページなど）とトップページのパンくずを減点しない | Claude | **完了（r43、09-12 に利用者の指示で main へマージ）** |
-| 62 | 採点ツールの誤検出（続き）: もともと検索に載せないページの **robots.txt での拒否**（`ai-crawlers-allowed`・配点 3）も減点しない。サイト全体の拒否（`Disallow: /`）は従来どおり減点 | Claude | **コードは完了**。作業ブランチ `claude/search-noindex-breadcrumb-bb0b70`（`8bd055c`）に push 済み。main へマージするかは利用者の判断待ち |
+| 62 | 採点ツールの誤検出（続き）: もともと検索に載せないページの **robots.txt での拒否**（`ai-crawlers-allowed`・配点 3）も減点しない。サイト全体の拒否（`Disallow: /`）は従来どおり減点 | Claude | **完了（r44、09-12 に利用者の指示で main へマージ）** |
+| 63 | サイト診断: **検索に載せないページを採点対象外（参考）にする**。noindex か robots.txt で実際に検索から外されているサイト内検索の結果などは、診断はするが平均点・項目の集計・ページ一覧に入れず、付録 A に理由つきで載せる | Claude | **完了（r44）** |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
 
@@ -254,7 +255,6 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 ### 入力待ち（利用者からの回答が要るもの）
 
-- 採点ツールの修正の続き（#62、robots.txt での拒否）を main へマージするか（コードは検証済み。マージすると Vercel の再デプロイが走る）
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
 - Business Profile API の承認結果（#5 / #54 ①。09-11 申請、ケース ID `0-4126000041187`、7〜10 営業日）。承認されたら #54 の②〜④へ
@@ -703,10 +703,19 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 ### 2026-09-12（採点ツール: robots.txt での拒否も同じ扱いに）
 
-- r43 の直後に気づいた点として利用者へ報告 → 「同じ考え方で除外するか」の問いに **除外する（ただし歯止めつき）** を提案し、実装した。作業ブランチ `claude/search-noindex-breadcrumb-bb0b70`（`8bd055c`）に push 済み。**main へマージするかは利用者の判断待ち（#62）**。
+- r43 の直後に気づいた点として利用者へ報告 → 「同じ考え方で除外するか」の問いに **除外する（ただし歯止めつき）** を提案し、実装した。作業ブランチ `claude/search-noindex-breadcrumb-bb0b70`（`8bd055c`）に push → 次の #63 と合わせて **main へマージ（r44）**。
 - 直した誤検知: 同じ `/search` が robots.txt でも `Disallow` されていると、`ai-crawlers-allowed`（**配点 3**、カテゴリ内で最大）が「AI 検索用クローラがすべてブロックされている」で未対応になっていた。検索結果ページを robots.txt で止めるのは Google も勧める定石で、noindex と同じ性質の誤検知。
 - **歯止め（重要）**: サイト全体が拒否されている（`Disallow: /`）場合は、それ自体が最も重大な設定ミス。**トップページが許可されているときだけ**「意図した拒否」とみなす。この条件が無いと、`Disallow: /` のサイトで `/search` を診断したときに「適切」と言ってしまい、致命的な問題を隠す。
 - `page-kind.ts` の名前を実態に合わせた: `intentionalNoindex` → **`notForSearch`**（もともと検索に載せないページ）。理由の文は結論抜きにして、呼び出し側が「noindex のままにしておくのが正しい設定です」「robots.txt で拒否したままで問題ありません」を足す形にした。URL の判定そのもの（5 種類の語）は r43 から変えていない。
 - 反映先: 無料診断の `ai-crawlers-allowed`（配点は据え置きで判定だけ pass）、ページ最適化レポートの「検索用 AI クローラの許可」、サイト診断（A1）の `ROBOTS_BLOCKED`（重大 → 情報）。A1 の判定に使う `rootRobotsAllowed` を `AuditContext` に追加した（`run.ts` で `robots.isAllowed(${origin}/, "Googlebot")`）。
 - 検証: lint / tsc / test（109 ファイル・**1,444 件**）/ build すべて通過。テストは「検索ページの拒否は減点しない」「`Disallow: /` なら検索ページでも未対応のまま」「ふつうのページの判定は変わらない」「一部のクローラだけの拒否も減点しない」を無料診断・ページ最適化レポート・A1 の 3 か所に追加。`site.test.ts` のダミーサイトの robots.txt に `Disallow: /search` を足して、実際に取得する経路でも確認している。
 - **やっていないこと（今後の候補）**: 「もともと検索に載せないページ」はタイトル・説明文・見出しなども採点対象のままで、サイト全体の平均点を下げる。ページごと参考扱い（採点対象外）にするかは別の判断が要るため触っていない。
+
+### 2026-09-12（サイト診断: 検索に載せないページを採点対象外に）
+
+- 前の項目の「もう 1 つの気づき」（/search に説明文が無いのは当然なのに「未対応」と出て平均点を下げる）を利用者が「修正お願いします。終わったらメインにマージして」→ 実装し、#62 と合わせて **main へマージ（`cd540e8`）、`add-release.mjs` で r44（`7c9fcdd`）**。マージ後の main でも lint / tsc / test（109 ファイル・**1,453 件**）/ build を通してから push した。Vercel の再デプロイが走る。
+- **判定（`src/lib/analyzer/robots.ts` の `searchExclusion`）**: URL の用途（page-kind.ts の 5 種類）**かつ**、実際に noindex か robots.txt（トップページは許可 = 意図した拒否）で検索から外されているときだけ該当。URL だけでは決めない（検索に載る状態の /search は title や説明文をふつうに問うべき）。ふつうのページの noindex はうっかりの可能性があるので採点対象のまま（未対応として目立たせる）。`Disallow: /` は理由にしない。
+- **データの形**: `AnalysisResult.excluded: PageExclusion | null`（label / noindex / robots）。サイト診断では該当ページを `pages` から外し `SiteAnalysisResult.excluded`（URL つき）に分ける。`overall`・`categories`・`checks` は採点ページだけで集計。`crawl.analyzed` = 採点したページ数、`crawl.excluded` を追加。進捗の `analyzed` は採点対象外も「診断済み」に数える（画面の進捗はそのまま）。採点できるページが 1 つも無ければ「トップページの URL で診断してください」のエラー（400）。
+- **レポート**: 表紙の診断ページ数に「採点対象外 N 件」、付録 A に「採点対象外のページ」の小表（URL / ページの用途 / 外し方 = noindex・robots.txt）と「採点したページ / 採点対象外のページ」の統計、ヒート表の脚注、注記（notes）。入力 URL 自体が採点対象外なら「入力 URL」の印はどのページにも付けない。単体診断（このページ）では採点はそのままで、シートの先頭に Callout「このページは検索に載せないページです（採点は参考）」。付録 B に採点対象外ページの説明を 1 段落。
+- **テスト**: `searchExclusion` の判定（noindex のみ / robots.txt のみ / 両方 / 検索に載る状態の /search は null / ふつうのページの noindex は null / `Disallow: /` は理由にしない）、`site.test.ts` のダミーサイトで `/search` を `/blog/article` からリンクして実際にクロール → `excluded` に入り `pages` と項目集計から外れること、`summary.test.ts` で付録用の行と「入力 URL が採点対象外」の扱い。
+- **注意（引き継ぎ）**: サイト診断の結果の形が変わった（`excluded` が必須）。`/api/site` のキャッシュはプロセス内なので再デプロイで消える。ブラウザに保存した過去の結果は無い（無料診断は保存しない）。切り出し版（`scripts/extract-free.mjs`）は import を辿るので追加ファイル不要。
