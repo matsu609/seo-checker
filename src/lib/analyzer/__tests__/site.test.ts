@@ -12,6 +12,8 @@ import { analyzeSite } from "../site";
  *  - トップだけ WebSite の JSON-LD があり、パンくずが無い（最上位なので不要）
  *  - /company と /service はパンくずがあり、WebSite が無い
  *  - /blog/article だけ、下層ページなのにパンくずが無い
+ *  - /search（/blog/article からだけリンク）は noindex + robots.txt の検索結果ページで、
+ *    診断はするが採点しない
  *  - /company は表組み中心で、本文の書き方もトップとは違う
  * この状態でページ単位のスコアが何によって変わるのかと、サイト診断がその差を
  * 「ページによって差がある項目」として拾えることを確かめる。
@@ -90,13 +92,13 @@ const SERVICE_HTML = `<!doctype html><html lang="ja">${HEAD("サービス | ダ�
 /** サイトマップには無く、/service からだけリンクされている記事 */
 const ARTICLE_HTML = `<!doctype html><html lang="ja">${HEAD("記事 | ダミー社", ARTICLE_JSONLD)}
   <body>
-    <nav><a href="/">ホーム</a></nav>
+    <nav><a href="/">ホーム</a><a href="/search?q=%E8%A8%98%E4%BA%8B">サイト内検索</a></nav>
     <main><h1>記事</h1><h2>本文</h2><p>${PARAGRAPH}</p></main>
   </body></html>`;
 
 /**
- * サイト内検索の結果ページ。サイトマップにも内部リンクにも出さないので
- * クロールでは見つからない（analyze で直接指定したときだけ診断される）。
+ * サイト内検索の結果ページ。サイトマップには無く、/blog/article からだけリンクされている
+ * （maxPages: 2 の打ち切りテストでは取得されない位置）。
  */
 const SEARCH_HTML = `<!doctype html><html lang="ja">
   <head>
@@ -221,6 +223,9 @@ describe("ページ単位の診断", () => {
     );
     // ふつうのページの判定は変わらない（robots.txt は /search だけを止めている）
     expect(checkOf(company, "ai-crawlers-allowed").status).toBe("pass");
+    // 検索に載せないページなので、サイト診断では採点対象外になる印が付く
+    expect(search.excluded).toEqual({ label: "サイト内検索の結果ページ", noindex: true, robots: true });
+    expect(company.excluded).toBeNull();
   });
 
   // FAQ の無いページに「FAQPage を足せ」という助言は出さない
@@ -275,13 +280,14 @@ describe("analyzeSite", () => {
     expect(site.failures).toEqual([]);
     expect(site.overall).toBeGreaterThan(0);
     expect(site.crawl).toMatchObject({
-      discovered: 4,
-      fetched: 4,
-      analyzed: 4,
+      discovered: 5,
+      fetched: 5,
+      analyzed: 4, // 採点したページ（/search は診断したが採点しない）
+      excluded: 1,
       failed: 0,
       skipped: 0,
       sitemapCount: 2, // 入力 URL "/" 以外の sitemap 掲載ページ
-      linkCount: 1,
+      linkCount: 2, // /blog/article と /search
       truncated: null,
     });
     expect(site.crawl.durationMs).toBeGreaterThanOrEqual(0);
@@ -290,6 +296,20 @@ describe("analyzeSite", () => {
       expect(p.page).not.toHaveProperty("mainText");
     }
     expect(site.pages[0].page.mainTextLength).toBeGreaterThan(2000);
+  });
+
+  // /search に説明文が無いのは当然で、それを未対応と数えるとサイトの平均点が意味なく下がる
+  it("検索に載せないページは診断するが、平均点・一覧・項目の集計に入れない", async () => {
+    const site = await analyzeSite(`${origin}/`);
+    expect(site.excluded).toEqual([
+      { url: `${origin}/search?q=%E8%A8%98%E4%BA%8B`, label: "サイト内検索の結果ページ", noindex: true, robots: true },
+    ]);
+    expect(site.pages.map((p) => new URL(p.url).pathname)).not.toContain("/search");
+    // 項目の集計にも入らない（noindex の判定件数は採点した 4 ページ分）
+    const byId = Object.fromEntries(site.checks.map((c) => [c.id, c]));
+    expect(byId["noindex"].counts).toEqual({ pass: 4, warn: 0, fail: 0, info: 0 });
+    expect(byId["description"].counts.pass + byId["description"].counts.warn + byId["description"].counts.fail).toBe(4);
+    expect(site.notes.some((n) => n.includes("採点に含めていません"))).toBe(true);
   });
 
   it("ページ間で差がある項目を mixed として拾う", async () => {
@@ -337,8 +357,8 @@ describe("analyzeSite", () => {
     const crawl = progress.filter((p) => p.phase === "crawl");
     expect(crawl).toHaveLength(site.crawl.fetched);
     const last = crawl[crawl.length - 1];
-    expect(last.fetched).toBe(4);
-    expect(last.analyzed).toBe(4);
+    expect(last.fetched).toBe(5);
+    expect(last.analyzed).toBe(5); // 進捗は採点対象外のページも「診断済み」に数える
     expect(last.queued).toBe(0);
     expect(last.elapsedMs).toBeGreaterThanOrEqual(0);
   });

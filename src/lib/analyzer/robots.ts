@@ -2,8 +2,8 @@ import robotsParser from "robots-parser";
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
 import { fetchText } from "./fetch";
-import { notForSearch } from "./page-kind";
-import type { CheckResult, CheckStatus } from "./types";
+import { notForSearch, type NotForSearchPage } from "./page-kind";
+import type { CheckResult, CheckStatus, PageExclusion } from "./types";
 
 /* ─────────────────────────────────────────────────────────────
    AI クローラは用途で 2 つに分かれ、robots.txt でも別々に指定できる。
@@ -117,6 +117,60 @@ export function extractSitemaps(robotsTxt: string | null): string[] {
   return [...new Set(urls)];
 }
 
+/** meta robots / X-Robots-Tag の noindex を読む（小文字に揃えて返す） */
+export function readNoindex(
+  $: cheerio.CheerioAPI,
+  pageHeaders: Headers,
+): { noindex: boolean; metaRobots: string; xRobots: string } {
+  const metaRobots = ($('meta[name="robots"]').attr("content") ?? "").toLowerCase();
+  const xRobots = (pageHeaders.get("x-robots-tag") ?? "").toLowerCase();
+  return { noindex: metaRobots.includes("noindex") || xRobots.includes("noindex"), metaRobots, xRobots };
+}
+
+/** この URL で robots.txt に拒否されている検索用クローラ */
+function blockedSearchCrawlers(files: SiteFiles, url: string): string[] {
+  return evaluateRobots(files.robotsTxt, url, `${new URL(url).origin}/robots.txt`).blocked.filter(
+    (ua) => purposeOf(ua) === "search",
+  );
+}
+
+/**
+ * robots.txt の拒否が「意図した拒否」か。
+ *
+ * サイト内検索の結果ページなどを robots.txt で拒否するのも定石で、noindex と同じく
+ * 「直すべき問題」ではない。ただしサイト全体が拒否されている（Disallow: /）場合は
+ * それ自体が重大な問題なので、**トップページが許可されているときだけ**意図した拒否と
+ * みなす（そうしないと Disallow: / を見逃す）。
+ * 該当しなければ null（拒否されていない、ふつうのページ、サイト全体の拒否）。
+ */
+export function intendedRobotsBlock(pageUrl: URL, files: SiteFiles): NotForSearchPage | null {
+  if (blockedSearchCrawlers(files, pageUrl.toString()).length === 0) return null;
+  const kind = notForSearch(pageUrl.toString());
+  if (!kind) return null;
+  const homeAllowed = blockedSearchCrawlers(files, `${pageUrl.origin}/`).length === 0;
+  return homeAllowed ? kind : null;
+}
+
+/**
+ * 「もともと検索に載せないページ」が、実際に検索から外されているか。
+ * 該当するページは診断しても採点しない（参考扱い。types.ts の PageExclusion）。
+ * URL の用途だけでは判定しない: /search が検索に載る状態なら、その title や
+ * 説明文はふつうに問われるべきなので採点する。
+ */
+export function searchExclusion(
+  pageUrl: URL,
+  $: cheerio.CheerioAPI,
+  pageHeaders: Headers,
+  files: SiteFiles,
+): PageExclusion | null {
+  const kind = notForSearch(pageUrl.toString());
+  if (!kind) return null;
+  const noindex = readNoindex($, pageHeaders).noindex;
+  const robots = intendedRobotsBlock(pageUrl, files) !== null;
+  if (!noindex && !robots) return null;
+  return { label: kind.label, noindex, robots };
+}
+
 export function checkCrawlers(
   pageUrl: URL,
   $: cheerio.CheerioAPI,
@@ -137,17 +191,8 @@ export function checkCrawlers(
     (ua) => !blockedSearch.includes(ua),
   );
 
-  // サイト内検索の結果ページなどを robots.txt で拒否するのも定石で、noindex と
-  // 同じく「直すべき問題」ではない。ただしサイト全体が拒否されている（Disallow: /）
-  // 場合はそれ自体が重大な問題なので、**トップページが許可されているときだけ**
-  // 意図した拒否とみなす（そうしないと Disallow: / を見逃す）。
-  const notForSearchPage = blockedSearch.length > 0 ? notForSearch(pageUrl.toString()) : null;
-  const homeAllowed =
-    notForSearchPage !== null &&
-    evaluateRobots(files.robotsTxt, `${origin}/`, robotsUrl).blocked.every(
-      (ua) => purposeOf(ua) !== "search",
-    );
-  const intendedBlock = homeAllowed ? notForSearchPage : null;
+  // 検索に載せないページの意図した拒否は減点しない（判定は intendedRobotsBlock）
+  const intendedBlock = intendedRobotsBlock(pageUrl, files);
 
   const searchStatus: CheckStatus =
     blockedSearch.length === 0 || intendedBlock
@@ -208,9 +253,7 @@ export function checkCrawlers(
   // などは検索に載せない方が正しく、外させると中身の薄いページが大量に登録される。
   // URL から用途が分かるページでは、jsonld-website と同じく配点を残したまま減点だけ
   // を外す（判定の一覧は page-kind.ts）。
-  const metaRobots = ($('meta[name="robots"]').attr("content") ?? "").toLowerCase();
-  const xRobots = (pageHeaders.get("x-robots-tag") ?? "").toLowerCase();
-  const noindex = metaRobots.includes("noindex") || xRobots.includes("noindex");
+  const { noindex, metaRobots, xRobots } = readNoindex($, pageHeaders);
   const intentional = noindex ? notForSearch(pageUrl.toString()) : null;
   const noindexSource = `meta robots="${metaRobots || "-"}" / X-Robots-Tag="${xRobots || "-"}"`;
   results.push(

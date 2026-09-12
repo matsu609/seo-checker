@@ -10,7 +10,7 @@ import {
 import { checkHeadings, extractHeadings } from "./headings";
 import { checkStructuredData, extractJsonLd } from "./jsonld";
 import { checkMeta, extractMeta } from "./meta";
-import { checkCrawlers, fetchSiteFiles, type SiteFiles } from "./robots";
+import { checkCrawlers, fetchSiteFiles, searchExclusion, type SiteFiles } from "./robots";
 import { buildCategories, overallScore } from "./scoring";
 import type { AnalysisResult, CheckResult } from "./types";
 
@@ -111,6 +111,9 @@ export function analyzeFetched(
     overall: overallScore(categories),
     categories,
     notes,
+    // 検索に載せないページ（noindex / robots.txt で止めた検索結果ページなど）は
+    // 診断はするが採点しない。サイト診断はこれを見て平均点から外す
+    excluded: searchExclusion(finalUrl, $, page.headers, siteFiles),
   };
 }
 

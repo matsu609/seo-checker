@@ -14,6 +14,7 @@ import {
   type SiteCategoryScore,
   type SiteCheckSummary,
   type SiteDiscovery,
+  type SiteExcludedPage,
   type SitePageFailure,
   type SitePageResult,
   type SiteProgress,
@@ -81,6 +82,7 @@ export interface AnalyzeSiteOptions {
  * ページの集め方: サイトマップ（robots.txt の Sitemap 行 → 定番の場所、索引は再帰展開）
  * を種にして、取得した各ページの内部リンクを幅優先で辿る。上限（maxPages /
  * timeBudgetMs）に達したら打ち切り、その旨を `crawl.truncated` と `notes` に残す。
+ * 検索に載せないページ（`AnalysisResult.excluded`）は採点せず `excluded` に分ける。
  */
 export async function analyzeSite(
   input: string,
@@ -130,7 +132,16 @@ export async function analyzeSite(
     },
   });
 
-  const pages: SitePageResult[] = analyses.map(({ result }) => ({
+  // 検索に載せないページ（noindex / robots.txt で止めた検索結果ページなど）は
+  // 診断はしたが採点しない。/search に説明文が無いのは当然で、それを未対応と数えると
+  // サイト全体の平均点を意味なく下げる。平均点・項目の集計は採点ページだけで出し、
+  // 除いたページは result.excluded に理由つきで残す（付録に載せる）
+  const scored = analyses.filter(({ result }) => result.excluded === null);
+  const excluded: SiteExcludedPage[] = analyses.flatMap(({ result }) =>
+    result.excluded ? [{ url: result.page.finalUrl, ...result.excluded }] : [],
+  );
+
+  const pages: SitePageResult[] = scored.map(({ result }) => ({
     url: result.page.finalUrl,
     overall: result.overall,
     scores: Object.fromEntries(
@@ -152,6 +163,12 @@ export async function analyzeSite(
   }));
 
   if (pages.length === 0) {
+    if (excluded.length > 0) {
+      throw new FetchError(
+        "見つかったページはすべて検索に載せないページ（サイト内検索の結果など）のため、採点できるページがありませんでした。トップページの URL で診断してください",
+        "invalid_url",
+      );
+    }
     throw new FetchError("サイト内のどのページも診断できませんでした", "network");
   }
 
@@ -186,6 +203,11 @@ export async function analyzeSite(
   if (failures.length > 0) {
     notes.push(`${fmt(failures.length)} ページは取得できなかったため集計から除きました`);
   }
+  if (excluded.length > 0) {
+    notes.push(
+      `${fmt(excluded.length)} ページは検索に載せないページ（サイト内検索の結果など）のため、診断はしましたが採点に含めていません`,
+    );
+  }
   if (crawl.skipped > 0) {
     notes.push(
       `${fmt(crawl.skipped)} 件は HTML 以外・別サイトへの転送・重複のため診断対象外にしました`,
@@ -198,14 +220,16 @@ export async function analyzeSite(
     origin,
     pages,
     failures,
+    excluded,
     overall: average(pages.map((p) => p.overall)),
     categories: summarizeCategories(pages),
-    checks: summarizeChecks(analyses),
+    checks: summarizeChecks(scored),
     discovery,
     crawl: {
       discovered: crawl.discovered,
       fetched: crawl.fetched,
       analyzed: pages.length,
+      excluded: excluded.length,
       failed: failures.length,
       skipped: crawl.skipped,
       durationMs: Date.now() - startedAt,

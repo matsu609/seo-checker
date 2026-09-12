@@ -22,9 +22,10 @@ export function SiteReport({ result, elapsedMs }: { result: SiteAnalysisResult; 
   const entry = summary.rankedPages.find((p) => p.isEntry);
   const entryPage = result.pages.find((p) => p.url === entry?.url) ?? result.pages[0];
   const failed = result.failures.length;
+  const excluded = summary.excludedPages.length;
   const pagesLabel = `${fmt(result.pages.length)} ページ（${DISCOVERY_LABEL[result.discovery]}${
-    failed > 0 ? `・取得失敗 ${fmt(failed)} 件` : ""
-  }）`;
+    excluded > 0 ? `・採点対象外 ${fmt(excluded)} 件` : ""
+  }${failed > 0 ? `・取得失敗 ${fmt(failed)} 件` : ""}）`;
 
   return (
     <>

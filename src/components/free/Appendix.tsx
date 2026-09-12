@@ -10,7 +10,7 @@ import type {
   SiteCrawlStats,
   SitePageFailure,
 } from "@/lib/analyzer/types";
-import { fmt, formatDuration, pathOf, type SiteReportSummary } from "@/lib/report";
+import { fmt, formatDuration, pathOf, type ExcludedPageRow, type SiteReportSummary } from "@/lib/report";
 import { DISCOVERY_LABEL, EmptyLine, KeyValue, Num, ReportSection, SubHeading } from "./report-parts";
 
 export function PageAppendix({ result, number }: { result: AnalysisResult; number: string }) {
@@ -49,6 +49,16 @@ export function PageAppendix({ result, number }: { result: AnalysisResult; numbe
     </ReportSection>
   );
 }
+
+const EXCLUDED_COLUMNS: Column<ExcludedPageRow>[] = [
+  {
+    key: "path",
+    header: "URL",
+    render: (row) => <span className="break-all">{row.path}</span>,
+  },
+  { key: "label", header: "ページの用途", nowrap: true, render: (row) => row.label },
+  { key: "how", header: "外し方", nowrap: true, render: (row) => <span className="text-muted">{row.how}</span> },
+];
 
 const FAILURE_COLUMNS: Column<SitePageFailure>[] = [
   {
@@ -93,6 +103,25 @@ export function SiteAppendix({
         ))}
       </dl>
 
+      <SubHeading>採点対象外のページ</SubHeading>
+      {summary.excludedPages.length === 0 ? (
+        <EmptyLine>採点対象外にしたページはありません。</EmptyLine>
+      ) : (
+        <>
+          <p className="mb-2 text-[12px] leading-relaxed text-muted">
+            もともと検索に載せないページが noindex や robots.txt で検索から外されているものです。診断はしましたが、平均点・項目の集計・ページ一覧には含めていません。
+          </p>
+          <DataTable
+            rows={summary.excludedPages}
+            columns={EXCLUDED_COLUMNS}
+            rowKey={(row) => row.url}
+            dense
+            stickyHeader={false}
+            minWidth="24rem"
+          />
+        </>
+      )}
+
       <SubHeading>診断できなかったページ</SubHeading>
       {result.failures.length === 0 ? (
         <EmptyLine>取得・診断に失敗したページはありません。</EmptyLine>
@@ -119,8 +148,11 @@ export function SiteAppendix({
         <KeyValue term="取得を試みたページ">
           <Num>{fmt(crawl.fetched)}</Num> 件（対象外 <Num>{fmt(crawl.skipped)}</Num> 件）
         </KeyValue>
-        <KeyValue term="診断できたページ">
+        <KeyValue term="採点したページ">
           <Num>{fmt(crawl.analyzed)}</Num> 件
+        </KeyValue>
+        <KeyValue term="採点対象外のページ">
+          <Num>{fmt(crawl.excluded ?? 0)}</Num> 件（検索に載せないページ）
         </KeyValue>
         <KeyValue term="診断できなかったページ">
           <Num>{fmt(crawl.failed)}</Num> 件

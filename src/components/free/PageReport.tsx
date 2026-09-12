@@ -3,6 +3,7 @@
  * 表紙帯 + 1 枚の白いシートの中に、番号付きセクションを並べる。
  */
 import { useMemo } from "react";
+import { Callout } from "@/components/ui";
 import type { AnalysisResult } from "@/lib/analyzer/types";
 import { buildPageSummary, formatDuration, hostOf } from "@/lib/report";
 import { PageAppendix } from "./Appendix";
@@ -40,6 +41,15 @@ export function PageReport({
         grade={summary.grade}
       />
       <ReportSheet>
+        {summary.excluded && (
+          // 検索に載せないページを単体で診断したとき。採点はするが「参考」だと先に断る
+          // （サイト全体の診断ではこのページは平均点に入れない）
+          <Callout tone="info" title="このページは検索に載せないページです（採点は参考）">
+            {summary.excluded.label}で、{summary.excluded.how}により検索エンジンにも AI
+            検索にも登録されない設定になっています。これは正しい設定で、title や説明文が無くても問題ありません。
+            サイト全体の診断ではこのページを採点対象外として平均点に含めません。
+          </Callout>
+        )}
         <OverallSection summary={summary} number={1} />
         <CategorySection summary={summary} number={2} />
         <PageBreakdownSection summary={summary} number={3} />

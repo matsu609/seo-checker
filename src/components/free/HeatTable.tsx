@@ -103,6 +103,13 @@ export function HeatTableSection({ summary, number }: { summary: SiteReportSumma
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted">
         セルの色: 80 以上 = 合格域 / 50〜79 = 改善域 / 50 未満 = 未対応域。
+        {summary.excludedPages.length > 0 && (
+          <>
+            {" "}
+            検索に載せないページ <Num>{fmt(summary.excludedPages.length)}</Num>{" "}
+            件（サイト内検索の結果など）は採点対象外のため、この一覧と平均に含めていません（付録 A 参照）。
+          </>
+        )}
         {overflow > 0 && (
           <>
             {" "}
