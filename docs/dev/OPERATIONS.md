@@ -220,6 +220,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 57 | 基本情報掲載の「一括同期」を本当に自動化するなら、配信代行（Uberall / Yext）の契約と API 連携が要る（有料、店舗ごと月額）。契約するかは利用者の判断（下の「入力待ち」） | 利用者 → Claude | 判断待ち |
 | 55 | r38 の SQL を Supabase で実行（`review_forms.translations` と `review_responses.lang`） | 利用者 | **完了（09-11 22:24、r39 の SQL と同時に実行。画面で Success を確認）** |
 | 54 | **口コミ返信を有効にする（Google 側の作業）**: ① Business Profile API の利用申請 → ② 承認後、Google Cloud で API 3 つを有効化 → ③ OAuth の同意画面に `business.manage` スコープを追加 → ④ 本番 `/tools/replies` で「Google に口コミ返信の権限を追加する」→ Google の確認画面で許可（下の「口コミ返信を有効にする手順」） | 利用者 | **①申請済み（09-11、ケース ID `0-4126000041187`、7〜10 営業日）**。②は Account Management / Business Information の 2 つが有効化済み（09-11 確認）。残りの「Google My Business API」（v4）と③④は承認メール後 |
+| 59 | **無料診断の切り出し（zip）を main に入れるか**: 作業ブランチ `claude/happy-mendel-xul1eh` に `scripts/extract-free.mjs` をコミット済み（本体の動きは変えない。tsconfig / eslint の除外と `.gitignore` だけ変更）。マージするなら main へ → `add-release.mjs` | 利用者 → Claude | 判断待ち |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
@@ -255,6 +256,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 - Business Profile API の承認結果（#5 / #54 ①。09-11 申請、ケース ID `0-4126000041187`、7〜10 営業日）。承認されたら #54 の②〜④へ
 - `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
 - 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
+- 無料診断の切り出し（#59）: 作業ブランチのままでよいか、main にマージするか（マージすると Vercel が再デプロイされるが、本体の画面・API は何も変わらない）
 - 基本情報掲載（#57）: 配信代行（Uberall / Yext など）を契約して「ワンクリック一括同期」を実装するか。料金の目安（09-11 に検索。日本の正式価格は代理店の見積もり）: Yext は米国の自社向けプランで店舗あたり月額 $16〜$76、代理店経由の小規模契約は店舗あたり年 $1,000〜$3,000 の例もある。Uberall は非公開（日本代理店に問い合わせ）。AI の説明文は 1 回 1 円程度（Haiku 4.5）。無料の一括登録 API は存在しないため、r39 は「1 か所で決めて各媒体に貼る + 掲載状況の管理」まで。契約するなら API キーを Vercel に置き、`src/lib/listings/` に同期の実装を足す
 
 ### フェーズ 2 で使うテーブル（Supabase SQL Editor で実行）
@@ -435,6 +437,8 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | 日付 | 判断 | 理由 |
 |---|---|---|
+| 09-12 | 無料診断の切り出しは **手作業のコピーではなくスクリプト**（`scripts/extract-free.mjs`）にした | 手でコピーすると本体を直すたびに中身がずれる。入口から import をたどって集めれば、本体の更新後に作り直せる。本体と中身が違うのは 4 ファイルだけに抑え、差分を追えるようにした |
+| 09-12 | 切り出し版から **認証・課金・ツール群・利用規約などの画面を外した** | 無料診断は元からログイン不要で、これらを参照していない。無い画面へのリンクを残すとリンク切れになるので、サイドバーを無料診断 2 本だけにし、無料 MEO 診断が指している `/plans`・`/sign-up` は本体サービス（`NEXT_PUBLIC_MAIN_APP_URL`）へ送るページに置き換えた |
 | 09-09 | マスター画面に入れない問題は**コードではなく表示位置**と結論 | `/api/plan` が `admin:true`。リンクと判定は同じコミット `e6a0366` で追加されており、本番に載っている。サイドバー最下部にあるだけ |
 | 09-09 | `r11-version-card.patch` は**適用しない** | `src/lib/release/` はすでに main にあり、releases.json も 11 件入っていた（別リポジトリの作業が `e6a0366` に含まれていた） |
 | 09-09 | SEO 診断と AIO 診断は**統合しない** | 利用者が「やっぱり分ける」と決定 |
@@ -660,3 +664,14 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「このサイテーション機能によって AIO でどのような効果があるのか、インバウンドや LLM（ChatGPT など）での上位表示につながるという説明を添えて。API 料金はいくら？」→ **r40**: `/tools/listings` の先頭に「なぜ AIO・インバウンドに効くのか」カード（生成 AI は複数媒体で一致した事実を信じる / Bing Places = ChatGPT 対策 / インバウンドは Apple マップ・Siri・Yelp・カーナビ / 説明文は「何の店か」を教える唯一の文章 / 構造化データと llms.txt。「AI に順位は無く、回答に含まれるかが勝負」と表現し、保証はしない）。registry の details にも 1 行。料金は会話で回答: AI の説明文は 1 回 1 円程度（Haiku 4.5、入力 $1 / 出力 $5 per 100 万トークン）、配信代行は Yext 月額 $16〜$76/店舗（米国自社向け）〜年 $1,000〜$3,000/店舗（代理店の小規模契約）、Uberall は非公開。#57 の判断待ちのまま。
 - 利用者が Supabase の SQL Editor で r38（2 列の追加）と r39（`listing_profiles`）の SQL 12 行を実行し「Success. No rows returned」を共有 → **#55・#56 完了**。Supabase のテーブルは 7 つ（`meo_reports` / `meo_stores` / `meo_owner_inputs` / `review_forms` / `review_channels` / `review_responses` / `listing_profiles`）。残りは本番での確認: `/tools/listings` で基本情報を保存できるか、英語端末でアンケートを開いて回答の一覧に「英語」バッジが出るか。
 - 利用者「登録済みのカード変更機能をつけたい。Stripe の連携を進めたい。アカウントは作ってある」→ 調べ直したところ **Clerk Billing はドルのみ**（円建て 9,800 円が作れない）と判明 → **r41: Stripe 直結**に切り替え（上の「決済（r41）」）。カードの変更・請求書・解約は Stripe のカスタマーポータル。特商法ページ `/legal/tokushoho`（#43）も作成。テスト（契約状態・古いイベントの無視・要約・公開パス）、lint / tsc / test / build 通過。**利用者の作業: #58 の 8 手順**（テストモードで商品・Webhook・ポータル・環境変数 → 動作確認 → 本番キー）。実 Stripe に対しては未検証。
+
+### 2026-09-12（無料診断の切り出し）
+
+- 利用者「この SEO 無料診断の機能の部分だけ別ファイルとしてコピーしたい。zip ファイルとして出力してほしい」→ **`scripts/extract-free.mjs` を追加し、zip を会話に添付して渡した**（`dist/seo-free-checker.zip`、約 0.36 MB、212 エントリ）。本体の画面・API・ロジックは一切変えていない。
+- 作り方: 入口（`/`・`/meo` の page、`layout`、`manifest`、API は `analyze` / `site` / `faq` / `meo/search` / `meo/report`）から import をたどって必要なファイルだけを集め、コピーしてから `scripts/extract-free/overrides/` の 4 ファイルで上書きする。上書きで使われなくなったファイル（Clerk 関連の `AuthMenu` / `lib/auth/config` / `store/usePlan` など）と、切り出さない機能のテストは自動で落とす。未解決の import が 1 つでも残れば zip を作らずに失敗する。
+- 切り出し版の中身: 163 ファイル。無料診断 2 画面 + API 5 本 + `lib/analyzer` `lib/crawl` `lib/report` `lib/maps` `lib/faq` `lib/free/ratelimit` と UI 一式、テスト 25 ファイル（320 件）。**入っていないもの**: ログイン（Clerk）・課金（Stripe）・Supabase・`/tools/*`・`/settings`・`/admin`・口コミ支援・利用規約 / プライバシー / 特商法のページ。
+- 本体と中身が違うのは 4 ファイルだけ: `layout.tsx`（ClerkProvider を外す）、`AppShell.tsx` / `TopBar.tsx`（ログイン表示の引数を外す）、`Sidebar.tsx`（無料診断 2 本だけにする）。追加は `src/lib/main-app.ts` と `/plans`・`/sign-up`（本体サービスへ転送するだけの小さなページ）。機能レジストリと料金プランは、サービス資料の PDF を組み立てるので本体と同じものをそのまま持たせた。
+- 本体側の変更は 3 つだけ: `.gitignore` に `/dist`、`tsconfig.json` と `eslint.config.mjs` の除外に上書き用テンプレート（`scripts/extract-free/overrides`）と `dist`。テンプレートは本体の一部ではないので検査対象から外す（切り出し版の設定にはこの除外を入れない）。
+- 確認: 本体は lint / tsc / test（1,420 件）/ build すべて通過。切り出し版もリポジトリ外に展開して `npm install` → lint / tsc / test（320 件）/ build を通し、実際に `next start` で起動して ① ダミーサイト（`scripts/e2e/dummy-site.mjs`）の 1 ページ診断と「サイト全体」のクロール進捗、② `/meo` が「準備中」を出すこと（Places キー未設定）、③ `/api/faq` が `enabled:false` を返すこと、④ `/plans`・`/sign-up` が `https://app.seo-checker.tokyo/...` へ 307、⑤ トップに `/` と `/meo` 以外の内部リンクが無いことを確認。画面のスクリーンショットも取得。
+- **注意（切り出し版を公開して使う場合）**: 利用規約・プライバシーポリシー・特商法表記のページは入っていないので別途用意が必要。`/meo` は Google Places に実費が出るため、`FREE_MEO_DAILY_LIMIT` / `FREE_MEO_DAILY_SEARCH_LIMIT` を確認する（上限の記録はプロセス内のメモリなので、サーバーレスではインスタンスごとに独立する目安の歯止め）。
+- 作業ブランチ `claude/happy-mendel-xul1eh` に push 済み（コミット `6683b99`）。**main へマージするかは利用者の判断待ち（#59）。** 今回の指定ブランチが `claude/happy-mendel-xul1eh` だったため、main への直接反映は保留した。マージするときは lint / tsc / test / build は済んでいるので、`node scripts/add-release.mjs "無料診断だけを切り出して zip にするスクリプトを追加"` まで実行する。
