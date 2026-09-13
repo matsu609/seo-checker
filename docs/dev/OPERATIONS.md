@@ -210,7 +210,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | 未 |
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho` | Claude | **完了（r41）**。内容（解約は期間末まで利用可・日割り返金なし・運営責任者「松下」）は Claude の仮置き。利用者が確認して直す点があれば伝える |
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
-| 58 | **決済を有効にする（Stripe 側と Vercel の作業）**: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
+| 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。残るは ⑧ 本番モード）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
 | 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
@@ -775,3 +775,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - Vercel の環境変数一覧に Stripe の 3 つが Production で並んだ（`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` は Secret、`STRIPE_PRICE_PRO` は Config）。**#58 の 6 完了**。次は Redeploy → `/plans` で確認。切り分け: ボタンが出ない = 変数名の誤りか未反映、押下で 502 = `STRIPE_SECRET_KEY` が誤り、支払い後に「契約中」にならない = `STRIPE_WEBHOOK_SECRET` が誤り。Secret は再表示できないので、誤りなら行を削除して再登録。
 - Vercel の Deployments を確認: 最新の Production は `45878a1`（運用メモの push で自動デプロイ、環境変数の保存後）。**手動の Redeploy は不要**と判断し、`/plans` での確認へ進むよう案内。運用メモを main に push するたびに本番が自動デプロイされるので、環境変数を保存したあとにメモを push すれば再デプロイを兼ねられる。
 - 本番 `/plans` →「申し込む」→ **Stripe Checkout（サンドボックス）が開いた**。「オールインワン を定期購入 ¥50,000 / 月」「プロモーションコードを追加」「メールアドレスは Clerk のアカウントから自動入力」まで確認。→ **`STRIPE_SECRET_KEY` と `STRIPE_PRICE_PRO` は正しい**（#58 の 7 まで到達）。残るは支払い後に「契約中」になるか（= `STRIPE_WEBHOOK_SECRET` の確認）。
+- **テストカードで申し込み完了 → `/plans` が「契約中 / 月額 ¥50,000 / 次回の更新 2026-10-13 23:26」になった**（09-13 23:27）。Checkout → Webhook → Clerk の `publicMetadata.stripe` への書き込み → プラン判定まで一通り動作。**3 つの環境変数はすべて正しい。#58 の 1〜7（テスト環境）完了**。残り: ①カスタマーポータルでカード変更と解約を確認 → ②本番モードで商品・Webhook・ポータル・API キーを作り直し、Vercel の 3 つを差し替え、`DEFAULT_PLAN` を `free` に（#39）。
