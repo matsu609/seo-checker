@@ -9,7 +9,7 @@
 - **秘密の値（`sk_`、`GOCSPX-`、API キー、パスワード）は絶対に書かない。**変数名と「設定済み / 未設定」だけを書く。
 - 利用者への作業依頼は、手順ごとに**サービス名・画面名・URL**を必ず書く（利用者の指示。表: # / サービス・画面 / URL / やること）。よく使う URL は下記「よく使う画面の URL」。
 - 「現在の状態」「残タスク」「入力待ち」は常に最新に書き換える。「判断の経緯」「作業ログ」は追記する。
-- 全体像の説明は [services.md](./services.md)、**ツールと API キーの関係は [tool-map.md](./tool-map.md)**、開発規約は [ARCHITECTURE.md](./ARCHITECTURE.md)、機能説明は [README](../../README.md)。ここには重複させず、状態と判断だけを書く。
+- 全体像の説明は [services.md](./services.md)、**ツールと API キーの関係は [tool-map.md](./tool-map.md)**、SEO 分析ツールの要件と実装計画は [seo-analysis-spec.md](./seo-analysis-spec.md)、開発規約は [ARCHITECTURE.md](./ARCHITECTURE.md)、機能説明は [README](../../README.md)。ここには重複させず、状態と判断だけを書く。
 
 ## よく使う画面の URL
 
@@ -228,6 +228,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 63 | サイト診断: **検索に載せないページを採点対象外（参考）にする**。noindex か robots.txt で実際に検索から外されているサイト内検索の結果などは、診断はするが平均点・項目の集計・ページ一覧に入れず、付録 A に理由つきで載せる | Claude | **完了（r44）** |
 | 64 | 採点ツール: **本文の具体性の判定を多言語対応にする**（英語ページが本文を 2 倍にしても「1 / 全 1 文・改善余地」から動かない件）。言語判定・文の区切り・事実の手がかりを多言語化し、文が少ないページは比率で判定しない。判定根拠（総文数・言語・基準・実例 3 件）をレポートに出す | Claude | **完了（r45、09-13 に利用者の指示で main へマージ）**。マージ後の main でも lint / tsc / test（110 ファイル・1,490 件）/ build を通してから push した |
 | 65 | 依頼の任意項目「意図的な仕様の申告」: noindex の検索結果ページやトップのパンくずのように、意図して外している項目を申告して指摘から外す仕組み。r43 / r44 で自動判定できるものは既に外してあるので、残るのは「自動では区別できないもの」の手動申告 | 利用者 → Claude | 判断待ち（下の「入力待ち」） |
+| 66 | **SEO 分析ツール（GSC / GA4 / CrUX / PSI / URL Inspection / 自前クローラーの統合）**: 利用者の要件書（09-13）を [seo-analysis-spec.md](./seo-analysis-spec.md) に整理。既存との対応表（§14）と段階 A〜G（§15）を書いた。着手の順番・画面の置き方・保存量・Google Ads の要否・プラン（§17 の 6 点）の回答を待って段階 A（CrUX 監視 + PSI 連動）から実装する。利用者側の準備は Google Cloud で Chrome UX Report API の有効化と API キーの制限追加（§17 の表） | 利用者 → Claude | **要件の整理まで完了。§17 の判断待ち** |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
 
@@ -265,6 +266,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 - 口コミ支援の課金（オールインワンに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 - 意図的な仕様の申告（#65）をどの形にするか。案 A: 画面で URL とパターン（例: `/search` 配下の「説明文が無い」）を選んで「意図どおり」に印を付け、ブラウザの localStorage に保存してレポートから外す（ログイン不要のまま。端末が変わると消える）。案 B: ページ側に `<meta name="seo-checker-skip" content="content-specificity">` のような宣言を書いてもらい、ツールがそれを読んで外す（サイトに残るので端末に依存しない。ただし独自仕様をサイトに書いてもらうことになる）。案 C: 作らない（自動判定できるものだけ外す。現状）。**スコアに反映するかどうか**（申告した項目を満点にするか、採点対象外にするか）も決める必要がある
 - 基本情報掲載（#57）: 配信代行（Uberall / Yext など）を契約して「ワンクリック一括同期」を実装するか。料金の目安（09-11 に検索。日本の正式価格は代理店の見積もり）: Yext は米国の自社向けプランで店舗あたり月額 $16〜$76、代理店経由の小規模契約は店舗あたり年 $1,000〜$3,000 の例もある。Uberall は非公開（日本代理店に問い合わせ）。AI の説明文は 1 回 1 円程度（Haiku 4.5）。無料の一括登録 API は存在しないため、r39 は「1 か所で決めて各媒体に貼る + 掲載状況の管理」まで。契約するなら API キーを Vercel に置き、`src/lib/listings/` に同期の実装を足す
+
+- **SEO 分析ツール（#66）の 6 点**（[seo-analysis-spec.md](./seo-analysis-spec.md) §17）: ①着手の順番（推奨 A → B → C → D → E）②新しい画面の置き方（推奨: SEO タブに CWV 監視・SEO ダッシュボード・URL 詳細を追加）③保存する GSC の量（推奨: 日次 page 1,000 + query 1,000 + page × query 5,000 行、保持 16 か月）④Google Ads API を使うか（推奨: 後回し。developer token と `adwords` スコープが要る）⑤プラン（推奨 standard、AI 提案文だけ pro）⑥対象サイトの単位（GSC のプロパティ 1 つ = 1 サイトでよいか）
 
 ### フェーズ 2 で使うテーブル（Supabase SQL Editor で実行）
 
@@ -753,3 +756,13 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「次の手順を教えて」→ #58 の 2（Webhook）〜 7（テスト購入の確認）を、画面・URL つきで会話に再掲。値（`whsec_` / `sk_test_`）は会話に貼らず Vercel に直接入れるよう案内。設定完了の連絡待ち。
 - 利用者「エンドポイント追加はどこ」（ワークベンチの Webhook タブの画面）→ 新しい Stripe の画面では **「+ 送信先を追加」** が旧「エンドポイントを追加」。押したあと イベントを選ぶ（4 つ）→ 送信先の種類は「Webhook エンドポイント」→ URL `https://app.seo-checker.tokyo/api/billing/webhook` → 作成 → 署名シークレット（`whsec_`）を表示してコピー、の順と案内。
 - Webhook の送信先を作成（テスト環境）: 名前「seo-checker 本番アプリ」、URL `https://app.seo-checker.tokyo/api/billing/webhook`、イベント 4 件、API バージョン `2026-08-26.dahlia`、状態「アクティブ」、支払先 ID `we_1UF8u2BQZc3g0qHV06nnP8Jy`。署名シークレットは目のアイコンで表示 → Vercel の `STRIPE_WEBHOOK_SECRET` へ（会話には貼らない）。**#58 の 2 完了**。次は 3（カスタマーポータル）→ 4（公開事業者情報）→ 5（API キー）→ 6（Vercel の環境変数 3 つ）→ 7（Redeploy）→ 8（テストカードで確認）。
+
+### 2026-09-13（SEO 分析ツールの要件書）
+
+- 利用者から「SEO 分析ツール 機能要件」（目的 / データソース GSC・URL Inspection・Sitemaps・GA4・CrUX・CrUX History・PSI / CrUX と PSI の役割分担 / 自前クローラー / robots・sitemap / URL 集合の比較 / Google Ads / URL 単位の統合 / 改善候補の自動抽出 / ダッシュボード / コスト最適化 / 有料データ無しでは難しい機能 / 基本思想）を受け取った。ブランチ `claude/seo-analysis-tool-spec-b6gq4x`。
+- **コードは書いていない**。要件を [seo-analysis-spec.md](./seo-analysis-spec.md) に整理し、既存コードとの対応表（§14）、実装の段階 A〜G（§15）、設計上の決めごと（§16）、利用者に決めてもらうこと（§17）を書いた。
+- 棚卸しの結果: 要件の約半分は既存で満たせる。GSC は `src/lib/google/search-console/`（query / page / date / country / device）と `/tools/search-performance`、GA4 は `src/lib/ga4/`、PSI は `src/lib/psi/`（CrUX の p75 も PSI 経由で取っている）、クローラーは `src/lib/crawl/` + `src/lib/audit/`（48 ルール・10 カテゴリ。§4 の検出項目はほぼ網羅、hreflang / OG / nofollow の抽出だけ無い）、robots / sitemap は `src/lib/analyzer/robots.ts` と `discover.ts`。**無いのは CrUX API・CrUX History API・URL Inspection API・Sitemaps API のクライアント、URL 単位の保存と統合（Supabase）、改善候補の抽出ロジック、ダッシュボード、Google Ads**。
+- 判断（提案として記載、確定は利用者）: 保存先は Supabase（履歴が本体なので localStorage では持てない）。定期取得は既存の Cron と同じ守りで `/api/cron/seo-refresh` 1 本（Vercel Hobby は 1 日 1 回まで）。CrUX は URL → Origin → データ不足の 3 段で、どの単位の値かを画面に必ず出す。PSI は CrUX の問題 URL・新規 URL・手動のときだけ。Google Ads は準備（developer token・MCC・`adwords` スコープ）が重いので最後。
+- Google 側の準備は Chrome UX Report API の有効化と既存 API キーの制限追加だけ（URL Inspection / Sitemaps は許可済みの `webmasters.readonly` で呼べる）。費用はゼロで組める。
+- 次: §17 の回答をもらったら段階 A（`src/lib/crux/` + `/tools/cwv` + PSI 連動）から着手する。
+
