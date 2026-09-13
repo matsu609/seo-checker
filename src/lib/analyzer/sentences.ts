@@ -147,7 +147,7 @@ const ABBREVIATIONS = new Set([
  * 末尾が句読点で終わらないようにして、文末のピリオドまで飲み込まないようにする。
  */
 const RE_PROTECTED =
-  /(?:https?:\/\/|www\.)[^\s<>"'）】]*[^\s<>"'.,;:!?)）】\]]|[\w.+-]+@[\w-]+\.[\w-]+(?:\.[\w-]+)*/gi;
+  /(?:https?:\/\/|www\.)[^\s<>"'）】]{0,2000}[^\s<>"'.,;:!?)）】\]]|[\w.+-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63}){1,4}/gi;
 
 function maskProtected(text: string): string {
   return text.replace(RE_PROTECTED, (match) => "x".repeat(match.length));
@@ -285,9 +285,16 @@ const CONCRETE_PATTERNS: RegExp[] = [
   /\b\d{6,}\b/,
 ];
 
+/**
+ * 手がかりを探す長さの上限。
+ * 実際の 1 文がこれを超えることは無く、超えるのは本文でない塊（区切りの無い英数字の
+ * 羅列など）。正規表現の総当たりが重くなるだけなので、先頭だけを見る。
+ */
+const MAX_SCAN_CHARS = 1000;
+
 /** 数値・日付・組織名・連絡先などの事実を含む文か */
 export function isConcrete(sentence: string): boolean {
-  const normalized = sentence.normalize("NFKC");
+  const normalized = sentence.slice(0, MAX_SCAN_CHARS).normalize("NFKC");
   return CONCRETE_PATTERNS.some((re) => re.test(normalized));
 }
 

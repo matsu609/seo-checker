@@ -238,6 +238,22 @@ describe("受け入れ条件", () => {
   });
 });
 
+describe("壊れた入力", () => {
+  // 区切りの無い巨大なトークン（本文でない塊）でも、正規表現の総当たりで固まらないこと。
+  // 時間は測らず、vitest の既定タイムアウト（5 秒）を安全網にする
+  it("区切りの無い長大な塊でも診断が終わる", () => {
+    const junk = "a1".repeat(40000);
+    const digits = "1234567890".repeat(8000);
+    const html = page(
+      `<h1>x</h1><p>${junk}</p><p>${digits}</p><p>mail@${"x".repeat(5000)}</p>`,
+      "en",
+    );
+    const { info, check } = analyze(html);
+    expect(info.totalSentences).toBeGreaterThan(0);
+    expect(check?.status).toBeDefined();
+  });
+});
+
 describe("measureSpecificity", () => {
   it("文の数がいちばん多い言語を判定言語として返す", () => {
     const blocks = extractBlocks(
