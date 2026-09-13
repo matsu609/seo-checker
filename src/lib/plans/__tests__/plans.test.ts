@@ -60,8 +60,8 @@ describe("プラン ID の正規化", () => {
 describe("価格の表示", () => {
   it("金額どおりに出す", () => {
     expect(planPriceLabel("free")).toBe("無料");
-    expect(planPriceLabel("standard")).toBe("月額 6,800 円");
-    expect(planPriceLabel("pro")).toBe("月額 9,800 円");
+    expect(planPriceLabel("standard")).toBe("月額 50,000 円");
+    expect(planPriceLabel("pro")).toBe("月額 50,000 円");
   });
 });
 

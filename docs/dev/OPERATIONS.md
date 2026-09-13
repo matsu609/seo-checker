@@ -206,7 +206,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 38 | 無料 MEO 診断の回数制限を Supabase に移す（候補）: いまはプロセス内メモリで、Vercel の複数インスタンスでは上限の数倍まで通る。利用が増えたら `free_usage` テーブルで日次カウント | Claude | 利用が増えたら |
 | 39 | **公開前に必須**: Vercel `DEFAULT_PLAN` を `free` に（自分は ADMIN_EMAILS なのでマスター画面で pro を個別開放）→ Redeploy。Clerk Production → Configure → Restrictions で招待制 / 許可リスト（決済がつながるまで） | 利用者 | 未 |
 | 40 | 無料 MEO 診断を「要点のみ」に絞る案 B: 総合評価・4 カテゴリ・改善点上位 3・口コミの数字だけ表示し、21 項目の一覧・口コミ本文・PDF は「無料登録で開放」。登録後は free プランで /tools/maps に自社 1 店舗（履歴 1 件・一斉更新対象外・競合なし・AI 総評なし） | Claude | 利用者の判断待ち（推奨 B） |
-| 41 | 料金: **オールインワン 9,800 円の 1 本に決定（r26）**。割引は「使わない機能ごとに 3,000 円引き」の個別対応 → 運用者が Clerk の `publicMetadata.plan` に `standard`（6,800 円相当）を割り当て、決済は Stripe の支払いリンク等で手動。旧案:: ライト 2,980（1 領域）/ スタンダード 5,980 / プロ 9,800 / 追加店舗 +300。実装: `PlanId` に `light` 追加、選択領域（seo/aio/meo）を publicMetadata、`category` でゲート、店舗数・KW 数の上限（`meo_stores` 件数・順位計測の登録数）、PlanTable・紹介サイト・Clerk Billing のプラン | 利用者 → Claude | 数字の判断待ち |
+| 41 | 料金: ~~オールインワン 9,800 円（r26）~~ → **定価 50,000 円 + 割引はクーポンコードが基本に変更（r46、利用者の決定 2026-09-13）**。「機能ごとに 3,000 円引き」の文言は全部消した。旧: オールインワン 9,800 円の 1 本に決定（r26）。割引は「使わない機能ごとに 3,000 円引き」の個別対応 → 運用者が Clerk の `publicMetadata.plan` に `standard`（6,800 円相当）を割り当て、決済は Stripe の支払いリンク等で手動。旧案:: ライト 2,980（1 領域）/ スタンダード 5,980 / プロ 9,800 / 追加店舗 +300。実装: `PlanId` に `light` 追加、選択領域（seo/aio/meo）を publicMetadata、`category` でゲート、店舗数・KW 数の上限（`meo_stores` 件数・順位計測の登録数）、PlanTable・紹介サイト・Clerk Billing のプラン | 利用者 → Claude | 数字の判断待ち |
 | 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | 未 |
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho` | Claude | **完了（r41）**。内容（解約は期間末まで利用可・日割り返金なし・運営責任者「松下」）は Claude の仮置き。利用者が確認して直す点があれば伝える |
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
@@ -244,7 +244,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
-| 1 | Stripe → 商品カタログ | https://dashboard.stripe.com/test/products | 「商品を追加」→ 名前 `オールインワン`、説明 `SEO・AIO・MEO の全機能`、**継続**、**¥9,800 / 月**（通貨 JPY。税別で売るなら「税込みかどうか」は「税別」）→ 保存 → 価格の行を開いて **Price ID（`price_…`）** をコピー |
+| 1 | Stripe → 商品カタログ | https://dashboard.stripe.com/test/products | **完了（09-13、サンドボックス）**: 商品「オールインワン」`prod_VFcHhP9RrDhK9E`、価格 **¥50,000 / 月** `price_1UF73IBQZc3g0qHVJGb0aumu`（= テスト環境の `STRIPE_PRICE_PRO`）。本番モードでは作り直しが要る（8） |
+| 1b | Stripe → 商品カタログ → クーポン | https://dashboard.stripe.com/test/coupons | 割引の作り方: 「新規」→ 名前（例 `導入割引 40%`）→ 種類（% 割引 / 定額）→ 期間（**永続** = 契約中ずっと / 回数 = 最初の n か月 / 1 回）→ 保存 → クーポンの画面で「プロモーションコードを追加」→ 顧客に渡すコード（例 `WOLF40`）と利用回数の上限・有効期限 → 保存。申し込み画面（Checkout）でこのコードを入れると割引後の金額で決済される。契約中の顧客に後から付けるなら 顧客 → サブスクリプション → 「割引を追加」 |
 | 2 | Stripe → 開発者 → Webhook | https://dashboard.stripe.com/test/webhooks | 「エンドポイントを追加」→ URL `https://app.seo-checker.tokyo/api/billing/webhook` → イベントを 4 つ選ぶ: `checkout.session.completed`、`customer.subscription.created`、`customer.subscription.updated`、`customer.subscription.deleted` → 追加 → **署名シークレット（`whsec_…`）** をコピー |
 | 3 | Stripe → 設定 → 請求 → カスタマーポータル | https://dashboard.stripe.com/test/settings/billing/portal | 有効にして保存。「お支払い方法の更新」「請求書の履歴」「サブスクリプションのキャンセル」を ON（キャンセルは「期間末」）。プランの変更は OFF（プランは 1 つ） |
 | 4 | Stripe → 設定 → 公開事業者情報 | https://dashboard.stripe.com/settings/public | 事業者名 `SEO 研究所`、サポートメール `contact@seo-checker.tokyo`、サイト `https://app.seo-checker.tokyo/legal/tokushoho`（特商法の表記。本番アカウントの審査で見られる） |
@@ -473,6 +474,8 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **基本情報掲載は「配信代行の代替」ではなく「自分で登録する手間を最小にする」ツール（2026-09-11）**: 利用者は配信代行の画面（26 媒体を一括同期）を見て「無料で一斉登録」を求めたが、地図・検索・ディレクトリに無料で一括登録できる API は無い（Apple / Bing / Yahoo! / HERE / TomTom はそれぞれ無料のオーナー登録画面があるだけ。Acompio / Opendi / Uber などは配信代行の契約先からしか載らない）。嘘の「一括同期」ボタンは作らず、できること（無料登録の窓口・手順・コピー・状況管理・AI 説明文・構造化データ）とできないこと（有料の配信代行のみ）を画面で明記した。配信代行を契約するなら #57。
 
 - **決済は Clerk Billing ではなく Stripe 直結（2026-09-11）**: 利用者が「登録済みのカード変更機能」と Stripe 連携を求めた時点で調べ直したところ、Clerk Billing は請求通貨がドルのみ（円建て 9,800 円が作れない）。Clerk 側の手数料 0.7% も乗る。Stripe を直接使えば円建て・プロモーションコード（クーポン。利用者が以前求めていた）・カスタマーポータル（カード変更・請求書・解約を Stripe の画面で完結、カード番号をアプリが扱わない）が揃う。契約状態は Webhook が Clerk の `publicMetadata.stripe` に書く（データベースは増やさない）。Clerk Billing のコードは残すが出さない。
+
+- **定価 50,000 円 + クーポン割引（2026-09-13）**: 利用者が Stripe で価格を作る際に「50,000 を定価にして、割引を基本にする」と決定。アプリの料金表・特商法ページ・紹介サイト（JSON-LD の offers、FAQ、llms.txt）・README を 50,000 円に揃え、「機能ごとに 3,000 円引き」の文言は全部消した。割引は Stripe のクーポン → プロモーションコード（Checkout で入力。`allow_promotion_codes` は r41 で有効）。内部の `standard` 段階は価格を持たない意味で 50,000 に合わせた（販売しない・料金はクーポンで調整）。
 
 ## 進行中の開発の設計メモ
 
@@ -746,3 +749,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 - 利用者が Stripe のサンドボックス（テスト環境 `seo-checker`）で「商品を追加」の画面を共有（継続・**¥30,000**・毎月）。「Price ID はどこで見る？」→ この画面には出ない。「商品を追加」を押したあとの商品詳細 → 料金の行を開く → 右上（または「…」→「価格 ID をコピー」）に `price_…` が出る、と案内。**金額が 30,000 円になっている**（アプリの料金表・特商法ページは 9,800 円）ので、9,800 に直すか、30,000 に値上げするなら伝えてもらう（catalog.ts と特商法ページを合わせて直す）。画面上部の「Multiple capabilities paused（2 required tasks past due）」は Stripe のアカウント確認（本人確認・事業情報）が未完了の表示。サンドボックスのテストには影響しないが、本番モードで売る前に「View tasks」から完了が必要。
 - 利用者が商品「オールインワン」（¥30,000 / 月、`prod_VFcHhP9RrDhK9E`）を作った画面を共有。Price ID は「料金」の行（¥30,000 毎月）をクリック → 価格の詳細の右側「価格 ID」、または行の右端「…」→「価格 ID をコピー」と案内。商品 ID（`prod_`）とは別物。金額は依然 30,000 円（アプリ側は 9,800 円）。どちらにするかの回答待ち。
+- 利用者が価格の詳細画面（`price_1UF73IBQZc3g0qHVJGb0aumu`、¥50,000 / 月）を共有し「50,000 を定価で割引を基本にしようと思う」→ **r46**: 料金を定価 50,000 円に統一（catalog / 特商法 / 紹介サイト / README / llms.txt）、「機能ごとに 3,000 円引き」を削除、割引はクーポンコードと明記。#58 の 1 は完了（テスト環境の Price ID を記録）。クーポンの作り方を #58 の 1b に追記。残りは 2（Webhook）〜7（テスト購入）→ 8（本番）。

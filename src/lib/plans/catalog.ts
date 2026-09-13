@@ -3,10 +3,10 @@
  *
  * 売るのは 1 つだけ（利用者の決定 2026-09-11）:
  *   free     … サイトと店舗の状態を採点するだけ。見込み顧客の入口
- *   pro      … 「オールインワン」月額 9,800 円。SEO / AIO / MEO の全機能 + AI が作る成果物
+ *   pro      … 「オールインワン」定価 月額 50,000 円（利用者の決定 2026-09-13。割引はクーポンコードで）。SEO / AIO / MEO の全機能 + AI が作る成果物
  *   standard … 販売しない内部の段階（AI が作る機能を除いた全部）。
- *              「使わない機能ごとに 3,000 円引き」の個別対応で、運用者が Clerk の
- *              publicMetadata.plan に手で割り当てる用途に残している
+ *              個別対応（運用者が Clerk の publicMetadata.plan に手で割り当てる）用途に残している。
+ *              料金の割引は Stripe のクーポンコードで行うので、この段階に独自の価格は無い
  *
  * 機能ごとの `plan`（registry.ts）は standard / pro の 2 段階のまま。
  * オールインワン（pro）は両方を含むので、購入者にはすべて開く。
@@ -58,8 +58,8 @@ export const PLANS: readonly Plan[] = [
   {
     id: "standard",
     label: "スタンダード（個別対応）",
-    priceYen: 6_800,
-    summary: "AI が作る機能を除いた内部の段階。個別のご相談で割り当てます。",
+    priceYen: 50_000,
+    summary: "AI が作る機能を除いた内部の段階。個別のご相談で割り当てます（料金はクーポンで調整）。",
     highlights: ["SEO・AIO・MEO の計測・診断ツールすべて"],
     clerkPlan: "user:standard",
     purchasable: false,
@@ -68,14 +68,14 @@ export const PLANS: readonly Plan[] = [
   {
     id: "pro",
     label: "オールインワン",
-    priceYen: 9_800,
+    priceYen: 50_000,
     summary: "SEO・AIO・MEO のすべての機能を、ひとつの料金で。AI が改修案と原稿も作ります。",
     highlights: [
       "SEO: サイト診断・ページ診断・順位計測・検索パフォーマンス（Search Console）・サイトレポート・キーワード調査",
       "AIO: ページ最適化レポート・AIO 頻出トピック・LLMO モニタリング・プロンプト拡張・生成 AI 流入分析（GA4）",
       "MEO: Google マップの店舗診断、毎週の自動更新と履歴、競合 5 店舗との比較、AI 総評、口コミ支援（アンケート QR と AI 下書き）",
       "AI が作る: HP 改修提案（before → after）・AI ライティング・llms.txt 生成",
-      "使わない機能があれば、機能ごとに 3,000 円引きでご相談に応じます",
+      "定価は月額 50,000 円。店舗数や使う範囲に応じてクーポンコードで割引します（申し込み画面で入力）",
     ],
     clerkPlan: "user:pro",
     purchasable: true,

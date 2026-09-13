@@ -6,7 +6,7 @@
  * この形にして Clerk のユーザーに書く（sync.ts）。アプリはデータベースを持たず、プランの判定は
  * この値だけを見る（current.ts / resolve.ts）。顧客 ID（cus_…）は privateMetadata に置く。
  *
- * Clerk Billing はドルにしか対応していないため（2026-09 時点）、円建ての 9,800 円は Stripe 直結にした。
+ * Clerk Billing はドルにしか対応していないため（2026-09 時点）、円建ての料金は Stripe 直結にした。
  */
 import { z } from "zod";
 import type { PlanId } from "@/lib/plans/catalog";

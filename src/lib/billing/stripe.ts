@@ -3,7 +3,7 @@
  *
  * 環境変数:
  *   STRIPE_SECRET_KEY     … sk_test_ / sk_live_（Stripe ダッシュボード → 開発者 → API キー）
- *   STRIPE_PRICE_PRO      … オールインワン（月 9,800 円）の Price ID（price_…）
+ *   STRIPE_PRICE_PRO      … オールインワン（定価 月 50,000 円）の Price ID（price_…）
  *   STRIPE_WEBHOOK_SECRET … Webhook エンドポイントの署名シークレット（whsec_…）
  * 3 つそろって初めて料金画面に「申し込む」が出る（isStripeConfigured）。
  *

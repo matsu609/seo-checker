@@ -142,9 +142,9 @@ npm run dev                  # http://localhost:3000
 | プラン | 月額 | 内容 |
 |---|---:|---|
 | **無料診断** | 0 円 | 無料 SEO・AIO 診断（`/`）と無料 MEO 診断（`/meo`、店舗 1 件）。ログイン不要 |
-| **オールインワン** | 9,800 円 | SEO・AIO・MEO のすべてのツールと、**AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成）。使わない機能があれば機能ごとに 3,000 円引きで個別対応 |
+| **オールインワン** | 50,000 円（定価） | SEO・AIO・MEO のすべてのツールと、**AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成）。割引は Stripe のクーポンコードで（申し込み画面で入力） |
 
-売るのは「オールインワン」1 つです（2026-09-11 決定）。内部では機能ごとに `standard`（測る・調べる）/ `pro`（AI が作る）の 2 段階を持ったままで、オールインワン = `pro` が両方を含みます。`standard` は販売せず、割引の個別対応（運用者が Clerk の `publicMetadata.plan` に割り当てる）に残しています。定義は `src/lib/plans/catalog.ts` と、機能ごとの `plan` フィールド（`src/lib/features/registry.ts`）の 2 か所だけにあり、`src/lib/plans/__tests__/plans.test.ts` が対応表を固定しています。
+売るのは「オールインワン」1 つです（2026-09-11 決定。定価 50,000 円 + クーポンで割引は 2026-09-13 決定）。内部では機能ごとに `standard`（測る・調べる）/ `pro`（AI が作る）の 2 段階を持ったままで、オールインワン = `pro` が両方を含みます。`standard` は販売せず、割引の個別対応（運用者が Clerk の `publicMetadata.plan` に割り当てる）に残しています。定義は `src/lib/plans/catalog.ts` と、機能ごとの `plan` フィールド（`src/lib/features/registry.ts`）の 2 か所だけにあり、`src/lib/plans/__tests__/plans.test.ts` が対応表を固定しています。
 
 ### プランの決まり方
 
@@ -158,11 +158,11 @@ npm run dev                  # http://localhost:3000
 
 ### 決済（Stripe 直結）
 
-カード決済は **Stripe** を直接使います（Checkout で申し込み → サブスクリプション。カードの変更・請求書・解約は Stripe のカスタマーポータル）。契約状態は Stripe の Webhook が Clerk のユーザーの `publicMetadata.stripe` に書くので、**ここでもデータベースは要りません**。Clerk Billing はドルにしか対応していないため（2026-09 時点）、円建ての 9,800 円は Stripe 直結にしています。
+カード決済は **Stripe** を直接使います（Checkout で申し込み → サブスクリプション。カードの変更・請求書・解約は Stripe のカスタマーポータル）。契約状態は Stripe の Webhook が Clerk のユーザーの `publicMetadata.stripe` に書くので、**ここでもデータベースは要りません**。Clerk Billing はドルにしか対応していないため（2026-09 時点）、円建ての料金は Stripe 直結にしています。
 
 準備は 1 回だけです（画面つきの手順は `docs/dev/OPERATIONS.md` の「Stripe を有効にする手順」）。
 
-1. Stripe ダッシュボードで商品「オールインワン」と月額 9,800 円（JPY、継続）の価格を作り、**Price ID（`price_…`）** を控える
+1. Stripe ダッシュボードで商品「オールインワン」と月額 50,000 円（JPY、継続）の価格を作り、**Price ID（`price_…`）** を控える。割引はクーポン → プロモーションコードで作る
 2. 開発者 → Webhook で `https://app.seo-checker.tokyo/api/billing/webhook` を登録し、イベント `checkout.session.completed` / `customer.subscription.created` / `customer.subscription.updated` / `customer.subscription.deleted` を選ぶ → **署名シークレット（`whsec_…`）** を控える
 3. 設定 → カスタマーポータルを有効にする（お支払い方法の更新・請求書・解約を許可）
 4. Vercel の環境変数に `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` を入れて Redeploy
