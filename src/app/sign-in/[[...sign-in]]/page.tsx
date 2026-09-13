@@ -13,7 +13,7 @@ export default function SignInPage() {
   if (!isAuthEnabled()) return <AuthUnavailable />;
   return (
     <div className="flex justify-center py-8">
-      <SignIn signUpUrl="/sign-up" fallbackRedirectUrl="/tools/site-audit" />
+      <SignIn signUpUrl="/sign-up" fallbackRedirectUrl="/start" />
     </div>
   );
 }

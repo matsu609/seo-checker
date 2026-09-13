@@ -8,7 +8,7 @@
  * カード番号はこのアプリを通らない（Stripe の画面で入力・変更する）。
  */
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { hasStripeSubscription, STRIPE_STATUS_LABELS, type StripeState } from "@/lib/billing/state";
@@ -23,6 +23,10 @@ export interface StripeBillingCardProps {
   live: boolean;
   /** ?checkout=success / cancel で戻ってきたときの案内 */
   checkoutResult: "success" | "cancel" | null;
+  /** 無料期間の日数（0 ならトライアルなし） */
+  trialDays: number;
+  /** 契約済みのときに案内するツールの入口 */
+  firstToolPath: string;
 }
 
 async function open(path: string): Promise<string> {
@@ -38,7 +42,7 @@ function formatAmount(state: StripeState): string | null {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: state.currency, minimumFractionDigits: zeroDecimal ? 0 : 2 }).format(zeroDecimal ? state.amount : state.amount / 100);
 }
 
-export function StripeBillingCard({ state, hasCustomer, live, checkoutResult }: StripeBillingCardProps) {
+export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, trialDays, firstToolPath }: StripeBillingCardProps) {
   const [busy, setBusy] = useState<"checkout" | "portal" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const subscribed = hasStripeSubscription(state);
@@ -60,7 +64,17 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult }: 
     <Card title="お申し込み・お支払い" description="お支払いはクレジットカード（Stripe）です。カードの変更・請求書の確認・解約は Stripe の画面で行えます。" className="mt-6">
       {checkoutResult === "success" && (
         <Callout tone="pass" title="お申し込みありがとうございます" className="mb-4">
-          決済が完了しました。反映まで数秒かかることがあります。この画面を開き直しても「契約中」にならない場合は運用者までご連絡ください。
+          <p>
+            {trialDays > 0
+              ? `カードの登録が完了しました。最初の ${trialDays} 日間は無料です。`
+              : "決済が完了しました。"}
+            反映まで数秒かかることがあります。この画面を開き直しても「契約中」にならない場合は運用者までご連絡ください。
+          </p>
+          {subscribed && (
+            <p className="mt-3">
+              <ButtonLink href={firstToolPath}>ツールを使いはじめる</ButtonLink>
+            </p>
+          )}
         </Callout>
       )}
       {checkoutResult === "cancel" && (
@@ -91,7 +105,9 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult }: 
           )}
           {state.currentPeriodEnd && (
             <div>
-              <dt className="text-muted">{state.cancelAtPeriodEnd ? "ご利用期限" : "次回の更新"}</dt>
+              <dt className="text-muted">
+                {state.cancelAtPeriodEnd ? "ご利用期限" : state.status === "trialing" ? "無料期間の終了（初回の請求日）" : "次回の更新"}
+              </dt>
               <dd className="text-ink">{formatDateTime(state.currentPeriodEnd)}</dd>
             </div>
           )}
@@ -101,6 +117,12 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult }: 
       {error && (
         <Callout tone="fail" className="mb-4">
           {error}
+        </Callout>
+      )}
+
+      {!subscribed && trialDays > 0 && (
+        <Callout tone="info" className="mb-4" title={`最初の ${trialDays} 日間は無料です`}>
+          お申し込み時はカードの登録だけで、料金はかかりません。{trialDays} 日を過ぎた日に初回の月額をお支払いいただき、以降は毎月同じ日に自動で決済されます。無料期間中に解約すれば料金は発生しません。
         </Callout>
       )}
 
@@ -117,7 +139,7 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult }: 
         )}
       </div>
       <p className="mt-3 text-[12px] leading-relaxed text-muted">
-        申し込み画面ではクーポンコードを入力できます。解約は次回の更新日まで利用でき、日割りの返金はありません。詳しくは
+        割引コードをお持ちの場合は、申し込み画面の「プロモーションコードを追加」から入力してください。解約は次回の更新日まで利用でき、日割りの返金はありません。詳しくは
         <a href="/legal/tokushoho" className="underline">
           特定商取引法に基づく表記
         </a>

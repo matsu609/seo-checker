@@ -142,7 +142,7 @@ npm run dev                  # http://localhost:3000
 | プラン | 月額 | 内容 |
 |---|---:|---|
 | **無料診断** | 0 円 | 無料 SEO・AIO 診断（`/`）と無料 MEO 診断（`/meo`、店舗 1 件）。ログイン不要 |
-| **オールインワン** | 50,000 円（定価） | SEO・AIO・MEO のすべてのツールと、**AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成）。割引は Stripe のクーポンコードで（申し込み画面で入力） |
+| **オールインワン** | 50,000 円（定価） | SEO・AIO・MEO のすべてのツールと、**AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成）。**初月無料**（`STRIPE_TRIAL_DAYS`、既定 30 日）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力） |
 
 売るのは「オールインワン」1 つです（2026-09-11 決定。定価 50,000 円 + クーポンで割引は 2026-09-13 決定）。内部では機能ごとに `standard`（測る・調べる）/ `pro`（AI が作る）の 2 段階を持ったままで、オールインワン = `pro` が両方を含みます。`standard` は販売せず、割引の個別対応（運用者が Clerk の `publicMetadata.plan` に割り当てる）に残しています。定義は `src/lib/plans/catalog.ts` と、機能ごとの `plan` フィールド（`src/lib/features/registry.ts`）の 2 か所だけにあり、`src/lib/plans/__tests__/plans.test.ts` が対応表を固定しています。
 
@@ -151,7 +151,7 @@ npm run dev                  # http://localhost:3000
 上から順に見て、最初に決まったものを使います。
 
 1. **ログインが未設定** … すべて `pro` 扱い（開発・E2E で全機能を開けたままにするため）
-2. **Stripe の契約状態**（`publicMetadata.stripe`。Webhook が書く）… 有効・トライアル・支払い遅延なら `pro`。Clerk Billing の `has({ plan })` も残っていますが使っていません
+2. **Stripe の契約状態**（`publicMetadata.stripe`。Webhook が書く。無料期間中の `trialing` も契約中として扱う）… 有効・トライアル・支払い遅延なら `pro`。Clerk Billing の `has({ plan })` も残っていますが使っていません
 3. **Clerk の `publicMetadata.plan`** … 決済を入れる前に、運用者がダッシュボードで `"free"` / `"standard"` / `"pro"` を割り当てます
 4. **`DEFAULT_PLAN` 環境変数** … 全員へ一律で開放したいとき
 5. どれも無ければ `free`
@@ -301,6 +301,7 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・オールインワンの Price ID・Webhook の署名シークレット。3 つそろうと `/plans` に申し込みとお支払いの管理が出る |
+| `STRIPE_TRIAL_DAYS` | 無料期間の日数（既定 30 = 初月無料）。`0` でトライアルなし。特商法ページと料金画面の文面もこの値に従う |
 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（ドルのみ）の料金表を出す。Stripe が設定されていれば出さない |
 | `ADMIN_EMAILS` | マスター画面（`/admin`）を開けるメールアドレス。未設定なら誰も入れない |
 | `SITE_MAX_PAGES` | クロール上限（既定 300、最大 1000） |

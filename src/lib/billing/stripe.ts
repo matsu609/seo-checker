@@ -6,10 +6,18 @@
  *   STRIPE_PRICE_PRO      … オールインワン（定価 月 50,000 円）の Price ID（price_…）
  *   STRIPE_WEBHOOK_SECRET … Webhook エンドポイントの署名シークレット（whsec_…）
  * 3 つそろって初めて料金画面に「申し込む」が出る（isStripeConfigured）。
+ *   STRIPE_TRIAL_DAYS     … 無料期間の日数（任意。既定 30。0 または未設定でトライアルなし）。
+ *                           カードは申し込み時に登録され、この日数を過ぎてから初回の請求が立つ。
+ *
+ * 割引は Stripe のクーポン → プロモーションコードで行う（利用者の決定 2026-09-13）。
+ * 申し込み画面でコードを入力した人だけに適用されるので、コードを持たない人の支払額は定価のまま。
  *
  * カードの変更・解約・請求書の閲覧は Stripe のカスタマーポータルに任せる（自前でカード番号を扱わない）。
  */
 import Stripe from "stripe";
+import { trialDays } from "./trial";
+
+export { DEFAULT_TRIAL_DAYS, trialDays } from "./trial";
 
 function env(name: string): string | null {
   const v = process.env[name];
@@ -52,13 +60,18 @@ export interface CheckoutInput {
 /** オールインワンの申し込み画面（Stripe Checkout）。返る URL に遷移させる */
 export async function createCheckoutSession(input: CheckoutInput): Promise<string> {
   const stripe = getStripe();
+  const days = trialDays();
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: proPriceId(), quantity: 1 }],
     // Webhook で Clerk のユーザーに結びつけるための手がかり（両方に入れる）
     client_reference_id: input.userId,
     metadata: { userId: input.userId },
-    subscription_data: { metadata: { userId: input.userId } },
+    subscription_data: {
+      metadata: { userId: input.userId },
+      // 初月無料。カードは登録され、この日数を過ぎてから初回の請求が立つ
+      ...(days > 0 ? { trial_period_days: days } : {}),
+    },
     ...(input.customerId ? { customer: input.customerId } : input.email ? { customer_email: input.email } : {}),
     // クーポンコード（Stripe のプロモーションコード）を入力できるようにする
     allow_promotion_codes: true,

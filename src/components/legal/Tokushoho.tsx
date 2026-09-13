@@ -5,6 +5,7 @@
  * 価格は src/lib/plans/catalog.ts から取り、ここに数字を重ねて書かない。
  * 所在地と電話番号は、個人事業のため「請求があれば遅滞なく開示する」運用（消費者庁のガイドラインで認められている）。
  */
+import { trialDays } from "@/lib/billing/trial";
 import { OPERATOR, SERVICE_NAME, operatorLabel } from "@/lib/legal/operator";
 import { PLAN_BY_ID } from "@/lib/plans/catalog";
 
@@ -14,6 +15,7 @@ interface Row {
 }
 
 const pro = PLAN_BY_ID.pro;
+const trial = trialDays();
 
 export const TOKUSHOHO_ROWS: Row[] = [
   { label: "販売事業者", value: operatorLabel(OPERATOR.name) },
@@ -24,12 +26,22 @@ export const TOKUSHOHO_ROWS: Row[] = [
   { label: "サービス名", value: SERVICE_NAME },
   {
     label: "販売価格",
-    value: [`${pro.label}: 月額 ${pro.priceYen.toLocaleString("ja-JP")} 円（税別。消費税は別途申し受けます）`, "無料診断: 0 円", "割引はクーポンコード（申し込み画面で入力）で行います。店舗数やご利用範囲に応じたお見積もりはお問い合わせください。"],
+    value: [`${pro.label}: 月額 ${pro.priceYen.toLocaleString("ja-JP")} 円（税別。消費税は別途申し受けます）`, "無料診断: 0 円", "割引コードをお持ちの場合は、申し込み画面で入力すると割引後の金額で決済されます。コードの発行条件はお問い合わせください。"],
   },
   { label: "販売価格以外にお客様が負担する費用", value: "インターネット接続にかかる通信料はお客様のご負担です。" },
   { label: "お支払い方法", value: "クレジットカード（Visa / Mastercard / American Express / JCB。決済は Stripe, Inc. を通じて行います）" },
-  { label: "お支払い時期", value: "お申し込み時に初回の月額をお支払いいただき、以降は毎月同じ日に自動で決済されます。" },
-  { label: "サービスの提供時期", value: "決済の完了後、すぐにご利用いただけます。" },
+  {
+    label: "お支払い時期",
+    value:
+      trial > 0
+        ? [
+            `お申し込み日から ${trial} 日間は無料です。この期間中の料金は発生しません（お申し込み時にクレジットカードのご登録のみ行います）。`,
+            `無料期間が終わった日に初回の月額をお支払いいただき、以降は毎月同じ日に自動で決済されます（自動更新）。`,
+            "無料期間中に解約された場合、料金は一切発生しません。",
+          ]
+        : "お申し込み時に初回の月額をお支払いいただき、以降は毎月同じ日に自動で決済されます（自動更新）。",
+  },
+  { label: "サービスの提供時期", value: trial > 0 ? "お申し込み後、すぐにご利用いただけます（無料期間中もすべての機能をお使いいただけます）。" : "決済の完了後、すぐにご利用いただけます。" },
   {
     label: "解約・返金について",
     value: [

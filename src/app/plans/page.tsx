@@ -8,7 +8,8 @@ import { PageHeader } from "@/components/ui";
 import { Callout } from "@/components/ui/Callout";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { STRIPE_CUSTOMER_KEY, stripeStateFromMetadata, type StripeState } from "@/lib/billing/state";
-import { isStripeConfigured, isStripeLive } from "@/lib/billing/stripe";
+import { isStripeConfigured, isStripeLive, trialDays } from "@/lib/billing/stripe";
+import { FIRST_TOOL_PATH } from "@/app/start/page";
 import { requireFeature } from "@/lib/features/registry";
 import { isBillingEnabled } from "@/lib/plans/billing";
 import { planLabel } from "@/lib/plans/catalog";
@@ -61,7 +62,16 @@ export default async function Page({ searchParams }: Props) {
       <PlanTable current={plan} />
 
       {/* Stripe 直結（円建て）。申し込み・お支払い方法の変更・解約 */}
-      {stripe && <StripeBillingCard state={stripeState} hasCustomer={hasCustomer} live={isStripeLive()} checkoutResult={checkoutResult} />}
+      {stripe && (
+        <StripeBillingCard
+          state={stripeState}
+          hasCustomer={hasCustomer}
+          live={isStripeLive()}
+          checkoutResult={checkoutResult}
+          trialDays={trialDays()}
+          firstToolPath={FIRST_TOOL_PATH}
+        />
+      )}
 
       {/* Clerk Billing（ドルのみ）。Stripe 直結を使うので通常は出さない */}
       {!stripe && billing && <BillingTable />}
