@@ -44,6 +44,10 @@ function missingLabel(feature: Feature, status: IntegrationStatus | null): strin
 /**
  * 藍のサイドバー本体。デスクトップの <aside> とモバイルのドロワーで共用する。
  * 定義は registry のみ。ここでは描画だけ。
+ *
+ * クイック診断（/ と /meo）はここに出さない（利用者の決定 2026-09-13）。
+ * 料金を払っている画面に無料の診断が並んでいると、支払っている意味が薄れて見えるため。
+ * 見込み客に渡す URL は運用者が直接案内する（docs/dev/OPERATIONS.md の「申し込みの入口」）。
  */
 export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Sidebar(
   { pathname, version, onNavigate, onClose },
@@ -53,7 +57,7 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
   // 開いている画面のタブを優先。共通の画面（設定など）では最後に選んだタブ
   const pathCategory = categoryForPath(pathname);
   const tab: FeatureCategoryId = pathCategory ?? saved.tab;
-  const { free, tools } = groupsForSidebar(tab);
+  const { tools } = groupsForSidebar(tab);
   const { status } = useIntegrations();
   const access = useAccess();
 
@@ -190,35 +194,6 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
           </ul>
         </div>
       )}
-
-      {/* 共有用のクイック診断。本サービスとは切り離した公開ページ（見込み客に URL をそのまま渡せる） */}
-      <div className="mx-3 mt-6 rounded-md border border-on-brand/25 p-1">
-        <div className="px-2 pt-1 pb-1 text-[11px] font-bold text-on-brand-muted">お客様に渡すクイック診断</div>
-        <ul className="space-y-0.5">
-          {free.map((f) => {
-            const setup = needsSetup(f, status);
-            return (
-              <li key={f.id}>
-                <Link
-                  href={f.path}
-                  onClick={onNavigate}
-                  title={f.label}
-                  className="flex h-9 items-center gap-2.5 rounded-md px-2 text-[13px] text-on-brand/90 outline-none hover:bg-on-brand/10 focus-visible:ring-2 focus-visible:ring-on-brand/60"
-                >
-                  <FeatureIconSvg icon={f.icon} className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{f.shortLabel}</span>
-                  <span className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted">
-                    {setup ? "準備中" : "公開"}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="px-2 pt-1 pb-1 text-[11px] leading-snug text-on-brand-muted">
-          ログイン不要の公開ページです。見込み客に URL を渡して使ってもらえます
-        </p>
-      </div>
 
       {/* フッター */}
       <div className="mt-auto border-t border-on-brand/15 px-4 py-3 pt-3 text-[11px] text-on-brand-muted">

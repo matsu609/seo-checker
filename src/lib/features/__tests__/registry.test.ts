@@ -12,8 +12,8 @@ import {
 } from "../registry";
 
 describe("タブの定義", () => {
-  it("SEO / AIO / MEO の 3 つ", () => {
-    expect(FEATURE_CATEGORIES.map((c) => c.id)).toEqual(["seo", "aio", "meo"]);
+  it("SEO → MEO → AIO の順に 3 つ（利用者の指定 2026-09-13）", () => {
+    expect(FEATURE_CATEGORIES.map((c) => c.id)).toEqual(["seo", "meo", "aio"]);
     expect(findCategory("meo").label).toBe("MEO");
   });
 

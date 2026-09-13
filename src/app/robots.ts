@@ -1,9 +1,11 @@
 /**
  * 検索エンジンに見せる範囲。
  *
- * 無料診断（/ と /meo）は誰にでも渡せる公開ページなので、そこと規約類だけを開ける。
- * 管理画面・ツール・API・来店客のアンケート（/r/<slug>）は、ログインが要るか
- * お客様ごとの URL なので、インデックスさせない（利用者の決定 2026-09-13）。
+ * このアプリ（app.seo-checker.tokyo）は契約者と、こちらが URL を渡した相手だけが使う場所。
+ * クイック診断（/ と /meo）も検索から見つけられないようにする（利用者の決定 2026-09-13。
+ * 「基本、無料診断はユーザーから触れないように」）。集客は紹介サイト seo-checker.tokyo に集める。
+ *
+ * 開けるのは規約類だけ（Google の OAuth 審査で参照されるため、robots で塞がない）。
  */
 import type { MetadataRoute } from "next";
 import { PUBLIC_APP_ORIGIN } from "@/lib/site";
@@ -13,8 +15,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/meo", "/terms", "/privacy", "/legal/tokushoho"],
-        disallow: ["/tools/", "/settings", "/admin", "/plans", "/start", "/api/", "/r/", "/sign-in", "/sign-up", "/sso-callback"],
+        // より長く一致する Allow が優先されるので、規約類だけが開く
+        allow: ["/terms", "/privacy", "/legal/tokushoho"],
+        disallow: ["/"],
       },
     ],
     sitemap: `${PUBLIC_APP_ORIGIN}/sitemap.xml`,

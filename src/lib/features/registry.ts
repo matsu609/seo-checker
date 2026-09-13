@@ -27,8 +27,8 @@ export interface FeatureCategory {
 
 export const FEATURE_CATEGORIES: readonly FeatureCategory[] = [
   { id: "seo", label: "SEO", description: "Google 検索で上位に出すための診断・計測・制作" },
-  { id: "aio", label: "AIO", description: "AI Overviews や生成 AI に引用・言及されるための最適化" },
   { id: "meo", label: "MEO", description: "Google マップ・ビジネス プロフィールの改善と競合比較" },
+  { id: "aio", label: "AIO", description: "AI Overviews や生成 AI に引用・言及されるための最適化" },
 ];
 
 export type FeatureStatus = "ready" | "beta";
@@ -549,7 +549,7 @@ const SETTINGS: readonly Feature[] = [
     label: "料金プラン",
     shortLabel: "料金プラン",
     description:
-      "クイック診断（無料）・スタンダード・プロの 3 つのプランと、それぞれで使えるツールの一覧です。現在のプランもここで確認できます。",
+      "未契約・スタンダード・プロの 3 つの状態と、それぞれで使えるツールの一覧です。現在のプランもここで確認できます。",
     details: [
       "プランごとに含まれるツールの比較",
       "現在のプランと、その決まり方の表示",

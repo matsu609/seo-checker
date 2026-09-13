@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SEO Checker｜Google 検索・AI・Google マップの診断ツール</title>
-<meta name="description" content="Google 検索（SEO）・生成 AI（AIO）・Google マップ（MEO）。3 つの「見つけてもらう場所」をひとつのツールで診断します。URL を入れるだけの無料クイック診断、Search Console・GA4 の実測値、店舗のビジネス プロフィールの採点まで。初月無料。全機能込み、定価 月額 50,000 円。">
+<meta name="description" content="Google 検索（SEO）・生成 AI（AIO）・Google マップ（MEO）。3 つの「見つけてもらう場所」をひとつのツールで診断します。URL を入れるだけのクイック診断、Search Console・GA4 の実測値、店舗のビジネス プロフィールの採点まで。初月無料。全機能込み、定価 月額 50,000 円。">
 <link rel="canonical" href="https://seo-checker.tokyo/">
 <link rel="sitemap" type="application/xml" href="https://seo-checker.tokyo/sitemap.xml">
 <meta property="og:type" content="website">
@@ -242,7 +242,8 @@ main p a, main .list a, .facts a, footer a, .contact a { color: var(--accent); t
 .diff .label { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .68rem; letter-spacing: .1em; color: var(--muted); display: block; margin-bottom: .2rem; }
 
 /* ── 料金プラン ─────────────────────────────────────────── */
-.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.4rem; }
+/* 売っているのは「オールインワン」1 つだけ。カードが 1 枚でも間延びしない幅にする */
+.plans { display: grid; grid-template-columns: minmax(0, 28rem); justify-content: center; gap: 1rem; margin-top: 1.4rem; }
 .plan { border: 1px solid var(--line); background: var(--panel-alt); padding: 1.25rem; display: flex; flex-direction: column; position: relative; }
 .plan.is-lead { border-color: var(--accent); background: var(--accent-soft); box-shadow: var(--shadow-lift); }
 .plan-flag {
@@ -415,7 +416,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         }
       ],
       "sameAs": [
-        "https://app.seo-checker.tokyo/"
+        "https://app.seo-checker.tokyo/sign-in"
       ]
     },
     {
@@ -463,22 +464,15 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
       "@type": "SoftwareApplication",
       "@id": "https://app.seo-checker.tokyo/#app",
       "name": "SEO Checker",
-      "url": "https://app.seo-checker.tokyo/",
+      "url": "https://app.seo-checker.tokyo/sign-up",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
       "inLanguage": "ja",
-      "description": "URL を入れるだけの無料 AIO 診断、Search Console・GA4 の実測値、Google マップの店舗診断（MEO）をひとつの画面で提供する SaaS",
+      "description": "サイトの SEO・AIO 診断、Search Console・GA4 の実測値、Google マップの店舗診断（MEO）をひとつの画面で提供する SaaS",
       "publisher": {
         "@id": "https://seo-checker.tokyo/#organization"
       },
       "offers": [
-        {
-          "@type": "Offer",
-          "name": "クイック診断（無料）",
-          "price": "0",
-          "priceCurrency": "JPY",
-          "url": "https://app.seo-checker.tokyo/"
-        },
         {
           "@type": "Offer",
           "name": "オールインワン",
@@ -542,10 +536,10 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         },
         {
           "@type": "Question",
-          "name": "クイック診断を使うのに登録は必要ですか",
+          "name": "申し込みに必要なものは何ですか",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "不要です。ログイン・API キー・クレジットカードの登録なしで、URL を入れるだけで採点できます。"
+            "text": "メールアドレス（または Google アカウント）とクレジットカードのご登録だけです。初月は無料で、無料期間中に解約されれば料金は発生しません。API キーのご用意は不要です。"
           }
         },
         {
@@ -578,7 +572,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
     <p class="logo">SEO Checker<small>SEO / AIO / MEO DIAGNOSIS</small></p>
     <nav class="site-nav">
       <a href="#problem">課題</a>
-      <a href="#check">クイック診断</a>
+      <a href="#check">診断の中身</a>
       <a href="#areas">3 つの領域</a>
       <a href="#tools">機能</a>
       <a href="#facts">概要</a>
@@ -594,22 +588,20 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
     <p class="eyebrow">SERVICE GUIDE ／ 2026.09</p>
     <h1>Google 検索・生成 AI・Google マップ。<br>3 つの<span class="mark">「見つけてもらう場所」</span>を、ひとつのツールで。</h1>
     <p class="lede">
-      URL か店名を入れるだけのクイック診断（無料・サイトと店舗）から、Search Console・Google アナリティクスの実測値、
+      URL か店名を入れるだけのクイック診断から、Search Console・Google アナリティクスの実測値、
       店舗のビジネス プロフィールの採点まで。専門知識がなくても、何を直せばよいかが分かる報告書を PDF で出せます。
       AI が答えを組み立てて返す検索が広がるいま、サイトが AI に正しく読まれ、答えの根拠として引用される状態かどうかも診断します。
     </p>
     <div class="hero-actions">
-      <a class="btn btn-primary btn-lg" href="https://app.seo-checker.tokyo/">無料のクイック診断を試す</a>
-      <a class="btn btn-outline btn-lg" href="https://app.seo-checker.tokyo/sign-up">初月無料ではじめる</a>
+      <a class="btn btn-primary btn-lg" href="https://app.seo-checker.tokyo/sign-up">初月無料ではじめる</a>
+      <a class="btn btn-outline btn-lg" href="#price">料金を見る</a>
     </div>
     <p class="hero-note">
-      クイック診断はログイン・API キー・クレジットカードの登録なしで使えます。
-      すべての機能は初月無料でお試しいただけます（お申し込み時はカードのご登録のみ）。
+      すべての機能を初月無料でお試しいただけます（お申し込み時はカードのご登録のみ。無料期間中に解約されれば料金はかかりません）。
       アカウントをお持ちの方は <a href="https://app.seo-checker.tokyo/sign-in">ログイン</a>。
     </p>
     <p class="hero-meta">
       <span>SEO / AIO / MEO DIAGNOSIS &amp; OPTIMIZATION</span>
-      <span>クイック診断は無料</span>
       <span>初月無料 ／ 全機能込み 定価 月額 50,000 円</span>
     </p>
   </div>
@@ -657,12 +649,11 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
     </section>
 
     <section id="check">
-      <h2>まずはクイック診断から</h2>
+      <h2>診断の中身（何をどう採点するか）</h2>
       <p>
         URL を入れるだけで、1 ページまたはサイト全体を採点します。
         サイト全体は sitemap と内部リンクをたどって収集し、進捗を見ながら途中で止められます。
-        ログインも API キーも不要で、結果は報告書として PDF で保存できます。
-        配点は次のとおり、合計 100 点です。
+        結果は報告書として PDF で保存できます。配点は次のとおり、合計 100 点です。
       </p>
 
       <div class="weights">
@@ -704,7 +695,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
       </p>
 
       <div class="hero-actions">
-        <a class="btn btn-primary" href="https://app.seo-checker.tokyo/">クイック診断を試す（無料）</a>
+        <a class="btn btn-primary" href="https://app.seo-checker.tokyo/sign-up">初月無料ではじめる</a>
       </div>
     </section>
 
@@ -899,7 +890,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <tr><th>数字の更新</th><td>Google マップの数字は毎週月曜 5:00（日本時間）に自動で取り直し、履歴として保存</td></tr>
             <tr><th>連携する外部サービス</th><td>Google Search Console（読み取り専用）、Google アナリティクス 4（読み取り専用）、Google Places API、PageSpeed Insights</td></tr>
             <tr><th>対応する生成 AI</th><td>LLMO モニタリングで Claude ／ ChatGPT ／ Gemini ／ Perplexity の 4 サービスを計測</td></tr>
-            <tr><th>料金</th><td>クイック診断 0 円 ／ 精密診断（オールインワン） 定価 50,000 円（月額・税別、全機能込み）。<strong>初月無料</strong>（カード登録のみ、無料期間中の解約は無料）。割引コードをお持ちの場合は申し込み画面で入力。カード決済、解約はお客様側の画面で可能</td></tr>
+            <tr><th>料金</th><td>精密診断（オールインワン） 定価 50,000 円（月額・税別、全機能込み）。<strong>初月無料</strong>（カード登録のみ、無料期間中の解約は無料）。割引コードをお持ちの場合は申し込み画面で入力。カード決済、解約はお客様側の画面で可能</td></tr>
             <tr><th>出力</th><td>診断報告書はブラウザで閲覧、PDF ダウンロード、印刷に対応。一覧は CSV 出力に対応</td></tr>
             <tr><th>データの保管場所</th><td>アプリは Vercel、データベースは Supabase（東京リージョン）。Google から取得した数値は利用者の画面表示にだけ使用</td></tr>
             <tr><th>規約・ポリシー</th><td><a href="https://app.seo-checker.tokyo/terms" target="_blank" rel="noopener">利用規約</a>（2026 年 9 月 10 日施行）／ <a href="https://app.seo-checker.tokyo/privacy" target="_blank" rel="noopener">プライバシーポリシー</a></td></tr>
@@ -914,18 +905,6 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         有料プランは <strong>「オールインワン」ひとつだけ</strong>です。SEO・AIO・MEO のすべての機能と、AI が作る改修案・原稿まで、定価 月額 50,000 円にすべて含まれます。<strong>初月は無料</strong>で、お申し込み時はカードのご登録だけです。
       </p>
       <div class="plans">
-        <div class="plan">
-          <p class="plan-name">クイック診断</p>
-          <p class="plan-price">無料</p>
-          <p class="plan-summary">URL か店名を入れるだけで、サイト（SEO・AIO）と Google マップの店舗（MEO）を採点します。ログインも不要です。</p>
-          <ul>
-            <li>サイトのクイック診断（1 ページ、またはサイト全体の代表 10 ページ）</li>
-            <li>店舗のクイック診断（Google マップの店舗 1 件）</li>
-            <li>総合スコアとカテゴリ別スコア、改善提案の一覧</li>
-            <li>報告書の PDF ダウンロードと印刷</li>
-          </ul>
-          <a class="btn btn-outline" href="https://app.seo-checker.tokyo/">診断する</a>
-        </div>
         <div class="plan is-lead">
           <p class="plan-flag">初月無料・全機能込み</p>
           <p class="plan-name">オールインワン</p>
@@ -1035,9 +1014,9 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           </p>
         </details>
         <details>
-          <summary>クイック診断を使うのに登録は必要ですか</summary>
+          <summary>申し込みに必要なものは何ですか</summary>
           <p class="answer">
-            不要です。ログイン・API キー・クレジットカードの登録なしで、URL を入れるだけで採点できます。
+            メールアドレス（または Google アカウント）とクレジットカードのご登録だけです。初月は無料で、無料期間中に解約されれば料金は発生しません。API キーのご用意は不要です。
           </p>
         </details>
         <details>
@@ -1092,17 +1071,17 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
 
   <div class="cta-final">
     <h2>まず、いまの状態を知るところから。</h2>
-    <p>URL を入れるだけ、費用も登録もかかりません。結果はその場で PDF に保存できます。</p>
+    <p>お申し込みはカードのご登録だけ。初月は無料で、すべての機能をお試しいただけます。</p>
     <div class="hero-actions">
-      <a class="btn btn-primary btn-lg" href="https://app.seo-checker.tokyo/">無料のクイック診断を試す</a>
-      <a class="btn btn-outline btn-lg" href="https://app.seo-checker.tokyo/sign-up">初月無料ではじめる</a>
+      <a class="btn btn-primary btn-lg" href="https://app.seo-checker.tokyo/sign-up">初月無料ではじめる</a>
+      <a class="btn btn-outline btn-lg" href="#price">料金を見る</a>
     </div>
   </div>
 
   <footer>
     <p>
       SEO Checker は SEO 研究所（代表: 松下）が運営しています。
-      <a href="https://app.seo-checker.tokyo/" target="_blank" rel="noopener">アプリを開く</a> ・
+      <a href="https://app.seo-checker.tokyo/sign-in" target="_blank" rel="noopener">ログイン</a> ・
       <a href="https://app.seo-checker.tokyo/terms" target="_blank" rel="noopener">利用規約</a> ・
       <a href="https://app.seo-checker.tokyo/privacy" target="_blank" rel="noopener">プライバシーポリシー</a> ・
       お問い合わせ: <a href="mailto:contact@seo-checker.tokyo">contact@seo-checker.tokyo</a>
@@ -1118,8 +1097,8 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
 </article>
 
 <div class="sticky-cta">
-  <a class="btn btn-primary" href="https://app.seo-checker.tokyo/">無料のクイック診断を試す</a>
-  <a class="btn btn-outline" href="https://app.seo-checker.tokyo/sign-up">初月無料ではじめる</a>
+  <a class="btn btn-primary" href="https://app.seo-checker.tokyo/sign-up">初月無料ではじめる</a>
+  <a class="btn btn-outline" href="#price">料金を見る</a>
 </div>
 </body>
 </html>
