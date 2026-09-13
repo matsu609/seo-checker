@@ -1,5 +1,8 @@
 /**
- * SITE モード（サイト全体・全ページ）のレポート本体（design-spec §3.3）。
+ * SITE モード（サイト全体）のレポート本体（design-spec §3.3）。
+ *
+ * クイック診断なので対象は代表ページだけ（src/lib/free/limits.ts）。見つかったページ数より
+ * 少ないときは、表紙に「全 N ページ中」を出して、残りは精密診断であることを伝える。
  */
 import { useMemo } from "react";
 import type { SiteAnalysisResult } from "@/lib/analyzer/types";
@@ -23,7 +26,9 @@ export function SiteReport({ result, elapsedMs }: { result: SiteAnalysisResult; 
   const entryPage = result.pages.find((p) => p.url === entry?.url) ?? result.pages[0];
   const failed = result.failures.length;
   const excluded = summary.excludedPages.length;
-  const pagesLabel = `${fmt(result.pages.length)} ページ（${DISCOVERY_LABEL[result.discovery]}${
+  const discovered = result.crawl?.discovered ?? result.pages.length;
+  const rest = Math.max(0, discovered - result.pages.length);
+  const pagesLabel = `${fmt(result.pages.length)} ページ${rest > 0 ? `（見つかった ${fmt(discovered)} ページ中の代表）` : ""}（${DISCOVERY_LABEL[result.discovery]}${
     excluded > 0 ? `・採点対象外 ${fmt(excluded)} 件` : ""
   }${failed > 0 ? `・取得失敗 ${fmt(failed)} 件` : ""}）`;
 
@@ -34,7 +39,7 @@ export function SiteReport({ result, elapsedMs }: { result: SiteAnalysisResult; 
         pageTitle={entryPage?.page.title ?? null}
         url={result.entryUrl}
         fetchedAt={result.fetchedAt}
-        scopeLabel="サイト全体（全ページ）"
+        scopeLabel={rest > 0 ? "サイト全体（代表ページ）" : "サイト全体（全ページ）"}
         pagesLabel={pagesLabel}
         durationLabel={formatDuration(result.crawl?.durationMs ?? elapsedMs)}
         grade={summary.grade}

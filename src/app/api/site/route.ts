@@ -4,19 +4,20 @@ import { assertPublicHost, normalizeUrl } from "@/lib/analyzer/fetch";
 import { analyzeSite } from "@/lib/analyzer/site";
 import { globalCache } from "@/lib/cache";
 import { resolveMaxPages } from "@/lib/crawl/crawler";
+import { freeSiteMaxPages } from "@/lib/free/limits";
 import type { SiteStreamEvent } from "@/lib/crawl/types";
 
 export const runtime = "nodejs";
 // サイト全体をクロールするため、1 ページ診断より長くかかる（クロールの時間予算は 240 秒）
 export const maxDuration = 300;
 
-// サイト診断の結果は 300 ページ分で 1 件 1 MB 近くなるため、保持数は少なくする
+// 1 件あたりが大きいので保持数は少なくする（クイック診断は 10 ページまで）
 const cache = globalCache<SiteAnalysisResult>("site", 10 * 60 * 1000, 10);
 
 /**
  * 同時に走らせるクロールの上限。
  *
- * 1 回の POST が対象サイトへ最大 60（サイトマップ）+ maxPages（既定 300）回の
+ * 1 回の POST が対象サイトへ最大 60（サイトマップ）+ maxPages（クイック診断は 10）回の
  * リクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になり、
  * メモリも同時実行数だけ積み上がる。上限を超えたら 429 で断る。
  */
@@ -119,7 +120,10 @@ export async function POST(request: NextRequest) {
     throw err;
   }
 
-  const pages = resolveMaxPages(typeof maxPages === "number" ? maxPages : undefined);
+  // この API はログイン不要（クイック診断）なので、画面が送ってきた maxPages を信用せず
+  // サーバー側で必ず上限をかけ直す。全ページの採点は精密診断（/tools/site-audit）の役目
+  const requested = typeof maxPages === "number" ? Math.min(maxPages, freeSiteMaxPages()) : freeSiteMaxPages();
+  const pages = resolveMaxPages(requested);
   const key = `${url.trim().toLowerCase()}|${pages}`;
   const cached = cache.get(key);
   if (cached) {

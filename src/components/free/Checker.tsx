@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { Button, Callout } from "@/components/ui";
 import type { AnalysisResult, SiteAnalysisResult, SiteProgress } from "@/lib/analyzer/types";
 import { requestSiteAnalysis, SiteRequestError } from "@/lib/crawl/client";
+import { freeSiteMaxPages, truncationNote } from "@/lib/free/limits";
 import { downloadPdf } from "@/lib/pdf/download";
 import { reportFileName } from "@/lib/report";
 import { DiagnosisForm, type Mode } from "./DiagnosisForm";
@@ -117,6 +118,8 @@ export function Checker() {
     try {
       if (current === "site") {
         const { result, cached } = await requestSiteAnalysis(target, {
+          // クイック診断は代表ページだけ（サーバー側でも同じ上限をかけている）
+          maxPages: freeSiteMaxPages(),
           signal: controller.signal,
           onProgress: (progress) =>
             setState((prev) => (prev.phase === "loading" ? { ...prev, progress } : prev)),
@@ -245,7 +248,7 @@ export function Checker() {
             )}
           </div>
 
-          <UpgradeCta kind="site" className="mt-8" />
+          <UpgradeCta kind="site" note={state.mode === "site" ? truncationNote(state.result.crawl) : null} className="mt-8" />
         </>
       )}
     </main>

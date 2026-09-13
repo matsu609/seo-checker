@@ -21,7 +21,7 @@
  *   少し長め（150ms）にしてある。ダミーサイト単体の既定は 5〜15ms のまま。
  *
  * 標準出力の最終行だけが JSON:
- *   {"ok":true,"screenshots":[…],"diagnosedPages":18,"expectedPages":18,
+ *   {"ok":true,"screenshots":[…],"diagnosedPages":10,"expectedPages":10,
  *    "consoleErrors":[],"failures":[]}
  * 途中経過はすべて標準エラーに出る。失敗があれば exit 1。
  *
@@ -32,6 +32,9 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
+/** クイック診断のページ数上限（src/lib/free/limits.ts と合わせる） */
+const FREE_SITE_MAX_PAGES = 10;
+
 import {
   clickFirst,
   collectConsoleErrors,
@@ -411,8 +414,10 @@ async function main() {
   try {
     // --- 1. ダミーサイトと dev サーバー -------------------------------------
     site = await startDummySite({ port: args.dummyPort, delayMs: args.dummyDelay });
-    expectedPages = site.expected.length;
-    log(`ダミーサイト: ${site.origin}（診断されるはずのページ ${expectedPages} 件）`);
+    // クイック診断のサイト全体は代表ページだけ（src/lib/free/limits.ts の FREE_SITE_MAX_PAGES）。
+    // ダミーサイトの全ページ数がその上限を超えるときは、上限のほうが期待値になる
+    expectedPages = Math.min(site.expected.length, FREE_SITE_MAX_PAGES);
+    log(`ダミーサイト: ${site.origin}（全 ${site.expected.length} ページ / 診断されるはず ${expectedPages} 件）`);
 
     if (args.devUrl) {
       dev = { url: args.devUrl.replace(/\/+$/, ""), kill: async () => {} };
@@ -494,9 +499,7 @@ async function main() {
         if (diagnosedPages === null || diagnosedPages !== expectedPages) {
           const api = await fetchSiteResult(dev.url, target, TIMEOUTS.api);
           log(`/api/site の診断ページ数: ${api.count}（discovery: ${api.discovery}）`);
-          const missing = site.expected.filter((url) => !api.urls.includes(url));
           const extra = api.urls.filter((url) => !site.expected.includes(url));
-          if (missing.length) log(`診断されなかった URL: ${missing.join(", ")}`);
           if (extra.length) log(`想定外に診断された URL: ${extra.join(", ")}`);
           if (diagnosedPages === null) {
             diagnosedPages = api.count;

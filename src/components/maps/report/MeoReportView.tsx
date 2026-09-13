@@ -197,7 +197,7 @@ export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoRep
         </ReportSection>
 
         {paid && <ExtraInfoSection detail={detail} number={5} />}
-        {/* 順位・周辺は有料の自社店舗にだけ付く（無料診断には無い。数字が無ければ各節が「次回から」と案内する） */}
+        {/* 順位・周辺は有料の自社店舗にだけ付く（クイック診断には無い。数字が無ければ各節が「次回から」と案内する） */}
         {paid && <RankSection rank={report.rank ?? null} number={6} />}
         {paid && <AreaSection area={report.area ?? null} number={7} />}
 

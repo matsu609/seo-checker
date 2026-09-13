@@ -2,8 +2,8 @@
 
 このリポジトリは 2 つの顔を持つ。
 
-1. **無料診断**（`/`）: 元々の SEO Checker。URL を入れると AIO（AI 検索最適化）の状況をルールベースで採点し、FAQ を生成する。**見込み顧客向けのリード獲得ツール**なので、レポートとしての見栄えと信頼感を最優先する。
-2. **追加機能**（`/tools/*`）: [docs/reference/03_feature-catalog.md](../reference/03_feature-catalog.md) の機能 ID（A1〜E8）を実装したもの。左サイドバーのタブで切り替える。無料診断とは明確に別機能として扱う。
+1. **クイック診断**（`/`）: 元々の SEO Checker。URL を入れると AIO（AI 検索最適化）の状況をルールベースで採点し、FAQ を生成する。**見込み顧客向けのリード獲得ツール**なので、レポートとしての見栄えと信頼感を最優先する。
+2. **追加機能**（`/tools/*`）: [docs/reference/03_feature-catalog.md](../reference/03_feature-catalog.md) の機能 ID（A1〜E8）を実装したもの。左サイドバーのタブで切り替える。クイック診断とは明確に別機能として扱う。
 
 ## ルーティングとサイドバー
 
@@ -11,8 +11,8 @@
 
 | グループ | パス | ラベル | 機能 ID | 外部依存 |
 |---|---|---|---|---|
-| 無料診断 | `/` | 無料 SEO・AIO 診断（サイト） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
-| 無料診断 | `/meo` | 無料 MEO 診断（店舗 1 件、ログイン不要、回数制限つき） | — | Places API (New) |
+| クイック診断 | `/` | クイック診断（サイト・SEO / AIO。無料・ログイン不要。サイト全体は代表 10 ページ） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
+| クイック診断 | `/meo` | クイック診断（店舗・MEO。店舗 1 件、ログイン不要、回数制限つき） | — | Places API (New) |
 | 診断 | `/tools/site-audit` | サイト診断（テクニカル SEO） | A1 | なし（サマリーは Anthropic 任意） |
 | 診断 | `/tools/page-report` | ページ最適化レポート（AIO/LLM） | A2, A3 | PSI 任意 |
 | 診断 | `/tools/page-diagnosis` | ページ診断（キーワード × ページ） | A4 | SERP or Anthropic web 検索 |
@@ -34,7 +34,7 @@
 | 共通 | `/start` | ログイン直後の振り分け（未契約は `/plans`、契約済みはツールへ。画面は出さない） | — | なし |
 
 - 外部依存が未設定のときは、ページ内で `SetupNotice`（何を `.env.local` に設定すればよいか）を表示し、設定済みの部分だけ動かす。**ダミーデータで動いているように見せない。**
-- 無料診断（`/` と `/meo`）は本サービスから切り離した集客の入口。専用の公開シェル（`FreeShell`: ロゴ・申し込み・規約だけ）で出し、有料ツールのサイドバーは見せない。結果の下に `UpgradeCta`（無料の限界 → 詳細診断で分かること → `/sign-up`）を必ず置く。管理画面のサイドバーでは最下部に「お客様に渡す無料診断」として置き、見込み客に渡す公開リンクという位置づけにする（利用者の決定 2026-09-13）。`robots.ts` / `sitemap.ts` も無料診断と規約類だけを開ける。
+- クイック診断（`/` と `/meo`）は本サービスから切り離した集客の入口。専用の公開シェル（`FreeShell`: ロゴ・申し込み・規約だけ）で出し、有料ツールのサイドバーは見せない。結果の下に `UpgradeCta`（無料の限界 → 精密診断で分かること → `/sign-up`）を必ず置く。管理画面のサイドバーでは最下部に「お客様に渡すクイック診断」として置き、見込み客に渡す公開リンクという位置づけにする（利用者の決定 2026-09-13）。`robots.ts` / `sitemap.ts` もクイック診断と規約類だけを開ける。
 
 ## ディレクトリ
 
@@ -42,7 +42,7 @@
 src/
   app/
     layout.tsx                # AppShell（サイドバー + ヘッダー）を全ページに適用
-    page.tsx                  # 無料診断
+    page.tsx                  # クイック診断
     tools/<feature>/page.tsx  # 追加機能。見出し・説明は registry から
     settings/page.tsx
     api/<feature>/route.ts    # 機能ごとの Route Handler（nodejs runtime）
@@ -50,11 +50,11 @@ src/
     shell/                    # Sidebar, AppShell, TopBar
     ui/                       # Card, PageHeader, Button, Badge, Tabs, DataTable, EmptyState, SetupNotice, Field
     charts/                   # Donut, Gauge, HBar, StackedBar, Sparkline（SVG、依存なし）
-    free/                     # 無料診断の画面（Checker, ScoreCard, CheckList, SiteReport, FaqSection …）
+    free/                     # クイック診断の画面（Checker, ScoreCard, CheckList, SiteReport, FaqSection …）
     <feature>/                # 追加機能の画面
   lib/
-    analyzer/                 # 無料診断のルール（既存。文の数え方は sentences.ts / language.ts）
-    crawl/                    # サイト全体クロール（sitemap 展開 + 内部リンク BFS）。無料診断と A1 で共有
+    analyzer/                 # クイック診断のルール（既存。文の数え方は sentences.ts / language.ts）
+    crawl/                    # サイト全体クロール（sitemap 展開 + 内部リンク BFS）。クイック診断と A1 で共有
     audit/                    # A1 テクニカル SEO ルール
     page-report/              # A2/A3
     serp/                     # SERP プロバイダ抽象（SerpApi 実装、未設定時は null）
@@ -93,7 +93,8 @@ src/
 | `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援の回数制限（アンケートごとの 1 日の回答数 500 / AI 下書きの 1 日の全体上限 2,000） | 任意 |
 | `CRON_SECRET` | Vercel Cron（`vercel.json`）が `/api/cron/maps-refresh` を叩くときの Bearer。`src/lib/auth/cron.ts` で検証。未設定なら Cron は何もしない | MEO の一斉更新に必須 |
-| `SITE_MAX_PAGES` | 無料診断・サイト診断のクロール上限（既定 300、上限 1000） | 任意 |
+| `SITE_MAX_PAGES` | サイト診断（精密診断）のクロール上限（既定 300、上限 1000） | 任意 |
+| `FREE_SITE_MAX_PAGES` | クイック診断のサイト全体のページ数（既定 10、上限 50） | 任意 |
 | `ALLOW_PRIVATE_HOSTS` | 開発時のみ | 任意 |
 
 `src/lib/integrations.ts` の `getIntegrationStatus()` が各連携の有無を返し、`GET /api/integrations` で画面に渡す。
@@ -113,7 +114,7 @@ src/
 - `fetchText` はリダイレクトを `redirect: "manual"` で自分で追い、ホップごとに `assertPublicHost` を通す（最大 5 回）。転送先が内部アドレスなら `blocked_host` の `FetchError` になる。クロール（`src/lib/crawl/crawler.ts`）は `blocked_host` を「読み飛ばし」として扱い、URL ごとの理由をレポートに出さない（出すと内部ネットワークの到達性を調べる材料になる）。
 - API キーはサーバーのみ。クライアントに返すのは boolean の連携状態だけ。
 - Route Handler は入力を zod で検証し、エラーは `{ error: string }` と適切な HTTP ステータスで返す（既存の analyze/site と同じ形）。
-- クロールを伴う API（`/api/site`）は同時実行を制限する。1 回の呼び出しが対象サイトへ最大 60（サイトマップ）+ `SITE_MAX_PAGES`（既定 300）回のリクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になる。現状はプロセス内で「同時 2 本まで・同一クライアント（`x-forwarded-for` の先頭 IP）1 本まで」、超過は `429` と `{ code: "busy" }`（`src/app/api/site/route.ts`）。複数インスタンスで動かすときは共有ストアの制限に置き換える。
+- クロールを伴う API（`/api/site`）は同時実行を制限する。1 回の呼び出しが対象サイトへ最大 60（サイトマップ）+ ページ数上限（クイック診断は `FREE_SITE_MAX_PAGES`＝既定 10）回のリクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になる。現状はプロセス内で「同時 2 本まで・同一クライアント（`x-forwarded-for` の先頭 IP）1 本まで」、超過は `429` と `{ code: "busy" }`（`src/app/api/site/route.ts`）。複数インスタンスで動かすときは共有ストアの制限に置き換える。
 - Cron の入口（`/api/cron/*`）はログインが無いので `src/lib/auth/routes.ts` の公開 API に 1 本ずつ完全一致で入れ、ハンドラは `CRON_SECRET` で守る。MEO の数字は利用者が取り直せない（Google に問い合わせるのは店舗の登録直後と週 1 回の一斉更新だけ。`src/lib/maps/refresh.ts`）。
 - 来店客向けアンケート（`/r/<slug>`、`/api/r/<slug>/*`）はログインが無い。`src/lib/auth/routes.ts` の公開接頭辞（`/r/`、`/api/r/`。接頭辞そのものは公開しない）で通し、ハンドラは IP ごとの回数制限とアンケートごとの 1 日の上限で守る（`src/lib/free/ratelimit.ts`）。来店客側の更新（投稿ボタンの押下、お店に直接伝える）は回答時に発行した `edit_token` を持つ人だけ。店舗側の管理 API（`/api/reviews/*`）は `review_responses` に user_id が無いので、必ず `review_forms` の所有（user_id）を確かめてから form_id で触る（`src/lib/reviews/api.ts` の `ownedForm`）。来店客に返すのは `PublicReviewForm`（質問と店名だけ。トーン・キーワード・投稿 URL・所有者は返さない）。来店客の画面は `Accept-Language` / `?lang=` で 5 言語に切り替わる（`src/lib/reviews/i18n.ts`、質問文の訳は `translate.ts`。選択肢は表示だけ訳し、送る値は日本語の原文）。
 - サイト診断の結果はキャッシュ 1 件で 1 MB 近い。`globalCache` の `maxEntries` を小さく（10 件）し、`SiteCheckSummary.affected` はサーバー側で 50 件までに間引く（件数は `counts` が持つ）。
@@ -122,7 +123,7 @@ src/
 
 - Tailwind v4。色・フォントは `src/app/globals.css` の `@theme` トークンだけを使う（任意の hex を JSX に書かない）。
 - 共通部品は `src/components/ui/`、グラフは `src/components/charts/`（SVG。`html2canvas-pro` で PDF 化できるよう、CSS の `mask` / `backdrop-filter` / 外部画像に依存しない）。
-- 無料診断の PDF / 印刷は既存の `print-card` / `no-print` / `print-only` クラスと `src/lib/pdf/download.ts` を使う。
+- クイック診断の PDF / 印刷は既存の `print-card` / `no-print` / `print-only` クラスと `src/lib/pdf/download.ts` を使う。
 - 文言は日本語。専門用語には一言の説明を添える。
 - ページの先頭は `PageHeader`（registry のラベル・説明・機能 ID バッジ）。
 

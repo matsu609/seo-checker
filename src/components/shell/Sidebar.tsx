@@ -191,9 +191,9 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         </div>
       )}
 
-      {/* 共有用の無料診断。本サービスとは切り離した公開ページ（見込み客に URL をそのまま渡せる） */}
+      {/* 共有用のクイック診断。本サービスとは切り離した公開ページ（見込み客に URL をそのまま渡せる） */}
       <div className="mx-3 mt-6 rounded-md border border-on-brand/25 p-1">
-        <div className="px-2 pt-1 pb-1 text-[11px] font-bold text-on-brand-muted">お客様に渡す無料診断</div>
+        <div className="px-2 pt-1 pb-1 text-[11px] font-bold text-on-brand-muted">お客様に渡すクイック診断</div>
         <ul className="space-y-0.5">
           {free.map((f) => {
             const setup = needsSetup(f, status);

@@ -202,7 +202,7 @@ export function NextSteps() {
       <div className="rounded-sm border border-line bg-surface p-4">
         <h2 className="text-[14px] font-bold text-ink">次のステップ</h2>
         <p className="mt-1 text-[13px] leading-relaxed text-ink">
-          本レポートは無料診断版です。全ページの詳細診断や改善実装のご相談は下記まで。
+          本レポートはクイック診断（公開情報のみ）の結果です。実データを使った精密診断や改善実装のご相談は下記まで。
         </p>
         <p className="mt-2 text-[13px] break-all">
           {name && <span className="font-bold text-ink">{name}</span>}

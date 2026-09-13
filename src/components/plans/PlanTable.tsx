@@ -6,7 +6,7 @@ import { Badge, Card } from "@/components/ui";
 import { FEATURE_GROUPS } from "@/lib/features/registry";
 import { SELLABLE_PLANS, planAllows, planPriceLabel, type PlanId } from "@/lib/plans/catalog";
 
-/** そのプランで使えるツール名（無料診断と設定は除く）。上位プランは下位の機能も含む */
+/** そのプランで使えるツール名（クイック診断と設定は除く）。上位プランは下位の機能も含む */
 function toolsFor(plan: PlanId): string[] {
   return FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings")
     .flatMap((g) => g.features)

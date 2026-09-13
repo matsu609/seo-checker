@@ -1,5 +1,5 @@
 /**
- * 無料診断レポートの導出層（純関数）。
+ * クイック診断レポートの導出層（純関数）。
  *
  * AnalysisResult / SiteAnalysisResult を、画面（src/components/free）が
  * そのまま描ける PageReportSummary / SiteReportSummary に変換する。

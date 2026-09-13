@@ -26,7 +26,7 @@ export const TOKUSHOHO_ROWS: Row[] = [
   { label: "サービス名", value: SERVICE_NAME },
   {
     label: "販売価格",
-    value: [`${pro.label}: 月額 ${pro.priceYen.toLocaleString("ja-JP")} 円（税別。消費税は別途申し受けます）`, "無料診断: 0 円", "割引コードをお持ちの場合は、申し込み画面で入力すると割引後の金額で決済されます。コードの発行条件はお問い合わせください。"],
+    value: [`${pro.label}: 月額 ${pro.priceYen.toLocaleString("ja-JP")} 円（税別。消費税は別途申し受けます）`, "クイック診断（アカウント不要）: 0 円", "割引コードをお持ちの場合は、申し込み画面で入力すると割引後の金額で決済されます。コードの発行条件はお問い合わせください。"],
   },
   { label: "販売価格以外にお客様が負担する費用", value: "インターネット接続にかかる通信料はお客様のご負担です。" },
   { label: "お支払い方法", value: "クレジットカード（Visa / Mastercard / American Express / JCB。決済は Stripe, Inc. を通じて行います）" },

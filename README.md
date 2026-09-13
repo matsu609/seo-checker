@@ -1,12 +1,12 @@
 # SEO Checker — 無料 SEO・MEO・AIO 診断 + SEO/LLMO ツール
 
-URL を入れるだけで検索エンジンと AI 検索（AIO）に読まれる土台を採点する**無料診断（サイト）**、店名を入れるだけで Google マップの店舗情報を採点する**無料診断（MEO）**、そして SEO / AIO / MEO の運用に使う**ツール群**をひとつにまとめた Next.js アプリです。
+URL を入れるだけで検索エンジンと AI 検索（AIO）に読まれる土台を採点する**クイック診断（サイト・無料）**、店名を入れるだけで Google マップの店舗情報を採点する**クイック診断（店舗・MEO・無料）**、そして SEO / AIO / MEO の運用に使う**ツール群**をひとつにまとめた Next.js アプリです。
 
-左のサイドバーで両者を明確に分けています。無料診断はログインも API キーも不要で、そのまま報告書として PDF に出せます。ツール群は用途に応じて外部 API を設定して使います。
+左のサイドバーで両者を明確に分けています。クイック診断はログインも API キーも不要で、そのまま報告書として PDF に出せます。ツール群は用途に応じて外部 API を設定して使います。
 
 ```bash
 npm install
-cp .env.example .env.local   # 使いたい機能に応じてキーを設定（無料診断は不要）
+cp .env.example .env.local   # 使いたい機能に応じてキーを設定（クイック診断は不要）
 npm run dev                  # http://localhost:3000
 ```
 
@@ -79,7 +79,7 @@ npm run dev                  # http://localhost:3000
 
 ### サービス資料
 
-無料診断の画面に「サービス資料をダウンロード」ボタンを置いています（フォームの下と、レポート末尾の「次のステップ」）。
+クイック診断の画面に「サービス資料をダウンロード」ボタンを置いています（フォームの下と、レポート末尾の「次のステップ」）。
 
 **資料の中身は機能レジストリと料金プランから組み立てます**（`src/components/free/ServiceGuide.tsx`）。手書きの PDF を置くと、機能や価格を変えたときに資料だけ古いまま残るためです。ボタンを押すとレポートと同じ仕組み（html2canvas + jsPDF）でその場で PDF になります。
 
@@ -141,7 +141,7 @@ npm run dev                  # http://localhost:3000
 
 | プラン | 月額 | 内容 |
 |---|---:|---|
-| **無料診断** | 0 円 | 無料 SEO・AIO 診断（`/`）と無料 MEO 診断（`/meo`、店舗 1 件）。ログイン不要 |
+| **クイック診断** | 0 円 | サイトのクイック診断（`/`、1 ページまたは代表 10 ページ）と店舗のクイック診断（`/meo`、店舗 1 件）。ログイン不要 |
 | **オールインワン** | 50,000 円（定価） | SEO・AIO・MEO のすべてのツールと、**AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成）。**初月無料**（`STRIPE_TRIAL_DAYS`、既定 30 日）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力） |
 
 申し込みの入口は `https://app.seo-checker.tokyo/sign-up` です（新規登録 → `/start` → 未契約なので `/plans` → 申し込み）。紹介サイトの「初月無料ではじめる」もここへ送ります。登録済みの人は `/plans` から申し込み・カードの変更・解約ができます。
@@ -282,7 +282,7 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 
 ## 環境変数
 
-無料診断はどれも不要です。
+クイック診断はどれも不要です。
 
 | 変数 | 用途 |
 |---|---|
@@ -325,7 +325,7 @@ npm run typecheck  # tsc --noEmit
 npm test           # vitest
 ```
 
-E2E スモーク（ダミーサイトを立てて無料診断を実行し、スクリーンショットと PDF を出力）:
+E2E スモーク（ダミーサイトを立ててクイック診断を実行し、スクリーンショットと PDF を出力）:
 
 ```bash
 node scripts/e2e/dummy-site.mjs --print-expected   # 診断されるはずのページ一覧
@@ -352,7 +352,7 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 ```
 src/
   app/
-    page.tsx                  # 無料診断
+    page.tsx                  # クイック診断
     tools/<id>/page.tsx       # 各ツール（Server Component。PageHeader + クライアント画面）
     settings/                 # プロジェクト・競合・外部連携
     api/                      # Route Handler（nodejs runtime）
@@ -360,10 +360,10 @@ src/
     shell/                    # AppShell / Sidebar / TopBar
     ui/                       # Card / PageHeader / Button / DataTable / SetupNotice など
     charts/                   # 依存なしの SVG（Donut / HBar / Pie / Histogram / StackedBar / Sparkline / HeatCell）
-    free/                     # 無料診断のレポート
+    free/                     # クイック診断のレポート
     <tool>/                   # 各ツールの画面
   lib/
-    analyzer/                 # 無料診断の判定ルール（fetch.ts の assertPublicHost + fetchText が唯一の取得経路）
+    analyzer/                 # クイック診断の判定ルール（fetch.ts の assertPublicHost + fetchText が唯一の取得経路）
     crawl/                    # 全ページクロール（sitemap 展開 + 内部リンク BFS）
     report/                   # レポートの導出（グレード・講評・優先改善）
     audit/ page-report/ rank/ llmo/ keywords/ writing/ ga4/ ...   # 各ツールのロジック

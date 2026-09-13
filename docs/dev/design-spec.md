@@ -1,4 +1,4 @@
-# デザイン仕様（最終版）— 無料診断レポートとアプリシェル
+# デザイン仕様（最終版）— クイック診断レポートとアプリシェル
 
 対象: `/`（無料 AIO 診断）のレポート画面・PDF・印刷、および全ページ共通のアプリシェル（サイドバー / トップバー）。
 `/tools/*` は同じトークン・部品を使う。規約の上位文書は [ARCHITECTURE.md](./ARCHITECTURE.md)、技術制約は [ui-notes.md](./ui-notes.md)。
@@ -41,7 +41,7 @@ editorial から「見出しはウェイト差ではなくサイズ差で階層�
 | warn / warn-soft | `#8f5a06` / `#f8eedc` | 改善余地 | 白地 5.8、soft 地 5.0 |
 | fail / fail-soft | `#b3261e` / `#f8e3e1` | 未対応 | 白地 6.5、soft 地 5.3 |
 | info / info-soft | `#3a6f9e` / `#e6eef5` | 参考（採点外） | 白地 5.3、soft 地 4.5 |
-| chart-1 〜 chart-6 | `#14607a` `#2b3f6b` `#4f8fa8` `#8c6d3f` `#6f7f92` `#a06f8c` | 系列色（ツール用。無料診断は chart-1 のみ） | 塗り専用（文字に使わない） |
+| chart-1 〜 chart-6 | `#14607a` `#2b3f6b` `#4f8fa8` `#8c6d3f` `#6f7f92` `#a06f8c` | 系列色（ツール用。クイック診断は chart-1 のみ） | 塗り専用（文字に使わない） |
 | chart-track / chart-grid | `#e6ebef` / `#d3dbe2` | 棒のトラック・グリッド線 | — |
 | grade-a / b / c / d / e | `#176b45` `#2f7f47` `#8f5a06` `#b5541c` `#b3261e` | グレード印・ゲージ | 白地 6.5 / 4.9 / 5.8 / 4.9 / 6.5 |
 
@@ -127,7 +127,7 @@ export type StatusTone = "pass" | "warn" | "fail" | "info";
 
 ### 3.1 共通: 表紙ヘッダー（`free/ReportCover`、print-card を付けない）
 
-`<header className="bg-brand text-on-brand px-6 py-6 @md:px-8">`。左: キッカー → タイトル → ホスト名 → title。右上: グレード印（総合。site は平均）と「総合評価」11px。下段 dl（`@md:grid-cols-4`）: 「対象 URL」= page: finalUrl / site: entryUrl／「診断日」= YYYY年M月D日 HH:mm／「診断ページ数」= page:「1 ページ」/ site:「128 ページ（sitemap.xml から収集・取得失敗 3 件）」（既存 DISCOVERY_LABEL を再利用）／「診断方式」=「ルールベース（無料診断）」。最下行 11px on-brand-muted「公開 HTML・robots.txt・llms.txt・sitemap.xml を対象とした自動診断です。採点基準は付録 B をご覧ください。」
+`<header className="bg-brand text-on-brand px-6 py-6 @md:px-8">`。左: キッカー → タイトル → ホスト名 → title。右上: グレード印（総合。site は平均）と「総合評価」11px。下段 dl（`@md:grid-cols-4`）: 「対象 URL」= page: finalUrl / site: entryUrl／「診断日」= YYYY年M月D日 HH:mm／「診断ページ数」= page:「1 ページ」/ site:「128 ページ（sitemap.xml から収集・取得失敗 3 件）」（既存 DISCOVERY_LABEL を再利用）／「診断方式」=「ルールベース（クイック診断）」。最下行 11px on-brand-muted「公開 HTML・robots.txt・llms.txt・sitemap.xml を対象とした自動診断です。採点基準は付録 B をご覧ください。」
 「直近の診断結果を表示しています」（cached）は帯の外に no-print で出す。
 
 ### 3.2 PAGE モード
@@ -141,7 +141,7 @@ export type StatusTone = "pass" | "warn" | "fail" | "info";
 | 5 | 想定 FAQ（AI 生成） | 既存 FaqSection。見出し脇にピル「任意・AI 生成」。編集 UI は no-print。API 未設定時は 1 行注記のみ（ダミーを出さない） | — |
 | 付録 A | 診断対象ページの情報 | dl（`@md:grid-cols-2`）: URL / HTTP ステータス / title / description / lang / 本文文字数 / JSON-LD の @type / h1 数。`result.notes` の ※ はここに移す | — |
 | 付録 B | 診断方法と採点基準 | 表 1: カテゴリ / 配点 / 主な確認内容（robots.txt の AI クローラ許可・llms.txt／JSON-LD の種類と文法／title・description・canonical・OGP・lang／h1 の数と階層／本文量と可読性）。表 2: 判定と得点（合格 100% / 改善余地 50% / 未対応 0% / 参考 対象外）。表 3: グレード閾値。注意書き「表示速度・被リンク・検索順位は含みません。」＋診断日時（秒まで）・ツール名・バージョン | 任意: StackedBar（配点構成） |
-| — | 次のステップ | 「本レポートは無料診断版です。全ページの詳細診断や改善実装のご相談は下記まで。」+ 連絡先。`NEXT_PUBLIC_CONTACT_NAME` / `NEXT_PUBLIC_CONTACT_URL` が無ければブロックごと非表示 | — |
+| — | 次のステップ | 「本レポートはクイック診断版です。全ページの精密診断や改善実装のご相談は下記まで。」+ 連絡先。`NEXT_PUBLIC_CONTACT_NAME` / `NEXT_PUBLIC_CONTACT_URL` が無ければブロックごと非表示 | — |
 
 検索に載せないページ（サイト内検索の結果・買い物かごなどが noindex / robots.txt で実際に検索から外されているもの。`AnalysisResult.excluded`、判定は `src/lib/analyzer/page-kind.ts`）を単体で診断したときは、シートの先頭に Callout（info）「このページは検索に載せないページです（採点は参考）」を置く。採点自体は変えない。
 
@@ -182,21 +182,21 @@ export type StatusTone = "pass" | "warn" | "fail" | "info";
 | ColumnChart（site 分布） | `320×140`, 5 柱、幅 40、x = 16 + i×64、下余白 0 | y スケール = max 件数を 4 グリッド線（chart-grid）に丸め。柱上に `<text fontSize=11 fill=ink textAnchor=middle>` で件数（数字のみ SVG text 可）。平均点の位置に縦線 `stroke=secondary strokeDasharray="4 3"`。x ラベルは SVG 外 HTML `grid-cols-5`（「E」700 + 「0–49」11px muted） | 柱 = grade 色 |
 | HeatTable（site） | HTML `<table class="w-full text-[13px]">`、ラッパー `overflow-x-auto`、`min-w-[34rem]` | 列: パス（12px break-all、「/（トップ）」）/ 総合（700）/ グレード（文字 = grade 色 700）/ 5 カテゴリ。セル背景 = toneOf → pass-soft / warn-soft / fail-soft、文字 ink tabular right、数値列幅 3.25rem。thead `sticky top-0 bg-panel`（画面のみ）。**40 行ごとに `<section>` を分割**、画面は最初の 40 行 + no-print ボタン「次の 40 ページ」、PDF / 印刷は 120 行まで + 注記「残り N ページは付録 A 参照」（DOM に 120 行入れて画面側だけ `hidden` + no-print で制御） | — |
 | StatStrip（KPI） | HTML `grid-cols-4 divide-x divide-line border-y border-line py-3` | 数値 22px / 700 tabular + ラベル 11px muted。総合評価とツール側で共用 | — |
-| Sparkline（ツール予約） | `120×28`, `viewBox 0 0 120 28` | `polyline` `fill=none strokeWidth=1.5`、末尾に r=2 の circle。無料診断では使わない | chart-1 |
+| Sparkline（ツール予約） | `120×28`, `viewBox 0 0 120 28` | `polyline` `fill=none strokeWidth=1.5`、末尾に r=2 の circle。クイック診断では使わない | chart-1 |
 | StackedBar（任意） | `400×12` | 5 区分 20/25/20/15/20 を chart-1〜5 で並べ、ラベルは HTML | chart-1〜5 |
 
 ## 5. アプリシェル（`src/components/shell/`）
 
 定義は `src/lib/features/registry.ts` のみ（label / path / icon / group / featureIds / status / description）。Sidebar はそれを描画するだけ。
 
-- ラッパー: `md:grid md:grid-cols-[15rem_1fr] min-h-screen print:block print:h-auto print:overflow-visible`。スクロールは body。`<main>` はシェルが 1 つだけ持ち `px-4 py-6 md:px-8 print:max-w-none print:p-0 print:m-0`（ツールは `max-w-6xl`）。無料診断は `FreeShell` の中で自前の `<main className="mx-auto max-w-3xl">` を持つ。
+- ラッパー: `md:grid md:grid-cols-[15rem_1fr] min-h-screen print:block print:h-auto print:overflow-visible`。スクロールは body。`<main>` はシェルが 1 つだけ持ち `px-4 py-6 md:px-8 print:max-w-none print:p-0 print:m-0`（ツールは `max-w-6xl`）。クイック診断は `FreeShell` の中で自前の `<main className="mx-auto max-w-3xl">` を持つ。
 - **サイドバー** `<aside className="no-print bg-brand text-on-brand w-60 md:sticky md:top-0 md:h-screen overflow-y-auto flex flex-col">`（幅 15rem = 240px）。角丸は `rounded-md` まで、影なし。
   1. ブランド行（h-12 px-4、下 1px `border-on-brand/15`）: 24px インライン SVG マーク（角形の中にチェック付き文書、白線）+ ワードマーク「SEO Checker」15px / 700。
   2. 区切り: `mt-6 px-4` に見出し「ツール」11px / 700 on-brand-muted + ピル「β」。
   3. グループ 診断 / 計測 / 調査 / 生成 / 設定（registry の順）: グループ名 11px on-brand-muted `mt-4 mb-1 px-4`。項目 = `<Link>` 13px / 400 `text-on-brand/90 h-9 px-3 mx-2 rounded-md flex items-center gap-2.5`、左 16px 線アイコン（stroke currentColor、Icons.tsx の流儀）、ラベル、右端に機能 ID チップ（`font-mono` 10px、`border border-on-brand/30 text-on-brand-muted rounded-sm px-1`、複数は先頭 1 つ + 「+2」）。状態バッジ「準備中」「要設定」= `border border-on-brand-muted text-on-brand-muted` 10px（紺の上に amber / red を載せない）。hover `bg-on-brand/8`。active（pathname が path で始まる）= `bg-on-brand/12 text-on-brand font-bold` + 左端 3px on-brand バー（`before:`）+ `aria-current="page"`。
-  4. **「お客様に渡す無料診断」ブロック**（`mt-6 mx-3 border border-on-brand/25 rounded-md p-1`、フッターの直前）: 見出し 11px on-brand-muted、項目 13px / 400 + 右端バッジ「公開」（未設定なら「準備中」）、下に 11px on-brand-muted「ログイン不要の公開ページです。見込み客に URL を渡して使ってもらえます」。無料診断は別のシェルで開くので active 表示は持たない。
+  4. **「お客様に渡すクイック診断」ブロック**（`mt-6 mx-3 border border-on-brand/25 rounded-md p-1`、フッターの直前）: 見出し 11px on-brand-muted、項目 13px / 400 + 右端バッジ「公開」（未設定なら「準備中」）、下に 11px on-brand-muted「ログイン不要の公開ページです。見込み客に URL を渡して使ってもらえます」。クイック診断は別のシェルで開くので active 表示は持たない。
   5. フッター（`mt-auto px-4 py-3`、上 1px `border-on-brand/15`）: 11px on-brand-muted「v0.1.0 · ルールベース診断」（package.json の version を `NEXT_PUBLIC_APP_VERSION` 経由で表示、無ければ固定文字列）。
-- **トップバー** `<div className="no-print sticky top-0 z-10 h-12 bg-panel border-b border-line flex items-center gap-3 px-4 md:px-8">`。左 = ハンバーガー（`md:hidden`、44px タップ領域、`aria-label="メニュー"`）+ 現在ページのラベル 14px / 700 ink（registry）+ 機能 ID チップ（無料診断はこのトップバーを通らない）。右は空（PDF / 印刷ボタンはレポート内。将来プロジェクト切替）。`position: fixed` は使わない。
+- **トップバー** `<div className="no-print sticky top-0 z-10 h-12 bg-panel border-b border-line flex items-center gap-3 px-4 md:px-8">`。左 = ハンバーガー（`md:hidden`、44px タップ領域、`aria-label="メニュー"`）+ 現在ページのラベル 14px / 700 ink（registry）+ 機能 ID チップ（クイック診断はこのトップバーを通らない）。右は空（PDF / 印刷ボタンはレポート内。将来プロジェクト切替）。`position: fixed` は使わない。
 - **モバイルドロワー**（< md）: aside は非表示。ハンバーガーで `fixed inset-y-0 left-0 w-72 z-40` の同じ紺パネル（`role="dialog" aria-modal`、閉じるボタン右上）、オーバーレイ `fixed inset-0 bg-ink/50 z-30`。Escape・オーバーレイ・`usePathname` の変化で閉じる。開いている間 body `overflow-hidden`、フォーカスはドロワー内。ドロワー・オーバーレイとも no-print。
 - ツールページ先頭は `PageHeader`: h1 20px / 700 + 説明 13px muted + 機能 ID チップ。外部依存未設定は `SetupNotice`（`border border-line bg-surface rounded-sm p-4`、13px、accent のリンク）。
 
@@ -233,7 +233,7 @@ export type StatusTone = "pass" | "warn" | "fail" | "info";
 - **ミエルカ GEO（06）**: 明るい青の多系列時系列ダッシュボード（積み上げ棒 + 折れ線、KPI カードの前期比）に対し、本方向は時系列を持たない静的な報告書。データ色は chart-1 単色 + 判定 3 色に絞り、棒は 1 系列 + 目盛、ドーナツは 3 区分。
 - **yoriaiSEO（02）**: 「ダッシュボード / 課題」タブ、赤字の課題数、+19 の赤バッジ、文章主体の印刷レポート 8 枚に対し、点数・グレード・見込み加点で示し、A4 数枚の図中心の報告書にする。件数を赤字で煽らず、判定は枠付きピル。
 - **User Insight（01）**: スコア + 良好バッジ + プログレスバー + 4 列表という業界標準は踏襲しつつ、配点の開示・A〜E・横棒・内訳ドーナツ・サイト全体の分布とヒート表を加え、講評がルール生成であることを明示する（再現性 = 信頼）。
-- **サイドバー**: 3 社とも白地の左ナビに全機能を同列に並べる。本方向は藍のサイドバーにツールだけを並べ、無料診断はサイドバーを持たない公開シェルへ切り離す（サイドバー最下部には「お客様に渡す無料診断」として共有リンクだけを残す）。
+- **サイドバー**: 3 社とも白地の左ナビに全機能を同列に並べる。本方向は藍のサイドバーにツールだけを並べ、クイック診断はサイドバーを持たない公開シェルへ切り離す（サイドバー最下部には「お客様に渡すクイック診断」として共有リンクだけを残す）。
 
 ## 9. リスクと対処
 

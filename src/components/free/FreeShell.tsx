@@ -29,7 +29,7 @@ export function FreeShell({ children, authEnabled }: FreeShellProps) {
         <Link href="/" className="flex min-w-0 items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
           <LogoMark className="h-5 w-5 shrink-0 text-brand" />
           <span className="truncate text-sm font-bold text-ink">{SERVICE_NAME}</span>
-          <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">無料診断</span>
+          <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">クイック診断・無料</span>
         </Link>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {authEnabled ? (
@@ -46,9 +46,9 @@ export function FreeShell({ children, authEnabled }: FreeShellProps) {
 
       <footer className="no-print border-t border-line px-4 py-4 text-[11px] text-muted md:px-8">
         <p>
-          この診断はログイン不要・無料でお使いいただけます。結果の続き（実データの計測・競合比較・AI の改修案）は
+          クイック診断は、公開されている情報だけをその場で採点するものです。ログイン不要・無料。実データ（Search Console / GA4）の計測・競合比較・AI の改修案は
           <Link href={SIGN_UP_PATH} className="mx-1 text-accent underline underline-offset-2">
-            詳細診断
+            精密診断
           </Link>
           でご利用いただけます。
         </p>

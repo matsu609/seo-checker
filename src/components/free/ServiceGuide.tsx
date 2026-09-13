@@ -11,7 +11,7 @@
 import { FEATURE_GROUPS } from "@/lib/features/registry";
 import { SELLABLE_PLANS, planShortLabel, planPriceLabel } from "@/lib/plans/catalog";
 
-/** 無料診断と設定を除いた、プランに含まれるツールのグループ */
+/** クイック診断と設定を除いた、プランに含まれるツールのグループ */
 const TOOL_GROUPS = FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings");
 
 export interface ServiceGuideProps {
@@ -61,10 +61,10 @@ export function ServiceGuide({ contactName, contactUrl, issuedOn }: ServiceGuide
           </ul>
         </section>
 
-        {/* 無料診断 */}
+        {/* クイック診断 */}
         <section>
           <h2 className="border-l-4 border-brand pl-3 text-[18px] font-bold">
-            まずは無料診断から
+            まずはクイック診断から
           </h2>
           <p className="mt-2 text-[13px] leading-relaxed">
             URL を入れるだけで、1 ページまたはサイト全体を採点します。
@@ -188,7 +188,7 @@ export function ServiceGuide({ contactName, contactUrl, issuedOn }: ServiceGuide
           <section className="rounded-sm border border-brand bg-accent-soft p-4">
             <h2 className="text-[14px] font-bold">お問い合わせ</h2>
             <p className="mt-1 text-[13px] leading-relaxed">
-              導入のご相談、無料診断の結果についてのご質問は下記まで。
+              導入のご相談、クイック診断の結果についてのご質問は下記まで。
             </p>
             <p className="mt-2 text-[13px] break-all">
               {contactName && <span className="font-bold">{contactName}</span>}

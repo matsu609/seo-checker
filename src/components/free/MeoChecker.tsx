@@ -204,9 +204,9 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
 
         <div className="mt-4 border-t border-line pt-4">
           <p className="text-[12px] leading-relaxed text-muted">
-            ここで分かるのは公開情報 1 店舗ぶんの採点です。競合 5 店舗との比較、毎週の自動更新と推移、AI による総評、28 項目の採点は
+            クイック診断で分かるのは公開情報 1 店舗ぶんの採点です。競合 5 店舗との比較、毎週の自動更新と推移、AI による総評、28 項目の採点は
             <Link href={SIGN_UP_PATH} className="mx-1 text-accent underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-accent/40">
-              詳細診断（初月無料）
+              精密診断（初月無料）
             </Link>
             でご利用いただけます。
           </p>

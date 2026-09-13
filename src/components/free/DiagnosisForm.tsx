@@ -7,6 +7,7 @@
 import type { FormEvent } from "react";
 import { Button, Field, Input } from "@/components/ui";
 import { FREE_SUITE_LABEL } from "@/lib/features/registry";
+import { freeSiteMaxPages } from "@/lib/free/limits";
 import { FreeTargetSwitch } from "./FreeTargetSwitch";
 import { ServiceGuideButton } from "./ServiceGuideButton";
 
@@ -19,8 +20,9 @@ const OPTIONS: { value: Mode; label: string; hint: string }[] = [
   { value: "page", label: "このページ", hint: "入力した URL 1 ページだけを診断します" },
   {
     value: "site",
-    label: "サイト全体（全ページ）",
-    hint: "sitemap と内部リンクから全ページを収集して診断します",
+    // クイック診断のサイト全体は代表ページだけ（全ページの採点は精密診断の役目）
+    label: "サイト全体（代表ページ）",
+    hint: `sitemap と内部リンクから代表の ${freeSiteMaxPages()} ページを収集して診断します`,
   },
 ];
 
@@ -93,12 +95,12 @@ export function DiagnosisForm({
       </form>
 
       <p className="mt-2 text-[11px] leading-relaxed text-muted">
-        採点はルールベース（生成 AI 不使用）のため無料です。想定 FAQ の生成だけ AI を使います。
+        クイック診断は公開されている情報だけを、ルールベース（生成 AI 不使用）で採点します。想定 FAQ の生成だけ AI を使います。
       </p>
 
       <div className="mt-4 border-t border-line pt-4">
         <p className="text-[12px] leading-relaxed text-muted">
-          診断でわかることや、有料プランで使えるツールの一覧をまとめた資料をご用意しています。
+          クイック診断でわかることや、精密診断（有料プラン）で使えるツールの一覧をまとめた資料をご用意しています。
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
           <ServiceGuideButton />

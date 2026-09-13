@@ -54,7 +54,7 @@ export type FeatureIcon =
   | "broadcast";
 
 export interface Feature {
-  /** URL セグメント（例: "site-audit"）。無料診断は "free"、設定は "settings" */
+  /** URL セグメント（例: "site-audit"）。クイック診断は "free"、設定は "settings" */
   id: string;
   path: string;
   label: string;
@@ -90,18 +90,27 @@ export interface FeatureGroup {
   features: readonly Feature[];
 }
 
-/** 無料診断のまとめ名（サイドバーの見出し・ページタイトル） */
-export const FREE_SUITE_LABEL = "無料 SEO・MEO・AIO 診断";
+/**
+ * クイック診断のまとめ名（画面の見出し・ページタイトル）。
+ *
+ * 「無料診断」とは呼ばない（利用者の決定 2026-09-13）。値段を名前にすると比べる軸が
+ * 「タダか有料か」になり、品質が高いほど「無料で十分」に倒れてしまう。浅い / 深いで
+ * 呼び分け、クイック診断（公開情報をその場で採点）⇔ 精密診断（実データ・時系列・競合）
+ * とする。「無料」は名前ではなく値札としてバッジで出す。内部の ID（free / free-meo）は変えない。
+ */
+export const FREE_SUITE_LABEL = "クイック診断（SEO・MEO・AIO）";
+/** 有料側の呼び名。画面の文言で「詳細診断」と書かない */
+export const PAID_DIAGNOSIS_LABEL = "精密診断";
 
 export const FREE_FEATURE: Feature = {
   id: "free",
   path: "/",
-  label: "無料 SEO・AIO 診断（サイト）",
+  label: "クイック診断（サイト・SEO / AIO）",
   shortLabel: "サイトを診断（SEO・AIO）",
   description:
-    "URL を入れるだけで、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として PDF 出力できます。ログイン・API キー不要。",
+    "URL を入れるだけで、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として PDF 出力できます。無料・ログイン不要。実データを使った精密診断は有料プランで。",
   details: [
-    "1 ページ、またはサイト全体（sitemap と内部リンクから収集）を対象に採点",
+    "1 ページ、またはサイト全体の代表 10 ページ（sitemap と内部リンクから収集）を採点",
     "総合スコア・グレード・カテゴリ別スコア・改善提案を報告書形式で表示",
     "PDF ダウンロードと印刷",
     "想定 FAQ の生成（ANTHROPIC_API_KEY があるときのみ）",
@@ -116,22 +125,22 @@ export const FREE_FEATURE: Feature = {
 };
 
 /**
- * 無料 MEO 診断。店名で探して 1 店舗の公開情報を採点する（ログイン不要）。
+ * クイック診断（店舗）。店名で探して 1 店舗の公開情報を採点する（ログイン不要）。
  * 有料の /tools/maps との違い: 保存しない・競合なし・毎週の更新なし・AI 総評なし。
  * 実費（Places）が出るので API 側で回数制限をかける（src/lib/free/ratelimit.ts）。
  */
 export const FREE_MEO_FEATURE: Feature = {
   id: "free-meo",
   path: "/meo",
-  label: "無料 MEO 診断（Google マップの店舗）",
+  label: "クイック診断（店舗・MEO）",
   shortLabel: "店舗を診断（MEO）",
   description:
-    "店名を入れるだけで、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として PDF 出力できます。ログイン不要。",
+    "店名を入れるだけで、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として PDF 出力できます。無料・ログイン不要。",
   details: [
     "店名・地域で検索して店舗を 1 件選ぶ",
     "総合評価 A〜E と 4 カテゴリ・21 項目の判定、改善ヒント、総評（ルール生成）",
     "口コミ情報（平均評価・件数・直近の口コミ・星の分布）",
-    "PDF ダウンロード。競合との比較・毎週の更新・AI 総評は有料プランで",
+    "PDF ダウンロード。競合との比較・毎週の更新・AI 総評は精密診断（有料）で",
   ],
   featureIds: [],
   icon: "map",
@@ -540,7 +549,7 @@ const SETTINGS: readonly Feature[] = [
     label: "料金プラン",
     shortLabel: "料金プラン",
     description:
-      "無料診断・スタンダード・プロの 3 つのプランと、それぞれで使えるツールの一覧です。現在のプランもここで確認できます。",
+      "クイック診断（無料）・スタンダード・プロの 3 つのプランと、それぞれで使えるツールの一覧です。現在のプランもここで確認できます。",
     details: [
       "プランごとに含まれるツールの比較",
       "現在のプランと、その決まり方の表示",
@@ -588,7 +597,7 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
 /** 全機能のフラットな一覧（サイドバー順） */
 export const features: readonly Feature[] = FEATURE_GROUPS.flatMap((g) => g.features);
 
-/** /tools/* と /settings の機能（無料診断を除く） */
+/** /tools/* と /settings の機能（クイック診断を除く） */
 export const TOOL_FEATURES: readonly Feature[] = features.filter((f) => f.group !== "free");
 
 function normalizePath(pathname: string): string {
@@ -626,7 +635,7 @@ export function requireFeature(id: string): Feature {
 }
 
 /**
- * サイドバー描画用: 無料診断（単独ブロック）と、その下に並べるツールのグループ。
+ * サイドバー描画用: クイック診断（単独ブロック）と、その下に並べるツールのグループ。
  * category を渡すと、そのタブの機能と共通（category 無し）の機能だけに絞る。空のグループは落とす。
  */
 export function groupsForSidebar(category?: FeatureCategoryId): { free: readonly Feature[]; tools: readonly FeatureGroup[] } {
@@ -639,7 +648,7 @@ export function groupsForSidebar(category?: FeatureCategoryId): { free: readonly
   return { free, tools };
 }
 
-/** パスが属するタブ（共通の機能や無料診断なら null） */
+/** パスが属するタブ（共通の機能やクイック診断なら null） */
 export function categoryForPath(pathname: string): FeatureCategoryId | null {
   return findFeatureByPath(pathname)?.category ?? null;
 }

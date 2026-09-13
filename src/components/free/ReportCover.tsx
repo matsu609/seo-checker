@@ -16,7 +16,7 @@ export interface ReportCoverProps {
   /** 対象 URL（page: finalUrl / site: entryUrl） */
   url: string;
   fetchedAt: string;
-  /** 「このページ」/「サイト全体（全ページ）」 */
+  /** 「このページ」/「サイト全体（代表ページ）」 */
   scopeLabel: string;
   /** 「1 ページ」/「17 ページ（sitemap.xml と内部リンクから収集・取得失敗 0 件）」 */
   pagesLabel: string;

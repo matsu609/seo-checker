@@ -33,7 +33,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [ta
 export function AppShell({ children, version, authEnabled }: AppShellProps) {
   const pathname = usePathname() ?? "/";
   const feature = findFeatureByPath(pathname);
-  // 無料診断（/ と /meo）は専用の公開シェルで出す（サイドバーもトップバーも出さない）
+  // クイック診断（/ と /meo）は専用の公開シェルで出す（サイドバーもトップバーも出さない）
   const isFree = feature?.group === "free";
   // 来店客向けのアンケート（/r/<slug>）はサイドバーもトップバーも出さない（店舗の画面ではない）
   const isBare = pathname.startsWith("/r/");
