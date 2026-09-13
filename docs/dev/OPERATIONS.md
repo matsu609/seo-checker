@@ -766,3 +766,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - Google 側の準備は Chrome UX Report API の有効化と既存 API キーの制限追加だけ（URL Inspection / Sitemaps は許可済みの `webmasters.readonly` で呼べる）。費用はゼロで組める。
 - 次: §17 の回答をもらったら段階 A（`src/lib/crux/` + `/tools/cwv` + PSI 連動）から着手する。
 
+- 利用者「Claude in Chrome にやらせるのでプロンプトを書いて」→ #58 の 3〜8（カスタマーポータル → 公開事業者情報 → API キー → Vercel の環境変数 3 つ → Redeploy → テストカードで確認）を、そのまま貼れる 1 本のプロンプトにして会話に提示。**秘密の値（`sk_test_` / `whsec_`）はブラウザ内でコピー＆ペーストし、チャットには書かない**ことをプロンプト内に明記。Price ID `price_1UF73IBQZc3g0qHVJGb0aumu` は秘密ではないのでプロンプトに直書き。結果の報告形式（各手順の成否・エラー文言・Webhook の応答コード）も指示に含めた。
