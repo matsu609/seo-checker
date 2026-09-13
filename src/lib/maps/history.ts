@@ -149,6 +149,22 @@ export async function latestReports(userId: string, placeIds: string[]): Promise
   return result;
 }
 
+/**
+ * その店舗の保存済み報告書を新しい順に、本文つきで返す（口コミの傾向分析に使う）。
+ *
+ * Places が 1 回で返す口コミは最新 5 件までなので、毎週の保存分をまとめて初めて
+ * まとまった件数になる（review-insights.ts）。
+ */
+export async function allReportsForPlace(userId: string, placeId: string, limit = HISTORY_LIMIT): Promise<SavedMeoReport[]> {
+  const rows = await supabaseRest<unknown>(
+    `${TABLE}?select=*&user_id=${eq(userId)}&place_id=${eq(placeId)}&order=generated_at.desc&limit=${Math.max(1, Math.min(limit, HISTORY_LIMIT))}`,
+  );
+  const parsed = z.array(FullRowSchema).safeParse(rows);
+  if (!parsed.success) throw new Error("履歴の応答を読めませんでした");
+  // 本文は自分のサーバーが入れたものなので、形の再検証はしない（型だけ付ける）
+  return parsed.data.map((row) => row.report as SavedMeoReport);
+}
+
 /** AI 総評を保存済みの報告書に書き足す。他人の行や無い行なら false */
 export async function attachAiCommentary(userId: string, id: string, paragraphs: string[]): Promise<boolean> {
   const entry = await getMeoReport(userId, id);

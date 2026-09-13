@@ -11,9 +11,13 @@ import { StatStrip } from "@/components/ui/StatCard";
 import { formatDateTime } from "@/lib/report/format";
 import type { MeoReport } from "@/lib/maps/report";
 import { buildImprovementPlan } from "@/lib/maps/improvements";
+import type { NapResult } from "@/lib/maps/nap";
+import type { ReviewInsights } from "@/lib/maps/review-insights";
 import { latestReviewAgeDays, SCORE_RULES_VERSION } from "@/lib/maps/score";
 import { CriteriaAppendix } from "./CriteriaAppendix";
 import { ImprovementSection } from "./ImprovementSection";
+import { NapBlock } from "./NapBlock";
+import { ReviewInsightBlock } from "./ReviewInsightBlock";
 import { formatCount, formatRating } from "../format";
 import { ChecklistSection } from "./ChecklistSection";
 import { AreaSection } from "./AreaSection";
@@ -25,6 +29,14 @@ export interface MeoReportViewProps {
   report: MeoReport;
   /** AI 総評（取得済みなら段落）。無ければルール生成の総評を出す */
   aiCommentary: string[] | null;
+  /** 口コミの傾向（精密診断のみ。/api/maps/insights から） */
+  insights?: ReviewInsights | null;
+  /** 集計に使った報告書の件数 */
+  insightReports?: number;
+  /** サイトとの表記ゆれ（精密診断のみ） */
+  nap?: NapResult | null;
+  /** 表記ゆれを調べられなかった理由 */
+  napNote?: string | null;
   /**
    * paid = 精密診断（/tools/maps）: 目指すべき状態・各項目の解説・付加情報・順位・周辺を出す
    * （r28 より前に保存した古い報告書でも出す。数字が無い節は「次回の一斉更新から」と表示）。
@@ -35,7 +47,7 @@ export interface MeoReportViewProps {
 
 const STARS = [5, 4, 3, 2, 1] as const;
 
-export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoReportViewProps) {
+export function MeoReportView({ report, aiCommentary, insights = null, insightReports = 0, nap = null, napNote = null, variant = "free" }: MeoReportViewProps) {
   const { detail, score } = report;
   const grade = score.grade;
   const commentary = aiCommentary ?? report.commentary;
@@ -201,9 +213,19 @@ export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoRep
               </ul>
             </>
           )}
+
+          {/* 口コミの傾向は精密診断だけ（毎週ためた口コミが要る） */}
+          {paid && insights && <ReviewInsightBlock insights={insights} reports={insightReports} />}
         </ReportSection>
 
-        {paid && <ExtraInfoSection detail={detail} number={6} />}
+        {paid && (
+          <>
+            <ExtraInfoSection detail={detail} number={6} />
+            <div className="print-card mt-8">
+              <NapBlock nap={nap} note={napNote} />
+            </div>
+          </>
+        )}
         {/* 順位・周辺は有料の自社店舗にだけ付く（クイック診断には無い。数字が無ければ各節が「次回から」と案内する） */}
         {paid && <RankSection rank={report.rank ?? null} number={7} />}
         {paid && <AreaSection area={report.area ?? null} number={8} />}

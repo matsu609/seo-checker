@@ -17,6 +17,7 @@ import type { MapsCommentaryResponse } from "@/app/api/maps/commentary/route";
 import type { MapsCompareItem, MapsCompareResponse } from "@/app/api/maps/compare/route";
 import type { MapsHistoryEntryResponse } from "@/app/api/maps/history/[id]/route";
 import type { MapsHistoryListResponse } from "@/app/api/maps/history/route";
+import type { MapsInsightsResponse } from "@/app/api/maps/insights/route";
 import type { MapsSearchResponse } from "@/app/api/maps/search/route";
 import type { MapsStoreAddResponse, MapsStoresResponse } from "@/app/api/maps/stores/route";
 import { Badge } from "@/components/ui/Badge";
@@ -90,6 +91,8 @@ export function MapsTool() {
   const [stores, setStores] = useState<StoresState>({ stores: [], nextRefreshAt: null, loading: true, error: null });
   const [history, setHistory] = useState<HistoryState>({ items: [], loading: false, error: null });
   const [shown, setShown] = useState<Shown | null>(null);
+  // 口コミの傾向（貯めた口コミの集計）とサイトとの表記ゆれ。失敗しても診断は止めない
+  const [insights, setInsights] = useState<MapsInsightsResponse | null>(null);
   const [compare, setCompare] = useState<{ data: MapsCompareResponse | null; loading: boolean; error: string | null }>({
     data: null,
     loading: false,
@@ -162,6 +165,15 @@ export function MapsTool() {
     }
   }, []);
 
+  const loadInsights = useCallback(async (placeId: string, signal?: AbortSignal) => {
+    setInsights(null);
+    try {
+      setInsights(await getJson<MapsInsightsResponse>(`/api/maps/insights?placeId=${encodeURIComponent(placeId)}`, signal));
+    } catch {
+      // 傾向が出せなくても報告書は出す（画面には何も足さない）
+    }
+  }, []);
+
   const loadCompare = useCallback(async (placeId: string, signal?: AbortSignal) => {
     setCompare({ data: null, loading: true, error: null });
     try {
@@ -178,6 +190,7 @@ export function MapsTool() {
     setPdf("idle");
     if (!ownId) {
       setShown(null);
+      setInsights(null);
       setHistory({ items: [], loading: false, error: null });
       setCompare({ data: null, loading: false, error: null });
       return;
@@ -185,10 +198,11 @@ export function MapsTool() {
     const ac = new AbortController();
     void loadHistory(ownId, ac.signal);
     void loadCompare(ownId, ac.signal);
+    void loadInsights(ownId, ac.signal);
     return () => ac.abort();
     // commentary.reset は安定した関数
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownId, loadHistory, loadCompare]);
+  }, [ownId, loadHistory, loadCompare, loadInsights]);
 
   async function onSearch() {
     const q = query.trim();
@@ -559,7 +573,15 @@ export function MapsTool() {
               </div>
             </div>
             <div ref={reportRef}>
-              <MeoReportView report={shown.report} aiCommentary={aiCommentary} variant="paid" />
+              <MeoReportView
+                report={shown.report}
+                aiCommentary={aiCommentary}
+                insights={insights?.insights ?? null}
+                insightReports={insights?.reports ?? 0}
+                nap={insights?.nap ?? null}
+                napNote={insights?.napNote ?? null}
+                variant="paid"
+              />
             </div>
           </>
         )}
