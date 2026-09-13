@@ -10,7 +10,7 @@ import { ReportSheet } from "@/components/free/ReportSheet";
 import { StatStrip } from "@/components/ui/StatCard";
 import { formatDateTime } from "@/lib/report/format";
 import type { MeoReport } from "@/lib/maps/report";
-import { latestReviewAgeDays } from "@/lib/maps/score";
+import { latestReviewAgeDays, SCORE_RULES_VERSION } from "@/lib/maps/score";
 import { formatCount, formatRating } from "../format";
 import { ChecklistSection } from "./ChecklistSection";
 import { AreaSection } from "./AreaSection";
@@ -216,6 +216,9 @@ export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoRep
           データ: Google Places API（Google マップ上の公開情報）
           {report.ownerInputAt ? `と、オーナー入力（${formatDateTime(report.ownerInputAt)} 時点）` : ""}。
           「未取得」の項目は Google マップの公開情報では取れないため、オーナーの入力があるときだけ評価に含まれます。
+        </p>
+        <p className="mt-1 text-[11px] text-muted">
+          採点基準 v{SCORE_RULES_VERSION}（2026-09-13 改定）。上位表示している店舗の実態に合わせ、評価・口コミの新しさ・営業時間の登録・写真・属性のしきい値を引き上げました。これより前に保存した報告書とはスコアが直接つながりません。
         </p>
       </ReportSheet>
     </div>

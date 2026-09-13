@@ -12,6 +12,7 @@ import {
   hoursLookComplete,
   latestReviewAgeDays,
   looksKeywordStuffed,
+  looksNotOwnedSite,
   scoreProfile,
   WEIGHTS,
   type ProfileCheck,
@@ -47,14 +48,15 @@ describe("応答の読み取り", () => {
     expect(d.price).toBeNull();
     expect(d.attributes!.map((a) => `${a.label}=${a.value}`)).toEqual([
       "車いす対応の入口=true",
-      "車いす対応のトイレ=false",
+      "車いす対応のトイレ=true",
       "クレジットカード=true",
+      "デビットカード=true",
       "現金のみ=false",
       "タッチ決済（NFC）=true",
       "予約可=true",
     ]);
     expect(d.photos).toHaveLength(10);
-    expect(d.photos!.filter((ph) => ph.author === d.name)).toHaveLength(3);
+    expect(d.photos!.filter((ph) => ph.author === d.name)).toHaveLength(5);
     expect(d.photos![0]).toEqual({ widthPx: 4032, heightPx: 3024, author: "サンプル美容室 渋谷店" });
     expect(d.links?.writeReview).toContain("action=review");
     expect(d.aiSummary).toBeNull();
@@ -216,9 +218,10 @@ describe("充実度の採点", () => {
 
   it("口コミ件数と評価のしきい値", () => {
     const at = (ratingCount: number, rating: number) => statusById(scoreProfile(empty({ ratingCount, rating }), NOW).checks);
-    expect(at(100, 4.4)).toMatchObject({ reviewCount: "pass", rating: "pass" });
-    expect(at(30, 4.0)).toMatchObject({ reviewCount: "warn", rating: "warn" });
-    expect(at(29, 3.9)).toMatchObject({ reviewCount: "fail", rating: "fail" });
+    // v2: 評価は 4.5 以上で合格、4.2 未満は要改善。件数は 100 件以上で合格、50 件未満は要改善
+    expect(at(100, 4.5)).toMatchObject({ reviewCount: "pass", rating: "pass" });
+    expect(at(50, 4.2)).toMatchObject({ reviewCount: "warn", rating: "warn" });
+    expect(at(49, 4.1)).toMatchObject({ reviewCount: "fail", rating: "fail" });
   });
 
   it("最新の口コミの古さ", () => {
@@ -228,8 +231,10 @@ describe("充実度の採点", () => {
     expect(latestReviewAgeDays(empty(), NOW)).toBeNull();
 
     const status = (publishedAt: string) => statusById(scoreProfile(empty({ reviews: [review(publishedAt)] }), NOW).checks).recent;
-    expect(status("2026-08-01T00:00:00Z")).toBe("pass");
-    expect(status("2026-01-01T00:00:00Z")).toBe("warn");
+    // v2: 30 日以内で合格、90 日を超えると要改善
+    expect(status("2026-09-01T00:00:00Z")).toBe("pass");
+    expect(status("2026-08-01T00:00:00Z")).toBe("warn");
+    expect(status("2026-01-01T00:00:00Z")).toBe("fail");
     expect(status("2024-01-01T00:00:00Z")).toBe("fail");
   });
 
@@ -246,15 +251,33 @@ describe("充実度の採点", () => {
     expect(statusById(scoreProfile(empty({ name: "A店 | 渋谷 格安" }), NOW).checks).name).toBe("warn");
   });
 
-  it("営業時間の揃い具合", () => {
+  it("ウェブサイトが自社サイトでなければ注意（v2）", () => {
+    expect(looksNotOwnedSite("https://example.com/")).toBe(false);
+    expect(looksNotOwnedSite("https://www.instagram.com/mystore/")).toBe(true);
+    expect(looksNotOwnedSite("https://beauty.hotpepper.jp/slnH000/")).toBe(true);
+    expect(looksNotOwnedSite("https://tabelog.com/tokyo/A1303/")).toBe(true);
+    // 自社ドメインに紛らわしい文字列が入っていても誤判定しない
+    expect(looksNotOwnedSite("https://mystore-instagram.jp/")).toBe(false);
+    expect(looksNotOwnedSite("ただの文字列")).toBe(false);
+
+    const at = (website: string) => statusById(scoreProfile(empty({ website }), NOW).checks).website;
+    expect(at("https://example.com/")).toBe("pass");
+    expect(at("https://www.instagram.com/mystore/")).toBe("warn");
+  });
+
+  it("営業時間の揃い具合（曜日が欠けていれば要改善）", () => {
     expect(hoursLookComplete([])).toBe("none");
     expect(hoursLookComplete(["月曜日: 10時〜19時"])).toBe("partial");
     const week = ["月", "火", "水", "木", "金", "土", "日"].map((d) => `${d}曜日: 10時00分～19時00分`);
     expect(hoursLookComplete(week)).toBe("complete");
     expect(hoursLookComplete(week.map((h) => h.replace(/10時.*$/, "定休日")))).toBe("partial");
-    const by = statusById(scoreProfile(empty({ hours: week.slice(0, 5) }), NOW).checks);
-    expect(by.hours).toBe("pass");
-    expect(by.hoursAccuracy).toBe("warn");
+    // 5 曜日分しか無い = その他の曜日が「営業時間不明」になるので要改善（v2）
+    const short = statusById(scoreProfile(empty({ hours: week.slice(0, 5) }), NOW).checks);
+    expect(short.hours).toBe("pass");
+    expect(short.hoursAccuracy).toBe("fail");
+    // 7 曜日そろっていて全日定休日のときは注意のまま
+    const allClosed = statusById(scoreProfile(empty({ hours: week.map((h) => h.replace(/10時.*$/, "定休日")) }), NOW).checks);
+    expect(allClosed.hoursAccuracy).toBe("warn");
   });
 });
 
@@ -388,27 +411,31 @@ describe("Google 取得の追加 7 項目（有料のみ）", () => {
     expect(run({ extraTypes: [] }).extraCategories).toBe("warn");
   });
 
-  it("属性: 5 個以上 pass、1〜4 warn、0 fail", () => {
+  it("属性: 当てはまる（true）ものを数え、5 個以上 pass、1〜4 warn、0 fail", () => {
     expect(run({}).attributes).toBe("pass");
     expect(run({ attributes: d.attributes!.slice(0, 2) }).attributes).toBe("warn");
     expect(run({ attributes: [] }).attributes).toBe("fail");
+    // 「いいえ」の属性は数えない（v2）
+    const noes = d.attributes!.map((a) => ({ ...a, value: false }));
+    expect(run({ attributes: noes }).attributes).toBe("fail");
   });
 
-  it("オーナー投稿の写真: 3 枚以上 pass、1〜2 warn、0 fail。投稿者情報が無ければ unavailable", () => {
+  it("オーナー投稿の写真: 5 枚以上 pass、1〜4 warn、0 fail。投稿者情報が無ければ unavailable", () => {
     expect(run({}).ownerPhotos).toBe("pass");
     const photos = d.photos!;
-    expect(run({ photos: [photos[0], ...photos.slice(3)] }).ownerPhotos).toBe("warn");
-    expect(run({ photos: photos.slice(3) }).ownerPhotos).toBe("fail");
+    expect(run({ photos: [photos[0], ...photos.slice(5)] }).ownerPhotos).toBe("warn");
+    expect(run({ photos: photos.slice(5) }).ownerPhotos).toBe("fail");
     expect(run({ photos: photos.map((p) => ({ ...p, author: null })) }).ownerPhotos).toBe("unavailable");
     expect(run({ photos: [], photoCount: 0 }).ownerPhotos).toBe("fail");
     // 店名の空白違いは同じ投稿者とみなす
     expect(run({ photos: photos.map((p) => ({ ...p, author: "サンプル美容室渋谷店" })) }).ownerPhotos).toBe("pass");
   });
 
-  it("写真の解像度: 長辺 1024px 未満があれば warn、大きさが無ければ unavailable", () => {
+  it("写真の解像度: 低解像度が 1 枚なら warn、半数以上なら fail、大きさが無ければ unavailable", () => {
     expect(run({}).photoQuality).toBe("pass");
     const photos = d.photos!;
     expect(run({ photos: [{ ...photos[0], widthPx: 800, heightPx: 600 }, ...photos.slice(1)] }).photoQuality).toBe("warn");
+    expect(run({ photos: photos.map((ph) => ({ ...ph, widthPx: 800, heightPx: 600 })) }).photoQuality).toBe("fail");
     expect(run({ photos: photos.map((p) => ({ ...p, widthPx: null, heightPx: null })) }).photoQuality).toBe("unavailable");
   });
 
@@ -422,10 +449,12 @@ describe("Google 取得の追加 7 項目（有料のみ）", () => {
     expect(run({ reviews: [] }).reviewKeywords).toBe("unavailable");
   });
 
-  it("口コミ本文: 20 文字以上が 60% 以上で pass", () => {
+  it("口コミ本文: 20 文字以上が 60% 以上で pass、30% 未満は fail", () => {
     expect(run({}).reviewText).toBe("pass");
     const short = d.reviews.map((r) => ({ ...r, text: "良い" }));
-    expect(run({ reviews: short }).reviewText).toBe("warn");
+    expect(run({ reviews: short }).reviewText).toBe("fail");
+    // 半数に本文があれば注意どまり
+    expect(run({ reviews: [d.reviews[0], { ...d.reviews[1], text: "良い" }] }).reviewText).toBe("warn");
     expect(run({ reviews: [] }).reviewText).toBe("unavailable");
   });
 

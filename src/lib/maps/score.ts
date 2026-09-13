@@ -82,16 +82,29 @@ export interface ProfileScore {
 
 /* ───────────── しきい値 ───────────── */
 
+/**
+ * しきい値（採点基準 v2。2026-09-13 に厳しくした）。
+ *
+ * v1 は「登録さえしてあれば合格」に寄っていて、実際には手が入っていない店舗でも
+ * A になりやすかった。各項目の「目指す状態」（guide.ts）に合わせ、そこに届かない状態は
+ * 素直に注意・要改善として出す（利用者の決定 2026-09-13）。厳しくするのは Google の
+ * 公開情報から確かめられる項目だけで、測れないものを減点に変えることはしない。
+ */
+/** Places が返す写真は最大 10 枚なので、10 枚 = 上限まで埋まっている状態 */
 export const PHOTO_GOOD = 10;
 export const REVIEW_GOOD = 100;
-export const REVIEW_SOME = 30;
-export const RATING_GOOD = 4.4;
-export const RATING_OK = 4.0;
+/** 商圏で戦える最低ライン（guide の「最低 50 件」に合わせる。v1 は 30） */
+export const REVIEW_SOME = 50;
+/** v1 は 4.4 / 4.0。上位表示している店舗の実態に合わせて引き上げた */
+export const RATING_GOOD = 4.5;
+export const RATING_OK = 4.2;
 /** これ以上は「サクラ感」で信用を落とすことがある（合格のまま注記だけ出す） */
 export const RATING_SUSPICIOUS = 4.8;
-/** 直近の口コミがこの日数以内なら活発とみなす */
-export const RECENT_DAYS = 90;
-export const STALE_DAYS = 365;
+/** 直近の口コミがこの日数以内なら活発とみなす（v1 は 90 日 / 365 日） */
+export const RECENT_DAYS = 30;
+export const STALE_DAYS = 90;
+/** 採点基準の版。保存済みの履歴と比べるときの目印にする */
+export const SCORE_RULES_VERSION = 2;
 /** これより長いビジネス名はキーワードの詰め込みを疑う */
 export const NAME_MAX_CHARS = 30;
 
@@ -124,13 +137,15 @@ export const WEIGHTS = {
 
 /** 属性がこの数以上あれば十分 */
 export const ATTRIBUTES_GOOD = 5;
-/** Google が返す最大 10 枚のうち、オーナー投稿がこの枚数以上あれば合格 */
-export const OWNER_PHOTOS_GOOD = 3;
+/** Google が返す最大 10 枚のうち、オーナー投稿がこの枚数以上あれば合格（v1 は 3 枚） */
+export const OWNER_PHOTOS_GOOD = 5;
 /** 長辺がこれ未満の写真は低解像度とみなす */
 export const PHOTO_MIN_PX = 1024;
 /** 口コミ本文が「書かれている」とみなす文字数と、その割合 */
 export const REVIEW_TEXT_MIN_CHARS = 20;
 export const REVIEW_TEXT_GOOD_RATIO = 0.6;
+/** 本文つきがこの割合を下回ると要改善（星だけの口コミばかりの状態） */
+export const REVIEW_TEXT_POOR_RATIO = 0.3;
 
 const UNAVAILABLE_DETAIL = "Google マップの公開情報では取れない項目です（オーナーの入力があれば採点に入ります）";
 
@@ -158,6 +173,31 @@ export function latestReviewAgeDays(place: PlaceDetail, now = new Date()): numbe
 export function looksKeywordStuffed(name: string): boolean {
   if (name.length > NAME_MAX_CHARS) return true;
   return /[|｜【】★☆]|格安|最安|No\.?\s?1|口コミ\s?[1１]位/i.test(name);
+}
+
+/**
+ * 登録されている URL が自社サイトではない（SNS・ポータル・予約代行）か。
+ *
+ * マップから送った客を他社の画面に渡してしまう状態なので、MEO では注意として扱う。
+ * 判定はホスト名の一致だけ（部分一致にすると `mystore-instagram.jp` のような
+ * 自社ドメインまで拾ってしまう）。
+ */
+const NOT_OWNED_HOSTS = [
+  "instagram.com", "facebook.com", "m.facebook.com", "x.com", "twitter.com", "tiktok.com",
+  "youtube.com", "line.me", "lin.ee", "ameblo.jp", "note.com", "peraichi.com",
+  "tabelog.com", "hotpepper.jp", "beauty.hotpepper.jp", "r.gnavi.co.jp", "gnavi.co.jp",
+  "ozmall.co.jp", "ekiten.jp", "epark.jp", "jalan.net", "rurubu.jp", "booking.com",
+  "airrsv.net", "coubic.com", "reserva.be", "square.site", "linktr.ee", "lit.link",
+] as const;
+
+export function looksNotOwnedSite(url: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return false;
+  }
+  return NOT_OWNED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
 }
 
 /** 曜日ごとの営業時間が 7 日分あり、すべて定休日ではないか */
@@ -381,9 +421,11 @@ export function scoreProfile(
         const state = hoursLookComplete(place.hours);
         if (state === "complete") return { status: "pass" as const, detail: "7 曜日分が揃っています" };
         if (state === "partial") {
+          // 曜日が欠けていると、その曜日は検索結果で「営業時間不明」になる。登録漏れは要改善
+          const missing = place.hours.length < 7;
           return {
-            status: "warn" as const,
-            detail: `${place.hours.length} 曜日分のみ、または全日が定休日になっています`,
+            status: missing ? ("fail" as const) : ("warn" as const),
+            detail: missing ? `${place.hours.length} 曜日分しか登録されていません（7 曜日必要）` : "全日が定休日になっています",
             advice: "7 曜日すべての営業時間（定休日を含む）を設定し、祝日や臨時休業は「特別営業時間」で登録してください",
           };
         }
@@ -394,7 +436,13 @@ export function scoreProfile(
     check(
       { id: "website", category: "basics", label: "店舗 HP URL", question: "店舗のウェブサイト URL を設定しているか", weight: w("website") },
       place.website
-        ? { status: "pass", detail: place.website }
+        ? looksNotOwnedSite(place.website)
+          ? {
+              status: "warn",
+              detail: `${place.website}（自社サイトではありません）`,
+              advice: "SNS やポータル（食べログ・ホットペッパーなど）を登録していると、せっかくの流入を他社の画面に渡すことになります。自社サイトを用意して差し替えてください",
+            }
+          : { status: "pass", detail: place.website }
         : { status: "fail", detail: "ウェブサイトが登録されていません", advice: "自社サイトの URL を登録すると、マップから自社サイトへ誘導できます" },
     ),
     check(
@@ -420,11 +468,22 @@ export function scoreProfile(
         ? notFetched(attrBase)
         : check(
             attrBase,
-            place.attributes.length >= ATTRIBUTES_GOOD
-              ? { status: "pass", detail: `${place.attributes.length} 個が設定済み` }
-              : place.attributes.length > 0
-                ? { status: "warn", detail: `${place.attributes.length} 個が設定済み`, advice: "決済方法・駐車場・予約可否・バリアフリーなど、当てはまる属性をすべて設定してください。検索の絞り込みに使われます" }
-                : { status: "fail", detail: "属性が 1 つも設定されていません", advice: "ビジネス プロフィールの「情報」→「属性」から、当てはまるものをすべて設定してください" },
+            (() => {
+              // 検索の絞り込みに使われるのは「当てはまる（はい）」の属性だけ。いいえは数えない
+              const yes = place.attributes.filter((a) => a.value).length;
+              if (yes >= ATTRIBUTES_GOOD) return { status: "pass" as const, detail: `当てはまる属性が ${yes} 個` };
+              if (yes > 0)
+                return {
+                  status: "warn" as const,
+                  detail: `当てはまる属性が ${yes} 個（${ATTRIBUTES_GOOD} 個以上が目安）`,
+                  advice: "決済方法・駐車場・予約可否・バリアフリーなど、当てはまる属性をすべて設定してください。検索の絞り込みに使われます",
+                };
+              return {
+                status: "fail" as const,
+                detail: "当てはまる属性が 1 つもありません",
+                advice: "ビジネス プロフィールの「情報」→「属性」から、当てはまるものをすべて設定してください",
+              };
+            })(),
           ),
     );
   }
@@ -478,7 +537,12 @@ export function scoreProfile(
               qualityBase,
               low === 0
                 ? { status: "pass", detail: `${sized.length} 枚とも ${PHOTO_MIN_PX}px 以上` }
-                : { status: "warn", detail: `${sized.length} 枚中 ${low} 枚が低解像度`, advice: "小さい・粗い写真は差し替えてください。スマートフォンの通常撮影（長辺 2,000px 以上）で十分です" },
+                : {
+                    // 半分以上が粗いと、一覧で並んだときに見劣りする
+                    status: low * 2 >= sized.length ? "fail" : "warn",
+                    detail: `${sized.length} 枚中 ${low} 枚が低解像度`,
+                    advice: "小さい・粗い写真は差し替えてください。スマートフォンの通常撮影（長辺 2,000px 以上）で十分です",
+                  },
             ),
       );
     }
@@ -559,7 +623,11 @@ export function scoreProfile(
           textBase,
           ratio >= REVIEW_TEXT_GOOD_RATIO
             ? { status: "pass", detail: `${place.reviews.length} 件中 ${long} 件に本文あり` }
-            : { status: "warn", detail: `${place.reviews.length} 件中 ${long} 件に本文あり`, advice: "星だけの口コミが多いと内容が伝わりません。感想をひと言書いてもらうよう依頼してください" },
+            : {
+                status: ratio < REVIEW_TEXT_POOR_RATIO ? "fail" : "warn",
+                detail: `${place.reviews.length} 件中 ${long} 件に本文あり`,
+                advice: "星だけの口コミが多いと内容が伝わりません。感想をひと言書いてもらうよう依頼してください",
+              },
         ),
       );
     }

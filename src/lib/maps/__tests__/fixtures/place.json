@@ -74,7 +74,7 @@
       "heightPx": 3024,
       "authorAttributions": [
         {
-          "displayName": "利用者 3",
+          "displayName": "サンプル美容室 渋谷店",
           "uri": "https://maps.google.com/maps/contrib/1",
           "photoUri": "https://x"
         }
@@ -86,7 +86,7 @@
       "heightPx": 3024,
       "authorAttributions": [
         {
-          "displayName": "利用者 4",
+          "displayName": "サンプル美容室 渋谷店",
           "uri": "https://maps.google.com/maps/contrib/1",
           "photoUri": "https://x"
         }
@@ -253,12 +253,13 @@
   },
   "accessibilityOptions": {
     "wheelchairAccessibleEntrance": true,
-    "wheelchairAccessibleRestroom": false
+    "wheelchairAccessibleRestroom": true
   },
   "paymentOptions": {
     "acceptsCreditCards": true,
     "acceptsNfc": true,
-    "acceptsCashOnly": false
+    "acceptsCashOnly": false,
+    "acceptsDebitCards": true
   },
   "reservable": true
 }
