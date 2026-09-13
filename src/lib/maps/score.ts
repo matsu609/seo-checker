@@ -589,7 +589,7 @@ export function scoreProfile(
           ? { status: "pass", detail: `最新は ${age} 日前` }
           : age <= STALE_DAYS
             ? { status: "warn", detail: `最新は ${age} 日前`, advice: "最近の口コミが無いと活動していない印象になります。継続して依頼してください" }
-            : { status: "fail", detail: `最新は ${age} 日前`, advice: "1 年以上口コミがありません。来店客への依頼を再開してください" },
+            : { status: "fail", detail: `最新は ${age} 日前`, advice: `${STALE_DAYS} 日（約 ${Math.round(STALE_DAYS / 30)} か月）以上、新しい口コミがありません。来店客への依頼を再開してください` },
     ),
   );
   if (extended) {

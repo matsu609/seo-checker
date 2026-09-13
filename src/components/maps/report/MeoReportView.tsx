@@ -1,8 +1,8 @@
 /**
  * MEO 診断レポート本体（PDF 化される部分）。表示だけ。
  *
- * 構成は無料診断の報告書と揃える: 表紙帯 → 1 総合評価 → 2 総評 → 3 口コミ情報 →
- * 4〜7 カテゴリ別チェックリスト。操作系のボタンは呼び出し側（no-print）に置く。
+ * 構成はクイック診断の報告書と揃える: 表紙帯 → 1 総合評価 → 2 総評 → 3 優先改善 → 4 口コミ情報 →
+ * カテゴリ別チェックリスト → 付録（採点方法と基準）。操作系のボタンは呼び出し側（no-print）に置く。
  */
 import { Donut, HBar, type HBarRow } from "@/components/charts";
 import { EmptyLine, GradeScale, Num, ReportSection, SubHeading } from "@/components/free/report-parts";
@@ -10,7 +10,10 @@ import { ReportSheet } from "@/components/free/ReportSheet";
 import { StatStrip } from "@/components/ui/StatCard";
 import { formatDateTime } from "@/lib/report/format";
 import type { MeoReport } from "@/lib/maps/report";
+import { buildImprovementPlan } from "@/lib/maps/improvements";
 import { latestReviewAgeDays, SCORE_RULES_VERSION } from "@/lib/maps/score";
+import { CriteriaAppendix } from "./CriteriaAppendix";
+import { ImprovementSection } from "./ImprovementSection";
 import { formatCount, formatRating } from "../format";
 import { ChecklistSection } from "./ChecklistSection";
 import { AreaSection } from "./AreaSection";
@@ -23,9 +26,9 @@ export interface MeoReportViewProps {
   /** AI 総評（取得済みなら段落）。無ければルール生成の総評を出す */
   aiCommentary: string[] | null;
   /**
-   * paid = 有料ツール（/tools/maps）: 目指すべき状態・各項目の解説・付加情報・順位・周辺を出す
+   * paid = 精密診断（/tools/maps）: 目指すべき状態・各項目の解説・付加情報・順位・周辺を出す
    * （r28 より前に保存した古い報告書でも出す。数字が無い節は「次回の一斉更新から」と表示）。
-   * free = 無料診断（/meo）: 21 項目の採点と口コミ情報だけ。
+   * free = クイック診断（/meo）: 21 項目の採点と口コミ情報。優先改善リストと採点基準の付録は両方に出す。
    */
   variant?: "paid" | "free";
 }
@@ -47,8 +50,10 @@ export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoRep
     sublabel: `${c.measured} / ${c.total} 項目を測定`,
   }));
 
-  // 有料: 1 総合 / 2 総評 / 3 目指すべき状態 / 4 口コミ / 5 付加情報 / (6 順位) / (7 周辺) / チェックリスト。無料: 1 / 2 / 3 口コミ / チェックリスト
-  const checklistStart = paid ? 8 : 4;
+  // 有料: 1 総合 / 2 総評 / 3 優先改善 / 4 目指すべき状態 / 5 口コミ / 6 付加情報 / (7 順位) / (8 周辺) / チェックリスト / 付録
+  // 無料: 1 総合 / 2 総評 / 3 優先改善 / 4 口コミ / チェックリスト / 付録
+  const checklistStart = paid ? 9 : 5;
+  const plan = buildImprovementPlan(score);
   const rated = detail.reviews.filter((r) => r.rating !== null);
   const dist = STARS.map((star) => ({ star, count: rated.filter((r) => Math.round(r.rating ?? 0) === star).length }));
   const age = latestReviewAgeDays(detail, new Date(report.generatedAt));
@@ -144,9 +149,11 @@ export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoRep
           </p>
         </ReportSection>
 
-        {paid && <GoalSection number={3} />}
+        <ImprovementSection plan={plan} number={3} variant={variant} />
 
-        <ReportSection number={paid ? 4 : 3} title="口コミ情報" lead="評価と件数は Google マップの公開情報です。口コミ本文は Google が返す最新 5 件までを表示します。">
+        {paid && <GoalSection number={4} />}
+
+        <ReportSection number={paid ? 5 : 4} title="口コミ情報" lead="評価と件数は Google マップの公開情報です。口コミ本文は Google が返す最新 5 件までを表示します。">
           <StatStrip
             items={[
               { label: "平均評価", value: formatRating(detail.rating), unit: "/ 5.0" },
@@ -196,10 +203,10 @@ export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoRep
           )}
         </ReportSection>
 
-        {paid && <ExtraInfoSection detail={detail} number={5} />}
+        {paid && <ExtraInfoSection detail={detail} number={6} />}
         {/* 順位・周辺は有料の自社店舗にだけ付く（クイック診断には無い。数字が無ければ各節が「次回から」と案内する） */}
-        {paid && <RankSection rank={report.rank ?? null} number={6} />}
-        {paid && <AreaSection area={report.area ?? null} number={7} />}
+        {paid && <RankSection rank={report.rank ?? null} number={7} />}
+        {paid && <AreaSection area={report.area ?? null} number={8} />}
 
         {legacy && (
           <p className="mt-6 rounded-sm border border-line bg-surface px-3 py-2 text-[12px] leading-relaxed text-muted">
@@ -211,6 +218,8 @@ export function MeoReportView({ report, aiCommentary, variant = "free" }: MeoRep
         {score.categories.map((c, i) => (
           <ChecklistSection key={c.id} category={c} number={checklistStart + i} guide={paid} />
         ))}
+
+        <CriteriaAppendix score={score} number="付録" />
 
         <p className="mt-6 text-[11px] text-muted">
           データ: Google Places API（Google マップ上の公開情報）
