@@ -246,7 +246,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 |---|---|---|---|
 | 1 | Stripe → 商品カタログ | https://dashboard.stripe.com/test/products | **完了（09-13、サンドボックス）**: 商品「オールインワン」`prod_VFcHhP9RrDhK9E`、価格 **¥50,000 / 月** `price_1UF73IBQZc3g0qHVJGb0aumu`（= テスト環境の `STRIPE_PRICE_PRO`）。本番モードでは作り直しが要る（8） |
 | 1b | Stripe → 商品カタログ → クーポン | https://dashboard.stripe.com/test/coupons | 割引の作り方: 「新規」→ 名前（例 `導入割引 40%`）→ 種類（% 割引 / 定額）→ 期間（**永続** = 契約中ずっと / 回数 = 最初の n か月 / 1 回）→ 保存 → クーポンの画面で「プロモーションコードを追加」→ 顧客に渡すコード（例 `WOLF40`）と利用回数の上限・有効期限 → 保存。申し込み画面（Checkout）でこのコードを入れると割引後の金額で決済される。契約中の顧客に後から付けるなら 顧客 → サブスクリプション → 「割引を追加」 |
-| 2 | Stripe → 開発者 → Webhook | https://dashboard.stripe.com/test/webhooks | 「エンドポイントを追加」→ URL `https://app.seo-checker.tokyo/api/billing/webhook` → イベントを 4 つ選ぶ: `checkout.session.completed`、`customer.subscription.created`、`customer.subscription.updated`、`customer.subscription.deleted` → 追加 → **署名シークレット（`whsec_…`）** をコピー |
+| 2 | Stripe → 開発者 → Webhook（新しい画面では「ワークベンチ」→ Webhook タブ） | https://dashboard.stripe.com/test/workbench/webhooks | 「エンドポイントを追加」→ URL `https://app.seo-checker.tokyo/api/billing/webhook` → イベントを 4 つ選ぶ: `checkout.session.completed`、`customer.subscription.created`、`customer.subscription.updated`、`customer.subscription.deleted` → 追加 → **署名シークレット（`whsec_…`）** をコピー |
 | 3 | Stripe → 設定 → 請求 → カスタマーポータル | https://dashboard.stripe.com/test/settings/billing/portal | 有効にして保存。「お支払い方法の更新」「請求書の履歴」「サブスクリプションのキャンセル」を ON（キャンセルは「期間末」）。プランの変更は OFF（プランは 1 つ） |
 | 4 | Stripe → 設定 → 公開事業者情報 | https://dashboard.stripe.com/settings/public | 事業者名 `SEO 研究所`、サポートメール `contact@seo-checker.tokyo`、サイト `https://app.seo-checker.tokyo/legal/tokushoho`（特商法の表記。本番アカウントの審査で見られる） |
 | 5 | Stripe → 開発者 → API キー | https://dashboard.stripe.com/test/apikeys | **シークレットキー（`sk_test_…`）** をコピー（公開可能キー `pk_` は使わない） |
@@ -751,3 +751,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者が商品「オールインワン」（¥30,000 / 月、`prod_VFcHhP9RrDhK9E`）を作った画面を共有。Price ID は「料金」の行（¥30,000 毎月）をクリック → 価格の詳細の右側「価格 ID」、または行の右端「…」→「価格 ID をコピー」と案内。商品 ID（`prod_`）とは別物。金額は依然 30,000 円（アプリ側は 9,800 円）。どちらにするかの回答待ち。
 - 利用者が価格の詳細画面（`price_1UF73IBQZc3g0qHVJGb0aumu`、¥50,000 / 月）を共有し「50,000 を定価で割引を基本にしようと思う」→ **r46**: 料金を定価 50,000 円に統一（catalog / 特商法 / 紹介サイト / README / llms.txt）、「機能ごとに 3,000 円引き」を削除、割引はクーポンコードと明記。#58 の 1 は完了（テスト環境の Price ID を記録）。クーポンの作り方を #58 の 1b に追記。残りは 2（Webhook）〜7（テスト購入）→ 8（本番）。
 - 利用者「次の手順を教えて」→ #58 の 2（Webhook）〜 7（テスト購入の確認）を、画面・URL つきで会話に再掲。値（`whsec_` / `sk_test_`）は会話に貼らず Vercel に直接入れるよう案内。設定完了の連絡待ち。
+- 利用者「エンドポイント追加はどこ」（ワークベンチの Webhook タブの画面）→ 新しい Stripe の画面では **「+ 送信先を追加」** が旧「エンドポイントを追加」。押したあと イベントを選ぶ（4 つ）→ 送信先の種類は「Webhook エンドポイント」→ URL `https://app.seo-checker.tokyo/api/billing/webhook` → 作成 → 署名シークレット（`whsec_`）を表示してコピー、の順と案内。
