@@ -21,7 +21,7 @@
  *   少し長め（150ms）にしてある。ダミーサイト単体の既定は 5〜15ms のまま。
  *
  * 標準出力の最終行だけが JSON:
- *   {"ok":true,"screenshots":[…],"diagnosedPages":17,"expectedPages":17,
+ *   {"ok":true,"screenshots":[…],"diagnosedPages":18,"expectedPages":18,
  *    "consoleErrors":[],"failures":[]}
  * 途中経過はすべて標準エラーに出る。失敗があれば exit 1。
  *

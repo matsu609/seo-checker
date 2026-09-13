@@ -76,7 +76,7 @@ export const CATEGORY_CRITERIA: Record<CategoryId, string> = {
   meta: "title・meta description の有無と長さ、OGP、canonical、html の lang 属性",
   headings: "h1 の数、h2 / h3 による見出し階層と階層飛び",
   content:
-    "AI が引用できる具体的な情報（数値・日付・組織名・連絡先）の有無、見出しに本文が伴っているか、JavaScript 描画への依存、画像の alt 属性。本文の文字数は参考表示で、採点していません",
+    "AI が引用できる具体的な情報（数値・日付・組織名・連絡先・料金・URL）を含む文の割合、見出しに本文が伴っているか、JavaScript 描画への依存、画像の alt 属性。文の数え方はページの言語に合わせます（日本語は句点、英語などはピリオド＋空白。リスト項目・表のセル・見出しはそれぞれ 1 文）。文が 5 文未満のページは割合では判定せず、具体的な情報を含む文の数で判定します。本文の文字数は参考表示で、採点していません",
 };
 
 export { CATEGORY_LABELS, CATEGORY_WEIGHTS };

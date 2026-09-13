@@ -13,6 +13,8 @@ export interface CheckInput {
   status: CheckStatus;
   label: string;
   evidence?: string;
+  /** 判定根拠の内訳（画面では箇条書き）。空配列のときは持たせない */
+  details?: string[];
   advice?: string;
   /** 配点。省略時 1。info の場合は無視され 0 になる */
   weight?: number;
@@ -27,6 +29,7 @@ export function check(input: CheckInput): CheckResult {
     status: input.status,
     label: input.label,
     evidence: input.evidence,
+    details: input.details && input.details.length > 0 ? input.details : undefined,
     advice: input.status === "pass" ? undefined : input.advice,
     weight,
     earned: Math.round(weight * EARN_RATIO[input.status] * 100) / 100,

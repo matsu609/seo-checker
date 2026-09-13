@@ -52,7 +52,7 @@ src/
     free/                     # 無料診断の画面（Checker, ScoreCard, CheckList, SiteReport, FaqSection …）
     <feature>/                # 追加機能の画面
   lib/
-    analyzer/                 # 無料診断のルール（既存）
+    analyzer/                 # 無料診断のルール（既存。文の数え方は sentences.ts / language.ts）
     crawl/                    # サイト全体クロール（sitemap 展開 + 内部リンク BFS）。無料診断と A1 で共有
     audit/                    # A1 テクニカル SEO ルール
     page-report/              # A2/A3

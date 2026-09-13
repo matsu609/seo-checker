@@ -173,7 +173,7 @@ export function MethodAppendix({
         </li>
         <li>
           根拠が確立していない項目（llms.txt の有無など）と、そのページに当てはまらない項目（FAQ の無いページの FAQPage、下層ページの
-          WebSite など）は<strong className="font-bold">採点していません</strong>。本文も文字数ではなく、具体的な事実が書かれているかで判定します。
+          WebSite など）は<strong className="font-bold">採点していません</strong>。本文も文字数ではなく、具体的な事実が書かれているかで判定します（文の数え方はページの言語に合わせ、判定に使った言語・文の数・基準は各項目の根拠欄に出します）。
         </li>
         <li>
           実際の成果は、Search Console の表示回数・検索語・インデックス状況、問い合わせなどの転換、主要 AI サービスからの参照、Core Web

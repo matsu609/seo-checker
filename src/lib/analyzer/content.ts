@@ -2,7 +2,13 @@ import * as cheerio from "cheerio";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { check } from "./check";
+import { documentLanguage, languageLabel, type LanguageInfo } from "./language";
+import { extractBlocks, measureSpecificity } from "./sentences";
+import { countChars, normalizeText } from "./text";
 import type { CheckResult, CheckStatus } from "./types";
+
+export { countChars, normalizeText } from "./text";
+export { measureSpecificity, splitSentences, splitTextSentences } from "./sentences";
 
 export interface ContentInfo {
   /** Readability で抽出した本文（失敗時は body 全体からナビ等を除いたテキスト） */
@@ -18,6 +24,12 @@ export interface ContentInfo {
   concreteSentences: number;
   /** 本文の文の総数 */
   totalSentences: number;
+  /** 文の区切り方・事実の探し方に使った言語 */
+  language: LanguageInfo;
+  /** 事実を含むと判定した文の実例（最大 3 件。レポートの判定根拠に出す） */
+  concreteExamples: string[];
+  /** 何を 1 文として数えたかを示す実例（最大 3 件） */
+  sentenceSamples: string[];
   /** 本文領域の h2 / h3 の数 */
   mainHeadings: number;
   /** そのうち、直後に本文が続かないもの（見出しだけで中身が無い）の数 */
@@ -48,16 +60,6 @@ export function shouldUseFallback(mainTextLength: number): boolean {
   return mainTextLength < MIN_MAIN_TEXT_CHARS;
 }
 
-/** 空白を潰し、長さの比較に使える形へ */
-export function normalizeText(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
-}
-
-/** 文字数として数える単位: 空白と記号を除いた長さ */
-export function countChars(text: string): number {
-  return normalizeText(text).replace(/[\s\p{P}\p{S}]/gu, "").length;
-}
-
 /* ─────────────────────────────────────────────────────────────
    本文の「具体性」を測る。
 
@@ -69,43 +71,31 @@ export function countChars(text: string): number {
    数値・日付・組織名・連絡先を含む文を数える。短くても具体的なページ
    （例: 電話番号と受付時間が書かれた問い合わせページ）は通り、長くても
    抽象的なだけのページは通らない。
+
+   文の数え方（言語判定・区切り・事実の手がかり）は sentences.ts / language.ts。
+   ここには「数えた結果をどう採点するか」だけを置く。
    ───────────────────────────────────────────────────────────── */
 
-/** 数量（単位・助数詞つきの数字） */
-const RE_QUANTITY =
-  /\d+(?:[.,]\d+)?\s*(?:円|万円|億円|%|％|人|名|社|件|個|台|回|点|種|品|室|席|階|坪|畳|㎡|平方メートル|km|m|cm|mm|kg|g|t|L|ml|年|ヶ月|か月|カ月|箇月|月|日|週|時間|分|秒|歳|才|位|倍|割|周年|以上|以下|未満)/;
-/** 日付・年月 */
-const RE_DATE = /\d{4}\s*年|\d{1,2}\s*月\s*\d{1,2}\s*日|令和\s*\d+|平成\s*\d+|\d{4}[-/]\d{1,2}[-/]\d{1,2}/;
-/** 組織・法人格 */
-const RE_ORG =
-  /株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|特定非営利活動法人|NPO法人|独立行政法人|学校法人|医療法人|社会福祉法人/;
-/** 連絡先・所在地 */
-const RE_CONTACT = /〒\s*\d{3}|\d{2,4}-\d{2,4}-\d{4}|\d{1,2}:\d{2}|TEL|Tel|電話番号/;
+/**
+ * 具体性の判定基準。レポートにもこの数字をそのまま出す（何を直せば数字が動くかを示すため）。
+ *
+ * 分母が小さいときに比率で判定しないのが要点。文が 1〜2 文しかないページでは
+ * 比率が 0% と 100% の間を飛ぶだけで、改善の指標にならない。
+ * （英語ページが「1 / 全 1 文」で毎回「改善余地」になっていたのはこれが原因の一つ）
+ */
+export const SPECIFICITY_RULE = {
+  /** これ以上の文数があるときだけ比率で判定する */
+  minSentences: 5,
+  /** 比率で判定するときの下限（事実を含む文の割合） */
+  ratio: 0.1,
+  /** 比率で判定するときに最低限必要な、事実を含む文の数 */
+  minConcrete: 2,
+  /** 文が少ないときに「具体的な情報がある」とみなす、事実を含む文の数 */
+  shortConcrete: 2,
+} as const;
 
-const CONCRETE_PATTERNS = [RE_QUANTITY, RE_DATE, RE_ORG, RE_CONTACT];
-
-/** 句点で文に割る。空白しか無い断片は落とす */
-export function splitSentences(text: string): string[] {
-  return text
-    .split(/[。！？!?]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
-}
-
-export interface Specificity {
-  concrete: number;
-  total: number;
-}
-
-/** 具体情報を含む文の数と、文の総数を返す */
-export function measureSpecificity(mainText: string): Specificity {
-  const sentences = splitSentences(mainText);
-  let concrete = 0;
-  for (const sentence of sentences) {
-    if (CONCRETE_PATTERNS.some((re) => re.test(sentence))) concrete += 1;
-  }
-  return { concrete, total: sentences.length };
-}
+/** 何を根拠に判定したか。レポートに明記する */
+export type SpecificityBasis = "ratio" | "count" | "none";
 
 /**
  * 本文領域の h2 / h3 のうち、直後に本文が続かないものを数える。
@@ -154,6 +144,9 @@ export function separateBlocks(html: string): string {
 export function extractContent(html: string, url: string, $: cheerio.CheerioAPI): ContentInfo {
   // --- 本文抽出 -------------------------------------------------------------
   let mainText = "";
+  // 文の数え方はブロック（段落・リスト項目・表のセル・見出し）単位なので、
+  // テキストだけでなく、本文として採用した範囲の HTML も持っておく
+  let mainHtml = "";
   let readable = false;
   const spaced = separateBlocks(html);
   try {
@@ -167,6 +160,7 @@ export function extractContent(html: string, url: string, $: cheerio.CheerioAPI)
     const article = new Readability(document, { charThreshold: 200 }).parse();
     if (article?.textContent) {
       mainText = normalizeText(article.textContent);
+      mainHtml = article.content ?? "";
       readable = true;
     }
   } catch {
@@ -177,8 +171,9 @@ export function extractContent(html: string, url: string, $: cheerio.CheerioAPI)
   $clone("script, style, noscript, template, svg, nav, header, footer, aside, form").remove();
   const fallback = normalizeText($clone("body").text());
 
-  if (!readable || shouldUseFallback(mainText.length)) {
+  if (!readable || shouldUseFallback(mainText.length) || !mainHtml) {
     mainText = fallback;
+    mainHtml = "";
     readable = false;
   }
 
@@ -192,7 +187,10 @@ export function extractContent(html: string, url: string, $: cheerio.CheerioAPI)
     return alt === undefined || alt.trim() === "";
   }).length;
 
-  const specificity = measureSpecificity(mainText);
+  // 言語は「<html lang> → 要素の lang → 文字種」の順で決める（ブロックごとに判定する）
+  const docLanguage = documentLanguage($("html").attr("lang") ?? null, mainText);
+  const blocks = extractBlocks(mainHtml ? cheerio.load(mainHtml) : $clone);
+  const specificity = measureSpecificity(blocks, docLanguage);
   const headingBodies = measureHeadingBodies($);
 
   return {
@@ -205,6 +203,9 @@ export function extractContent(html: string, url: string, $: cheerio.CheerioAPI)
     scripts: $("script[src]").length,
     concreteSentences: specificity.concrete,
     totalSentences: specificity.total,
+    language: specificity.language,
+    concreteExamples: specificity.examples,
+    sentenceSamples: specificity.samples,
     mainHeadings: headingBodies.headings,
     headingsWithoutBody: headingBodies.withoutBody,
   };
@@ -237,40 +238,84 @@ export function checkContent(info: ContentInfo): CheckResult[] {
   );
 
   // --- 具体性 -----------------------------------------------------------------
-  // 旧「本文量」（1,500 文字未満は減点）を置き換えたもの。理由は
-  // measureSpecificity の上のコメントを参照。
+  // 旧「本文量」（1,500 文字未満は減点）を置き換えたもの。理由は SPECIFICITY_RULE の
+  // 上のコメントを参照。文の数え方は言語ごとに変える（sentences.ts / language.ts）。
   const concrete = info.concreteSentences;
   const sentences = info.totalSentences;
   const concreteRatio = sentences > 0 ? concrete / sentences : 0;
-  // 文がほとんど無いページ（一覧・受付など）は fail にしない。
-  // 文章はあるのに具体的な事実が 1 つも無いページだけを fail とする。
+  const percent = Math.round(concreteRatio * 100);
+  const { minSentences, ratio: ratioThreshold, minConcrete, shortConcrete } = SPECIFICITY_RULE;
+  const ratioPercent = Math.round(ratioThreshold * 100);
+
+  // 何を根拠に判定したか。分母が小さいときは比率を使わない（100% でも 1/1 のことがある）
+  const basis: SpecificityBasis =
+    sentences === 0 ? "none" : sentences >= minSentences ? "ratio" : "count";
   const specificityStatus: CheckStatus =
-    concrete === 0
-      ? sentences >= 3
-        ? "fail"
-        : "warn"
-      : concrete >= 2 && concreteRatio >= 0.1
-        ? "pass"
-        : "warn";
+    basis === "none"
+      ? "warn"
+      : basis === "count"
+        ? // 文が少ないページは絶対数で見る。すべての文が事実を含むなら（例: 2 文中 2 文）通す
+          concrete >= shortConcrete || (concrete > 0 && concrete === sentences)
+          ? "pass"
+          : "warn"
+        : concrete === 0
+          ? "fail"
+          : concrete >= minConcrete && concreteRatio >= ratioThreshold
+            ? "pass"
+            : "warn";
+
+  const specificityLabel =
+    specificityStatus === "pass"
+      ? "AI が引用できる具体的な情報がある"
+      : specificityStatus === "fail"
+        ? "具体的な情報が見当たらない"
+        : basis === "ratio"
+          ? "具体的な情報がやや少ない"
+          : basis === "count"
+            ? "本文が短く、具体性を判定できない（参考）"
+            : "本文が読み取れず、具体性を判定できない（参考）";
+
+  // 判定根拠をレポートに出す: 総文数・比率・使った言語・使った基準。
+  // 「1 / 全 1 文」しか出ないと、何を直せば数字が動くのかがサイト側から分からない。
+  const specificityEvidence = [
+    basis === "none"
+      ? "本文から文を取り出せませんでした"
+      : basis === "ratio"
+        ? `数値・日付・組織名・連絡先を含む文 ${concrete} / 全 ${sentences} 文（${percent}%）`
+        : `数値・日付・組織名・連絡先を含む文 ${concrete} / 全 ${sentences} 文`,
+    `判定言語 ${languageLabel(info.language)}`,
+    ...(basis === "ratio"
+      ? [`基準 比率（${ratioPercent}% 以上かつ ${minConcrete} 文以上）`]
+      : basis === "count"
+        ? [
+            `基準 件数（${minSentences} 文未満のため比率では判定せず、事実を含む文 ${shortConcrete} 文以上、または全文が事実なら合格）`,
+          ]
+        : []),
+  ].join(" ｜ ");
+
+  // 事実と判定した文の実例。1 件も無いときは「何を 1 文として数えたか」を見せる
+  const specificityDetails =
+    info.concreteExamples.length > 0
+      ? info.concreteExamples.map((example) => `事実を含むと判定した文: 「${example}」`)
+      : info.sentenceSamples.map((example) => `事実が見つからなかった文: 「${example}」`);
+
   results.push(
     check({
       id: "content-specificity",
       category: "content",
       status: specificityStatus,
       weight: 3,
-      label:
-        specificityStatus === "pass"
-          ? "AI が引用できる具体的な情報がある"
-          : specificityStatus === "warn"
-            ? "具体的な情報がやや少ない"
-            : "具体的な情報が見当たらない",
-      evidence: `数値・日付・組織名・連絡先を含む文 ${concrete} / 全 ${sentences} 文`,
+      label: specificityLabel,
+      evidence: specificityEvidence,
+      details: specificityDetails,
       advice:
-        concrete === 0 && sentences < 3
-          ? "このページには文章がほとんどありません。一覧や受付などの案内ページであればそのままで問題ありません。AI に引用させたい内容があるページなら、具体的な記述を加えてください。"
-          : specificityStatus === "fail"
-            ? "文章はありますが、数値・日付・料金・実績といった具体的な事実がほとんど含まれていません。AI 検索は「誰が・何を・いつ・どこで・いくらで」が書かれたページを引用します。文字数を増やすのではなく、いま書かれている説明に具体的な数字と固有名詞を加えてください。"
-            : "具体的な事実を含む文が全体に対して少なめです。抽象的な説明を増やすのではなく、実績の件数・対応エリア・料金・所要期間など、確認できる事実を本文に足してください。",
+        basis === "none"
+          ? "本文が取り出せませんでした。JavaScript でのみ描画されるページは、AI クローラにも同じく空のページとして読まれます。サーバー側で本文を返してください。"
+          : basis === "count"
+            ? "このページには文章がほとんどありません。一覧や受付などの案内ページであればそのままで問題ありません。AI に引用させたい内容があるページなら、具体的な記述（数値・日付・料金・連絡先）を加えてください。"
+            : specificityStatus === "fail"
+              ? "文章はありますが、数値・日付・料金・実績といった具体的な事実がほとんど含まれていません。AI 検索は「誰が・何を・いつ・どこで・いくらで」が書かれたページを引用します。文字数を増やすのではなく、いま書かれている説明に具体的な数字と固有名詞を加えてください。"
+              : "具体的な事実を含む文が全体に対して少なめです。抽象的な説明を増やすのではなく、実績の件数・対応エリア・料金・所要期間など、確認できる事実を本文に足してください。",
     }),
   );
 

@@ -23,6 +23,12 @@ export interface CheckResult {
   label: string;
   /** 判定根拠（例: "h1 が 2 個あります"） */
   evidence?: string;
+  /**
+   * 判定根拠の内訳。画面では evidence の下に箇条書きで出す。
+   * 例: 具体性の判定で「事実を含む」と数えた文の実例。
+   * サイト診断の集計（SiteCheckSummary）には持ち込まない（ページ数分並ぶと読めないため）。
+   */
+  details?: string[];
   /** なぜ必要か・どう直すか。pass 以外のときに表示 */
   advice?: string;
   /** 配点。info のときは 0 */

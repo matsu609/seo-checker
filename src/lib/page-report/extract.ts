@@ -7,6 +7,7 @@
  */
 import * as cheerio from "cheerio";
 import { countChars, extractContent, normalizeText } from "@/lib/analyzer/content";
+import { splitTextSentences } from "@/lib/analyzer/sentences";
 import type { FetchedText } from "@/lib/analyzer/fetch";
 import { extractHeadings, findLevelSkips } from "@/lib/analyzer/headings";
 import { extractMeta } from "@/lib/analyzer/meta";
@@ -77,12 +78,15 @@ export function fullWidthCount(text: string): number {
   return Math.ceil(displayWidth(text) / 2);
 }
 
-/** 句点・改行で文に割る（日本語と英語の両方） */
-export function splitSentences(text: string): string[] {
-  return normalizeText(text)
-    .split(/(?<=[。．.!?！？])\s*/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+/**
+ * 文に割る（日本語と英語の両方）。
+ *
+ * 以前はここで「句読点の直後で必ず切る」正規表現を使っていたが、その書き方だと
+ * 英語の略語（Inc.）・小数（1.5）・URL の中のピリオドでも切れてしまい、
+ * 逆に句点を持たない言語では本文全体が 1 文になった。数え方は analyzer/sentences に集約する。
+ */
+export function splitSentences(text: string, lang?: string | null): string[] {
+  return splitTextSentences(normalizeText(text), lang);
 }
 
 /** 文字 2-gram の重なり（title と h1 が同じ話題を指しているか） */
@@ -197,7 +201,7 @@ export function measurePage(fetched: FetchedText): PageMeasurements {
     headings.push({ level: Number(el.tagName.slice(1)), text });
   });
 
-  const sentences = splitSentences(content.mainText);
+  const sentences = splitSentences(content.mainText, meta.lang);
   const averageSentenceChars =
     sentences.length === 0 ? 0 : Math.round(countChars(content.mainText) / sentences.length);
 

@@ -12,8 +12,8 @@
  *                   Disallow: /（→「一部のAIクローラがブロックされている」warn）。
  * - /sitemap.xml  … sitemapindex。/sitemap-1.xml と /sitemap-2.xml を参照する。
  * - /sitemap-1.xml … urlset 7 件: / /company /service /service/a /service/b /blog /news
- * - /sitemap-2.xml … urlset 7 件: /blog/post-1〜/blog/post-5 /contact /recruit
- *                   → sitemap に載る HTML ページは合計 14 件。
+ * - /sitemap-2.xml … urlset 8 件: /blog/post-1〜/blog/post-5 /contact /recruit /en
+ *                   → sitemap に載る HTML ページは合計 15 件。
  * - /llms.txt     … 置かない（404 → llms.txt の項目が warn になる）。
  * - /llms-full.txt … 置かない（404 → 参考項目が info のまま）。
  *
@@ -36,6 +36,8 @@
  * | /contact        | alt の無い画像がある。h1 が無い |
  * | /news           | 普通。/deep/1 へのリンクを持つ（sitemap に載らない導線の入口） |
  * | /recruit        | 普通 |
+ * | /en             | 英語ページ（lang="en"）。句点が無く、箇条書きと表を含む。
+ * |                 | 多言語の文の数え方（analyzer/sentences）の確認用 |
  * | /deep/1 → /deep/2 → /deep/3 | sitemap に載せない。内部リンクからのみ到達できる
  * |                 | （リンク BFS の確認用。/news → /deep/1 → /deep/2 → /deep/3） |
  *
@@ -55,10 +57,10 @@
  *   node scripts/e2e/dummy-site.mjs [--port 3199] [--delay 5-15]
  *                                                  # 起動（PORT 環境変数でも指定可）
  *     起動時に readiness の 1 行 JSON を stdout に出す:
- *       {"ready":true,"origin":"http://127.0.0.1:3199","htmlPages":17}
+ *       {"ready":true,"origin":"http://127.0.0.1:3199","htmlPages":18}
  *   node scripts/e2e/dummy-site.mjs --print-expected # 起動せずに期待値だけ出す
  *     クローラが最終的に診断するはずの正規化済み URL 一覧（1 行 JSON）:
- *       {"origin":"…","expectedCount":17,"expected":[…],"sitemapPages":14,"linkOnlyPages":3}
+ *       {"origin":"…","expectedCount":18,"expected":[…],"sitemapPages":15,"linkOnlyPages":3}
  *
  * lib.mjs からは startDummySite() でプロセス内に立てて使う。
  */
@@ -84,6 +86,7 @@ export const SITEMAP_2_PATHS = [
   "/blog/post-5",
   "/contact",
   "/recruit",
+  "/en",
 ];
 /** sitemap に載せず、内部リンクからのみ到達できるページ */
 export const LINK_ONLY_PATHS = ["/deep/1", "/deep/2", "/deep/3"];
@@ -516,6 +519,36 @@ ${sec("働き方", 1, 4, 1)}
 </main>`;
 }
 
+/**
+ * 英語ページ。句点（。）が 1 つも無く、箇条書きと表を含む。
+ * 「文の区切りが句点固定だと本文全体が 1 文になる」不具合の回帰確認用。
+ */
+function englishMain() {
+  const paragraphs = Array.from({ length: 8 }, (_, i) => {
+    const year = 2018 + i;
+    return `<p>In ${year} we supported ${120 + i * 15} clients across ${3 + i} prefectures, and our team grew to ${12 + i * 2} people. Sample Koubou Inc. keeps every project on a fixed schedule of ${4 + i} weeks. We believe in clear communication.</p>`;
+  }).join("\n");
+  const items = ["Website planning", "Content writing", "Structured data", "Analytics setup"]
+    .map((item) => `<li>${item}</li>`)
+    .join("");
+  return `<main>
+<article>
+<h1>Sample Koubou in English</h1>
+<p>Sample Koubou Inc. is a Tokyo-based web studio founded on November 6, 2016, corporate number 4011001165835. We work with small companies that need a site an AI search engine can quote. Our office is open from 9:00 to 18:00 on weekdays.</p>
+${paragraphs}
+<h2>Services</h2>
+<ul>${items}</ul>
+<h2>Company</h2>
+<table>
+<tr><th>Founded</th><td>November 6, 2016</td></tr>
+<tr><th>Staff</th><td>28 people</td></tr>
+<tr><th>Contact</th><td>hello@example.com</td></tr>
+</table>
+<p><a href="/">Japanese top page</a></p>
+</article>
+</main>`;
+}
+
 /** 特集ページ（1〜3）。sitemap に載せず、内部リンクだけで数珠つなぎにする */
 function deepMain(index) {
   const next = index < 3 ? `<p><a href="/deep/${index + 1}">第${index + 1}回へ進む</a></p>` : `<p><a href="/news">お知らせ一覧へ戻る</a></p>`;
@@ -805,6 +838,15 @@ function buildRoutes(origin) {
     description: "サンプル工房の採用情報です。募集職種、働き方、選考の流れを掲載しています。",
     main: recruitMain(),
     jsonLd: [breadcrumb(origin, [{ name: "ホーム", path: "/" }, { name: "採用情報", path: "/recruit" }])],
+  });
+
+  page("/en", {
+    lang: "en",
+    title: `English information｜${SITE_NAME}`,
+    description:
+      "Sample Koubou is a Tokyo-based web studio. This page explains our services, our team and how to contact us in English.",
+    main: englishMain(),
+    jsonLd: [breadcrumb(origin, [{ name: "ホーム", path: "/" }, { name: "English", path: "/en" }])],
   });
 
   for (const index of [1, 2, 3]) {

@@ -45,6 +45,18 @@ export function PageDetailSection({
                     {check.status !== "pass" && (
                       <>
                         {check.evidence && <Evidence>{check.evidence}</Evidence>}
+                        {check.details && check.details.length > 0 && (
+                          <ul className="mt-0.5">
+                            {check.details.map((detail, i) => (
+                              <li
+                                key={i}
+                                className="text-[12px] leading-relaxed break-words text-muted"
+                              >
+                                ・{detail}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                         {check.advice && <Advice>{check.advice}</Advice>}
                       </>
                     )}
