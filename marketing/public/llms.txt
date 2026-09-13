@@ -12,7 +12,9 @@
 - [紹介サイト（このページ）](https://seo-checker.tokyo/): サービスの説明、機能一覧、料金、よくある質問、Google 連携の説明
 - [アプリ本体・無料診断（サイト）](https://app.seo-checker.tokyo/): URL を入れて診断する画面
 - [無料 MEO 診断（店舗）](https://app.seo-checker.tokyo/meo): 店名を入れて Google マップの店舗情報を診断する画面
-- [料金プラン](https://app.seo-checker.tokyo/plans)
+- [お申し込み（新規登録）](https://app.seo-checker.tokyo/sign-up): アカウントを作って初月無料ではじめる画面
+- [料金プラン](https://app.seo-checker.tokyo/plans): ログイン後に申し込み・カードの変更・解約ができる画面
+- [特定商取引法に基づく表記](https://app.seo-checker.tokyo/legal/tokushoho)
 - [利用規約](https://app.seo-checker.tokyo/terms)
 - [プライバシーポリシー](https://app.seo-checker.tokyo/privacy)
 

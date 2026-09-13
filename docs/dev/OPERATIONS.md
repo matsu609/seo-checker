@@ -67,7 +67,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r47 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r48 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -257,6 +257,15 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 8 | Stripe → 本番モードに切替 | https://dashboard.stripe.com/products | 1〜3・5 を**本番モード**でもう一度（商品・Webhook・ポータル・`sk_live_`）→ 6 の 3 つを本番の値に差し替え → Redeploy。あわせて `DEFAULT_PLAN` を `free` に（#39）、自分は管理画面で個別開放 |
 
 自分（運用者）のプランは Stripe に関係なく、Clerk の `publicMetadata.plan` か管理画面の個別開放で開く。Webhook が届かないときは Stripe → Webhook → 該当エンドポイント → 「イベントの試行」で応答（200 / 400 / 500）を見る。400 は署名不一致（`STRIPE_WEBHOOK_SECRET` の貼り間違い）、500 は Clerk の更新失敗（Vercel のログ）。
+
+### 申し込みの入口（営業で渡す URL）
+
+| 渡す相手 | URL | 着地する場所 |
+|---|---|---|
+| 新規の見込み客 | https://app.seo-checker.tokyo/sign-up | 新規登録 → `/start` → 未契約なので `/plans` → 申し込み（初月無料） |
+| 登録済みの人 | https://app.seo-checker.tokyo/plans | 申し込み・カードの変更・請求書・解約 |
+| 説明から読ませたい相手 | https://seo-checker.tokyo/ | 紹介サイト。CTA「初月無料ではじめる」5 か所が `/sign-up` へ |
+| 中身を試させたい相手 | https://app.seo-checker.tokyo/ | 無料診断（ログイン不要） |
 
 ### 本番公開までに残っていること（決済まわり）
 
@@ -796,3 +805,4 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「Claude in Chrome に指示します」→ 2 つのプロンプトを提示。①テスト環境の最終確認（`/plans` が「契約中（期間末で解約予定）」「ご利用期限 2026-10-13」「テストモードです」になっているか）、②**本番モードへの切り替え**（Stripe を本番に切替 → 商品と ¥50,000 の価格 → Webhook → カスタマーポータル → `sk_live_` → Vercel の 3 つを差し替え + `DEFAULT_PLAN=free` → Redeploy →「テストモードです」が消えたことの確認まで。決済はさせない）。②の前に Stripe の「Multiple capabilities paused」（本人確認・事業情報）を完了させること、`sk_live_` はチャットに出さないことを明記。
 - 利用者「サービスとして本番で使えるようにしたい。カード登録は先にすべきですよね？それから管理画面に遷移させるべきですよね？」→ 方向は正しいと回答し、`/start` での振り分けを提案。続けて「初月無料で、次の月から二万円引きの三万円はできる?」→ **できる**と回答し、二重価格表示の懸念とクーポン自動適用の制約を説明したうえで選択肢を提示。利用者の決定は「初月無料 + ずっと 2 万円引き」「割引はクーポンコードを入力してもらう」。→ **r47** を実装（上の「初月無料と申し込み導線（r47）」）。lint / tsc / test（1,494 件）/ build 通過。本番ビルドで特商法ページの文面・`/start` の振り分け・料金画面の初月無料の表示を確認。**利用者の作業: 上の「本番公開までに残っていること」の 6 つ**。
 - 利用者「申し込み登録用の URL はないの？」→ **`https://app.seo-checker.tokyo/sign-up`**（登録 → `/start` → 未契約なので `/plans` → 申し込み）。用途別: 新規は `/sign-up`、登録済みは `/plans`、説明は紹介サイト `https://seo-checker.tokyo/`、お試しは `https://app.seo-checker.tokyo/`（無料診断・ログイン不要）。**紹介サイトの CTA が「ツールにログイン」と「申し込む（/plans）」だけで新規登録への導線が無い**ことを指摘。ボタンを「初月無料ではじめる」→ `/sign-up` に変えるか確認中。
+- 利用者「お願いします」→ **r48**: 紹介サイトの CTA を「初月無料ではじめる」→ `https://app.seo-checker.tokyo/sign-up` に（ヘッダー・ヒーロー・料金カード・最後の CTA・追従 CTA の 5 か所）。ヒーローの補足に「すべての機能は初月無料でお試しいただけます」と「アカウントをお持ちの方はログイン」を追加。llms.txt に「お申し込み（新規登録）」と特商法ページの URL を追加。README に申し込み導線を明記。lint / tsc / test（1,494 件）/ wrangler の dry-run 通過。**紹介サイトは Cloudflare Workers Builds が main の push で自動デプロイ**（反映に数分）。

@@ -144,6 +144,8 @@ npm run dev                  # http://localhost:3000
 | **無料診断** | 0 円 | 無料 SEO・AIO 診断（`/`）と無料 MEO 診断（`/meo`、店舗 1 件）。ログイン不要 |
 | **オールインワン** | 50,000 円（定価） | SEO・AIO・MEO のすべてのツールと、**AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成）。**初月無料**（`STRIPE_TRIAL_DAYS`、既定 30 日）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力） |
 
+申し込みの入口は `https://app.seo-checker.tokyo/sign-up` です（新規登録 → `/start` → 未契約なので `/plans` → 申し込み）。紹介サイトの「初月無料ではじめる」もここへ送ります。登録済みの人は `/plans` から申し込み・カードの変更・解約ができます。
+
 売るのは「オールインワン」1 つです（2026-09-11 決定。定価 50,000 円 + クーポンで割引は 2026-09-13 決定）。内部では機能ごとに `standard`（測る・調べる）/ `pro`（AI が作る）の 2 段階を持ったままで、オールインワン = `pro` が両方を含みます。`standard` は販売せず、割引の個別対応（運用者が Clerk の `publicMetadata.plan` に割り当てる）に残しています。定義は `src/lib/plans/catalog.ts` と、機能ごとの `plan` フィールド（`src/lib/features/registry.ts`）の 2 か所だけにあり、`src/lib/plans/__tests__/plans.test.ts` が対応表を固定しています。
 
 ### プランの決まり方
