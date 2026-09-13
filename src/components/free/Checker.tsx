@@ -18,6 +18,7 @@ import { Download, Printer } from "./Icons";
 import { PageReport } from "./PageReport";
 import { ProgressPanel } from "./ProgressPanel";
 import { SiteReport } from "./SiteReport";
+import { UpgradeCta } from "./UpgradeCta";
 
 type State =
   | { phase: "idle" }
@@ -243,6 +244,8 @@ export function Checker() {
               <SiteReport result={state.result} elapsedMs={state.elapsedMs} />
             )}
           </div>
+
+          <UpgradeCta kind="site" className="mt-8" />
         </>
       )}
     </main>

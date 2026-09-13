@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { currentUser } from "@clerk/nextjs/server";
 import { connection } from "next/server";
 import { BillingTable } from "@/components/plans/BillingTable";
+import { GettingStarted } from "@/components/onboarding/GettingStarted";
 import { PlanTable } from "@/components/plans/PlanTable";
 import { StripeBillingCard } from "@/components/plans/StripeBillingCard";
 import { PageHeader } from "@/components/ui";
 import { Callout } from "@/components/ui/Callout";
 import { isAuthEnabled } from "@/lib/auth/config";
-import { STRIPE_CUSTOMER_KEY, stripeStateFromMetadata, type StripeState } from "@/lib/billing/state";
+import { hasStripeSubscription, STRIPE_CUSTOMER_KEY, stripeStateFromMetadata, type StripeState } from "@/lib/billing/state";
 import { isStripeConfigured, isStripeLive, trialDays } from "@/lib/billing/stripe";
 import { FIRST_TOOL_PATH } from "@/app/start/page";
 import { requireFeature } from "@/lib/features/registry";
@@ -72,6 +73,9 @@ export default async function Page({ searchParams }: Props) {
           firstToolPath={FIRST_TOOL_PATH}
         />
       )}
+
+      {/* 契約が済んだ人に、次にやること（Google 連携 → 店舗登録 → ツール）を出す */}
+      {hasStripeSubscription(stripeState) && <GettingStarted className="mt-6" />}
 
       {/* Clerk Billing（ドルのみ）。Stripe 直結を使うので通常は出さない */}
       {!stripe && billing && <BillingTable />}

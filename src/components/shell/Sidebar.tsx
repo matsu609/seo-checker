@@ -6,7 +6,6 @@ import { INTEGRATIONS, type IntegrationStatus } from "@/lib/features/integration
 import {
   categoryForPath,
   FEATURE_CATEGORIES,
-  FREE_SUITE_LABEL,
   groupsForSidebar,
   isFeatureActive,
   type Feature,
@@ -75,47 +74,6 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
             <CloseIcon className="h-5 w-5" />
           </button>
         )}
-      </div>
-
-      {/* 無料診断（単独ブロック）。サイト（SEO・AIO）と店舗（MEO）の 2 本 */}
-      <div className="mx-3 mt-4 rounded-md border border-on-brand/25 p-1">
-        <div className="px-2 pt-1 pb-1 text-[11px] font-bold text-on-brand-muted">{FREE_SUITE_LABEL}</div>
-        <ul className="space-y-0.5">
-          {free.map((f) => {
-            const active = isFeatureActive(f, pathname);
-            const setup = needsSetup(f, status);
-            return (
-              <li key={f.id}>
-                <Link
-                  href={f.path}
-                  onClick={onNavigate}
-                  aria-current={active ? "page" : undefined}
-                  title={f.label}
-                  className={`flex h-9 items-center gap-2.5 rounded-md px-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
-                    active ? "bg-on-brand text-brand" : "text-on-brand hover:bg-on-brand/10"
-                  }`}
-                >
-                  <FeatureIconSvg icon={f.icon} className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{f.shortLabel}</span>
-                  {setup ? (
-                    <span className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted">準備中</span>
-                  ) : (
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
-                        active ? "bg-brand text-on-brand" : "bg-on-brand text-brand"
-                      }`}
-                    >
-                      無料
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="px-2 pt-1 pb-1 text-[11px] leading-snug text-on-brand-muted">
-          URL または店名だけで診断・PDF 出力。ログイン・API 不要
-        </p>
       </div>
 
       {/* ツール */}
@@ -232,6 +190,35 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
           </ul>
         </div>
       )}
+
+      {/* 共有用の無料診断。本サービスとは切り離した公開ページ（見込み客に URL をそのまま渡せる） */}
+      <div className="mx-3 mt-6 rounded-md border border-on-brand/25 p-1">
+        <div className="px-2 pt-1 pb-1 text-[11px] font-bold text-on-brand-muted">お客様に渡す無料診断</div>
+        <ul className="space-y-0.5">
+          {free.map((f) => {
+            const setup = needsSetup(f, status);
+            return (
+              <li key={f.id}>
+                <Link
+                  href={f.path}
+                  onClick={onNavigate}
+                  title={f.label}
+                  className="flex h-9 items-center gap-2.5 rounded-md px-2 text-[13px] text-on-brand/90 outline-none hover:bg-on-brand/10 focus-visible:ring-2 focus-visible:ring-on-brand/60"
+                >
+                  <FeatureIconSvg icon={f.icon} className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{f.shortLabel}</span>
+                  <span className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted">
+                    {setup ? "準備中" : "公開"}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="px-2 pt-1 pb-1 text-[11px] leading-snug text-on-brand-muted">
+          ログイン不要の公開ページです。見込み客に URL を渡して使ってもらえます
+        </p>
+      </div>
 
       {/* フッター */}
       <div className="mt-auto border-t border-on-brand/15 px-4 py-3 pt-3 text-[11px] text-on-brand-muted">

@@ -15,12 +15,13 @@ import { MeoReportView } from "@/components/maps/report/MeoReportView";
 import { formatCount, formatRating, statusLabel } from "@/components/maps/format";
 import { Button, Callout, DataTable, Field, Input, type Column } from "@/components/ui";
 import { FREE_SUITE_LABEL } from "@/lib/features/registry";
+import { SIGN_UP_PATH } from "@/lib/free/upsell";
 import { meoReportFileName } from "@/lib/maps/report";
 import type { PlaceSummary } from "@/lib/maps/types";
 import { downloadPdf } from "@/lib/pdf/download";
 import { Download } from "./Icons";
 import { FreeTargetSwitch } from "./FreeTargetSwitch";
-import { ServiceGuideButton } from "./ServiceGuideButton";
+import { UpgradeCta } from "./UpgradeCta";
 
 type Search = { phase: "idle" } | { phase: "loading" } | { phase: "error"; message: string } | { phase: "done"; data: FreeMeoSearchResponse };
 type Report =
@@ -203,14 +204,12 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
 
         <div className="mt-4 border-t border-line pt-4">
           <p className="text-[12px] leading-relaxed text-muted">
-            競合との比較、毎週の自動更新と推移、AI による総評、Google の属性・写真の品質・口コミのキーワード・警告を含む 28 項目の採点と、オーナー情報の入力（説明文・投稿・返信など 9 項目）は有料プランで使えます。
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <ServiceGuideButton />
-            <Link href="/plans" className="text-[12px] text-accent underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-accent/40">
-              料金プランを見る
+            ここで分かるのは公開情報 1 店舗ぶんの採点です。競合 5 店舗との比較、毎週の自動更新と推移、AI による総評、28 項目の採点は
+            <Link href={SIGN_UP_PATH} className="mx-1 text-accent underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-accent/40">
+              詳細診断（初月無料）
             </Link>
-          </div>
+            でご利用いただけます。
+          </p>
         </div>
       </section>
 
@@ -232,18 +231,7 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
           <div ref={reportRef}>
             <MeoReportView report={report.data.report} aiCommentary={null} />
           </div>
-          <Callout tone="info" className="no-print mt-6" title="続きは有料プランで">
-            登録すると、この店舗を毎週月曜に自動で取り直して推移を記録し、競合 5 店舗との比較表と AI による総評が使えます。採点は 21 項目から 28 項目（属性・オーナー写真・写真の解像度・口コミのキーワード・口コミ本文・Google の警告）に増え、オーナー情報の入力で残りの項目も採点できます。
-            <span className="mt-2 block">
-              <Link href="/sign-up" className="font-bold text-accent underline underline-offset-2">
-                無料で登録する
-              </Link>
-              <span className="mx-2 text-muted">・</span>
-              <Link href="/plans" className="text-accent underline underline-offset-2">
-                料金プランを見る
-              </Link>
-            </span>
-          </Callout>
+          <UpgradeCta kind="meo" className="mt-6" />
         </>
       )}
     </main>

@@ -1,0 +1,20 @@
+import { describe, expect, it } from "vitest";
+import { findFeatureByPath } from "@/lib/features/registry";
+import { ONBOARDING_STEPS } from "../steps";
+
+describe("はじめかたの手順", () => {
+  it("番号が 1 から連番になっている", () => {
+    expect(ONBOARDING_STEPS.map((s) => s.n)).toEqual([1, 2, 3]);
+  });
+
+  it("リンク先はすべて実在する画面", () => {
+    for (const step of ONBOARDING_STEPS) {
+      expect(findFeatureByPath(step.href), step.href).toBeTruthy();
+    }
+  });
+
+  it("最初の手順は Google 連携（設定画面）", () => {
+    expect(ONBOARDING_STEPS[0].href).toBe("/settings");
+    expect(ONBOARDING_STEPS[0].body).toContain("読む許可は別に必要");
+  });
+});

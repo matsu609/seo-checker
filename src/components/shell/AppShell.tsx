@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { FreeShell } from "@/components/free/FreeShell";
 import { findFeatureByPath } from "@/lib/features/registry";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -21,14 +22,18 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [ta
  * スクロールは body。印刷 / PDF ではサイドバー・トップバー・ドロワーが消え（no-print）、
  * グリッドは globals.css の .app-shell ルールで通常フローに戻る。
  *
- * <main> について: 無料診断（/）の Checker は自分の <main class="max-w-3xl"> を持ち、
+ * 無料診断（/ と /meo）は本サービスから切り離した集客の入口なので、サイドバーではなく
+ * FreeShell（ロゴ・申し込み・規約だけのヘッダー）で包む。見込み客に URL をそのまま渡しても
+ * 有料ツールの一覧が見えない（利用者の決定 2026-09-13）。
+ *
+ * <main> について: 無料診断の Checker は自分の <main class="max-w-3xl"> を持ち、
  * それを PDF 化の対象にしている。二重の <main> と余白の二重化を避けるため、
- * / ではシェルは素の <div> で包み、ツールページだけシェルの <main> に入れる。
+ * FreeShell は素の <div> で包み、ツールページだけシェルの <main> に入れる。
  */
 export function AppShell({ children, version, authEnabled }: AppShellProps) {
   const pathname = usePathname() ?? "/";
   const feature = findFeatureByPath(pathname);
-  // 無料診断（/ と /meo）は画面側が <main> を持つので、シェルは素の <div> で包む
+  // 無料診断（/ と /meo）は専用の公開シェルで出す（サイドバーもトップバーも出さない）
   const isFree = feature?.group === "free";
   // 来店客向けのアンケート（/r/<slug>）はサイドバーもトップバーも出さない（店舗の画面ではない）
   const isBare = pathname.startsWith("/r/");
@@ -90,6 +95,7 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
   }
 
   if (isBare) return <div className="min-h-screen">{children}</div>;
+  if (isFree) return <FreeShell authEnabled={authEnabled}>{children}</FreeShell>;
 
   return (
     <div className="app-shell min-h-screen md:grid md:grid-cols-[15rem_1fr]">
@@ -107,11 +113,7 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
           drawerId={drawerId}
           authEnabled={authEnabled}
         />
-        {isFree ? (
-          <div className="flex-1">{children}</div>
-        ) : (
-          <main className="flex-1 px-4 py-6 md:px-8 print:m-0 print:max-w-none print:p-0">{children}</main>
-        )}
+        <main className="flex-1 px-4 py-6 md:px-8 print:m-0 print:max-w-none print:p-0">{children}</main>
       </div>
 
       {/* モバイルのドロワー */}

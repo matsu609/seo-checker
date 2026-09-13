@@ -115,6 +115,10 @@ export function GoogleLinkPanel({ status }: { status: GoogleStatus }) {
               Google アカウントを接続すると、そのアカウントで見られる Search Console のサイトと GA4
               のプロパティを選べるようになります。要求するのは読み取り専用の権限だけです。
             </p>
+            <p className="mt-2">
+              ログインに「Google で続ける」をお使いの場合も、この接続は別に必要です。ログインはご本人の確認だけで、
+              Search Console と GA4 のデータを読む許可は含まれていません。
+            </p>
           </Callout>
           <Button onClick={() => void connect()} disabled={!isLoaded}>
             Google アカウントを接続する
