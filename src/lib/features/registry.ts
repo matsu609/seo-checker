@@ -152,6 +152,27 @@ export const FREE_MEO_FEATURE: Feature = {
 
 const DIAGNOSIS: readonly Feature[] = [
   {
+    id: "seo-analysis",
+    path: "/tools/seo-analysis",
+    label: "パワーアップ分析（AI が現状分析と改善案を書く）",
+    shortLabel: "パワーアップ分析",
+    description:
+      "URL を入れるだけで、サイト全体のクロール・主要ページの速度（実ユーザー / 診断）・検索順位・Google 連携の数字を 1 枚の事実シートにまとめ、AI がその数字だけを根拠に現状分析と優先順位つきの改善案を書きます。",
+    details: [
+      "クロール（48 ルール・サイトの構成・信頼）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + Search Console / GA4（連携済みなら）",
+      "AI（Claude）が事実 ID を引用しながら、現状分析・強みと弱み・改善案（優先度 / 手間 / 期待できること / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く",
+      "ChatGPT のセカンドオピニオン（食い違う点だけ）、事実シートの付録、PDF、履歴。月 10 回まで",
+    ],
+    featureIds: [],
+    icon: "dashboard",
+    status: "beta",
+    requires: ["supabase", "anthropic"],
+    optional: ["pagespeed", "serpapi", "openai"],
+    group: "diagnosis",
+    category: "seo",
+    plan: "pro",
+  },
+  {
     id: "site-audit",
     path: "/tools/site-audit",
     label: "サイト診断（テクニカル SEO）",

@@ -31,7 +31,8 @@ import type { AuditProgress as Progress, AuditResult, AuditSummary } from "@/lib
 import { fmt, formatDateTime, hostOf } from "@/lib/report";
 import { useStore } from "@/lib/store/hooks";
 import { useIntegrations } from "@/lib/store/useIntegrations";
-import { StructureCard, TrustCard } from "@/components/seo-analysis";
+import { AiCommentCard, StructureCard, TrustCard } from "@/components/seo-analysis";
+import { factsFromAudit } from "@/lib/seo-analysis/sheet/build";
 import { AuditCategoryTable } from "./AuditCategoryTable";
 import { AuditIssues, type IssueRow } from "./AuditIssues";
 import { AuditPages } from "./AuditPages";
@@ -197,6 +198,8 @@ export function SiteAuditView() {
     [result, previous],
   );
 
+  const auditFacts = useMemo(() => (result ? factsFromAudit(result) : []), [result]);
+
   const pastRuns = useMemo(
     () => (result ? historyFor(history, result.origin) : []),
     [history, result],
@@ -344,6 +347,13 @@ export function SiteAuditView() {
           {result.structure && <StructureCard structure={result.structure} />}
 
           {result.trust && <TrustCard trust={result.trust} />}
+
+          <AiCommentCard
+            title="サイト診断（課題・構成・信頼）"
+            facts={auditFacts}
+            aiEnabled={status ? status.anthropic : null}
+            description="この診断の数字（課題の集計・サイトの構成・信頼の手がかり）だけを AI に読ませ、言えることと次にやることを書かせます。サイト全体の報告書が欲しいときは「パワーアップ分析」へ。"
+          />
 
           <AuditIssues issues={issueRows} origin={result.origin} hasPrevious={Boolean(diff)} />
 

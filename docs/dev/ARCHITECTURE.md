@@ -13,6 +13,7 @@
 |---|---|---|---|---|
 | クイック診断 | `/` | クイック診断（サイト・SEO / AIO。無料・ログイン不要。サイト全体は代表 10 ページ） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
 | クイック診断 | `/meo` | クイック診断（店舗・MEO。店舗 1 件、ログイン不要、回数制限つき） | — | Places API (New) |
+| 診断 | `/tools/seo-analysis` | パワーアップ分析（事実シート + AI の現状分析と改善案） | — | Supabase + Anthropic（PSI / SerpApi / OpenAI / CrUX は任意） |
 | 診断 | `/tools/site-audit` | サイト診断（テクニカル SEO） | A1 | なし（サマリーは Anthropic 任意） |
 | 診断 | `/tools/page-report` | ページ最適化レポート（AIO/LLM） | A2, A3 | PSI 任意 |
 | 診断 | `/tools/page-diagnosis` | ページ診断（キーワード × ページ） | A4 | SERP or Anthropic web 検索 |
@@ -56,7 +57,10 @@ src/
     analyzer/                 # クイック診断のルール（既存。文の数え方は sentences.ts / language.ts）
     crawl/                    # サイト全体クロール（sitemap 展開 + 内部リンク BFS）。クイック診断と A1 で共有
     audit/                    # A1 テクニカル SEO ルール（extras.ts = 構成・信頼の分析に使う追加項目の抽出）
-    seo-analysis/             # サイトの構成（内部リンク・重要度・種別・鮮度）と信頼の手がかり。純関数。A1 の結果に同梱
+    seo-analysis/             # サイトの構成・信頼（structure / trust / kinds。A1 に同梱）+ パワーアップ分析
+                              #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合・ChatGPT）、
+                              #   collect.ts（クロール → PSI / CrUX / SerpApi / Google 連携）、runs.ts（Supabase analysis_runs）、quota.ts
+    crux/                     # CrUX API / CrUX History API（実ユーザーの速度。所有権不要）
     page-report/              # A2/A3
     serp/                     # SERP プロバイダ抽象（SerpApi 実装、未設定時は null）
     llm/                      # Anthropic クライアント、モデル定数、構造化出力ヘルパ、他社 LLM の薄いクライアント
@@ -85,6 +89,8 @@ src/
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO で ChatGPT / Gemini / Perplexity を対象にする | 任意 |
 | `SERPAPI_KEY` | 順位計測・AI Overviews・ページ診断の Top10（SerpApi） | 任意 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（無くても低頻度なら動く） | 任意 |
+| `CRUX_API_KEY` | CrUX API / CrUX History API（実ユーザーの速度。`src/lib/crux/`）。無ければ `PAGESPEED_API_KEY` を使う | 任意 |
+| `SEO_ANALYSIS_MONTHLY_LIMIT` | パワーアップ分析の利用者ごとの月の回数（既定 10。`ADMIN_EMAILS` は無制限） | 任意 |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | GA4 Data API（サービスアカウント JSON をそのまま、または base64） | 任意 |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（Places API (New)） | 任意 |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗（`meo_stores`）と診断報告書の履歴（`meo_reports`）、口コミ支援（`review_forms` / `review_channels` / `review_responses`）、基本情報掲載（`listing_profiles`）。`src/lib/db/supabase.ts` が PostgREST を fetch で叩く。service_role は RLS を素通りするので行は必ず user_id で絞る | MEO に必須 |

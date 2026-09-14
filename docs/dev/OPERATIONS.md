@@ -228,7 +228,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 63 | サイト診断: **検索に載せないページを採点対象外（参考）にする**。noindex か robots.txt で実際に検索から外されているサイト内検索の結果などは、診断はするが平均点・項目の集計・ページ一覧に入れず、付録 A に理由つきで載せる | Claude | **完了（r44）** |
 | 64 | 採点ツール: **本文の具体性の判定を多言語対応にする**（英語ページが本文を 2 倍にしても「1 / 全 1 文・改善余地」から動かない件）。言語判定・文の区切り・事実の手がかりを多言語化し、文が少ないページは比率で判定しない。判定根拠（総文数・言語・基準・実例 3 件）をレポートに出す | Claude | **完了（r45、09-13 に利用者の指示で main へマージ）**。マージ後の main でも lint / tsc / test（110 ファイル・1,490 件）/ build を通してから push した |
 | 65 | 依頼の任意項目「意図的な仕様の申告」: noindex の検索結果ページやトップのパンくずのように、意図して外している項目を申告して指摘から外す仕組み。r43 / r44 で自動判定できるものは既に外してあるので、残るのは「自動では区別できないもの」の手動申告 | 利用者 → Claude | 判断待ち（下の「入力待ち」） |
-| 66 | **パワーアップ分析（連携不要の SEO 分析。有料・回数制限つき）**: 設計は [seo-analysis-spec.md](./seo-analysis-spec.md) §0。利用者の決定（09-13、6 点すべて推奨案）: 月 10 回（運営者は無制限）/ ChatGPT はセカンドオピニオン / URL だけで動く / クロール 300 + PSI 6 本 / 順番 A′ → B′ → C′ → D′ → E′ / SEO タブに `/tools/seo-analysis` を 1 つ追加。**A′（サイトの構成・信頼指標）は r55 で main にマージ済み**（09-14、利用者の指示）。サイト診断の画面に「サイトの構成」「信頼の手がかり」のカードが出る。次は B′（事実シート + AI 分析 + 報告書 + 回数制限） | Claude | **A′ 完了（r55）。B′ へ** |
+| 66 | **パワーアップ分析（連携不要の SEO 分析。有料・回数制限つき）**: 設計は [seo-analysis-spec.md](./seo-analysis-spec.md) §0。利用者の決定（09-13、6 点すべて推奨案）。**A′（r55）に続き B′〜E′ を r56 で main にマージ**（09-14、利用者の指示「一気に実装してメインにマージ」）: `/tools/seo-analysis`（事実シート → Claude の分析 → ChatGPT のセカンドオピニオン → 報告書 PDF → 履歴）、CrUX、SerpApi、GSC / GA4 の任意層、各画面の「AI に分析させる」（まずサイト診断）。**利用者側の作業**: ① Supabase で `analysis_runs` の SQL を実行（下の「パワーアップ分析の実行記録」）② Google Cloud で Chrome UX Report API を有効化し PageSpeed 用キーの制限に追加（下の #78）③ 本番で 1 回動かして AI の出力とトークン量を確認。残り: URL Inspection（E′ の一部）、実際の出力を見てのプロンプト調整 | 利用者 → Claude | **B′〜E′ 完了（r56）。利用者の作業 ①② 待ち** |
+| 78 | **パワーアップ分析を動かすための設定**（下の表「パワーアップ分析を有効にする手順」）: Supabase の SQL → Chrome UX Report API の有効化とキーの制限追加 → 本番で試す → `SEO_ANALYSIS_MONTHLY_LIMIT` は既定 10 のままでよいか | 利用者 | 未 |
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
@@ -251,6 +252,16 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 4 | 本番 → 口コミへの返信 | https://app.seo-checker.tokyo/tools/replies | 「1. 接続」の「Google に口コミ返信の権限を追加する」→ Google の確認画面で**ビジネスのオーナー / 管理者のアカウント**（`wolf@wolf-info.org` 側にオーナー権限がある。`matsumatsu452@gmail.com` は管理者として追加済み）で「ビジネス プロフィールの管理」を許可 → 戻ったらビジネスの一覧が出る |
 
 ①が終わる前に④を押しても害は無い（権限は付くが、口コミ一覧が「利用申請が承認され…」のエラーになる）。承認後に画面を開き直せばそのまま動く。
+
+### パワーアップ分析を有効にする手順（#78。利用者の作業）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | 下の「パワーアップ分析の実行記録（r56）」の SQL を貼って Run → Success を確認。Table Editor に `analysis_runs` が出れば完了 |
+| 2 | Google Cloud → API ライブラリ（Chrome UX Report API） | https://console.cloud.google.com/apis/library/chromeuxreport.googleapis.com?project=seo-checker-508104 | 「有効にする」。無料・請求先不要 |
+| 3 | Google Cloud → 認証情報 | https://console.cloud.google.com/apis/credentials?project=seo-checker-508104 | API キー「PageSpeed Insights (seo-checker)」を開く → 「API の制限」で **Chrome UX Report API** を追加して保存（別キーにするなら Vercel に `CRUX_API_KEY` を追加 → Redeploy）。制限が「制限なし」なら何もしなくてよい |
+| 4 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | `seo-checker.tokyo` などで 1 回実行（収集 1〜5 分 → AI 1〜3 分）。報告書の「結論」「改善案」「セカンドオピニオン」「速度」「付録」が出ること、右上の「今月 n / 10 回」が増えることを確認。運営者（ADMIN_EMAILS）は無制限 |
+| 5 | Vercel → 環境変数（任意） | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 月の回数を変えるなら `SEO_ANALYSIS_MONTHLY_LIMIT`（既定 10）。ChatGPT のセカンドオピニオンは `OPENAI_API_KEY`（LLMO と共用。未設定なら Claude だけで完成） |
 
 ### Stripe を有効にする手順（#58。すべて利用者の作業。まずテストモードで通し、最後に本番キーへ）
 
@@ -447,6 +458,30 @@ create table if not exists listing_profiles (
 );
 alter table listing_profiles enable row level security;
 ```
+
+**パワーアップ分析の実行記録（r56、#66）**:
+
+```sql
+create table if not exists analysis_runs (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  url text not null,
+  origin text not null,
+  status text not null default 'collected',
+  input jsonb not null,
+  sheet jsonb not null,
+  analysis jsonb,
+  second_opinion jsonb,
+  analysis_count int not null default 0,
+  headline text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists analysis_runs_user_idx on analysis_runs (user_id, created_at desc);
+alter table analysis_runs enable row level security;
+```
+
+`status` は collected（収集のみ）/ analyzed（AI 分析済み）/ failed。`sheet` は事実シート（`src/lib/seo-analysis/sheet/types.ts` の `SeoFactSheet`）、`analysis` は Claude の分析（`ai/schema.ts` の `AnalysisRecord`）、`second_opinion` は ChatGPT（`SecondOpinionRecord`）。月の回数は `user_id` × 今月（JST）× `status <> 'failed'` の行数で数える（`runs.ts`）。1 行は数百 KB になりうる（PSI の結果を含む）。
 
 `profile` は `src/lib/listings/profile.ts` の `ListingProfileSchema`（店名・ふりがな・業種・郵便番号・住所・電話・サイト・メール・営業時間・短い説明 150・説明文 750）、`states` は媒体 ID → `{ status, url, note, updatedAt }`（`ListingStatesSchema`。status は todo / submitted / live / skip）。利用者 × 自社店舗（MEO の `meo_stores` の own）で 1 行。
 
@@ -903,4 +938,19 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
   - テスト 4 ファイル追加（抽出 14 件・種別 4 件・構成 9 件・信頼 4 件）+ E2E に 2 件。**lint / tsc / test（123 ファイル・1,565 件）/ build 通過**。E2E のダミーサイトではトップの重要度が 97（全ページのナビから /contact 等にもリンクがあるため）。
 - **利用者側の作業は無し**。マージの指示待ち（「入力待ち」）。次は B′。
 - 利用者「メインにmergeして」→ origin/main を取り直し、早送りでマージ → `add-release.mjs` で **r55** → main で lint / tsc / test（1,565 件）/ build を通してから push。Vercel が自動デプロイする。本番の `/tools/site-audit` で「サイトの構成」「信頼の手がかり」のカードが出れば反映済み。次は B′。
+
+### 2026-09-14（パワーアップ分析 B′〜E′ を一気に実装、r56）
+
+- 利用者「一気に実装してメインにマージしてください。確認事項がなければ」→ 確認事項なしで B′ → C′ → D′ → E′ を実装し、lint / tsc / test（**129 ファイル・1,590 件**）/ build を通して main に早送り（**r56**）。
+- **B′ 事実シート + AI 分析 + 報告書 + 回数制限**:
+  - `src/lib/seo-analysis/sheet/`: `SeoFactSheet`（入力 / サイト = クロール統計・重要度別・カテゴリ別・上位ルール 15 と実例・構成・信頼・クイック診断 / 速度 = PSI 6 ページ + CrUX / 検索 / Google 連携 / coverage）と `facts`（1 行 1 事実、`I-01` `C-01` `S-01` `T-01` `P-01` `R-01` `G-01` の連番。最大 400 行）。`factsFromAudit` はサイト診断だけから facts を作る（画面ごとの AI 分析用）。
+  - `src/lib/seo-analysis/ai/`: `analyze.ts` = Claude（`LLM_MODEL`、max_tokens 8192、構造化出力 `AnalysisSchema` = 結論 / 現状分析 2〜6 段落 / 強み・弱み（事実 ID つき）/ 改善案 5〜15（優先度 1〜3・何をどう変える・なぜ・期待・手間・書き換え案 before/after）/ コンサルの視点（typical / real）/ 断定できない点）。**AI は facts だけを読む**。`verify.ts` = 本文の数値（4 以上か小数。年は除く）が facts に無ければ、無い数値と ID を挙げて 1 回だけ作り直し、それでも残れば `unverifiedNumbers` として画面に注意。存在しない事実 ID は落とし、引用の無い強み・弱みは捨てる。`second-opinion.ts` = ChatGPT（OpenAI Responses API、`OPENAI_MODEL` 既定 gpt-5、json_schema strict）に同じ facts と Claude の改善案を渡し、同意 / 食い違い / 追加だけを返させる。
+  - `runs.ts`（Supabase `analysis_runs`。user_id で絞る）、`quota.ts`（今月 JST の行数。既定 10、`SEO_ANALYSIS_MONTHLY_LIMIT`、`ADMIN_EMAILS` は無制限）、`limits.ts`（1 収集につき AI 分析 3 回まで）、`gate.ts`（クロールの同時実行をサイト診断と合算で 2 本）。
+  - API: `POST /api/seo-analysis/collect`（NDJSON。クロール → クイック診断 → PSI / CrUX / SerpApi / Google を並行 → 事実シート → 保存。回数はここで消費）、`POST …/analyze`（Claude）、`POST …/second-opinion`（ChatGPT）、`GET /api/seo-analysis`（履歴 + 残り回数）、`GET/DELETE …/[id]`、`POST …/comment`（画面ごとの短い分析。facts を受け取る。回数の対象外）。収集と AI を分けたのは Vercel の 300 秒に収めるためと、同じシートで AI だけやり直せるようにするため。
+  - 画面 `src/components/seo-analysis/`: `SeoAnalysisView`（URL 必須、キーワード 5・業種・目的・地域・ブランド名・競合 2 は任意、上限 50〜300 ページ、残り回数、進捗、履歴）、`ReportView`（KPI 4 枚 → 結論と現状分析 → 改善案（優先順）→ 強み・弱み → コンサルの視点 → セカンドオピニオン → 速度カード（Origin の LCP / INP / CLS + 40 週の Sparkline + 6 ページの表）→ 付録の事実シート。すべての主張に事実 ID のチップ、PDF）、`AiCommentCard`（サイト診断の下に「AI に分析させる」。この画面の facts だけで要約・ポイント・次にやること）。registry に `seo-analysis`（診断グループ・SEO タブ・**pro**・requires supabase + anthropic）。
+- **C′ CrUX**: `src/lib/crux/`（`records:queryRecord` / `records:queryHistoryRecord`。キーは `CRUX_API_KEY` → `PAGESPEED_API_KEY`。URL → Origin → データ不足の 3 段、6 時間キャッシュ、区分の境界は Google のとおり）。
+- **D′ SerpApi**: `search.ts`（キーワードごとに `num=100` モバイル 1 回、`site:host` 1 回、ブランド名 1 回。ブランド名は入力 → トップの title のサイト名。競合の順位も同じ結果から）。
+- **E′ Google 連携**: `google.ts`（連携先の Search Console が分析対象と同じドメインのときだけ 28 日の合計・前期間・上位クエリ / ページ 10 件。GA4 はチャネル別の合計から Organic Search を抜き、ランディングページ 10 件）。URL Inspection は未実装。
+- **判断**: 回数は「収集」で消費（クロールと SerpApi の実費が出るため）。AI 分析のやり直しは 1 収集 3 回まで無料。PSI は API キー無しでも呼ぶ（既存ツールと同じ。回数制限で落ちたら注記）。CrUX は所有権不要なので誰のサイトでも引ける。
+- **利用者側の作業**: #78 の表（Supabase の SQL、Chrome UX Report API の有効化とキーの制限、本番で 1 回実行）。**本番でまだ 1 度も動かしていない**（この環境には API キーが無い）。最初の 1 回で AI の出力の質とトークン量（Opus で入力 1〜2 万・出力 5 千前後の見込み）を見て、プロンプトと `MAX_FACT_LINES` を調整する。
 

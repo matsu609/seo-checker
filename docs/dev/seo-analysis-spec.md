@@ -77,10 +77,10 @@ AI 分析（Claude。段階ごとに構造化出力、各主張は指標 ID を�
 | 段階 | 内容 | 状態 |
 |---|---|---|
 | A′ | サイトの構成・信頼指標（クローラー拡張）。`src/lib/audit/extras.ts`（リンクの本文 / ナビ判定・nofollow・アンカー・hreflang・OG・パンくず・日付・著者・電話・住所・メール・Organization）、`src/lib/seo-analysis/`（`structure.ts` = 被リンク / 本文からの被リンク / PageRank 風の重要度 / クリック階層 / 行き止まり・到達不可 / 汎用アンカー / 種別 / パンくず・OG・hreflang / 鮮度 / 同じ題名、`trust.ts` = 会社・問い合わせ・規約・特商法・構造化データ・電話・住所・NAP 一致・著者の 9 判定、`kinds.ts` = ページ種別）。サイト診断の結果に `structure` / `trust` を同梱し、画面に「サイトの構成」「信頼の手がかり」のカードを追加 | **実装済み（ブランチ `claude/seo-analysis-tool-spec-b6gq4x`、2026-09-14）** |
-| B′ | 事実シート + AI 分析 + 報告書 + 回数制限（`/tools/seo-analysis`） | 未着手 |
-| C′ | CrUX / CrUX History | 未着手 |
-| D′ | SerpApi の組み込み（順位・site:・ブランド名） | 未着手 |
-| E′ | 任意の層（GSC / GA4 / URL Inspection。連携済みの利用者向け） | 未着手 |
+| B′ | 事実シート + AI 分析 + 報告書 + 回数制限（`/tools/seo-analysis`）。`src/lib/seo-analysis/sheet/`（型・組み立て・facts の平坦化）、`ai/`（Claude の構造化出力、数値と事実 ID の照合と 1 回の作り直し、ChatGPT のセカンドオピニオン）、`collect.ts`、`runs.ts`（Supabase `analysis_runs`）、`quota.ts`（月 10 回・運営者無制限）、API 6 本、画面（フォーム → 進捗 → 報告書 → 付録 → PDF → 履歴）。サイト診断に「AI に分析させる」カード（画面ごとの AI 分析） | **実装済み（2026-09-14）** |
+| C′ | CrUX / CrUX History（`src/lib/crux/`。URL → Origin → データ不足の 3 段。事実シートと報告書の「速度」カードに Origin の LCP / INP / CLS と 40 週の推移） | **実装済み（2026-09-14）** |
+| D′ | SerpApi の組み込み（`search.ts`。対策キーワード 5 つの順位・上位ドメイン・SERP の特徴・AI Overviews の引用・競合の順位、`site:` 件数、ブランド名検索） | **実装済み（2026-09-14）** |
+| E′ | 任意の層（`google.ts`。連携済みなら Search Console の 28 日の合計・前期間・上位クエリ / ページ、GA4 の自然検索の流入・キーイベント・ランディングページ）。URL Inspection は未実装（連携先が分析対象と一致するときだけ使う） | **GSC / GA4 は実装済み（2026-09-14）。URL Inspection は未** |
 
 **設計原則（利用者の指示 2026-09-13）**: パワーアップ分析の報告書だけでなく、**個々の分析結果（サイト診断・検索パフォーマンス・CWV など、各ツールの画面）ごとに AI の分析を見られるようにする**。B′ で作る「事実シート → AI 分析」の仕組みは、画面ごとの部分的な事実シートでも動くように分ける（報告書 = 各画面の分析の合成）。
 

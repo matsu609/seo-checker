@@ -100,6 +100,7 @@ npm run dev                  # http://localhost:3000
 
 | ツール | ID | 内容 | 必要なキー |
 |---|---|---|---|
+| [パワーアップ分析](src/lib/seo-analysis) | — | URL だけで、サイト全体のクロール（48 ルール・構成・信頼）・トップの採点・主要 6 ページの PageSpeed と CrUX（実ユーザーの速度と 40 週の推移）・対策キーワードの順位と `site:` 件数・Search Console / GA4（連携済みなら）を 1 枚の**事実シート**（1 行 1 事実、ID つき）にまとめ、AI（Claude）がその数字だけを根拠に、結論・現状分析・強みと弱み・優先順位つきの改善案（何をどう変える / なぜ / 期待できること / 手間 / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く。主張には事実 ID が付き、シートに無い数値は注意として出る。ChatGPT のセカンドオピニオン（食い違う点だけ）、PDF、履歴。月 10 回（`SEO_ANALYSIS_MONTHLY_LIMIT`）。サイト診断など各画面にも「AI に分析させる」ボタンがあり、その画面の数字だけで短い分析を出す | Supabase + Anthropic（PageSpeed / SerpApi / OpenAI は任意） |
 | [サイト診断（テクニカル SEO）](src/lib/audit) | A1 | 全ページをクロールし、48 のルールで課題を検出。10 カテゴリの件数、前回との差分、CSV 出力。**サイトの構成**（内部リンクの向きで見た重要度、本文中のリンクとナビの区別、クリック階層、行き止まり・到達不可、汎用アンカーの割合、ページ種別、パンくず・OG・hreflang の網羅、更新日、同じ題名のページ）と**信頼の手がかり**（会社情報・問い合わせ・規約・特商法のページ、Organization の構造化データ、電話・住所・メール、構造化データと本文の電話番号の一致、記事の著者）を同じ画面に表示（[src/lib/seo-analysis](src/lib/seo-analysis)） | 不要（要約のみ任意で AI） |
 | [ページ最適化レポート](src/lib/page-report) | A2 / A3 | 1 URL の AI フレンドリー度を 0〜100 で採点。項目ごとの測定値・理由・改善提案。AI クローラの robots.txt 判定。表示速度と Core Web Vitals | 不要（PSI は任意） |
 | [HP 改修提案（AI 最適化）](src/lib/improvement) | A2 / D2 | URL を入れてボタン一つで、診断結果をもとに**そのまま貼って使える改修案**を before → after で生成。タイトル・説明文・見出し・本文・構造化データ・alt が対象。提案ごとに理由・期待できること・優先度・手間を表示 | Anthropic |
@@ -294,8 +295,10 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO モニタリングの対象を増やす |
 | `SERPAPI_KEY` | 順位計測、AI Overviews の引用チェック、ページ診断の上位 10 件 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
+| `CRUX_API_KEY` | CrUX（実ユーザーの速度）。無ければ `PAGESPEED_API_KEY` を使う（Google Cloud で Chrome UX Report API を有効にする） |
+| `SEO_ANALYSIS_MONTHLY_LIMIT` | パワーアップ分析の月の回数（既定 10。運営者は無制限） |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（MEO）。Places API (New) 専用に制限したキー。請求先アカウントが必要（無料枠あり） |
-| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗と診断報告書の履歴（Supabase）。テーブルは `docs/dev/OPERATIONS.md` の SQL |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗と診断報告書の履歴、パワーアップ分析の実行記録（`analysis_runs`）など（Supabase）。テーブルは `docs/dev/OPERATIONS.md` の SQL |
 | `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きと、店舗が書き換えた質問文の訳のモデル（既定は `LLM_FAST_MODEL` = `claude-haiku-4-5`） |
 | `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定は `LLM_FAST_MODEL`） |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援: アンケート 1 つあたりの 1 日の回答数（既定 500）と、AI 下書きの 1 日の全体上限（既定 2,000。超えたら回答は受け付け、下書きは回答をそのまま並べる） |
