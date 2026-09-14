@@ -13,6 +13,7 @@ import { extractJsonLd } from "@/lib/analyzer/jsonld";
 import { extractMeta } from "@/lib/analyzer/meta";
 import { canonicalizeUrl, extractLinks } from "@/lib/crawl/url";
 import { DEPRECATED_TAGS } from "./config";
+import { extractExtras } from "./extras";
 import { contentFingerprint, minHashSignature } from "./similarity";
 import type { AuditPage, HeadingNode } from "./types";
 
@@ -186,6 +187,8 @@ export function parseAuditPage(fetched: FetchedText, options: ParseOptions = {})
       types: jsonLd.types,
     },
     robotsAllowed: options.robotsAllowed ?? true,
+
+    ...extractExtras($, finalUrl, origin, meta, jsonLd.types),
   };
 
   return { page, signature: minHashSignature(content.mainText) };

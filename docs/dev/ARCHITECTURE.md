@@ -55,7 +55,8 @@ src/
   lib/
     analyzer/                 # クイック診断のルール（既存。文の数え方は sentences.ts / language.ts）
     crawl/                    # サイト全体クロール（sitemap 展開 + 内部リンク BFS）。クイック診断と A1 で共有
-    audit/                    # A1 テクニカル SEO ルール
+    audit/                    # A1 テクニカル SEO ルール（extras.ts = 構成・信頼の分析に使う追加項目の抽出）
+    seo-analysis/             # サイトの構成（内部リンク・重要度・種別・鮮度）と信頼の手がかり。純関数。A1 の結果に同梱
     page-report/              # A2/A3
     serp/                     # SERP プロバイダ抽象（SerpApi 実装、未設定時は null）
     llm/                      # Anthropic クライアント、モデル定数、構造化出力ヘルパ、他社 LLM の薄いクライアント

@@ -136,6 +136,39 @@ describe("誤検出していないこと", () => {
   });
 });
 
+describe("サイトの構成と信頼の手がかり", () => {
+  it("内部リンクの向きから重要度・階層・種別を計算する", () => {
+    const s = result.structure!;
+    expect(s.pageCount).toBe(result.crawl.analyzed);
+    const home = s.pages.find((p) => p.url === `${site.origin}/`)!;
+    // 全ページのナビから /contact 等にもリンクがあるので、トップが必ず 100 とは限らない
+    expect(home.importance).toBeGreaterThanOrEqual(90);
+    expect(home.kind).toBe("home");
+    expect(s.pages.find((p) => p.url === `${site.origin}/company`)?.kind).toBe("company");
+    expect(s.pages.find((p) => p.url === `${site.origin}/contact`)?.kind).toBe("contact");
+    expect(s.pages.find((p) => p.url === `${site.origin}/blog/post-1`)?.kind).toBe("article");
+    expect(s.links.total).toBeGreaterThan(0);
+    expect(s.links.inContentShare).toBeGreaterThan(0);
+    // /deep/3 は /deep/2 からしか来ない
+    expect(s.depth.deep).toBeGreaterThan(0);
+    expect(s.topPages.slice(0, 3).map((p) => p.url)).toContain(`${site.origin}/`);
+    // ページ一覧の行にも重要度と本文からの被リンクが入る
+    const row = result.pages.find((p) => p.url === `${site.origin}/`)!;
+    expect(row.importance).toBe(home.importance);
+    expect(row.inContentInlinks).toBeGreaterThanOrEqual(0);
+  });
+
+  it("会社概要・問い合わせ・Organization の構造化データを見つける", () => {
+    const t = result.trust!;
+    expect(t.pages.company).toBe(`${site.origin}/company`);
+    expect(t.pages.contact).toBe(`${site.origin}/contact`);
+    expect(t.organization?.type).toBe("Organization");
+    expect(t.checks.find((c) => c.id === "company-page")?.status).toBe("pass");
+    expect(t.checks.find((c) => c.id === "contact-page")?.status).toBe("pass");
+    expect(t.checks.find((c) => c.id === "org-schema")?.status).toBe("pass");
+  });
+});
+
 describe("結果のかたち", () => {
   it("カテゴリ別・重要度別・ルール別の集計がそろう", () => {
     expect(result.byCategory).toHaveLength(10);

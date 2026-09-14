@@ -31,6 +31,7 @@ import type { AuditProgress as Progress, AuditResult, AuditSummary } from "@/lib
 import { fmt, formatDateTime, hostOf } from "@/lib/report";
 import { useStore } from "@/lib/store/hooks";
 import { useIntegrations } from "@/lib/store/useIntegrations";
+import { StructureCard, TrustCard } from "@/components/seo-analysis";
 import { AuditCategoryTable } from "./AuditCategoryTable";
 import { AuditIssues, type IssueRow } from "./AuditIssues";
 import { AuditPages } from "./AuditPages";
@@ -339,6 +340,10 @@ export function SiteAuditView() {
           )}
 
           <AuditCategoryTable rows={categories} hasPrevious={Boolean(previous)} />
+
+          {result.structure && <StructureCard structure={result.structure} />}
+
+          {result.trust && <TrustCard trust={result.trust} />}
 
           <AuditIssues issues={issueRows} origin={result.origin} hasPrevious={Boolean(diff)} />
 

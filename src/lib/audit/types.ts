@@ -6,6 +6,7 @@
  * ページ単位（rules/page.ts）とサイト横断（rules/cross.ts）に分ける。
  */
 import type { SiteFiles } from "@/lib/analyzer/robots";
+import type { SiteStructure, TrustSignals } from "@/lib/seo-analysis/types";
 
 /** 課題のカテゴリ。画面のカテゴリ表・フィルタはこの順に並べる */
 export const AUDIT_CATEGORIES = [
@@ -48,6 +49,28 @@ export interface Issue {
 export interface HeadingNode {
   level: number;
   text: string;
+}
+
+/** ページ内の内部リンク 1 本（サイトの構成の分析用。src/lib/seo-analysis） */
+export interface AuditLink {
+  /** リンク先（正規化済み・同一オリジン） */
+  url: string;
+  /** アンカーテキスト（画像リンクは alt。最大 80 文字） */
+  text: string;
+  /** rel="nofollow" / "ugc" / "sponsored" が付いているか */
+  nofollow: boolean;
+  /** ナビ・ヘッダー・フッター・サイドバーではなく本文領域にあるリンクか */
+  inContent: boolean;
+}
+
+/** Organization / LocalBusiness 系の構造化データから抜いた連絡先（信頼の判定用） */
+export interface OrganizationSchema {
+  type: string;
+  /** 数字だけにした電話番号。無ければ null */
+  telephone: string | null;
+  hasAddress: boolean;
+  /** sameAs の本数 */
+  sameAs: number;
 }
 
 /** JSON-LD の抽出結果（構造化データのルール用） */
@@ -126,6 +149,30 @@ export interface AuditPage {
   jsonLd: JsonLdInfo;
   /** robots.txt が Googlebot にこの URL を許可しているか */
   robotsAllowed: boolean;
+
+  /* ---- サイトの構成・信頼の分析に使う項目（r55〜）。ルールは参照しない ---- */
+
+  /** 内部リンクの詳細（internalLinks と同じ URL 集合。1 URL につき 1 件） */
+  links: AuditLink[];
+  /** link rel="alternate" hreflang の値 */
+  hreflang: string[];
+  /** Open Graph の主要 3 項目の有無 */
+  og: { title: boolean; description: boolean; image: boolean };
+  /** パンくず（BreadcrumbList か、breadcrumb 系のクラス・aria-label）があるか */
+  hasBreadcrumb: boolean;
+  /** 公開日・更新日（ISO 文字列。meta / JSON-LD / time 要素から。無ければ null） */
+  published: string | null;
+  modified: string | null;
+  /** 著者情報（meta author / rel=author / JSON-LD author / author 系のクラス）があるか */
+  hasAuthor: boolean;
+  /** 本文中の電話番号（数字だけ。重複なし・最大 5 件） */
+  phones: string[];
+  /** 郵便番号または「都道府県 + 市区町村」の住所らしき記述があるか */
+  hasPostalAddress: boolean;
+  /** メールアドレス（mailto: か本文の表記）があるか */
+  hasEmail: boolean;
+  /** Organization / LocalBusiness 系の構造化データ（最初の 1 件）。無ければ null */
+  organization: OrganizationSchema | null;
 }
 
 /** 検証のために追加で取得した URL の結果 */
@@ -204,6 +251,10 @@ export interface AuditPageRow {
   loadMs: number | null;
   internalLinks: number;
   inlinks: number;
+  /** 本文領域からの被リンク数（ナビ・フッターを除く） */
+  inContentInlinks: number;
+  /** 内部リンクだけで見た重要度（0〜100。サイト内で最大のページが 100） */
+  importance: number;
   canonical: string | null;
   noindex: boolean;
   issues: number;
@@ -242,6 +293,10 @@ export interface AuditResult {
   failures: AuditFailure[];
   notes: string[];
   summary?: AuditSummary;
+  /** サイトの構成（内部リンク・階層・ページ種別）。src/lib/seo-analysis/structure.ts */
+  structure?: SiteStructure;
+  /** 信頼の手がかり（会社情報・連絡先・著者・NAP）。src/lib/seo-analysis/trust.ts */
+  trust?: TrustSignals;
 }
 
 /** POST /api/site-audit が NDJSON で流すイベント。1 行 1 オブジェクト */

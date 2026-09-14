@@ -14,6 +14,7 @@ import { fetchSiteFiles, type SiteFiles } from "@/lib/analyzer/robots";
 import { crawlSite, resolveMaxPages } from "@/lib/crawl/crawler";
 import { discoverSitemapUrls } from "@/lib/crawl/discover";
 import { canonicalizeUrl } from "@/lib/crawl/url";
+import { analyzeStructure, analyzeTrust } from "@/lib/seo-analysis";
 import {
   MAX_PROBE_URLS,
   MAX_TIMED_PAGES,
@@ -228,6 +229,10 @@ export function buildResult(input: BuildResultInput): AuditResult {
   for (const i of issues) perPage.set(i.url, (perPage.get(i.url) ?? 0) + 1);
 
   const inlinks = countInlinks(pages);
+  const entryUrl = canonicalizeUrl(input.startUrl) ?? input.startUrl;
+  const structure = analyzeStructure(pages, entryUrl);
+  const trust = analyzeTrust(pages, entryUrl);
+  const structureByUrl = new Map(structure.pages.map((p) => [p.url, p]));
   const rows: AuditPageRow[] = pages.map((page) => ({
     url: page.url,
     finalUrl: page.finalUrl,
@@ -242,6 +247,8 @@ export function buildResult(input: BuildResultInput): AuditResult {
     loadMs: page.loadMs,
     internalLinks: page.internalLinks.length,
     inlinks: inlinks.get(page.url) ?? 0,
+    inContentInlinks: structureByUrl.get(page.url)?.inContentInlinks ?? 0,
+    importance: structureByUrl.get(page.url)?.importance ?? 0,
     canonical: resolveCanonical(page),
     noindex: page.metaRobots.includes("noindex") || page.xRobotsTag.includes("noindex"),
     issues: perPage.get(page.url) ?? 0,
@@ -275,6 +282,8 @@ export function buildResult(input: BuildResultInput): AuditResult {
     byRule,
     failures: input.failures,
     notes: input.notes,
+    structure,
+    trust,
   };
   result.summary = buildRuleSummary(result);
   return result;
