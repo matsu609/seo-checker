@@ -132,7 +132,7 @@ npm run dev                  # http://localhost:3000
 
 ### 設定（`/settings`）
 
-プロジェクト（ドメイン）と競合の登録、外部連携の設定状況、データの JSON エクスポート / インポート。
+プロジェクト（ドメイン）と競合の登録、Google アカウントの連携、データの JSON エクスポート / インポート。外部連携（API キー）の設定状況は運用者だけが見るマスター画面（`/admin`）に出します（お客様には見せません）。
 
 **キーが未設定のツールは、必要な環境変数を明示したうえで実行操作だけを無効化します。** 画面の説明や登録済みデータの閲覧はそのまま使えます。存在しないデータを補って表示することはしません。
 
@@ -357,7 +357,7 @@ src/
   app/
     page.tsx                  # クイック診断
     tools/<id>/page.tsx       # 各ツール（Server Component。PageHeader + クライアント画面）
-    settings/                 # プロジェクト・競合・外部連携
+    settings/                 # プロジェクト・競合・Google 連携
     api/                      # Route Handler（nodejs runtime）
   components/
     shell/                    # AppShell / Sidebar / TopBar

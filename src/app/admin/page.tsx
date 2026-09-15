@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ClientTable } from "@/components/admin/ClientTable";
+import { IntegrationsCard } from "@/components/admin/IntegrationsCard";
 import { VersionCard } from "@/components/admin/VersionCard";
 import { Callout } from "@/components/ui/Callout";
 import { loadClients } from "@/lib/admin/clients";
@@ -50,6 +51,10 @@ export default async function Page() {
       </p>
 
       <VersionCard />
+
+      <div className="mb-6">
+        <IntegrationsCard />
+      </div>
 
       <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px] text-muted">
         <span>

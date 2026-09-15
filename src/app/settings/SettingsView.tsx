@@ -8,11 +8,9 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { INTEGRATIONS, INTEGRATION_KEYS } from "@/lib/features/integrations";
 import { requireFeature } from "@/lib/features/registry";
 import { exportAll, importAll, newId, resetAll, splitList, type Competitor, type Project } from "@/lib/store";
 import { useCurrentProject, useProjects } from "@/lib/store/hooks";
-import { useIntegrations } from "@/lib/store/useIntegrations";
 
 const feature = requireFeature("settings");
 
@@ -76,7 +74,6 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
       <div className="space-y-6">
         <ProjectsCard />
         {googleSection}
-        <IntegrationsCard />
         <DataCard />
       </div>
     </div>
@@ -314,76 +311,6 @@ function ProjectsCard() {
           </div>
         </form>
       )}
-    </Card>
-  );
-}
-
-/* ───────────────────────── 外部連携 ───────────────────────── */
-
-function IntegrationsCard() {
-  const { status, loading, error, reload } = useIntegrations();
-  return (
-    <Card
-      title="外部連携"
-      description="API キーはサーバーの .env.local にだけ置きます。この画面には設定の有無しか表示されません。変更後は開発サーバーを再起動してください。"
-      actions={
-        <Button size="sm" variant="secondary" onClick={reload} loading={loading}>
-          再確認
-        </Button>
-      }
-    >
-      {error && (
-        <Callout tone="warn" className="mb-4">
-          {error}
-        </Callout>
-      )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-[13px] text-ink">
-          <thead>
-            <tr className="border-b border-line text-[12px] font-bold text-muted">
-              <th className="px-2 py-2 text-left">連携</th>
-              <th className="px-2 py-2 text-left">環境変数</th>
-              <th className="px-2 py-2 text-left">状態</th>
-              <th className="px-2 py-2 text-left">用途</th>
-            </tr>
-          </thead>
-          <tbody>
-            {INTEGRATION_KEYS.map((key) => {
-              const meta = INTEGRATIONS[key];
-              const on = status?.[key] ?? false;
-              return (
-                <tr key={key} className="border-b border-line last:border-0">
-                  <td className="px-2 py-2 font-bold whitespace-nowrap">{meta.label}</td>
-                  <td className="px-2 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {meta.envVars.map((v) => (
-                        <code key={v} className="rounded-sm border border-line bg-surface px-1 font-mono text-[11px]">
-                          {v}
-                        </code>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-2 py-2 whitespace-nowrap">
-                    {status === null ? (
-                      <span className="text-[12px] text-muted">確認中…</span>
-                    ) : on ? (
-                      <Badge tone="pass">設定済み</Badge>
-                    ) : (
-                      <Badge tone="neutral" icon={false}>
-                        未設定
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-muted">{meta.description}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-3 text-[12px] text-muted">
-        変数の一覧と書き方は <code className="font-mono">.env.example</code> を参照してください。
-      </p>
     </Card>
   );
 }

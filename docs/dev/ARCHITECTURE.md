@@ -30,7 +30,7 @@
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
 | 生成 | `/tools/listings` | 基本情報掲載（NAP 一括登録） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
 | 生成 | `/tools/llms-txt` | llms.txt 生成 | D6 | なし |
-| 設定 | `/settings` | プロジェクト・競合・外部連携 | E1, E2 | なし |
+| 設定 | `/settings` | プロジェクト・競合・Google 連携（API キーの設定状況は `/admin` に移動） | E1, E2 | なし |
 | 共通 | `/legal/tokushoho` | 特定商取引法に基づく表記（ログイン不要） | — | なし |
 | 共通 | `/start` | ログイン直後の振り分け（未契約は `/plans`、契約済みはツールへ。画面は出さない） | — | なし |
 

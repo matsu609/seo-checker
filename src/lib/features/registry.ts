@@ -586,14 +586,14 @@ const SETTINGS: readonly Feature[] = [
   {
     id: "settings",
     path: "/settings",
-    label: "プロジェクト・競合・外部連携",
+    label: "プロジェクト・競合・Google 連携",
     shortLabel: "設定",
     description:
-      "プロジェクト（ドメイン）と競合の登録、外部連携の設定状況、データのエクスポート / インポート。",
+      "プロジェクト（ドメイン）と競合の登録、Google アカウントの連携（Search Console / GA4）、データのエクスポート / インポート。",
     details: [
       "プロジェクト（名前・ドメイン・開始 URL・ブランド表記）の追加・編集・削除",
       "競合（名前・ドメイン・ブランド表記）の登録",
-      "外部連携（API キー）の設定状況の確認",
+      "Google アカウントの連携（Search Console のサイト・GA4 のプロパティの選択）",
       "ブラウザに保存したデータの JSON エクスポート / インポート",
     ],
     featureIds: ["E1", "E2"],
