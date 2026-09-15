@@ -3,7 +3,7 @@
 /**
  * ブラウザ側から /api/seo-analysis/* を叩くヘルパー。
  */
-import type { AuditProgress } from "@/lib/audit/types";
+import type { AuditProgress, AuditResult } from "@/lib/audit/types";
 import { readNdjson } from "@/lib/crawl/client";
 import type { AnalysisRecord, Comment, SecondOpinionRecord } from "@/lib/seo-analysis/ai/schema";
 import type { CollectStep } from "@/lib/seo-analysis/collect";
@@ -44,7 +44,7 @@ export interface CollectProgressEvent {
 export async function requestCollect(
   input: AnalysisInput,
   options: { signal?: AbortSignal; onProgress?: (p: CollectProgressEvent) => void } = {},
-): Promise<{ run: RunSummary; sheet: SeoFactSheet }> {
+): Promise<{ run: RunSummary; sheet: SeoFactSheet; audit: AuditResult | null }> {
   const res = await fetch("/api/seo-analysis/collect", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -53,7 +53,7 @@ export async function requestCollect(
   });
   if (!res.ok) throw await errorOf(res, "収集に失敗しました");
 
-  let done: { run: RunSummary; sheet: SeoFactSheet } | undefined;
+  let done: { run: RunSummary; sheet: SeoFactSheet; audit: AuditResult | null } | undefined;
   let failure: { error: string; code?: string } | undefined;
   await readNdjson(res, (obj) => {
     if (!obj || typeof obj !== "object") return;
@@ -61,7 +61,7 @@ export async function requestCollect(
     if (ev.type === "progress") {
       options.onProgress?.({ step: ev.step as CollectStep, message: String(ev.message ?? ""), audit: ev.audit as AuditProgress | undefined });
     } else if (ev.type === "result") {
-      done = { run: ev.run as RunSummary, sheet: ev.sheet as SeoFactSheet };
+      done = { run: ev.run as RunSummary, sheet: ev.sheet as SeoFactSheet, audit: (ev.audit as AuditResult | undefined) ?? null };
     } else if (ev.type === "error") {
       failure = { error: String(ev.error ?? "収集に失敗しました"), code: typeof ev.code === "string" ? ev.code : undefined };
     }

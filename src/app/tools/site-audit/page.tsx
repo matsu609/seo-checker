@@ -1,20 +1,10 @@
-import type { Metadata } from "next";
-import { SiteAuditView } from "@/components/site-audit/SiteAuditView";
-import { PlanGate } from "@/components/plans/PlanGate";
-import { PageHeader } from "@/components/ui";
-import { requireFeature } from "@/lib/features/registry";
+import { redirect } from "next/navigation";
 
-const feature = requireFeature("site-audit");
-
-export const metadata: Metadata = { title: feature.label, description: feature.description };
-
+/**
+ * サイト診断（A1）はパワーアップ分析に統合した（2026-09-15）。
+ * 同じクロールと 48 ルールをパワーアップ分析の中で実行し、課題一覧・ページ一覧・CSV も
+ * 報告書の「詳細」に出す。古いリンクとブックマークのためにここは転送だけ残す。
+ */
 export default function Page() {
-  return (
-    <div className="mx-auto w-full max-w-6xl @container">
-      <PageHeader feature={feature} />
-      <PlanGate featureId="site-audit">
-        <SiteAuditView />
-      </PlanGate>
-    </div>
-  );
+  redirect("/tools/seo-analysis");
 }

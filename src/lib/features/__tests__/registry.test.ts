@@ -42,11 +42,14 @@ describe("タブの定義", () => {
   it("MEO タブは Google マップ、AIO タブに LLMO、SEO タブにサイト診断", () => {
     const ids = (c: "seo" | "aio" | "meo") => groupsForSidebar(c).tools.flatMap((g) => g.features.map((f) => f.id));
     expect(ids("meo")).toContain("maps");
-    expect(ids("meo")).not.toContain("site-audit");
+    expect(ids("meo")).not.toContain("seo-analysis");
     expect(ids("aio")).toContain("llmo");
     expect(ids("aio")).toContain("page-report");
-    expect(ids("seo")).toContain("site-audit");
+    expect(ids("seo")).toContain("seo-analysis");
     expect(ids("seo")).toContain("rank");
+    // サイト診断はパワーアップ分析に統合したのでサイドバーには出ない（ページと API は残る）
+    expect(ids("seo")).not.toContain("site-audit");
+    expect(groupsForSidebar().tools.flatMap((g) => g.features.map((f) => f.id))).not.toContain("site-audit");
   });
 
   it("パスからタブを引く。共通の画面と無料診断は null", () => {
@@ -61,6 +64,6 @@ describe("タブの定義", () => {
 
   it("category を渡さなければ従来どおり全グループ", () => {
     const all = groupsForSidebar().tools.flatMap((g) => g.features.map((f) => f.id));
-    expect(all).toEqual(TOOL_FEATURES.map((f) => f.id));
+    expect(all).toEqual(TOOL_FEATURES.filter((f) => !f.hidden).map((f) => f.id));
   });
 });

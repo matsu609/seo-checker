@@ -78,6 +78,11 @@ export interface Feature {
   /** サイドバーのタブ。共通のもの（設定・料金）は undefined */
   category?: FeatureCategoryId;
   /**
+   * サイドバーに出さない（ページと API は残す）。
+   * 別の機能に統合した旧機能に付ける。プランのゲートは残るので、API が素通りにならない。
+   */
+  hidden?: boolean;
+  /**
    * この機能を使うのに必要な料金プラン（src/lib/plans/catalog.ts）。
    * 読む・測る系は standard、AI が成果物を作る系は pro。
    */
@@ -154,12 +159,12 @@ const DIAGNOSIS: readonly Feature[] = [
   {
     id: "seo-analysis",
     path: "/tools/seo-analysis",
-    label: "パワーアップ分析（AI が現状分析と改善案を書く）",
+    label: "パワーアップ分析（サイト全体の診断 + AI の現状分析と改善案）",
     shortLabel: "パワーアップ分析",
     description:
-      "URL を入れるだけで、サイト全体のクロール・主要ページの速度（実ユーザー / 診断）・検索順位・Google 連携の数字を 1 枚の事実シートにまとめ、AI がその数字だけを根拠に現状分析と優先順位つきの改善案を書きます。",
+      "URL を入れるだけで、サイト全体をクロールして 48 ルールで課題を検出し（旧・サイト診断）、主要ページの速度（実ユーザー / 診断）・検索順位・Google 連携の数字と合わせて 1 枚の事実シートにまとめ、AI がその数字だけを根拠に現状分析と優先順位つきの改善案を書きます。",
     details: [
-      "クロール（48 ルール・サイトの構成・信頼）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + Search Console / GA4（連携済みなら）",
+      "クロール（48 ルール・サイトの構成・信頼。課題一覧・カテゴリ別件数・ページ一覧・CSV は報告書の「詳細」に）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + Search Console / GA4（連携済みなら）",
       "AI（Claude）が事実 ID を引用しながら、現状分析・強みと弱み・改善案（優先度 / 手間 / 期待できること / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く",
       "ChatGPT のセカンドオピニオン（食い違う点だけ）、事実シートの付録、PDF、履歴。月 10 回まで",
     ],
@@ -193,6 +198,9 @@ const DIAGNOSIS: readonly Feature[] = [
     group: "diagnosis",
     category: "seo",
     plan: "standard",
+    // 2026-09-15 パワーアップ分析に統合（同じクロールと 48 ルールをその中で実行し、詳細も出す）。
+    // /tools/site-audit はパワーアップ分析へ転送。API と履歴の部品は残す
+    hidden: true,
   },
   {
     id: "page-report",
@@ -218,10 +226,10 @@ const DIAGNOSIS: readonly Feature[] = [
   {
     id: "page-diagnosis",
     path: "/tools/page-diagnosis",
-    label: "ページ診断（キーワード × ページ）",
-    shortLabel: "ページ診断",
+    label: "ページ診断（キーワード × 競合の上位 10 件と比較）",
+    shortLabel: "ページ診断（競合比較）",
     description:
-      "対策キーワードの検索上位 10 件と自社ページを比較し、検索意図・不足要素・title / description 案を提案します。",
+      "1 つの対策キーワードについて、Google の上位 10 件と自社の 1 ページを比べ、検索意図・不足している要素・title / description 案を提案します。サイト全体を見るパワーアップ分析とは違い、「この語で勝つには何が足りないか」を 1 ページ単位で深掘りします。",
     details: [
       "キーワードの検索結果上位 10 件を取得（SerpApi、または Claude の Web 検索で代替）",
       "SERP の傾向・検索意図・SERP フィーチャーの整理",
@@ -661,8 +669,8 @@ export function requireFeature(id: string): Feature {
  */
 export function groupsForSidebar(category?: FeatureCategoryId): { free: readonly Feature[]; tools: readonly FeatureGroup[] } {
   const free = FEATURE_GROUPS.find((g) => g.id === "free")?.features ?? [FREE_FEATURE];
-  const groups = FEATURE_GROUPS.filter((g) => g.id !== "free");
-  if (!category) return { free, tools: groups };
+  const groups = FEATURE_GROUPS.filter((g) => g.id !== "free").map((g) => ({ ...g, features: g.features.filter((f) => !f.hidden) }));
+  if (!category) return { free, tools: groups.filter((g) => g.features.length > 0) };
   const tools = groups
     .map((g) => ({ ...g, features: g.features.filter((f) => !f.category || f.category === category) }))
     .filter((g) => g.features.length > 0);

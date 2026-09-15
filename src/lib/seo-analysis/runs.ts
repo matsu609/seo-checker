@@ -6,7 +6,8 @@
  * テーブル定義は docs/dev/OPERATIONS.md の SQL を参照。
  */
 import { z } from "zod";
-import { supabaseRest } from "@/lib/db/supabase";
+import type { AuditResult } from "@/lib/audit/types";
+import { DbError, supabaseRest } from "@/lib/db/supabase";
 import { DEFAULT_MONTHLY_LIMIT, MAX_ANALYSES_PER_RUN } from "./limits";
 import type { AnalysisRecord, SecondOpinionRecord } from "./ai/schema";
 import type { AnalysisInput, SeoFactSheet } from "./sheet/types";
@@ -32,6 +33,8 @@ export interface RunSummary {
 export interface RunDetail extends RunSummary {
   input: AnalysisInput;
   sheet: SeoFactSheet;
+  /** サイト診断の全結果（課題一覧・ページ一覧）。列が無い古い行は null */
+  audit: AuditResult | null;
   analysis: AnalysisRecord | null;
   secondOpinion: SecondOpinionRecord | null;
 }
@@ -52,6 +55,7 @@ const DetailRow = SummaryRow.extend({
   sheet: z.unknown(),
   analysis: z.unknown().nullable(),
   second_opinion: z.unknown().nullable(),
+  audit: z.unknown().nullable().optional(),
 });
 
 function eq(value: string): string {
@@ -98,25 +102,37 @@ export interface CreateRunInput {
   input: AnalysisInput;
   origin: string;
   sheet: SeoFactSheet;
+  /** サイト診断の全結果（`audit` 列。列が無ければ落として保存する） */
+  audit: AuditResult;
 }
 
 export async function createRun(args: CreateRunInput): Promise<RunSummary> {
-  const rows = await supabaseRest<unknown>(`${TABLE}?select=${LIST_COLUMNS}`, {
-    method: "POST",
-    body: {
-      user_id: args.userId,
-      url: args.input.url,
-      origin: args.origin,
-      status: "collected",
-      input: args.input,
-      sheet: args.sheet,
-      analysis: null,
-      second_opinion: null,
-      analysis_count: 0,
-      headline: null,
-    },
-    prefer: "return=representation",
-  });
+  const base = {
+    user_id: args.userId,
+    url: args.input.url,
+    origin: args.origin,
+    status: "collected",
+    input: args.input,
+    sheet: args.sheet,
+    analysis: null,
+    second_opinion: null,
+    analysis_count: 0,
+    headline: null,
+  };
+  let rows: unknown;
+  try {
+    rows = await supabaseRest<unknown>(`${TABLE}?select=${LIST_COLUMNS}`, {
+      method: "POST",
+      body: { ...base, audit: args.audit },
+      prefer: "return=representation",
+    });
+  } catch (err) {
+    // `audit` 列を足す SQL（OPERATIONS.md）を実行していない環境では 400 になる。
+    // 詳細（課題一覧）だけを諦めて、事実シートと AI 分析は動かす
+    if (!(err instanceof DbError) || err.status !== 400) throw err;
+    console.warn("[seo-analysis] analysis_runs.audit 列が無いため、サイト診断の全結果は保存しません");
+    rows = await supabaseRest<unknown>(`${TABLE}?select=${LIST_COLUMNS}`, { method: "POST", body: base, prefer: "return=representation" });
+  }
   const parsed = z.array(SummaryRow).min(1).safeParse(rows);
   if (!parsed.success) throw new Error("保存後の応答を読めませんでした");
   return toSummary(parsed.data[0]);
@@ -142,6 +158,7 @@ export async function getRun(userId: string, id: string): Promise<RunDetail | nu
     sheet: row.sheet as SeoFactSheet,
     analysis: (row.analysis as AnalysisRecord | null) ?? null,
     secondOpinion: (row.second_opinion as SecondOpinionRecord | null) ?? null,
+    audit: (row.audit as AuditResult | null | undefined) ?? null,
   };
 }
 

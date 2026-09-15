@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Callout, Card, EmptyState, Field, Input, Select, Textarea } from "@/components/ui";
+import type { AuditResult } from "@/lib/audit/types";
 import type { AnalysisRecord, SecondOpinionRecord } from "@/lib/seo-analysis/ai/schema";
 import { MAX_COMPETITORS, MAX_KEYWORDS, PAGE_LIMITS } from "@/lib/seo-analysis/input";
 import { MAX_ANALYSES_PER_RUN } from "@/lib/seo-analysis/limits";
@@ -44,6 +45,7 @@ const STEP_LABELS: Record<string, string> = {
 interface Loaded {
   runId: string;
   sheet: SeoFactSheet;
+  audit: AuditResult | null;
   analysis: AnalysisRecord | null;
   secondOpinion: SecondOpinionRecord | null;
   analysisCount: number;
@@ -159,9 +161,9 @@ export function SeoAnalysisView() {
     setSoState("idle");
     setSoError(null);
     try {
-      const { run, sheet } = await requestCollect(input, { signal: ac.signal, onProgress: setProgress });
+      const { run, sheet, audit } = await requestCollect(input, { signal: ac.signal, onProgress: setProgress });
       if (ac.signal.aborted) return;
-      setLoaded({ runId: run.id, sheet, analysis: null, secondOpinion: null, analysisCount: 0 });
+      setLoaded({ runId: run.id, sheet, audit, analysis: null, secondOpinion: null, analysisCount: 0 });
       await runAnalysis(run.id);
     } catch (err) {
       if (ac.signal.aborted) return;
@@ -187,7 +189,7 @@ export function SeoAnalysisView() {
       setSoError(null);
       try {
         const run = await fetchRun(id);
-        setLoaded({ runId: run.id, sheet: run.sheet, analysis: run.analysis, secondOpinion: run.secondOpinion, analysisCount: run.analysisCount });
+        setLoaded({ runId: run.id, sheet: run.sheet, audit: run.audit, analysis: run.analysis, secondOpinion: run.secondOpinion, analysisCount: run.analysisCount });
         setSoState(run.secondOpinion ? "done" : meta && !meta.secondOpinion ? "disabled" : "idle");
         setPhase("done");
         if (!run.analysis && run.analysisCount < MAX_ANALYSES_PER_RUN) await runAnalysis(run.id);
@@ -237,7 +239,7 @@ export function SeoAnalysisView() {
       <Card
         className="mb-6"
         title="分析するサイト"
-        description="URL だけで動きます。キーワード・業種・目的・競合を入れると、その分だけ分析が具体的になります（Google 連携は不要。連携済みなら自動で加わります）。"
+        description="URL だけで動きます。サイト全体のクロール（旧・サイト診断: 48 ルールの課題一覧・ページ一覧・CSV は報告書の「詳細」に出ます）に、速度・検索順位・Google 連携の数字を足して AI が分析します。キーワード・業種・目的・競合を入れると、その分だけ分析が具体的になります。"
         actions={
           quota ? (
             <Badge tone={exhausted ? "fail" : "neutral"} icon={false}>
@@ -334,6 +336,7 @@ export function SeoAnalysisView() {
       {loaded ? (
         <ReportView
           sheet={loaded.sheet}
+          audit={loaded.audit}
           analysis={loaded.analysis}
           secondOpinion={loaded.secondOpinion}
           analyzing={phase === "analyzing"}

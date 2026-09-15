@@ -12,7 +12,7 @@ import { getCurrentPlan } from "@/lib/plans/current";
 export const dynamic = "force-dynamic";
 
 /** 契約済みの人が最初に着く画面 */
-export const FIRST_TOOL_PATH = "/tools/site-audit";
+export const FIRST_TOOL_PATH = "/tools/seo-analysis";
 
 export default async function Page() {
   await connection();

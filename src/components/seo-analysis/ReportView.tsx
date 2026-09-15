@@ -6,6 +6,12 @@
  * すべての主張に事実 ID のチップが付く。
  */
 import { useMemo, useRef, useState } from "react";
+import { AuditCategoryTable } from "@/components/site-audit/AuditCategoryTable";
+import { AuditIssues, type IssueRow } from "@/components/site-audit/AuditIssues";
+import { AuditPages } from "@/components/site-audit/AuditPages";
+import type { AuditResult } from "@/lib/audit/types";
+import { StructureCard } from "./StructureCard";
+import { TrustCard } from "./TrustCard";
 import { Sparkline } from "@/components/charts";
 import { Badge, Button, Callout, Card, StatCard } from "@/components/ui";
 import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId } from "@/lib/crux/types";
@@ -21,6 +27,8 @@ const PRIORITY_TONE = { 1: "fail", 2: "warn", 3: "info" } as const;
 
 export interface ReportViewProps {
   sheet: SeoFactSheet;
+  /** サイト診断の全結果（課題一覧・ページ一覧）。古い保存分は null */
+  audit: AuditResult | null;
   analysis: AnalysisRecord | null;
   secondOpinion: SecondOpinionRecord | null;
   /** AI 分析が動いている（結果待ち） */
@@ -34,7 +42,8 @@ export interface ReportViewProps {
 }
 
 export function ReportView(props: ReportViewProps) {
-  const { sheet, analysis, secondOpinion } = props;
+  const { sheet, audit, analysis, secondOpinion } = props;
+  const [showDetail, setShowDetail] = useState(false);
   const factMap = useMemo(() => new Map(sheet.facts.map((f) => [f.id, f] as [string, Fact])), [sheet.facts]);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -282,6 +291,34 @@ export function ReportView(props: ReportViewProps) {
         )}
 
         <SpeedCard sheet={sheet} />
+
+        <Card
+          title="詳細: サイト診断（クロールの全結果）"
+          description="パワーアップ分析の中で実行したクロールの結果です。48 ルールの課題一覧（CSV 出力可）、カテゴリ別の件数、サイトの構成、信頼の手がかり、診断したページの一覧。"
+          actions={
+            audit ? (
+              <Button variant="secondary" size="sm" className="print:hidden" onClick={() => setShowDetail((v) => !v)}>
+                {showDetail ? "折りたたむ" : `詳細を表示（課題 ${fmt(audit.issues.length)} 件・${fmt(audit.crawl.analyzed)} ページ）`}
+              </Button>
+            ) : null
+          }
+        >
+          {!audit && <p className="text-[13px] text-muted">この分析にはクロールの全結果が保存されていません（保存の列が無い時期の分析か、収集だけの状態です）。付録の事実シートに集計は残っています。</p>}
+          {audit && !showDetail && (
+            <p className="text-[13px] text-muted print:hidden">
+              重大 {audit.bySeverity.error} / 警告 {audit.bySeverity.warning} / 情報 {audit.bySeverity.info}。「詳細を表示」で課題ごとの URL と直し方、ページ一覧を開きます。
+            </p>
+          )}
+          {audit && (
+            <div className={`space-y-6 ${showDetail ? "" : "hidden print:block"}`}>
+              <AuditCategoryTable rows={audit.byCategory} hasPrevious={false} />
+              {audit.structure && <StructureCard structure={audit.structure} />}
+              {audit.trust && <TrustCard trust={audit.trust} />}
+              <AuditIssues issues={audit.issues.map((i): IssueRow => ({ ...i }))} origin={audit.origin} hasPrevious={false} />
+              <AuditPages pages={audit.pages} failures={audit.failures} />
+            </div>
+          )}
+        </Card>
 
         <FactsAppendix facts={sheet.facts} />
       </div>

@@ -37,9 +37,9 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   },
   {
     n: 3,
-    title: "サイトを診断して改修案を受け取る",
-    body: "サイト診断を 1 回流すと、テクニカル SEO と AI 検索（AIO）の観点で直す場所が出ます。そのまま改修案（before → after）と原稿の生成まで進めます。",
-    href: "/tools/site-audit",
-    linkLabel: "サイト診断を開く",
+    title: "サイトを分析して改善案を受け取る",
+    body: "パワーアップ分析を 1 回流すと、サイト全体のクロール・速度・検索順位をもとに、AI が現状分析と優先順位つきの改善案を書きます。そのまま改修案（before → after）と原稿の生成まで進めます。",
+    href: "/tools/seo-analysis",
+    linkLabel: "パワーアップ分析を開く",
   },
 ];

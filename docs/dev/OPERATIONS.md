@@ -258,6 +258,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
 | 1 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | 下の「パワーアップ分析の実行記録（r56）」の SQL を貼って Run → Success を確認。Table Editor に `analysis_runs` が出れば完了 |
+| 1b | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | **r58 で列が 1 つ増えた**: `alter table analysis_runs add column if not exists audit jsonb;` を貼って Run → Success。これが無いと報告書の「詳細: サイト診断」が空になる（他は動く） |
 | 2 | Google Cloud → API ライブラリ（Chrome UX Report API） | https://console.cloud.google.com/apis/library/chromeuxreport.googleapis.com?project=seo-checker-508104 | 「有効にする」。無料・請求先不要 |
 | 3 | Google Cloud → 認証情報 | https://console.cloud.google.com/apis/credentials?project=seo-checker-508104 | API キー「PageSpeed Insights (seo-checker)」を開く → 「API の制限」で **Chrome UX Report API** を追加して保存（別キーにするなら Vercel に `CRUX_API_KEY` を追加 → Redeploy）。制限が「制限なし」なら何もしなくてよい |
 | 4 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | `seo-checker.tokyo` などで 1 回実行（収集 1〜5 分 → AI 1〜3 分）。報告書の「結論」「改善案」「セカンドオピニオン」「速度」「付録」が出ること、右上の「今月 n / 10 回」が増えることを確認。運営者（ADMIN_EMAILS）は無制限 |
@@ -480,6 +481,14 @@ create table if not exists analysis_runs (
 create index if not exists analysis_runs_user_idx on analysis_runs (user_id, created_at desc);
 alter table analysis_runs enable row level security;
 ```
+
+**r58 で足した列（サイト診断の統合。09-15 の SQL を実行済みなら、この 1 行だけを実行する）**:
+
+```sql
+alter table analysis_runs add column if not exists audit jsonb;
+```
+
+`audit` はサイト診断の全結果（`AuditResult`: 課題一覧・ページ一覧・構成・信頼。1 行で最大 1 MB 前後）。列が無い環境では保存を諦めて事実シートだけで動く（`runs.ts` が 400 を受けて落とす）ので、報告書の「詳細」が空になるだけで止まりはしない。
 
 `status` は collected（収集のみ）/ analyzed（AI 分析済み）/ failed。`sheet` は事実シート（`src/lib/seo-analysis/sheet/types.ts` の `SeoFactSheet`）、`analysis` は Claude の分析（`ai/schema.ts` の `AnalysisRecord`）、`second_opinion` は ChatGPT（`SecondOpinionRecord`）。月の回数は `user_id` × 今月（JST）× `status <> 'failed'` の行数で数える（`runs.ts`）。1 行は数百 KB になりうる（PSI の結果を含む）。
 

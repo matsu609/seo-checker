@@ -73,13 +73,13 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
       try {
-        const sheet = await collectFactSheet(input, {
+        const { sheet, audit } = await collectFactSheet(input, {
           signal: request.signal,
           onProgress: (p) => send({ type: "progress", ...p }),
         });
         send({ type: "progress", step: "sheet", message: "保存しています" });
-        const run = await createRun({ userId, input, origin: sheet.site.origin, sheet });
-        send({ type: "result", run, sheet });
+        const run = await createRun({ userId, input, origin: sheet.site.origin, sheet, audit });
+        send({ type: "result", run, sheet, audit });
       } catch (err) {
         if (request.signal.aborted) return;
         if (err instanceof FetchError) send({ type: "error", error: err.message, code: err.code });

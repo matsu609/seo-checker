@@ -14,7 +14,7 @@
 | クイック診断 | `/` | クイック診断（サイト・SEO / AIO。無料・ログイン不要。サイト全体は代表 10 ページ） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
 | クイック診断 | `/meo` | クイック診断（店舗・MEO。店舗 1 件、ログイン不要、回数制限つき） | — | Places API (New) |
 | 診断 | `/tools/seo-analysis` | パワーアップ分析（事実シート + AI の現状分析と改善案） | — | Supabase + Anthropic（PSI / SerpApi / OpenAI / CrUX は任意） |
-| 診断 | `/tools/site-audit` | サイト診断（テクニカル SEO） | A1 | なし（サマリーは Anthropic 任意） |
+| 診断 | `/tools/site-audit` | （パワーアップ分析に統合。転送のみ。`hidden: true`） | A1 | — |
 | 診断 | `/tools/page-report` | ページ最適化レポート（AIO/LLM） | A2, A3 | PSI 任意 |
 | 診断 | `/tools/page-diagnosis` | ページ診断（キーワード × ページ） | A4 | SERP or Anthropic web 検索 |
 | 診断 | `/tools/aio-topics` | AIO 頻出トピック | A5 | SERP + Anthropic |

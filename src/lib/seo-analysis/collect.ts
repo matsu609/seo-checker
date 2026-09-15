@@ -34,7 +34,13 @@ export interface CollectOptions {
   onProgress?: (p: CollectProgress) => void;
 }
 
-export async function collectFactSheet(input: AnalysisInput, options: CollectOptions = {}): Promise<SeoFactSheet> {
+export interface CollectResult {
+  sheet: SeoFactSheet;
+  /** サイト診断の全結果（報告書の「詳細」に出す） */
+  audit: AuditResult;
+}
+
+export async function collectFactSheet(input: AnalysisInput, options: CollectOptions = {}): Promise<CollectResult> {
   const emit = (step: CollectStep, message: string, audit?: AuditProgress) => options.onProgress?.({ step, message, audit });
 
   // 1. クロール（テクニカル・構成・信頼）
@@ -75,7 +81,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
   ]);
 
   emit("sheet", "事実シートを組み立てています");
-  return buildFactSheet({
+  const sheet = buildFactSheet({
     input,
     audit,
     quick,
@@ -90,6 +96,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
       ga4: googleOutcome.ga4,
     },
   });
+  return { sheet, audit };
 }
 
 async function quickScore(audit: AuditResult): Promise<SheetSite["quick"]> {
