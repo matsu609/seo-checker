@@ -215,6 +215,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho` | Claude | **完了（r41）**。内容（解約は期間末まで利用可・日割り返金なし・運営責任者「松下」）は Claude の仮置き。利用者が確認して直す点があれば伝える |
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
 | 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。残るは ⑧ 本番モード）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
+| 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **最優先・未着手** |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
 | 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
@@ -350,6 +351,8 @@ SerpApi の実費が出るのはパワーアップ分析（1 回 ≤ 7 検索）
 - `robots.txt` はアプリ全体を塞ぎ、規約類だけを開ける（検索からも見つからない）
 
 ### 本番公開までに残っていること（決済まわり）
+
+**いちばん手前にあるのは #84（Stripe のセキュリティチェックリスト）。決済・入金が 2026/09/09 から停止しているので、これが終わるまで本番の課金は通らない。**
 
 | # | 内容 | 担当 |
 |---|---|---|
@@ -1141,3 +1144,18 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
   - 紹介サイト（料金セクション・JSON-LD の Offer 3 本・FAQ・ヒーロー・概要表・meta description）、`public/service-guide.html`（**5,000 / 10,000 円のまま 2 世代放置されていた**ので合わせて更新）、特商法の表記、README、仕様書のプラン名を更新。
 - 検証: lint / tsc / test（1,724 件）/ build すべて通過。
 - 利用者の残作業: Stripe に商品「ライト」＋価格 ¥38,000 / 月を作る → `STRIPE_PRICE_LIGHT` を Vercel に登録 → Redeploy（#58 の 1・6）。カスタマーポータルの「プランの変更」を ON に（#58 の 3）。Clerk に `publicMetadata.plan = standard` を手で割り当てた人がいないかの確認（意味が変わったため）。
+
+
+### 2026-09-16（Stripe のセキュリティチェックリストが期日超過 → #84）
+
+- 利用者が Stripe の設定画面を確認したところ、赤帯「Multiple capabilities paused / A required task is past due」。タスクの詳細は **Additional information required**、内容は
+  `All businesses in Japan are required to complete the security checklist to process payments. Please provide additional information.`、期日 **09/09**、
+  **影響: 決済・入金とも 2026/09/09 に一時停止**。進捗は「送信済み → 審査中 → 完了」の 3 段階で、まだ 1 つ目にも入っていない。
+- 日本の加盟店に求められるセキュリティ確認（不正利用対策・管理画面のアクセス管理・脆弱性対策など）で、**Stripe 側の審査があるため時間がかかる**。#58 の ⑧（本番モード）より先に片付ける必要がある。テスト環境（サンドボックス）の検証は影響を受けないので、#58 の 1〜7 は並行して進めてよい。
+- 回答に使える、このサービスの実態（設問に答えるときの材料。Claude が下書きする場合の根拠）:
+  - **カード情報はアプリを一切通らない**。入力は Stripe Checkout のホスト画面で、こちらが受け取るのは顧客 ID（`cus_…`）とサブスクリプション ID だけ（`src/lib/billing/`）。PCI DSS でいえば SAQ A に相当する構成。
+  - 保存しているのは Clerk のユーザーの `publicMetadata.stripe`（契約状況・金額・次回更新日）と `privateMetadata.stripeCustomerId`。**カード番号・有効期限・セキュリティコードはどこにも保存していない**。
+  - 管理画面（`/admin`）は Clerk のログイン + `ADMIN_EMAILS` の一致で制限。アプリ全体のログインは Clerk（Google SSO）。
+  - Webhook は Stripe の署名検証つき（`STRIPE_WEBHOOK_SECRET`）。古いイベントで新しい状態を上書きしない作り。
+  - ホスティングは Vercel、DB は Supabase（店舗情報・診断結果のみ。決済情報は持たない）。
+  - **未対応**: Clerk と Stripe ダッシュボードの多要素認証（2 段階認証）、Clerk の登録制限（#7）、鍵のローテーション（#9）。チェックリストで問われる可能性が高いので、回答の前に済ませておくとよい。
