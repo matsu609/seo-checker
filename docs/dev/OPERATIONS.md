@@ -92,7 +92,7 @@
 | `CLERK_SECRET_KEY` | 設定済み（`sk_live_`、Production のみ） | **要ローテーション**（会話に貼られた） |
 | `ADMIN_EMAILS` | `matsumatsu452@gmail.com` | マスター画面の管理者 |
 | `DEFAULT_PLAN` | `pro` | Production and Preview |
-| `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` | 未設定（本番）。テスト環境は 09-13 に 3 つ登録済み | 決済（r41、r63 で 3 段階に）。#58。`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名として今も読むので、テスト環境の既存の登録はそのままで動く。**ライトを売るには `STRIPE_PRICE_LIGHT` の追加が要る**（未設定ならライトの「申し込む」だけが出ない）。まずテストキー（`sk_test_`）で確認 → 本番キーに差し替え |
+| `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET`（+ 任意で `STRIPE_PRICE_PREMIUM`） | 未設定（本番）。テスト環境は 09-13 に 3 つ登録済み | 決済（r41、r63 で 3 段階に）。#58。`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名として今も読むので、テスト環境の既存の登録はそのままで動く。**ライトを売るには `STRIPE_PRICE_LIGHT` の追加が要る**（未設定ならライトの「申し込む」だけが出ない）。まずテストキー（`sk_test_`）で確認 → 本番キーに差し替え |
 | `SITE_MAX_PAGES` | `100` | Production and Preview（一度誤って Preview のみにしたが復旧済み） |
 | `ANTHROPIC_API_KEY` | **設定済み**（09-10 17:30 設定画面で「設定済み」を確認） | Claude Console のクレジット購入済み |
 | `PAGESPEED_API_KEY` | **登録済み**（利用者報告 09-10 17:4x「AB 完了」）。設定画面での確認は未 | |
@@ -1159,3 +1159,19 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
   - Webhook は Stripe の署名検証つき（`STRIPE_WEBHOOK_SECRET`）。古いイベントで新しい状態を上書きしない作り。
   - ホスティングは Vercel、DB は Supabase（店舗情報・診断結果のみ。決済情報は持たない）。
   - **未対応**: Clerk と Stripe ダッシュボードの多要素認証（2 段階認証）、Clerk の登録制限（#7）、鍵のローテーション（#9）。チェックリストで問われる可能性が高いので、回答の前に済ませておくとよい。
+
+
+### 2026-09-16（プレミアムの契約を Stripe から正しく読む、r64）
+
+- 利用者「**プレミアムは無くてもいいの？**」（Stripe に商品を作らなくてよいのか）。作らなくてよい、と答えたうえで、r63 の抜けが 1 つ見つかった。
+- **見つけた抜け**: r63 は Price ID → プランの対応表を「画面から買えるプラン」だけで引いていた。プレミアムは `checkout: "contact"` なのでこの表に無く、
+  受注した相手に支払いリンク・請求書で 150,000 円のサブスクリプションを立てると、**価格が対応表に無いため本命（スタンダード）として記録される**。
+  しかも `getCurrentPlan()` は契約状態を `publicMetadata.plan` より先に見るので、**あとから手で `premium` を入れても上書きされない**。
+  機能は開く（プレミアム限定のツールは無い）が、お客様の画面とマスター画面に「スタンダード」と出てしまう。
+- **直し方（r64）**: `STRIPE_PRICE_PREMIUM`（任意）を足し、`planForPriceId()` は全プランを見るようにした。
+  申し込みの可否を決める `purchasablePlanIds()` は今までどおり画面から買えるプランだけなので、**料金画面にプレミアムの「申し込む」は出ない**。
+  「買えるか」と「読めるか」は別、という線引き。回帰テスト `src/lib/billing/__tests__/stripe-prices.test.ts` で固定した。
+- 検証: lint / tsc / test（1,729 件）/ build 通過。
+- **プレミアムを受注したときの手順**（決まったので記録）: Stripe で商品「プレミアム（伴走）」＋価格 ¥150,000 / 月 を作る →
+  支払いリンクか請求書でその顧客に契約を立てる → **その Price ID を Vercel の `STRIPE_PRICE_PREMIUM` に入れて Redeploy** →
+  以後その契約は「プレミアム」として記録される。1 社目を受注するまでは何もしなくてよい。
