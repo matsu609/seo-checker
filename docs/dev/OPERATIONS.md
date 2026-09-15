@@ -954,3 +954,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **判断**: 回数は「収集」で消費（クロールと SerpApi の実費が出るため）。AI 分析のやり直しは 1 収集 3 回まで無料。PSI は API キー無しでも呼ぶ（既存ツールと同じ。回数制限で落ちたら注記）。CrUX は所有権不要なので誰のサイトでも引ける。
 - **利用者側の作業**: #78 の表（Supabase の SQL、Chrome UX Report API の有効化とキーの制限、本番で 1 回実行）。**本番でまだ 1 度も動かしていない**（この環境には API キーが無い）。最初の 1 回で AI の出力の質とトークン量（Opus で入力 1〜2 万・出力 5 千前後の見込み）を見て、プロンプトと `MAX_FACT_LINES` を調整する。
 
+### 2026-09-15（パワーアップ分析の設定）
+
+- 利用者が Supabase の SQL Editor の画面を共有。実行されていたのは **09-11 の SQL**（`review_forms.translations` / `review_responses.lang` / `listing_profiles`。`if not exists` なので再実行は無害）で、`analysis_runs` は未作成。エディタを空にして r56 の SQL（「パワーアップ分析の実行記録」）を貼って Run するよう案内（#78 の 1）。完了の連絡待ち → 次は Chrome UX Report API の有効化とキーの制限（#78 の 2・3）→ 本番で 1 回実行（#78 の 4）。
+
