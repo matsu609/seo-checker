@@ -5,12 +5,16 @@
  *   STRIPE_SECRET_KEY      … sk_test_ / sk_live_（Stripe ダッシュボード → 開発者 → API キー）
  *   STRIPE_PRICE_STANDARD  … スタンダード（月 50,000 円・本命）の Price ID（price_…）。旧名 STRIPE_PRICE_PRO も読む
  *   STRIPE_PRICE_LIGHT     … ライト（月 38,000 円）の Price ID。未設定ならライトの「申し込む」は出ない
+ *   STRIPE_PRICE_PREMIUM   … プレミアム（月 150,000 円）の Price ID。任意。画面には出ないが、
+ *                            支払いリンクや請求書で契約を立てたときに「プレミアムの契約」として記録するために使う
  *   STRIPE_WEBHOOK_SECRET  … Webhook エンドポイントの署名シークレット（whsec_…）
  * 鍵・スタンダードの Price・Webhook の 3 つがそろって初めて料金画面に「申し込む」が出る（isStripeConfigured）。
  *   STRIPE_TRIAL_DAYS      … 無料期間の日数（任意。既定 30。0 または未設定でトライアルなし）。
  *                            カードは申し込み時に登録され、この日数を過ぎてから初回の請求が立つ。
  *
- * プレミアム（伴走・月 3 社まで）はここに Price を持たない。枠の確認が要るのでお問い合わせから受ける。
+ * プレミアム（伴走・月 3 社まで）は料金画面に「申し込む」を出さない（枠の確認が要るのでお問い合わせから受ける）。
+ * 受注が決まった相手には Stripe の支払いリンク・請求書で契約を立てるので、その価格を
+ * STRIPE_PRICE_PREMIUM に入れておくと、契約がプレミアムとして記録される。
  *
  * 割引は Stripe のクーポン → プロモーションコードで行う（利用者の決定 2026-09-13）。
  * 申し込み画面でコードを入力した人だけに適用されるので、コードを持たない人の支払額は定価のまま。
@@ -19,7 +23,7 @@
  * カードの変更・解約・請求書の閲覧は Stripe のカスタマーポータルに任せる（自前でカード番号を扱わない）。
  */
 import Stripe from "stripe";
-import { STRIPE_PLANS, type PlanId } from "@/lib/plans/catalog";
+import { PLANS, STRIPE_PLANS, type PlanId } from "@/lib/plans/catalog";
 import { trialDays } from "./trial";
 
 export { DEFAULT_TRIAL_DAYS, trialDays } from "./trial";
@@ -52,6 +56,11 @@ const PRICE_ENV: Partial<Record<PlanId, readonly string[]>> = {
   light: ["STRIPE_PRICE_LIGHT"],
   // STRIPE_PRICE_PRO は 2026-09-15 までの「オールインワン」の変数名。Vercel に残っていても動くようにしておく
   standard: ["STRIPE_PRICE_STANDARD", "STRIPE_PRICE_PRO"],
+  // プレミアム（伴走）は画面から買えない（月 3 社の枠を確認してから受ける）。
+  // それでも Price を置けるようにしておくのは、受注が決まった相手に支払いリンクや請求書で
+  // サブスクリプションを立てたとき、Webhook が「プレミアムの契約」として記録できるようにするため。
+  // 未設定なら価格が対応表に無いことになり、契約が本命（スタンダード）として記録されてしまう。
+  premium: ["STRIPE_PRICE_PREMIUM"],
 };
 
 /** そのプランの Price ID（未設定なら null = 画面に「申し込む」を出さない） */
@@ -68,10 +77,16 @@ export function purchasablePlanIds(): PlanId[] {
   return STRIPE_PLANS.filter((p) => priceIdOf(p.id) !== null).map((p) => p.id);
 }
 
-/** Stripe の Price ID からプランを引く（Webhook が契約状態に書き込むときに使う） */
+/**
+ * Stripe の Price ID からプランを引く（Webhook が契約状態に書き込むときに使う）。
+ *
+ * 画面から買えるプランだけでなく、プレミアムのように運用者が Stripe 側だけで契約を立てる
+ * プランも見る（`purchasablePlanIds()` と範囲が違うのは意図的。申し込みの可否と、
+ * 立った契約をどう読むかは別の話）。
+ */
 export function planForPriceId(priceId: string | null): PlanId | null {
   if (!priceId) return null;
-  return STRIPE_PLANS.find((p) => priceIdOf(p.id) === priceId)?.id ?? null;
+  return PLANS.find((p) => priceIdOf(p.id) === priceId)?.id ?? null;
 }
 
 export interface CheckoutInput {

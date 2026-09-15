@@ -145,7 +145,7 @@ npm run dev                  # http://localhost:3000
 | **クイック診断** | 0 円 | サイトのクイック診断（`/`、1 ページまたは代表 10 ページ）と店舗のクイック診断（`/meo`、店舗 1 件）。ログイン不要。プランではない（`free` = 未契約） |
 | **ライト**（`light`） | 38,000 円 | SEO・AIO・MEO の**診断と計測**のツールすべて。AI が成果物を作るツール（7 つ）は含まない。**初月無料** |
 | **スタンダード**（`standard`・本命） | 50,000 円（定価） | ライトのすべて + **AI が成果物を作る**ツール（パワーアップ分析・HP 改修提案・AI ライティング・llms.txt 生成・口コミ支援・AI 返信案・NAP 一括掲載）。**初月無料**（`STRIPE_TRIAL_DAYS`、既定 30 日）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力） |
-| **プレミアム（伴走）**（`premium`） | 150,000 円 | スタンダードのすべて + 人の作業（月 1 回の報告ミーティング・レポート代行・優先サポート）。**月 3 社まで**。Stripe の Price を持たず、お問い合わせから受ける |
+| **プレミアム（伴走）**（`premium`） | 150,000 円 | スタンダードのすべて + 人の作業（月 1 回の報告ミーティング・レポート代行・優先サポート）。**月 3 社まで**。料金画面に「申し込む」を出さず、お問い合わせから受ける（受注後に Stripe の支払いリンク・請求書で契約を立て、その価格を `STRIPE_PRICE_PREMIUM` に入れる） |
 
 申し込みの入口は `https://app.seo-checker.tokyo/sign-up` です（新規登録 → `/start` → 未契約なので `/plans` → 申し込み）。紹介サイトの「初月無料ではじめる」もここへ送ります。登録済みの人は `/plans` から申し込み・カードの変更・解約ができます。
 
@@ -174,7 +174,7 @@ npm run dev                  # http://localhost:3000
 1. Stripe ダッシュボードで商品「スタンダード」（月額 50,000 円・JPY・継続）と「ライト」（月額 38,000 円・JPY・継続）を作り、それぞれの **Price ID（`price_…`）** を控える。割引はクーポン → プロモーションコードで作る。プレミアム（伴走）は Stripe に作らない（お問い合わせから受ける）
 2. 開発者 → Webhook で `https://app.seo-checker.tokyo/api/billing/webhook` を登録し、イベント `checkout.session.completed` / `customer.subscription.created` / `customer.subscription.updated` / `customer.subscription.deleted` を選ぶ → **署名シークレット（`whsec_…`）** を控える
 3. 設定 → カスタマーポータルを有効にする（お支払い方法の更新・請求書・解約を許可）
-4. Vercel の環境変数に `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` を入れて Redeploy（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名として今も読みます）
+4. Vercel の環境変数に `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` を入れて Redeploy（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名として今も読みます）。プレミアムを受注して支払いリンク・請求書で契約を立てるときは、その価格を `STRIPE_PRICE_PREMIUM` にも入れます（入れないと、その契約がスタンダードとして記録されます）
 
 鍵・スタンダードの Price・Webhook がそろうと `/plans` の料金表に各プランの「申し込む」（契約前）が出て、契約後は「お支払い方法の変更・請求書・解約」が出ます（`src/components/plans/PlanCheckoutButton.tsx` と `src/components/plans/StripeBillingCard.tsx`）。`STRIPE_PRICE_LIGHT` が未設定ならライトの「申し込む」だけが出ません。テストキー（`sk_test_`）のときは画面に「テストモード」と出ます。未設定なら案内文が「プラン変更は運用者までご連絡ください」に変わり、上の 3（`publicMetadata.plan`）を手で割り当てる運用になります。申し込み画面では Stripe のプロモーションコード（クーポン）を入力できます。
 
@@ -314,6 +314,7 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・スタンダードとライトの Price ID・Webhook の署名シークレット。鍵・スタンダードの Price・Webhook がそろうと `/plans` に申し込みとお支払いの管理が出る（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名） |
+| `STRIPE_PRICE_PREMIUM` | 任意。プレミアム（伴走）の Price ID。料金画面には出ないが、支払いリンク・請求書で立てた契約をプレミアムとして記録するために使う |
 | `STRIPE_TRIAL_DAYS` | 無料期間の日数（既定 30 = 初月無料）。`0` でトライアルなし。特商法ページと料金画面の文面もこの値に従う |
 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（ドルのみ）の料金表を出す。Stripe が設定されていれば出さない |
 | `ADMIN_EMAILS` | マスター画面（`/admin`）を開けるメールアドレス。未設定なら誰も入れない |
