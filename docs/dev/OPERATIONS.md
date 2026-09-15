@@ -991,3 +991,11 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 09-15 利用者が `alter table analysis_runs add column if not exists audit jsonb;` を実行（Success）。**#78 の 1b 完了**。「他にやることは？」→ 残りは 3（キーの制限に Chrome UX Report API を追加）と 4（本番で 1 回実行）。それ以外の必須作業は無し。任意: `OPENAI_API_KEY`（LLMO で登録済みならそのまま使われる）、`SEO_ANALYSIS_MONTHLY_LIMIT`。
 - 09-15 利用者が API キーの「API の制限」で Chrome UX Report API にチェックした画面を共有（「もうできてます」）。OK → 選択中の API が 2 つ → 「保存」まで押すよう念押し。**#78 の 3 完了扱い**。残りは 4（本番で 1 回実行）。
 
+### 2026-09-15（本番で初回実行 → AI 分析の不具合を修正、r59）
+
+- 利用者が本番 `/tools/seo-analysis` で `https://wolf-g.jp/company`（キーワード LLMO、目的 = 問い合わせ）を実行し画面を共有。**収集は成功**（63 ページ、課題 78 件 = 重大 1 / 警告 65 / 情報 12、CrUX サイト全体 LCP 1.1 秒 良好・CLS 0.00 良好・INP データなし → CWV 判定不能、URL 単位は全部データ不足、PSI Performance 57〜65、事実シート 67 行、今月 0 回 = 運営者無制限）。**AI 分析は「AI の処理中にエラーが発生しました」で失敗**。検索順位は未取得（Vercel に `SERPAPI_KEY` が無い。サイドバーの順位計測も「要設定」）。
+- 原因: `@anthropic-ai/sdk` の `zodOutputFormat` は zod の `max` / `min`（文字数・件数・数値範囲）を API に送らず説明文のヒントにするだけ（`lib/transform-json-schema.js`）。AI が 1 件でも超えると `helpers/zod.js` の `safeParse` が落ちて `AnthropicError`（APIError ではない）になり、`toApiError` の既定文言（500）になっていた。手元では `zodOutputFormat(AnalysisSchema)` 自体は通る（テストで確認）ので、本番の出力が上限を超えたと判断。
+- **r59**: `ai/schema.ts` から上限を外し、`tidyAnalysis` / `tidyComment` / `tidySecondOpinion` で受け取り後に切り詰める（`LIMITS`）。`priority` は 1〜3 に丸める。`toApiError` に `AnthropicError` の分岐を追加（502「AI の出力が想定の形と違いました。もう一度お試しください」+ 検証内容を `console.error`）。テスト 4 件追加（上限超えの出力が parse を通り、切り詰めで収まること）。
+- 画面のサイドバーに「サイト診断」が残っていたのは、その時点で r58 が未反映（デプロイ待ち）だったため。リロードで消える。
+- **次**: 利用者が同じ画面で「AI 分析をやり直す（0 / 3）」を押す（再収集は不要）。結果を見てプロンプト調整。任意: Vercel に `SERPAPI_KEY` を入れると順位・site: 件数・ブランド検索が事実シートに加わる（LLMO の順位計測と共用）。
+
