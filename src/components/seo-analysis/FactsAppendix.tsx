@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Badge, Card } from "@/components/ui";
 import { FACT_AREA_LABELS, type Fact, type FactArea } from "@/lib/seo-analysis/sheet/types";
 
-const AREA_ORDER: FactArea[] = ["input", "crawl", "structure", "trust", "speed", "search", "domain", "google"];
+const AREA_ORDER: FactArea[] = ["input", "crawl", "structure", "trust", "speed", "search", "domain", "google", "diagnosis"];
 
 export function FactChips({ ids, facts, className = "" }: { ids: readonly string[]; facts: ReadonlyMap<string, Fact>; className?: string }) {
   if (ids.length === 0) return null;

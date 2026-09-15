@@ -5,16 +5,16 @@
  * 流入を事実シートに足す。連携が無い・失敗した場合は notes に書いて空を返す
  * （報告書は連携なしでも完成する。docs/dev/seo-analysis-spec.md §0）。
  */
-import { headerIndex, metricNumber, dimensionValue, rangeForDays, previousRange, type Ga4Client } from "@/lib/ga4";
+import { collectGscDataset, DIAGNOSIS_DAYS } from "@/lib/diagnosis/sources/gsc";
+import type { GscDataset } from "@/lib/diagnosis/types";
+import { headerIndex, metricNumber, dimensionValue, rangeForDays, type Ga4Client } from "@/lib/ga4";
 import { resolveGa4Client } from "@/lib/google/ga4";
 import { createSearchConsoleClient } from "@/lib/google/search-console/client";
-import { totalsOf } from "@/lib/google/search-console/parse";
-import { searchConsoleRange } from "@/lib/google/search-console/period";
 import type { SearchConsoleClient } from "@/lib/google/search-console/types";
 import { getLinkSettings } from "@/lib/google/settings";
 import type { SheetGoogle } from "./sheet/types";
 
-const DAYS = 28;
+const DAYS = DIAGNOSIS_DAYS;
 const TOP_ROWS = 10;
 
 /** 連携先のサイトが分析対象のオリジンと同じか（sc-domain: はサブドメインも含む） */
@@ -44,7 +44,17 @@ export interface CollectGoogleDeps {
   now?: Date;
 }
 
-export async function collectGoogle(origin: string, deps: CollectGoogleDeps = {}): Promise<{ google: SheetGoogle; searchConsole: boolean; ga4: boolean }> {
+export interface CollectGoogleOutcome {
+  google: SheetGoogle;
+  /** 診断（GSC ルール）が使う生データ。連携が無ければ null */
+  gscDataset: GscDataset | null;
+  /** 診断が使う GA4 のデータ（いまは事実シートと同じ形） */
+  ga4Dataset: SheetGoogle["ga4"];
+  searchConsole: boolean;
+  ga4: boolean;
+}
+
+export async function collectGoogle(origin: string, deps: CollectGoogleDeps = {}): Promise<CollectGoogleOutcome> {
   const notes: string[] = [];
   let settings: { searchConsoleSiteUrl?: string; ga4PropertyId?: string } = {};
   try {
@@ -54,32 +64,26 @@ export async function collectGoogle(origin: string, deps: CollectGoogleDeps = {}
   }
 
   let searchConsole: SheetGoogle["searchConsole"] = null;
+  let gscDataset: GscDataset | null = null;
   if (!settings.searchConsoleSiteUrl) {
     notes.push("Search Console は連携していません（設定画面で Google アカウントを接続すると、検索クエリと表示回数が加わります）");
   } else if (!siteMatchesOrigin(settings.searchConsoleSiteUrl, origin)) {
     notes.push(`Search Console の連携先（${settings.searchConsoleSiteUrl}）が分析対象と異なるため使っていません`);
   } else {
-    try {
-      const client = (deps.searchConsole ?? createSearchConsoleClient)();
-      const siteUrl = settings.searchConsoleSiteUrl;
-      const range = searchConsoleRange(DAYS, deps.now);
-      const previous = previousRange(range);
-      const [totalRows, previousRows, queries, pages] = await Promise.all([
-        client.query(siteUrl, { ...range, rowLimit: 1 }),
-        client.query(siteUrl, { ...previous, rowLimit: 1 }),
-        client.query(siteUrl, { ...range, dimensions: ["query"], rowLimit: TOP_ROWS }),
-        client.query(siteUrl, { ...range, dimensions: ["page"], rowLimit: TOP_ROWS }),
-      ]);
+    // 診断（GSC ルール）と事実シートで同じ取得結果を使う。API の呼び出しを二重にしない
+    const client = (deps.searchConsole ?? createSearchConsoleClient)();
+    const outcome = await collectGscDataset(client, settings.searchConsoleSiteUrl, { days: DAYS, now: deps.now });
+    gscDataset = outcome.dataset;
+    for (const n of outcome.notes) notes.push(n);
+    if (gscDataset) {
       searchConsole = {
-        siteUrl,
-        range,
-        totals: totalsOf(totalRows),
-        previousTotals: totalsOf(previousRows),
-        queries: queries.map((r) => ({ query: r.keys[0] ?? "", clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
-        pages: pages.map((r) => ({ page: r.keys[0] ?? "", clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
+        siteUrl: gscDataset.siteUrl,
+        range: gscDataset.range.current,
+        totals: gscDataset.totals.current,
+        previousTotals: gscDataset.totals.previous,
+        queries: gscDataset.queries.current.slice(0, TOP_ROWS).map((r) => ({ query: r.key, clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
+        pages: gscDataset.pages.current.slice(0, TOP_ROWS).map((r) => ({ page: r.key, clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position })),
       };
-    } catch (err) {
-      notes.push(`Search Console のデータを取得できませんでした（${err instanceof Error ? err.message : "エラー"}）`);
     }
   }
 
@@ -139,5 +143,5 @@ export async function collectGoogle(origin: string, deps: CollectGoogleDeps = {}
     notes.push(`GA4 のデータを取得できませんでした（${err instanceof Error ? err.message : "エラー"}）`);
   }
 
-  return { google: { searchConsole, ga4, notes }, searchConsole: searchConsole !== null, ga4: ga4 !== null };
+  return { google: { searchConsole, ga4, notes }, gscDataset, ga4Dataset: ga4, searchConsole: searchConsole !== null, ga4: ga4 !== null };
 }

@@ -10,6 +10,7 @@ import type { AuditCrawlStats, AuditCategory, Severity } from "@/lib/audit/types
 import type { CruxFailure, CruxHistory, CruxRecord } from "@/lib/crux/types";
 import type { DomainPowerResult } from "@/lib/domain-power/types";
 import type { PsiResult } from "@/lib/psi/types";
+import type { DiagnosisResult } from "@/lib/diagnosis/types";
 import type { SerpFeature } from "@/lib/serp/types";
 import type { SiteStructure, TrustSignals } from "../types";
 
@@ -45,7 +46,7 @@ export const GOAL_LABELS: Record<AnalysisGoal, string> = {
   other: "その他",
 };
 
-export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "google";
+export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "google" | "diagnosis";
 
 export const FACT_AREA_LABELS: Record<FactArea, string> = {
   input: "入力",
@@ -56,6 +57,7 @@ export const FACT_AREA_LABELS: Record<FactArea, string> = {
   search: "検索での見え方",
   domain: "ドメインパワー",
   google: "Google 連携（Search Console / GA4）",
+  diagnosis: "数字の診断（発火した診断ルール）",
 };
 
 /** AI が引用する 1 行の事実 */
@@ -167,7 +169,12 @@ export interface SeoFactSheet {
   /** ドメインパワー（無料で取れる指標からの推定）。古い保存分には無い */
   domain?: SheetDomain | null;
   google: SheetGoogle;
+  /**
+   * 数字の診断（GSC / GA4 のルール判定。docs/dev/diagnosis-rules-spec.md）。
+   * 連携が無ければデータ品質ルールだけが入る。古い保存分には無い
+   */
+  diagnosis?: DiagnosisResult | null;
   /** どの取得が動いたか（キー未設定などで飛ばしたものは false） */
-  coverage: { psi: boolean; crux: boolean; serp: boolean; searchConsole: boolean; ga4: boolean; domainPower?: boolean };
+  coverage: { psi: boolean; crux: boolean; serp: boolean; searchConsole: boolean; ga4: boolean; domainPower?: boolean; diagnosis?: boolean };
   facts: Fact[];
 }

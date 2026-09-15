@@ -6,6 +6,7 @@
  * この ID を引用する。ここで作る文言はそのまま画面の付録（事実シート）にも出す。
  */
 import type { AuditResult, AuditPageRow } from "@/lib/audit/types";
+import { CONFIDENCE_LABELS, RULE_SEVERITY_LABELS, type DiagnosisResult } from "@/lib/diagnosis/types";
 import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId, type CruxRecord } from "@/lib/crux/types";
 import { formatCrux, trendOf } from "@/lib/crux/parse";
 import { GRADE_LABELS, SIGNAL_SOURCES, SIGNAL_STATUS_LABELS } from "@/lib/domain-power/types";
@@ -42,6 +43,7 @@ export interface BuildSheetInput {
   search: SheetSearch;
   domain: SheetDomain | null;
   google: SheetGoogle;
+  diagnosis?: DiagnosisResult | null;
   coverage: SeoFactSheet["coverage"];
   generatedAt?: string;
 }
@@ -57,6 +59,7 @@ export function buildFactSheet(args: BuildSheetInput): SeoFactSheet {
     search: args.search,
     domain: args.domain,
     google: args.google,
+    diagnosis: args.diagnosis ?? null,
     coverage: args.coverage,
   };
   return { ...partial, facts: buildFacts(partial) };
@@ -111,7 +114,7 @@ class FactList {
     if (this.facts.length >= MAX_FACTS) return;
     const n = (this.counters.get(area) ?? 0) + 1;
     this.counters.set(area, n);
-    const prefix = area === "input" ? "I" : area === "crawl" ? "C" : area === "structure" ? "S" : area === "trust" ? "T" : area === "speed" ? "P" : area === "search" ? "R" : area === "domain" ? "D" : "G";
+    const prefix = area === "input" ? "I" : area === "crawl" ? "C" : area === "structure" ? "S" : area === "trust" ? "T" : area === "speed" ? "P" : area === "search" ? "R" : area === "domain" ? "D" : area === "diagnosis" ? "N" : "G";
     this.facts.push({ id: `${prefix}-${String(n).padStart(2, "0")}`, area, label, value, ...(extra.note ? { note: extra.note } : {}), ...(extra.url ? { url: extra.url } : {}) });
   }
 }
@@ -132,6 +135,7 @@ function path(url: string): string {
 export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
   const f = new FactList();
   const { input, site, speed, search, google } = sheet;
+  const diagnosis = sheet.diagnosis ?? null;
   const domain = sheet.domain ?? null;
 
   // --- 入力 ------------------------------------------------------------------
@@ -303,6 +307,27 @@ export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
   }
   for (const n of google.notes) f.add("google", "注記", n);
 
+  // --- 数字の診断（発火した診断ルール） ---------------------------------------
+  if (diagnosis) {
+    const s = diagnosis.summary;
+    if (s) {
+      f.add(
+        "diagnosis",
+        "診断の母数（Search Console）",
+        `クリック ${s.totals.current.clicks.toLocaleString("ja-JP")}（前期比 ${s.clicksChangeRate === null ? "—" : `${(s.clicksChangeRate * 100).toFixed(1)}%`}）/ 表示 ${s.totals.current.impressions.toLocaleString("ja-JP")}（前期比 ${s.impressionsChangeRate === null ? "—" : `${(s.impressionsChangeRate * 100).toFixed(1)}%`}）`,
+        {
+          note: `平均掲載順位 ${s.totals.current.position.toFixed(1)}（前期 ${s.totals.previous.position.toFixed(1)}）。クエリ取得率 ${s.queryCoverage === null ? "不明" : pct(s.queryCoverage)}、指名クリック比率 ${s.brandClickShare === null ? "不明" : pct(s.brandClickShare)}（いずれも一覧に出たクエリの中での比率）`,
+        },
+      );
+    }
+    for (const t of diagnosis.triggered.slice(0, 30)) {
+      f.add("diagnosis", `診断 ${t.id} ${t.name}（重要度 ${RULE_SEVERITY_LABELS[t.severity]} / 確度 ${CONFIDENCE_LABELS[t.confidence].split("（")[0]}）`, t.evidence.join(" / "), {
+        note: `事実: ${t.fact}。原因候補: ${t.possibleCauses.join(" / ")}。確認が必要: ${t.requiredChecks.join(" / ")}。書いてはいけないこと: ${t.prohibitedConclusions.join(" / ") || "なし"}`,
+      });
+    }
+    for (const l of diagnosis.limitations) f.add("diagnosis", "判定できなかったこと", l);
+  }
+
   return f.facts;
 }
 
@@ -332,7 +357,8 @@ export function factsFromAudit(audit: AuditResult): Fact[] {
     search: { keywords: [], siteCount: null, brand: null, notes: [] },
     domain: null,
     google: { searchConsole: null, ga4: null, notes: [] },
-    coverage: { psi: false, crux: false, serp: false, searchConsole: false, ga4: false, domainPower: false },
+    diagnosis: null,
+    coverage: { psi: false, crux: false, serp: false, searchConsole: false, ga4: false, domainPower: false, diagnosis: false },
   };
   return buildFacts(partial).filter((x) => x.area !== "input" || x.label === "対象サイト");
 }

@@ -10,6 +10,7 @@ import { AuditCategoryTable } from "@/components/site-audit/AuditCategoryTable";
 import { AuditIssues, type IssueRow } from "@/components/site-audit/AuditIssues";
 import { AuditPages } from "@/components/site-audit/AuditPages";
 import type { AuditResult } from "@/lib/audit/types";
+import { DiagnosisCard } from "./DiagnosisCard";
 import { DomainPowerCard } from "./DomainPowerCard";
 import { StructureCard } from "./StructureCard";
 import { TrustCard } from "./TrustCard";
@@ -300,6 +301,8 @@ export function ReportView(props: ReportViewProps) {
             </Card>
           </>
         )}
+
+        {sheet.diagnosis && <DiagnosisCard diagnosis={sheet.diagnosis} />}
 
         {domain && <DomainPowerCard domain={domain} />}
 

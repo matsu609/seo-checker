@@ -28,7 +28,18 @@ const SYSTEM_PROMPT = `あなたは中小企業のウェブサイトを 10 年�
 - consultant.typical には「この数字を見ずに普通のコンサルが言いそうなこと」を、consultant.real には「数字を見たうえで本当に言うべきこと」を書きます。両者の違いが、この分析の価値です。
 - データが無い領域（例: 検索順位を取っていない、Google 連携が無い）については、無いことを前提に書き、あるかのように書きません。
 - 断定は根拠の強さに合わせます。1 ページのデータで全体を語らない。
-- ドメインパワーは無料の指標を束ねた推定値です。Ahrefs の DR や Moz の DA と同じものとして書かず、「ドメインパワーを上げる」ではなく、その内訳のどれ（外部リンク・指名検索・インデックス数など）をどう増やすかを書きます。`;
+- ドメインパワーは無料の指標を束ねた推定値です。Ahrefs の DR や Moz の DA と同じものとして書かず、「ドメインパワーを上げる」ではなく、その内訳のどれ（外部リンク・指名検索・インデックス数など）をどう増やすかを書きます。
+
+数字の診断（事実シートの「数字の診断」= N-◯◯ の行）を読むときの決まり（docs/dev/diagnosis-rules-spec.md §16・§18）:
+- 発火した診断ルールは「確認できた事実」であって「原因」ではありません。原因は候補として挙げ、確度（高／中／低）を添えます。
+- 各ルールの note にある「書いてはいけないこと」は、そのまま守ってください。
+- 複数のルールが同じ問題を指しているときは、1 つにまとめて書きます（ルールを羅列しない）。
+- 平均掲載順位の変化だけで、すべての検索語の順位が変化したと書きません。
+- Search Console のクエリ一覧には匿名化による欠けがあります。クエリ取得率が低いときは、比率を「一覧に出たクエリの中での比率」と明記します。
+- Search Console だけでは訪問後の行動・問い合わせ・売上は判断できません。GA4 だけでは表示回数や掲載順位は判断できません。無い側について断定しません。
+- 母数が小さい指標（表示回数やセッションが少ない）は、確度を下げて書きます。
+- アクセスの増加と売上の増加を同じものとして書きません。
+- データが足りなくて判定できなかった項目（「判定できなかったこと」の行）は、cautions に「何を足せば分かるか」として具体的に書きます。`;
 
 function inputSummary(sheet: SeoFactSheet): string[] {
   const i = sheet.input;
@@ -44,9 +55,22 @@ function inputSummary(sheet: SeoFactSheet): string[] {
       sheet.coverage.domainPower ? "ドメインパワー（推定）" : null,
       sheet.coverage.searchConsole ? "Search Console" : null,
       sheet.coverage.ga4 ? "GA4" : null,
+      sheet.coverage.diagnosis ? "数字の診断（GSC の診断ルール）" : null,
     ]
       .filter(Boolean)
       .join("、")}`,
+  ];
+}
+
+/** 発火した診断ルールの要点を、事実シートとは別に先に伝える */
+function diagnosisSummary(sheet: SeoFactSheet): string[] {
+  const d = sheet.diagnosis;
+  if (!d || d.triggered.length === 0) return [];
+  const top = d.triggered.slice(0, 8);
+  return [
+    "",
+    `発火した診断ルール（優先度順・上位 ${top.length} 件 / 全 ${d.triggered.length} 件）。事実シートの N-◯◯ に同じ内容があります:`,
+    ...top.map((t) => `- ${t.id} ${t.name}（重要度 ${t.severity} / 確度 ${t.confidence}）: ${t.evidence[0] ?? ""}`),
   ];
 }
 
@@ -78,6 +102,8 @@ export async function generateAnalysis(sheet: SeoFactSheet, options: GenerateAna
   const base = [
     "次の事実シートだけを根拠に、このサイトの現状分析と改善案を書いてください。",
     ...inputSummary(sheet),
+    "",
+    ...diagnosisSummary(sheet),
     "",
     "事実シート（1 行 1 事実。先頭が事実 ID）:",
     ...untrustedLines(lines),

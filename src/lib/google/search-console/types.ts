@@ -30,7 +30,11 @@ export interface SearchAnalyticsResult {
   totals: Omit<SearchAnalyticsRow, "keys"> | null;
 }
 
-export type SearchAnalyticsDimension = "query" | "page" | "date" | "country" | "device";
+/**
+ * 使える次元。`searchAppearance`（検索での見え方）は他の次元と組み合わせられない
+ * ので、単独で問い合わせる（自動診断の S01〜S04 で使う）。
+ */
+export type SearchAnalyticsDimension = "query" | "page" | "date" | "country" | "device" | "searchAppearance";
 
 export interface SearchAnalyticsQuery {
   startDate: string;
