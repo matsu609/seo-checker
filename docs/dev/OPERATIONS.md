@@ -230,6 +230,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 65 | 依頼の任意項目「意図的な仕様の申告」: noindex の検索結果ページやトップのパンくずのように、意図して外している項目を申告して指摘から外す仕組み。r43 / r44 で自動判定できるものは既に外してあるので、残るのは「自動では区別できないもの」の手動申告 | 利用者 → Claude | 判断待ち（下の「入力待ち」） |
 | 66 | **パワーアップ分析（連携不要の SEO 分析。有料・回数制限つき）**: 設計は [seo-analysis-spec.md](./seo-analysis-spec.md) §0。利用者の決定（09-13、6 点すべて推奨案）。**A′（r55）に続き B′〜E′ を r56 で main にマージ**（09-14、利用者の指示「一気に実装してメインにマージ」）: `/tools/seo-analysis`（事実シート → Claude の分析 → ChatGPT のセカンドオピニオン → 報告書 PDF → 履歴）、CrUX、SerpApi、GSC / GA4 の任意層、各画面の「AI に分析させる」（まずサイト診断）。**利用者側の作業**: ① Supabase で `analysis_runs` の SQL を実行（下の「パワーアップ分析の実行記録」）② Google Cloud で Chrome UX Report API を有効化し PageSpeed 用キーの制限に追加（下の #78）③ 本番で 1 回動かして AI の出力とトークン量を確認。残り: URL Inspection（E′ の一部）、実際の出力を見てのプロンプト調整 | 利用者 → Claude | **B′〜E′ 完了（r56）。利用者の作業 ①② 待ち** |
 | 78 | **パワーアップ分析を動かすための設定**（下の表「パワーアップ分析を有効にする手順」）: ~~Supabase の SQL~~ → Chrome UX Report API の有効化とキーの制限追加 → 本番で試す → `SEO_ANALYSIS_MONTHLY_LIMIT` は既定 10 のままでよいか | 利用者 | **1・2 完了（09-15。`analysis_runs` を作成、Chrome UX Report API を有効化）**。**1b・3 完了（09-15。`audit` 列を追加、キーの API の制限に Chrome UX Report API を追加）**。残り 4（本番で 1 回実行） |
+| 79 | **SerpApi を有効にする**（利用者の決定 09-15「これやります」）: SerpApi のアカウント → API キー → Vercel `SERPAPI_KEY`（Secret、Production）→ Redeploy → `/admin` の外部連携で「設定済み」を確認 → パワーアップ分析を再実行して「対策キーワードの順位」が出ること。下の「SerpApi を有効にする手順」 | 利用者 | 未 |
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
@@ -263,6 +264,19 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 3 | Google Cloud → 認証情報 | https://console.cloud.google.com/apis/credentials?project=seo-checker-508104 | API キー「PageSpeed Insights (seo-checker)」を開く → 「API の制限」で **Chrome UX Report API** を追加して保存（別キーにするなら Vercel に `CRUX_API_KEY` を追加 → Redeploy）。制限が「制限なし」なら何もしなくてよい |
 | 4 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | `seo-checker.tokyo` などで 1 回実行（収集 1〜5 分 → AI 1〜3 分）。報告書の「結論」「改善案」「セカンドオピニオン」「速度」「付録」が出ること、右上の「今月 n / 10 回」が増えることを確認。運営者（ADMIN_EMAILS）は無制限 |
 | 5 | Vercel → 環境変数（任意） | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 月の回数を変えるなら `SEO_ANALYSIS_MONTHLY_LIMIT`（既定 10）。ChatGPT のセカンドオピニオンは `OPENAI_API_KEY`（LLMO と共用。未設定なら Claude だけで完成） |
+
+### SerpApi を有効にする手順（#79。利用者の作業）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | SerpApi → 登録 | https://serpapi.com/users/sign_up | メールで登録（Google ログイン可）。無料プランは月の検索回数に上限がある（回数と料金は https://serpapi.com/pricing で確認。パワーアップ分析 1 回 = 最大 7 回、順位計測 = キーワード数 × 実行回数） |
+| 2 | SerpApi → API キー | https://serpapi.com/manage-api-key | 「Your Private API Key」をコピー（会話には貼らない） |
+| 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `SERPAPI_KEY`、Value にキー、Environment は Production（Preview も使うなら両方）、Sensitive にチェック → Save |
+| 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy（環境変数はデプロイ時に読まれるため） |
+| 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の SerpApi が「設定済み」になり、サイドバーの順位計測の「要設定」が消えることを確認 |
+| 6 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 対策キーワードを入れて「分析する」。KPI の「対策キーワードの順位」に「n / m 語が 100 位以内」と出れば完了（このときも今月の回数を 1 つ使う） |
+
+SerpApi の実費が出るのはパワーアップ分析（1 回 ≤ 7 検索）・順位計測・AI Overviews 引用・ページ診断の上位 10 件・AIO 頻出トピック。無料枠を超えないよう、SerpApi のダッシュボード（https://serpapi.com/dashboard ）で残り回数を見る。
 
 ### Stripe を有効にする手順（#58。すべて利用者の作業。まずテストモードで通し、最後に本番キーへ）
 
@@ -998,4 +1012,5 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **r59**: `ai/schema.ts` から上限を外し、`tidyAnalysis` / `tidyComment` / `tidySecondOpinion` で受け取り後に切り詰める（`LIMITS`）。`priority` は 1〜3 に丸める。`toApiError` に `AnthropicError` の分岐を追加（502「AI の出力が想定の形と違いました。もう一度お試しください」+ 検証内容を `console.error`）。テスト 4 件追加（上限超えの出力が parse を通り、切り詰めで収まること）。
 - 画面のサイドバーに「サイト診断」が残っていたのは、その時点で r58 が未反映（デプロイ待ち）だったため。リロードで消える。
 - **次**: 利用者が同じ画面で「AI 分析をやり直す（0 / 3）」を押す（再収集は不要）。結果を見てプロンプト調整。任意: Vercel に `SERPAPI_KEY` を入れると順位・site: 件数・ブランド検索が事実シートに加わる（LLMO の順位計測と共用）。
+- 利用者「SERPAPI_KEY、これやります」→ #79 として手順表（登録 → キー → Vercel → Redeploy → /admin で確認 → 再実行）を案内。
 
