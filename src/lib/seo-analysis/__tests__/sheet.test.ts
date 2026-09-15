@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ORIGIN, html, pageFrom } from "@/lib/audit/__tests__/fixtures";
 import { applyDepths, buildResult } from "@/lib/audit/run";
 import type { AuditResult } from "@/lib/audit/types";
+import { scoreDomainPower } from "@/lib/domain-power";
 import { buildFactSheet, factsFromAudit, factsToLines, pickKeyPages } from "../sheet/build";
 import type { AnalysisInput, SheetGoogle, SheetSearch, SheetSpeed } from "../sheet/types";
 
@@ -43,9 +44,27 @@ const speed: SheetSpeed = {
 };
 const search: SheetSearch = { keywords: [{ keyword: "ウェブ制作 世田谷", rank: 12, url: `${ORIGIN}/service`, topDomains: ["a.jp", "b.jp", "c.jp"], features: ["ai_overview", "local_pack"], aiOverview: true, ownCited: false, competitors: [] }], siteCount: 38, brand: { query: "サンプル工房", rank: 1, url: `${ORIGIN}/` }, notes: [] };
 const google: SheetGoogle = { searchConsole: null, ga4: null, notes: ["Search Console は連携していません"] };
+const domain = scoreDomainPower({
+  host: "example.com",
+  openPageRank: 3.4,
+  openPageRankWorldRank: 1_234_567,
+  registeredAt: "2015-04-01T00:00:00.000Z",
+  indexedPages: 38,
+  brandRank: 1,
+  brandMeasured: true,
+  keywordRanks: [12],
+  cruxCoverage: "origin",
+  crawledPages: 4,
+  internalLinks: 5,
+  trust: { pass: 3, total: 9 },
+  https: false,
+  peers: [{ host: "competitor.jp", openPageRank: 4.1, registeredAt: "2010-01-01T00:00:00.000Z", ageYears: 16.7 }],
+  sources: { openPageRank: true, rdap: true, serp: true, crux: true },
+  now: new Date("2026-09-14T00:00:00.000Z"),
+});
 
 describe("事実シート", () => {
-  const sheet = buildFactSheet({ input, audit: audit(), quick: { score: 72, categories: [{ id: "meta", label: "メタ情報", score: 60 }] }, speed, search, google, coverage: { psi: true, crux: true, serp: true, searchConsole: false, ga4: false }, generatedAt: "2026-09-14T00:00:00.000Z" });
+  const sheet = buildFactSheet({ input, audit: audit(), quick: { score: 72, categories: [{ id: "meta", label: "メタ情報", score: 60 }] }, speed, search, domain, google, coverage: { psi: true, crux: true, serp: true, searchConsole: false, ga4: false, domainPower: true }, generatedAt: "2026-09-14T00:00:00.000Z" });
 
   it("領域ごとに ID を振り、値と補足を持つ", () => {
     const ids = sheet.facts.map((f) => f.id);
@@ -55,6 +74,7 @@ describe("事実シート", () => {
     expect(ids).toContain("T-01");
     expect(ids).toContain("P-01");
     expect(ids).toContain("R-01");
+    expect(ids).toContain("D-01");
     expect(new Set(ids).size).toBe(ids.length);
     const rule = sheet.facts.find((f) => f.label === "課題: META_DESC_MISSING")!;
     expect(rule.value).toContain("2 件");
@@ -71,6 +91,14 @@ describe("事実シート", () => {
     expect(lines.some((l) => l.includes("クイック診断の総合スコア") && l.includes("72 点"))).toBe(true);
     expect(lines.some((l) => l.includes("URL 単位のデータ不足"))).toBe(true);
     expect(lines.some((l) => l.includes("注記: Search Console は連携していません"))).toBe(true);
+  });
+
+  it("ドメインパワーを内訳つきで事実にする", () => {
+    const lines = factsToLines(sheet.facts);
+    expect(lines.some((l) => l.includes("ドメインパワー（推定）") && l.includes("点 / 100"))).toBe(true);
+    expect(lines.some((l) => l.includes("外部からのリンクの評価") && l.includes("3.40 / 10"))).toBe(true);
+    expect(lines.some((l) => l.includes("ドメインの年数") && l.includes("11.5 年"))).toBe(true);
+    expect(lines.some((l) => l.includes("競合のドメイン: competitor.jp"))).toBe(true);
   });
 
   it("ページ一覧は落とし、上位・弱いページだけ残す", () => {

@@ -8,6 +8,7 @@
  */
 import type { AuditCrawlStats, AuditCategory, Severity } from "@/lib/audit/types";
 import type { CruxFailure, CruxHistory, CruxRecord } from "@/lib/crux/types";
+import type { DomainPowerResult } from "@/lib/domain-power/types";
 import type { PsiResult } from "@/lib/psi/types";
 import type { SerpFeature } from "@/lib/serp/types";
 import type { SiteStructure, TrustSignals } from "../types";
@@ -44,7 +45,7 @@ export const GOAL_LABELS: Record<AnalysisGoal, string> = {
   other: "その他",
 };
 
-export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "google";
+export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "google";
 
 export const FACT_AREA_LABELS: Record<FactArea, string> = {
   input: "入力",
@@ -53,6 +54,7 @@ export const FACT_AREA_LABELS: Record<FactArea, string> = {
   trust: "信頼",
   speed: "速度（実ユーザー・診断）",
   search: "検索での見え方",
+  domain: "ドメインパワー",
   google: "Google 連携（Search Console / GA4）",
 };
 
@@ -133,6 +135,9 @@ export interface SheetSearch {
   notes: string[];
 }
 
+/** ドメインパワーの採点結果（src/lib/domain-power/ が作る） */
+export type SheetDomain = DomainPowerResult;
+
 export interface SheetGoogle {
   searchConsole: {
     siteUrl: string;
@@ -159,8 +164,10 @@ export interface SeoFactSheet {
   site: SheetSite;
   speed: SheetSpeed;
   search: SheetSearch;
+  /** ドメインパワー（無料で取れる指標からの推定）。古い保存分には無い */
+  domain?: SheetDomain | null;
   google: SheetGoogle;
   /** どの取得が動いたか（キー未設定などで飛ばしたものは false） */
-  coverage: { psi: boolean; crux: boolean; serp: boolean; searchConsole: boolean; ga4: boolean };
+  coverage: { psi: boolean; crux: boolean; serp: boolean; searchConsole: boolean; ga4: boolean; domainPower?: boolean };
   facts: Fact[];
 }

@@ -27,7 +27,8 @@ const SYSTEM_PROMPT = `あなたは中小企業のウェブサイトを 10 年�
 - 改善案は優先度 1（今すぐ・効果が大きい）から 3 まで。手間（effort）は担当者の作業量の目安です。
 - consultant.typical には「この数字を見ずに普通のコンサルが言いそうなこと」を、consultant.real には「数字を見たうえで本当に言うべきこと」を書きます。両者の違いが、この分析の価値です。
 - データが無い領域（例: 検索順位を取っていない、Google 連携が無い）については、無いことを前提に書き、あるかのように書きません。
-- 断定は根拠の強さに合わせます。1 ページのデータで全体を語らない。`;
+- 断定は根拠の強さに合わせます。1 ページのデータで全体を語らない。
+- ドメインパワーは無料の指標を束ねた推定値です。Ahrefs の DR や Moz の DA と同じものとして書かず、「ドメインパワーを上げる」ではなく、その内訳のどれ（外部リンク・指名検索・インデックス数など）をどう増やすかを書きます。`;
 
 function inputSummary(sheet: SeoFactSheet): string[] {
   const i = sheet.input;
@@ -40,6 +41,7 @@ function inputSummary(sheet: SeoFactSheet): string[] {
       sheet.coverage.psi ? "PageSpeed" : null,
       sheet.coverage.crux ? "CrUX（実ユーザーの速度）" : null,
       sheet.coverage.serp ? "検索順位（SerpApi）" : null,
+      sheet.coverage.domainPower ? "ドメインパワー（推定）" : null,
       sheet.coverage.searchConsole ? "Search Console" : null,
       sheet.coverage.ga4 ? "GA4" : null,
     ]

@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | クイック診断 | `/` | クイック診断（サイト・SEO / AIO。無料・ログイン不要。サイト全体は代表 10 ページ） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
 | クイック診断 | `/meo` | クイック診断（店舗・MEO。店舗 1 件、ログイン不要、回数制限つき） | — | Places API (New) |
-| 診断 | `/tools/seo-analysis` | パワーアップ分析（事実シート + AI の現状分析と改善案） | — | Supabase + Anthropic（PSI / SerpApi / OpenAI / CrUX は任意） |
+| 診断 | `/tools/seo-analysis` | パワーアップ分析（事実シート + AI の現状分析と改善案。ドメインパワーを含む） | — | Supabase + Anthropic（PSI / SerpApi / OpenAI / CrUX / Open PageRank は任意） |
 | 診断 | `/tools/site-audit` | （パワーアップ分析に統合。転送のみ。`hidden: true`） | A1 | — |
 | 診断 | `/tools/page-report` | ページ最適化レポート（AIO/LLM） | A2, A3 | PSI 任意 |
 | 診断 | `/tools/page-diagnosis` | ページ診断（キーワード × ページ） | A4 | SERP or Anthropic web 検索 |
@@ -61,6 +61,8 @@ src/
                               #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合・ChatGPT）、
                               #   collect.ts（クロール → PSI / CrUX / SerpApi / Google 連携）、runs.ts（Supabase analysis_runs）、quota.ts
     crux/                     # CrUX API / CrUX History API（実ユーザーの速度。所有権不要）
+    domain-power/             # ドメインパワー（無料の 8 指標からの推定。RDAP = 登録日、Open PageRank = 外部リンクの評価、
+                              #   残りは検索・CrUX・クロールの数値を使い回す。採点は score.ts の純関数）
     page-report/              # A2/A3
     serp/                     # SERP プロバイダ抽象（SerpApi 実装、未設定時は null）
     llm/                      # Anthropic クライアント、モデル定数、構造化出力ヘルパ、他社 LLM の薄いクライアント
@@ -90,6 +92,7 @@ src/
 | `SERPAPI_KEY` | 順位計測・AI Overviews・ページ診断の Top10（SerpApi） | 任意 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（無くても低頻度なら動く） | 任意 |
 | `CRUX_API_KEY` | CrUX API / CrUX History API（実ユーザーの速度。`src/lib/crux/`）。無ければ `PAGESPEED_API_KEY` を使う | 任意 |
+| `OPENPAGERANK_API_KEY` | ドメインパワーの「外部からのリンクの評価」（Open PageRank。`src/lib/domain-power/`）。無料。未設定ならその 25 点分を分母から外して採点する | 任意 |
 | `SEO_ANALYSIS_MONTHLY_LIMIT` | パワーアップ分析の利用者ごとの月の回数（既定 10。`ADMIN_EMAILS` は無制限） | 任意 |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | GA4 Data API（サービスアカウント JSON をそのまま、または base64） | 任意 |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（Places API (New)） | 任意 |

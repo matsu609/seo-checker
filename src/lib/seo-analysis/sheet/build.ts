@@ -8,6 +8,7 @@
 import type { AuditResult, AuditPageRow } from "@/lib/audit/types";
 import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId, type CruxRecord } from "@/lib/crux/types";
 import { formatCrux, trendOf } from "@/lib/crux/parse";
+import { GRADE_LABELS, SIGNAL_SOURCES, SIGNAL_STATUS_LABELS } from "@/lib/domain-power/types";
 import { CRUX_LABELS } from "@/lib/psi/types";
 import { SERP_FEATURE_LABELS } from "@/lib/serp/types";
 import { PAGE_KIND_LABELS } from "../types";
@@ -19,6 +20,7 @@ import {
   type Fact,
   type FactArea,
   type SeoFactSheet,
+  type SheetDomain,
   type SheetGoogle,
   type SheetSearch,
   type SheetSite,
@@ -38,6 +40,7 @@ export interface BuildSheetInput {
   quick: SheetSite["quick"];
   speed: SheetSpeed;
   search: SheetSearch;
+  domain: SheetDomain | null;
   google: SheetGoogle;
   coverage: SeoFactSheet["coverage"];
   generatedAt?: string;
@@ -52,6 +55,7 @@ export function buildFactSheet(args: BuildSheetInput): SeoFactSheet {
     site,
     speed: args.speed,
     search: args.search,
+    domain: args.domain,
     google: args.google,
     coverage: args.coverage,
   };
@@ -107,7 +111,7 @@ class FactList {
     if (this.facts.length >= MAX_FACTS) return;
     const n = (this.counters.get(area) ?? 0) + 1;
     this.counters.set(area, n);
-    const prefix = area === "input" ? "I" : area === "crawl" ? "C" : area === "structure" ? "S" : area === "trust" ? "T" : area === "speed" ? "P" : area === "search" ? "R" : "G";
+    const prefix = area === "input" ? "I" : area === "crawl" ? "C" : area === "structure" ? "S" : area === "trust" ? "T" : area === "speed" ? "P" : area === "search" ? "R" : area === "domain" ? "D" : "G";
     this.facts.push({ id: `${prefix}-${String(n).padStart(2, "0")}`, area, label, value, ...(extra.note ? { note: extra.note } : {}), ...(extra.url ? { url: extra.url } : {}) });
   }
 }
@@ -128,6 +132,7 @@ function path(url: string): string {
 export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
   const f = new FactList();
   const { input, site, speed, search, google } = sheet;
+  const domain = sheet.domain ?? null;
 
   // --- 入力 ------------------------------------------------------------------
   f.add("input", "対象サイト", site.origin, { note: `開始 URL ${site.startUrl}` });
@@ -255,6 +260,25 @@ export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
   if (search.brand) f.add("search", `ブランド名検索「${search.brand.query}」での自社の順位`, search.brand.rank === null ? "100 位以内に無し" : `${search.brand.rank} 位`, { url: search.brand.url ?? undefined });
   for (const n of search.notes) f.add("search", "注記", n);
 
+  // --- ドメインパワー ----------------------------------------------------------
+  if (domain) {
+    f.add("domain", "ドメインパワー（推定）", domain.score === null ? "判定できず" : `${domain.score} 点 / 100（${domain.grade ? GRADE_LABELS[domain.grade] : "—"}）`, {
+      note: `対象ドメイン ${domain.host}。無料で取れる指標だけを束ねた推定値で、Ahrefs の DR や Moz の DA とは別物。採点に使えた配点は ${domain.measuredMax} 点分`,
+    });
+    for (const sig of domain.signals) {
+      f.add("domain", `ドメインパワーの内訳: ${sig.label}`, `${sig.value}（${SIGNAL_STATUS_LABELS[sig.status]}・${sig.status === "unknown" ? `配点 ${sig.max} 点は未採点` : `${sig.score} / ${sig.max} 点`}）`, {
+        note: `${sig.detail}。出どころ: ${SIGNAL_SOURCES[sig.id]}`,
+      });
+    }
+    for (const peer of domain.peers) {
+      f.add("domain", `競合のドメイン: ${peer.host}`, [
+        peer.openPageRank === null ? "外部リンクの評価は取得できず" : `外部リンクの評価 ${peer.openPageRank.toFixed(2)} / 10`,
+        peer.ageYears === null ? "登録年数は不明" : `登録から ${peer.ageYears.toFixed(1)} 年`,
+      ].join(" / "), { note: "競合はクロールしていないため、この 2 指標だけの比較" });
+    }
+    for (const n of domain.notes) f.add("domain", "注記", n);
+  }
+
   // --- Google 連携 ------------------------------------------------------------
   if (google.searchConsole) {
     const g = google.searchConsole;
@@ -306,8 +330,9 @@ export function factsFromAudit(audit: AuditResult): Fact[] {
     site,
     speed: { psi: [], crux: { origin: null, originFailure: null, history: null, urls: [] }, notes: [] },
     search: { keywords: [], siteCount: null, brand: null, notes: [] },
+    domain: null,
     google: { searchConsole: null, ga4: null, notes: [] },
-    coverage: { psi: false, crux: false, serp: false, searchConsole: false, ga4: false },
+    coverage: { psi: false, crux: false, serp: false, searchConsole: false, ga4: false, domainPower: false },
   };
   return buildFacts(partial).filter((x) => x.area !== "input" || x.label === "対象サイト");
 }

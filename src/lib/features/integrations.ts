@@ -10,6 +10,7 @@ export const INTEGRATION_KEYS = [
   "perplexity",
   "serpapi",
   "pagespeed",
+  "openpagerank",
   "ga4",
   "places",
   "supabase",
@@ -62,6 +63,12 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
     label: "PageSpeed Insights",
     envVars: ["PAGESPEED_API_KEY"],
     description: "表示速度・Core Web Vitals の取得（未設定でも低頻度なら動作）",
+  },
+  openpagerank: {
+    key: "openpagerank",
+    label: "Open PageRank（ドメインの外部リンク評価）",
+    envVars: ["OPENPAGERANK_API_KEY"],
+    description: "パワーアップ分析のドメインパワー。外部からの被リンクを見た 0〜10 の評価（無料。未設定でも他の指標だけで採点する）",
   },
   ga4: {
     key: "ga4",

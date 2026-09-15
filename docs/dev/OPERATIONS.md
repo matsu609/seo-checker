@@ -32,6 +32,7 @@
 | Cloudflare → Email Routing | https://dash.cloudflare.com/ → seo-checker.tokyo → Email → Email Routing |
 | Cloudflare → 紹介サイトの Worker（ビルド設定） | https://dash.cloudflare.com/ → Compute（Workers） → `seo-checker-hp` → Settings → Build |
 | Google Cloud → OAuth → 対象（テストユーザー） | https://console.cloud.google.com/auth/audience?project=seo-checker-508104 |
+| Open PageRank（ドメインの外部リンク評価） | https://www.domcop.com/openpagerank/ |
 | Claude Console → クレジット | https://platform.claude.com/settings/billing |
 | Claude Console → API キー | https://platform.claude.com/settings/keys |
 | Clerk ダッシュボード | https://dashboard.clerk.com/ |
@@ -67,7 +68,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r54 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r60 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -94,6 +95,7 @@
 | `SITE_MAX_PAGES` | `100` | Production and Preview（一度誤って Preview のみにしたが復旧済み） |
 | `ANTHROPIC_API_KEY` | **設定済み**（09-10 17:30 設定画面で「設定済み」を確認） | Claude Console のクレジット購入済み |
 | `PAGESPEED_API_KEY` | **登録済み**（利用者報告 09-10 17:4x「AB 完了」）。設定画面での確認は未 | |
+| `OPENPAGERANK_API_KEY` | **未設定** | ドメインパワーの「外部からのリンクの評価」（Open PageRank）。無料。#80。未設定でも残り 7 指標でドメインパワーは出る（配点 25 点分を分母から外す） |
 | `GOOGLE_PLACES_API_KEY` | **設定済み**（09-10 17:30 設定画面で「設定済み」を確認） | seo-checker の Places API (New) 制限つきキー |
 | `FREE_MEO_DAILY_LIMIT` / `FREE_MEO_DAILY_SEARCH_LIMIT` | 未設定（既定 500 / 1,500 で動く。0 で無料 MEO 診断を停止） | r25 |
 | `CRON_SECRET` | **登録済みの見込み**（利用者「できました」09-10 17:30。Cron Jobs 画面での確認は未） | 長いランダム文字列（例: `openssl rand -hex 32` か、パスワード生成器で 40 文字以上）。Vercel に Secret で登録 → Redeploy。Vercel が Cron の呼び出しに自動で付ける |
@@ -234,6 +236,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
+| 80 | **Open PageRank を有効にする**（ドメインパワーの「外部からのリンクの評価」。無料）: domcop で登録 → API キー → Vercel `OPENPAGERANK_API_KEY`（Secret、Production）→ Redeploy → `/admin` の外部連携で「設定済み」を確認 → パワーアップ分析を再実行してドメインパワーの内訳に「外部からのリンクの評価」が出ること。下の「Open PageRank を有効にする手順」 | 利用者 | 未 |
+| 81 | ドメインパワーの本番確認: 日本の `.jp` / `.co.jp` のサイトで **RDAP（ドメインの登録日）が取れるか**を 1 回見る。取れなければ内訳の「ドメインの年数」が「未取得」になり、配点 15 点分が分母から外れるだけで報告書は出る（対応が要るなら別の取得先を検討） | Claude + 利用者 | 未 |
 | 70 | **MEO の採点基準を厳しくする（v2）**: 営業時間の欠け → 要改善、自社サイト以外の URL → 注意、平均評価 4.5 / 4.2、口コミ件数 50 件、口コミの新しさ 30 / 90 日、オーナー写真 5 枚、低解像度が半数で要改善、口コミ本文 3 割未満で要改善、属性は「はい」だけ数える | Claude | **完了（r51、09-13）**。lint / tsc / test（1,510 件）/ build 通過。本番の登録店舗は次回の一斉更新（月曜 5:00 JST）で新基準に切り替わる |
 | 71 | 採点基準 v2 への切り替えを既存のお客様に伝える（スコアが全体に下がるため）。報告書の末尾には「採点基準 v2（2026-09-13 改定）」と履歴が直接つながらない旨を明記済み | 利用者 | 未（お客様に渡す前に） |
 | 72 | **MEO 報告書に「優先改善リスト」と「採点基準の付録」を足す（B・C）**: 配点 × 現状で「直すと +N 点」を出す / 21・28 項目の配点と判定条件を開示。クイック診断と精密診断の両方に出す。未取得 9 項目は「オーナーにしか分からない項目」としてまとめ、精密診断への導線にする | Claude | **完了（r52、09-13）** |
@@ -277,6 +281,19 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 6 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 対策キーワードを入れて「分析する」。KPI の「対策キーワードの順位」に「n / m 語が 100 位以内」と出れば完了（このときも今月の回数を 1 つ使う） |
 
 SerpApi の実費が出るのはパワーアップ分析（1 回 ≤ 7 検索）・順位計測・AI Overviews 引用・ページ診断の上位 10 件・AIO 頻出トピック。無料枠を超えないよう、SerpApi のダッシュボード（https://serpapi.com/dashboard ）で残り回数を見る。
+
+### Open PageRank を有効にする手順（#80。利用者の作業。無料）
+
+ドメインパワーの 8 指標のうち、**外部からの被リンクを見ているのはここだけ**（配点 25 点）。未設定でも残り 7 指標で採点するが、その分は分母から外れるので「外部リンクが弱い / 強い」は言えない。
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Open PageRank → 登録 | https://www.domcop.com/openpagerank/ | 「Get your free API key」からメールで登録（無料。クレジットカード不要） |
+| 2 | Open PageRank → ダッシュボード | https://www.domcop.com/openpagerank/auth/signin | ログインして API キーをコピー（会話には貼らない）。無料枠は 1 日 1,000 リクエスト・1 回 100 ドメインまで。このツールは 1 回の分析で 1 リクエスト（自社 + 競合 2 件）しか使わない |
+| 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `OPENPAGERANK_API_KEY`、Value にキー、Environment は Production、Sensitive にチェック → Save |
+| 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy |
+| 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の Open PageRank が「設定済み」になることを確認 |
+| 6 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」のカードで、内訳の「外部からのリンクの評価」が「未取得」でなく 0〜10 の数値になれば完了。競合 URL を入れると「競合との比較」の表にも出る |
 
 ### Stripe を有効にする手順（#58。すべて利用者の作業。まずテストモードで通し、最後に本番キーへ）
 
@@ -1015,3 +1032,18 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 利用者「SERPAPI_KEY、これやります」→ #79 として手順表（登録 → キー → Vercel → Redeploy → /admin で確認 → 再実行）を案内。
 - 09-15 利用者が Vercel に `SERPAPI_KEY`（Production、Sensitive）を登録 → Redeploy → `/admin` の外部連携で SerpApi「設定済み」を確認。**#79 の設定完了**。順位計測・AI Overviews 引用・ページ診断の上位 10 件・AIO 頻出トピック・パワーアップ分析の検索順位が使える。残りは本番でパワーアップ分析を再実行（r59 の AI 分析の確認を兼ねる）。
 
+
+### 2026-09-15（ドメインパワーの計測を追加、r60）
+
+- 利用者の依頼「domain パワーについても計測できるようにしてください」。
+- **方針**: Ahrefs の DR・Moz の DA は有料の被リンク API が要る（月 1 万円〜）ので使わない。このツールの方針（無料・安い API を束ねて AI に語らせる）どおり、**無料で取れる 8 指標を配点して 0〜100 の推定値**にした。数字の一人歩きを防ぐため、合計点だけでなく**指標ごとの得点・実測値・判定根拠・出どころ**を報告書に必ず開示し、「Ahrefs の DR や Moz の DA とは別物」と画面にも AI のプロンプトにも書いている。
+- **配点**（`src/lib/domain-power/types.ts`）: 外部からのリンクの評価 25（Open PageRank）／ドメインの年数 15（RDAP）／インデックス数 15（`site:`）／対策キーワードの順位 15／ブランド名検索の順位 10／実ユーザーの規模 10（CrUX にデータがあるか）／サイトの規模 5／信頼の手がかり 5。
+- **取れない指標は分母から外す**（キー未設定のサイトが不当に低く出ないように）。ただし採点に使える配点が 30 点未満なら合計点は出さず「指標が足りません」と表示する（2〜3 指標で「90 点」と出すのは嘘になるため）。
+- **新しい外部 API は 2 つ**。どちらも無料で、無くても報告書は完成する。
+  - **RDAP**（`rdap.org` 経由。キー不要）: ドメインの登録日 → 年数。RDAP に対応していない TLD は 404 が返るので「未取得」にして続行する（#81 で本番の `.jp` を確認）。
+  - **Open PageRank**（`OPENPAGERANK_API_KEY`。無料枠 1 日 1,000 リクエスト）: Common Crawl のリンクグラフから出た 0〜10 の評価。**このツールで唯一、外部からの被リンクを見ている指標**なので配点が一番大きい。手順は「Open PageRank を有効にする手順」（#80）。
+- 残りの 6 指標は**すでに集めている数字の使い回し**なので、API の実費は増えない（SerpApi の検索回数も増えていない）。
+- 競合 URL を入れると「競合との比較」に自社 + 競合 2 件の **Open PageRank と登録年数**だけを並べる（競合はクロールしないので、この 2 つしか同じ条件で比べられない）。
+- 画面: パワーアップ分析の報告書に KPI「ドメインパワー（推定）」と「ドメインパワー（推定）」カード（ゲージ + 指標ごとの横棒 + 内訳の表 + 競合比較）。事実シートに領域 `domain`（ID は `D-01`〜）が増え、AI はこれを引用して分析を書く。
+- 検証: lint / tsc / test（1,627 件）/ build 通過。ドメインパワーのテストは 32 件（登録ドメインの取り出し・年数・配点・合計・RDAP と Open PageRank の応答の読み取りと失敗時の扱い）。
+- **次**: #80（Open PageRank のキー）と #79（SerpApi）を入れると 8 指標中 7〜8 が埋まる。いまのキーの状態（SerpApi 未設定・Open PageRank 未設定）では、年数・実ユーザーの規模・規模・信頼の 4 指標（配点 35）だけで採点する。

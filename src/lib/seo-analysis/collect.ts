@@ -12,6 +12,7 @@ import { runAudit, type AuditProgress } from "@/lib/audit/run";
 import type { AuditResult } from "@/lib/audit/types";
 import { canonicalizeUrl } from "@/lib/crawl/url";
 import { fetchCruxHistory, fetchCruxRecord, fetchCruxWithFallback, isCruxEnabled } from "@/lib/crux";
+import { fetchDomainFacts, scoreDomainPower, type CruxCoverage, type DomainPowerResult } from "@/lib/domain-power";
 import { fetchPsi } from "@/lib/psi/client";
 import { collectGoogle } from "./google";
 import { collectSearch } from "./search";
@@ -21,7 +22,7 @@ import type { AnalysisInput, SeoFactSheet, SheetSite, SheetSpeed } from "./sheet
 /** PSI / CrUX を掛けるページ数（トップ + 5。利用者の決定 2026-09-13） */
 export const KEY_PAGES = 6;
 
-export type CollectStep = "crawl" | "quick" | "speed" | "search" | "google" | "sheet";
+export type CollectStep = "crawl" | "quick" | "speed" | "search" | "domain" | "google" | "sheet";
 
 export interface CollectProgress {
   step: CollectStep;
@@ -60,7 +61,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
   // 3〜5. 速度・検索・Google 連携は並行
   const keyPages = pickKeyPages(audit.pages, entryUrl, KEY_PAGES);
   emit("speed", `主要 ${keyPages.length} ページの速度を取得しています`);
-  const [speed, searchOutcome, googleOutcome] = await Promise.all([
+  const [speed, searchOutcome, domainFacts, googleOutcome] = await Promise.all([
     collectSpeed(audit.origin, keyPages, options.signal),
     (async () => {
       emit("search", "検索結果を取得しています");
@@ -75,10 +76,23 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
       });
     })(),
     (async () => {
+      emit("domain", "ドメインの登録情報と外部リンクの評価を取得しています");
+      return fetchDomainFacts(audit.origin, input.competitors, { signal: options.signal });
+    })(),
+    (async () => {
       emit("google", "Google 連携のデータを確認しています");
       return collectGoogle(audit.origin);
     })(),
   ]);
+
+  const domain = buildDomainPower({
+    origin: audit.origin,
+    facts: domainFacts,
+    search: searchOutcome.search,
+    serpEnabled: searchOutcome.enabled,
+    audit,
+    cruxCoverage: speed.cruxCoverage,
+  });
 
   emit("sheet", "事実シートを組み立てています");
   const sheet = buildFactSheet({
@@ -87,6 +101,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     quick,
     speed: speed.speed,
     search: searchOutcome.search,
+    domain,
     google: googleOutcome.google,
     coverage: {
       psi: speed.psi,
@@ -94,6 +109,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
       serp: searchOutcome.enabled,
       searchConsole: googleOutcome.searchConsole,
       ga4: googleOutcome.ga4,
+      domainPower: domain.score !== null,
     },
   });
   return { sheet, audit };
@@ -117,7 +133,7 @@ async function collectSpeed(
   origin: string,
   keyPages: { url: string; label: string }[],
   signal?: AbortSignal,
-): Promise<{ speed: SheetSpeed; psi: boolean; crux: boolean }> {
+): Promise<{ speed: SheetSpeed; psi: boolean; crux: boolean; cruxCoverage: CruxCoverage }> {
   const notes: string[] = [];
   const cruxEnabled = isCruxEnabled();
   if (!cruxEnabled) notes.push("実ユーザーの速度（CrUX）は取得していません（PAGESPEED_API_KEY か CRUX_API_KEY が未設定）");
@@ -157,5 +173,47 @@ async function collectSpeed(
     },
     psi: psiOk,
     crux: cruxEnabled && (cruxOrigin?.result !== null || cruxUrls.some((u) => u.record !== null)),
+    cruxCoverage: !cruxEnabled
+      ? "unknown"
+      : cruxUrls.some((u) => u.record?.scope === "url")
+        ? "url"
+        : cruxOrigin?.result
+          ? "origin"
+          : "none",
   };
+}
+
+/**
+ * ドメインパワーの採点。RDAP / Open PageRank の取得結果に、すでに集めた
+ * 検索・CrUX・クロールの数値を合わせて 100 点満点にする（採点は純関数）。
+ */
+function buildDomainPower(args: {
+  origin: string;
+  facts: Awaited<ReturnType<typeof fetchDomainFacts>>;
+  search: Awaited<ReturnType<typeof collectSearch>>["search"];
+  serpEnabled: boolean;
+  audit: AuditResult;
+  cruxCoverage: CruxCoverage;
+}): DomainPowerResult {
+  const { facts, search, audit } = args;
+  const trustChecks = audit.trust?.checks ?? [];
+  const judged = trustChecks.filter((c) => c.status !== "info");
+  return scoreDomainPower({
+    host: facts.host,
+    openPageRank: facts.openPageRank,
+    openPageRankWorldRank: facts.openPageRankWorldRank,
+    registeredAt: facts.registeredAt,
+    indexedPages: search.siteCount,
+    brandRank: search.brand?.rank ?? null,
+    brandMeasured: search.brand !== null,
+    keywordRanks: args.serpEnabled ? search.keywords.map((k) => k.rank) : [],
+    cruxCoverage: args.cruxCoverage,
+    crawledPages: audit.crawl.analyzed,
+    internalLinks: audit.structure?.links.total ?? null,
+    trust: judged.length > 0 ? { pass: judged.filter((c) => c.status === "pass").length, total: judged.length } : null,
+    https: args.origin.startsWith("https://"),
+    peers: facts.peers,
+    notes: facts.notes,
+    sources: { openPageRank: facts.sources.openPageRank, rdap: facts.sources.rdap, serp: args.serpEnabled, crux: args.cruxCoverage !== "unknown" },
+  });
 }
