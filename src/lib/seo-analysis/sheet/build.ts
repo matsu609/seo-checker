@@ -274,11 +274,22 @@ export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
         note: `${sig.detail}。出どころ: ${SIGNAL_SOURCES[sig.id]}`,
       });
     }
+    if (domain.ahrefsDr !== null) {
+      f.add("domain", "Ahrefs の Domain Rating（DR）", `${domain.ahrefsDr.toFixed(0)} / 100`, {
+        note: "無料のドメインパワー測定サイトが出しているのと同じ数値（外部からの被リンクの量と質を対数で 0〜100 にしたもの）。Domain Rating by Ahrefs",
+      });
+    }
+    if (domain.openPageRank !== null) {
+      f.add("domain", "Open PageRank", `${domain.openPageRank.toFixed(2)} / 10`, {
+        note: domain.openPageRankWorldRank ? `世界順位 ${domain.openPageRankWorldRank.toLocaleString("ja-JP")} 位` : undefined,
+      });
+    }
     for (const peer of domain.peers) {
       f.add("domain", `競合のドメイン: ${peer.host}`, [
-        peer.openPageRank === null ? "外部リンクの評価は取得できず" : `外部リンクの評価 ${peer.openPageRank.toFixed(2)} / 10`,
+        peer.ahrefsDr === null ? null : `DR ${peer.ahrefsDr.toFixed(0)} / 100`,
+        peer.openPageRank === null ? null : `Open PageRank ${peer.openPageRank.toFixed(2)} / 10`,
         peer.ageYears === null ? "登録年数は不明" : `登録から ${peer.ageYears.toFixed(1)} 年`,
-      ].join(" / "), { note: "競合はクロールしていないため、この 2 指標だけの比較" });
+      ].filter(Boolean).join(" / "), { note: "競合はクロールしていないため、外に公開されている指標だけの比較" });
     }
     for (const n of domain.notes) f.add("domain", "注記", n);
   }

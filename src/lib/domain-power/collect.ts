@@ -1,11 +1,13 @@
 /**
  * ドメインパワーのうち「外に取りに行く分」の収集。サーバー専用。
  *
- * RDAP（登録日）と Open PageRank（外部リンクの評価）を、自社と競合の分だけ
- * まとめて取る。どちらも失敗しても例外にせず notes に残す（報告書を止めない）。
+ * Ahrefs の DR（外部リンクの評価。無料の公開エンドポイント）、Open PageRank、
+ * RDAP（登録日）を、自社と競合の分だけまとめて取る。どれも失敗しても例外に
+ * せず notes に残す（報告書を止めない）。
  * 検索順位・CrUX・クロールの数値は呼び出し側（パワーアップ分析の収集）が
  * すでに持っているので、ここでは触らない。
  */
+import { fetchAhrefsDr } from "./ahrefs";
 import { ageYearsFrom, registrableDomain } from "./domain";
 import { fetchOpenPageRank } from "./openpagerank";
 import { fetchRdapDomain } from "./rdap";
@@ -15,11 +17,15 @@ export interface DomainFacts {
   host: string;
   registeredAt: string | null;
   registrar: string | null;
+  /** Ahrefs の Domain Rating（0〜100） */
+  ahrefsDr: number | null;
+  /** Ahrefs の利用条件の URL（応答に付いてくる。帰属表示のリンク先） */
+  ahrefsLicense: string | null;
   openPageRank: number | null;
   openPageRankWorldRank: number | null;
   peers: DomainPowerPeer[];
   notes: string[];
-  sources: { rdap: boolean; openPageRank: boolean };
+  sources: { ahrefs: boolean; rdap: boolean; openPageRank: boolean };
 }
 
 export interface FetchDomainFactsOptions {
@@ -27,8 +33,8 @@ export interface FetchDomainFactsOptions {
 }
 
 /**
- * 自社（origin）と競合（competitors）の登録ドメインについて、
- * 登録日と Open PageRank を取る。競合はこの 2 つだけ（クロールしないため）。
+ * 自社（origin）と競合（competitors）の登録ドメインについて、DR・Open PageRank・
+ * 登録日を取る。競合はこの 3 つだけ（クロールしないため）。
  */
 export async function fetchDomainFacts(
   origin: string,
@@ -39,12 +45,15 @@ export async function fetchDomainFacts(
   const peerHosts = [...new Set(competitors.map(registrableDomain).filter((h) => h && h !== host))];
   const notes: string[] = [];
 
-  const [opr, rdap, peerRdap] = await Promise.all([
+  const [opr, dr, peerDr, rdap, peerRdap] = await Promise.all([
     fetchOpenPageRank([host, ...peerHosts], options),
+    fetchAhrefsDr(host, options),
+    Promise.all(peerHosts.map((h) => fetchAhrefsDr(h, options))),
     fetchRdapDomain(host, options),
     Promise.all(peerHosts.map((h) => fetchRdapDomain(h, options))),
   ]);
 
+  if (dr.failure && dr.message) notes.push(dr.message);
   if (opr.failure && opr.message) notes.push(opr.message);
   if (rdap.failure && rdap.message) notes.push(`ドメインの登録日: ${rdap.message}`);
 
@@ -56,17 +65,19 @@ export async function fetchDomainFacts(
 
   const peers: DomainPowerPeer[] = peerHosts.map((h, i) => {
     const registeredAt = peerRdap[i]?.result?.registeredAt ?? null;
-    return { host: h, openPageRank: oprOf(h).rank, registeredAt, ageYears: ageYearsFrom(registeredAt) };
+    return { host: h, ahrefsDr: peerDr[i]?.result?.rating ?? null, openPageRank: oprOf(h).rank, registeredAt, ageYears: ageYearsFrom(registeredAt) };
   });
 
   return {
     host,
     registeredAt: rdap.result?.registeredAt ?? null,
     registrar: rdap.result?.registrar ?? null,
+    ahrefsDr: dr.result?.rating ?? null,
+    ahrefsLicense: dr.result?.license ?? null,
     openPageRank: own.rank,
     openPageRankWorldRank: own.worldRank,
     peers,
     notes,
-    sources: { rdap: rdap.result?.registeredAt != null, openPageRank: own.rank !== null },
+    sources: { ahrefs: dr.result?.rating != null, rdap: rdap.result?.registeredAt != null, openPageRank: own.rank !== null },
   };
 }

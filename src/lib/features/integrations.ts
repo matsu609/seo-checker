@@ -10,6 +10,7 @@ export const INTEGRATION_KEYS = [
   "perplexity",
   "serpapi",
   "pagespeed",
+  "ahrefs",
   "openpagerank",
   "ga4",
   "places",
@@ -63,6 +64,12 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
     label: "PageSpeed Insights",
     envVars: ["PAGESPEED_API_KEY"],
     description: "表示速度・Core Web Vitals の取得（未設定でも低頻度なら動作）",
+  },
+  ahrefs: {
+    key: "ahrefs",
+    label: "Ahrefs（Domain Rating）",
+    envVars: ["AHREFS_API_KEY"],
+    description: "ドメインパワーの DR（0〜100）。無料のドメインパワー測定サイトと同じ数値。無料の公開エンドポイントなので API ユニットは消費しない（表示に「Domain Rating by Ahrefs」の帰属表示が要る）",
   },
   openpagerank: {
     key: "openpagerank",

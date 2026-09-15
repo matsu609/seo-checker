@@ -46,6 +46,7 @@ const search: SheetSearch = { keywords: [{ keyword: "ウェブ制作 世田谷",
 const google: SheetGoogle = { searchConsole: null, ga4: null, notes: ["Search Console は連携していません"] };
 const domain = scoreDomainPower({
   host: "example.com",
+  ahrefsDr: 18,
   openPageRank: 3.4,
   openPageRankWorldRank: 1_234_567,
   registeredAt: "2015-04-01T00:00:00.000Z",
@@ -58,8 +59,8 @@ const domain = scoreDomainPower({
   internalLinks: 5,
   trust: { pass: 3, total: 9 },
   https: false,
-  peers: [{ host: "competitor.jp", openPageRank: 4.1, registeredAt: "2010-01-01T00:00:00.000Z", ageYears: 16.7 }],
-  sources: { openPageRank: true, rdap: true, serp: true, crux: true },
+  peers: [{ host: "competitor.jp", ahrefsDr: 34, openPageRank: 4.1, registeredAt: "2010-01-01T00:00:00.000Z", ageYears: 16.7 }],
+  sources: { ahrefs: true, openPageRank: true, rdap: true, serp: true, crux: true },
   now: new Date("2026-09-14T00:00:00.000Z"),
 });
 
@@ -96,7 +97,7 @@ describe("事実シート", () => {
   it("ドメインパワーを内訳つきで事実にする", () => {
     const lines = factsToLines(sheet.facts);
     expect(lines.some((l) => l.includes("ドメインパワー（推定）") && l.includes("点 / 100"))).toBe(true);
-    expect(lines.some((l) => l.includes("外部からのリンクの評価") && l.includes("3.40 / 10"))).toBe(true);
+    expect(lines.some((l) => l.includes("外部からのリンクの評価") && l.includes("DR 18 / 100"))).toBe(true);
     expect(lines.some((l) => l.includes("ドメインの年数") && l.includes("11.5 年"))).toBe(true);
     expect(lines.some((l) => l.includes("競合のドメイン: competitor.jp"))).toBe(true);
   });

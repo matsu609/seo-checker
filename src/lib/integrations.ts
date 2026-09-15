@@ -19,6 +19,7 @@ const CHECKS: Record<IntegrationKey, () => boolean> = {
   perplexity: () => has("PERPLEXITY_API_KEY"),
   serpapi: () => has("SERPAPI_KEY"),
   pagespeed: () => has("PAGESPEED_API_KEY"),
+  ahrefs: () => has("AHREFS_API_KEY"),
   openpagerank: () => has("OPENPAGERANK_API_KEY"),
   // GA4 はプロパティ ID とサービスアカウント JSON の両方が必要
   ga4: () => has("GA4_PROPERTY_ID") && has("GOOGLE_SERVICE_ACCOUNT_JSON"),

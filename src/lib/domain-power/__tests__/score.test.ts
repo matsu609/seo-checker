@@ -5,6 +5,7 @@ const NOW = new Date("2026-09-15T00:00:00.000Z");
 
 const base: ScoreDomainPowerInput = {
   host: "example.com",
+  ahrefsDr: null,
   openPageRank: null,
   registeredAt: null,
   indexedPages: null,
@@ -16,17 +17,27 @@ const base: ScoreDomainPowerInput = {
   internalLinks: null,
   trust: null,
   https: true,
-  sources: { openPageRank: false, rdap: false, serp: false, crux: false },
+  sources: { ahrefs: false, openPageRank: false, rdap: false, serp: false, crux: false },
   now: NOW,
 };
 
 describe("指標ごとの採点", () => {
-  it("外部リンクの評価は Open PageRank の段階で決まる", () => {
-    expect(scoreLinks(6.2, null).score).toBe(25);
-    expect(scoreLinks(3.0, null).status).toBe("fair");
-    expect(scoreLinks(0.4, null).score).toBe(0);
-    expect(scoreLinks(null, null).status).toBe("unknown");
-    expect(scoreLinks(4.5, 120_000).detail).toContain("120,000 位");
+  it("外部リンクの評価は Ahrefs の DR を優先する（無料ツールと同じ数値）", () => {
+    expect(scoreLinks(62, null, null).score).toBe(25);
+    expect(scoreLinks(35, null, null).status).toBe("good");
+    expect(scoreLinks(12, 2.0, null).status).toBe("fair");
+    expect(scoreLinks(1, null, null).score).toBe(0);
+    expect(scoreLinks(18, 3.4, null).value).toBe("DR 18 / 100");
+    expect(scoreLinks(18, 3.4, null).detail).toContain("Open PageRank は 3.40");
+  });
+
+  it("DR が取れなければ Open PageRank で代用する", () => {
+    expect(scoreLinks(null, 6.2, null).score).toBe(25);
+    expect(scoreLinks(null, 3.0, null).status).toBe("fair");
+    expect(scoreLinks(null, 0.4, null).score).toBe(0);
+    expect(scoreLinks(null, 4.5, 120_000).detail).toContain("120,000 位");
+    expect(scoreLinks(null, 2.5, null).value).toBe("OPR 2.50 / 10");
+    expect(scoreLinks(null, null, null).status).toBe("unknown");
   });
 
   it("ドメインの年数は 10 年で満点", () => {
@@ -93,6 +104,7 @@ describe("合計点", () => {
   it("すべて取れていれば 100 点満点で採点する", () => {
     const result = scoreDomainPower({
       ...base,
+      ahrefsDr: 72,
       openPageRank: 6.5,
       registeredAt: "2010-01-01T00:00:00.000Z",
       indexedPages: 5000,
@@ -121,6 +133,7 @@ describe("合計点", () => {
   it("弱いサイトは低く出る", () => {
     const result = scoreDomainPower({
       ...base,
+      ahrefsDr: 1,
       openPageRank: 0.5,
       registeredAt: "2026-06-01T00:00:00.000Z",
       indexedPages: 3,

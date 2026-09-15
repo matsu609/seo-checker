@@ -213,6 +213,7 @@ function buildDomainPower(args: {
   const judged = trustChecks.filter((c) => c.status !== "info");
   return scoreDomainPower({
     host: facts.host,
+    ahrefsDr: facts.ahrefsDr,
     openPageRank: facts.openPageRank,
     openPageRankWorldRank: facts.openPageRankWorldRank,
     registeredAt: facts.registeredAt,
@@ -227,6 +228,6 @@ function buildDomainPower(args: {
     https: args.origin.startsWith("https://"),
     peers: facts.peers,
     notes: facts.notes,
-    sources: { openPageRank: facts.sources.openPageRank, rdap: facts.sources.rdap, serp: args.serpEnabled, crux: args.cruxCoverage !== "unknown" },
+    sources: { ahrefs: facts.sources.ahrefs, openPageRank: facts.sources.openPageRank, rdap: facts.sources.rdap, serp: args.serpEnabled, crux: args.cruxCoverage !== "unknown" },
   });
 }
