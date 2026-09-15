@@ -11,7 +11,7 @@ import { postJson } from "@/lib/llmo/providers/http";
 import { untrustedLines } from "@/lib/page-diagnosis/analyze";
 import { factsToLines } from "../sheet/build";
 import type { SeoFactSheet } from "../sheet/types";
-import { SecondOpinionSchema, type Analysis, type SecondOpinionRecord } from "./schema";
+import { SecondOpinionSchema, tidySecondOpinion, type Analysis, type SecondOpinionRecord } from "./schema";
 
 const ENDPOINT = "https://api.openai.com/v1/responses";
 const MAX_FACT_LINES = 400;
@@ -124,11 +124,12 @@ export async function generateSecondOpinion(
   if (!parsed.success) throw new Error("ChatGPT の応答の形が想定と違います");
   const known = new Set(facts.map((f) => f.id));
   const clean = (ids: string[]) => ids.filter((id) => known.has(id));
+  const tidy = tidySecondOpinion(parsed.data);
   return {
     opinion: {
-      agreements: parsed.data.agreements,
-      disagreements: parsed.data.disagreements.map((d) => ({ ...d, factIds: clean(d.factIds) })),
-      additions: parsed.data.additions.map((a) => ({ ...a, factIds: clean(a.factIds) })),
+      agreements: tidy.agreements,
+      disagreements: tidy.disagreements.map((d) => ({ ...d, factIds: clean(d.factIds) })),
+      additions: tidy.additions.map((a) => ({ ...a, factIds: clean(a.factIds) })),
     },
     model,
     generatedAt: new Date().toISOString(),

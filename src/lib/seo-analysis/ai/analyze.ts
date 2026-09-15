@@ -11,7 +11,7 @@ import { MODELS } from "@/lib/llm/anthropic";
 import { untrustedLines } from "@/lib/page-diagnosis/analyze";
 import { factsToLines } from "../sheet/build";
 import { GOAL_LABELS, type Fact, type SeoFactSheet } from "../sheet/types";
-import { AnalysisSchema, CommentSchema, type Analysis, type AnalysisRecord, type Comment } from "./schema";
+import { AnalysisSchema, CommentSchema, tidyAnalysis, tidyComment, type Analysis, type AnalysisRecord, type Comment } from "./schema";
 import { unknownFactIds, unverifiedNumbers } from "./verify";
 
 /** プロンプトに載せる facts の上限（1 行 100 字前後 × 400 行 ≒ 40,000 字） */
@@ -93,9 +93,9 @@ export async function generateAnalysis(sheet: SeoFactSheet, options: GenerateAna
       maxTokens: 8192,
       signal: options.signal,
     });
-    last = { data, usage, model: MODELS.default };
-    const bad = unverifiedNumbers(collectTexts(data), facts);
-    const badIds = unknownFactIds(collectFactIds(data), facts);
+    last = { data: tidyAnalysis(data), usage, model: MODELS.default };
+    const bad = unverifiedNumbers(collectTexts(last.data), facts);
+    const badIds = unknownFactIds(collectFactIds(last.data), facts);
     if (bad.length === 0 && badIds.length === 0) break;
     extra = [
       "",
@@ -151,11 +151,12 @@ export async function generateComment(title: string, facts: readonly Fact[], opt
   });
   const known = new Set(trimmed.map((f) => f.id));
   const clean = (ids: string[]) => ids.filter((id) => known.has(id));
+  const tidy = tidyComment(data);
   return {
     comment: {
-      ...data,
-      points: data.points.map((p) => ({ ...p, factIds: clean(p.factIds) })),
-      actions: data.actions.map((p) => ({ ...p, factIds: clean(p.factIds) })),
+      ...tidy,
+      points: tidy.points.map((p) => ({ ...p, factIds: clean(p.factIds) })),
+      actions: tidy.actions.map((p) => ({ ...p, factIds: clean(p.factIds) })),
     },
     model: MODELS.default,
   };

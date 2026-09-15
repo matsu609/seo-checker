@@ -96,6 +96,12 @@ export function toApiError(err: unknown): ApiErrorInfo {
   if (err instanceof StructuredOutputError) {
     return { status: 502, message: err.message, retryable: true };
   }
+  // SDK が構造化出力を zod で検証して落としたとき（max / min は API に送られず、
+  // AI が超えるとここに来る）。API エラーではないので APIError より後に見る
+  if (err instanceof Anthropic.AnthropicError) {
+    console.error("[llm] structured output rejected", err.message.slice(0, 2000));
+    return { status: 502, message: "AI の出力が想定の形と違いました。もう一度お試しください", retryable: true };
+  }
   if (err instanceof Error && /ANTHROPIC_API_KEY/.test(err.message)) {
     return { status: 503, message: "AI 機能は無効です。サーバーに ANTHROPIC_API_KEY を設定してください", retryable: false };
   }
