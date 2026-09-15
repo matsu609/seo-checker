@@ -4,6 +4,8 @@
 前半（§1〜§13）は要件書そのもの（文言は要点を保ったまま短くした）、後半（§14〜§17）は既存コードとの対応・足りないもの・実装の段階・利用者に決めてもらうこと。
 運用状態は [OPERATIONS.md](./OPERATIONS.md)、開発規約は [ARCHITECTURE.md](./ARCHITECTURE.md)、ツールとキーの関係は [tool-map.md](./tool-map.md)。
 
+**関連**: 2026-09-15 に受け取った「Web サイト自動診断・コンサル回答生成システム仕様書」は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)。こちらは **URL だけで動くサイトの分析**、あちらは **GSC / GA4 / CRM の数字の動きをルールで診断する月次報告**で、対象が違う（差分の整理は diagnosis-rules-spec.md §26.8）。
+
 ---
 
 ## 0. 方針の見直し（2026-09-13、利用者の指示。§1 以降より優先）
