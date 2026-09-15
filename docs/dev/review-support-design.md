@@ -143,7 +143,7 @@
 | 項目 | 値 |
 |---|---|
 | サイドバー | MEO タブ → 「口コミ支援（アンケート QR）」 `/tools/reviews` |
-| `registry.ts` | `id: "review-support"`, `group: "measure"`（計測）か新グループ「集客」, `category: "meo"`, `plan: "pro"`, `requires: ["supabase"]`, `optional: ["places"]` |
+| `registry.ts` | `id: "review-support"`, `group: "measure"`（計測）か新グループ「集客」, `category: "meo"`, `plan: "standard"`（2026-09-15 の 3 段階化前は `pro`）, `requires: ["supabase"]`, `optional: ["places"]` |
 | 公開ページ | `/r/[slug]`（来店客のアンケート）。`src/lib/auth/routes.ts` の `PUBLIC_PAGES` は完全一致なので、**`PUBLIC_PAGE_PREFIXES = ["/r/"]` を追加**（`/api/r/` も同様に `PUBLIC_API_PREFIXES`）。前方一致は `/r/` に限定し、`/rank` 等と混ざらないことをテストで固定 |
 | 公開 API | `GET /api/r/[slug]`（フォーム定義）、`POST /api/r/[slug]/answers`（回答）、`POST /api/r/[slug]/events`（ボタン押下。sendBeacon）、`POST /api/r/[slug]/direct`（お店に直接伝える） |
 | 管理 API（ログイン必須） | `/api/reviews/forms`（CRUD）、`/api/reviews/forms/[id]/qr`（SVG/PNG）、`/api/reviews/responses`（一覧・絞り込み・CSV）、`PATCH /api/reviews/responses/[id]`（対応状態・メモ） |
@@ -230,7 +230,7 @@ alter table review_responses enable row level security;
 | 2 | **AI 下書きを外すことの了承** | 推奨: 外す（§2）。残す場合は Google の削除・警告リスクと景表法の「事業者の表示」該当リスクを店舗が負うことになり、§1 の定義とも矛盾する |
 | 3 | **想定業種** | 推奨: v1 は飲食・サロン。クリニックは医療広告ガイドラインの確認後 |
 | 4 | **低評価の通知手段** | 推奨: v1 は管理画面内（バッジ・既定ビュー）。メールは送信サービス（Resend など。新しい外部サービス・環境変数 1 つ）を足してから |
-| 5 | **課金モデル** | 推奨: **店舗数課金**（オールインワン 9,800 円に自社 1 店舗ぶんを含め、2 店舗目から +N 円 / 店舗）。回答数課金は成功するほど高くなり店舗が QR を置かなくなる。既存の「利用者ごとのプラン」と `meo_stores` の店舗数で判定でき、計測の仕組みが要らない。**N の数字と、無料プランに入れるか（入れない推奨）は利用者の判断** |
+| 5 | **課金モデル** | 推奨: **店舗数課金**（スタンダードに自社 1 店舗ぶんを含め、2 店舗目から +N 円 / 店舗。金額は当時 9,800 円を前提に書いたもので、現在の定価は 50,000 円）。回答数課金は成功するほど高くなり店舗が QR を置かなくなる。既存の「利用者ごとのプラン」と `meo_stores` の店舗数で判定でき、計測の仕組みが要らない。**N の数字と、無料プランに入れるか（入れない推奨）は利用者の判断** |
 | 6 | **謝礼機能** | 推奨: v1 では提供しない（§2）。店舗が独自にやる場合の注意書きだけ用意 |
 | 7 | **スタッフ別 QR** | 推奨: 発行単位は店舗 / テーブル / レジ / その他。スタッフ名は案内で避ける |
 | 8 | **QR の生成** | `qrcode` を 1 つ足す（推奨）か、URL だけ返して外部サービスで作ってもらうか |

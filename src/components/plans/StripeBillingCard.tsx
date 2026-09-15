@@ -3,16 +3,16 @@
 /**
  * Stripe 直結の申し込みとお支払いの管理（料金プランの画面に出す）。
  *
- * - 契約が無ければ「オールインワンを申し込む」→ /api/billing/checkout → Stripe Checkout へ遷移
- * - 契約があれば「お支払い方法の変更・請求書・解約」→ /api/billing/portal → Stripe カスタマーポータルへ遷移
+ * 申し込みボタンは料金表の各プランの中（PlanCheckoutButton）に置いてある。ここが持つのは、
+ * 契約中の状態の表示と「お支払い方法の変更・請求書・解約」→ /api/billing/portal → Stripe カスタマーポータル。
  * カード番号はこのアプリを通らない（Stripe の画面で入力・変更する）。
  */
 import { useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
-import { hasStripeSubscription, STRIPE_STATUS_LABELS, type StripeState } from "@/lib/billing/state";
-import { PLAN_BY_ID } from "@/lib/plans/catalog";
+import { hasStripeSubscription, planFromStripeState, STRIPE_STATUS_LABELS, type StripeState } from "@/lib/billing/state";
+import { planLabel } from "@/lib/plans/catalog";
 import { formatDateTime } from "@/lib/report/format";
 
 export interface StripeBillingCardProps {
@@ -43,20 +43,20 @@ function formatAmount(state: StripeState): string | null {
 }
 
 export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, trialDays, firstToolPath }: StripeBillingCardProps) {
-  const [busy, setBusy] = useState<"checkout" | "portal" | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const subscribed = hasStripeSubscription(state);
-  const pro = PLAN_BY_ID.pro;
+  const contracted = planFromStripeState(state);
 
-  async function go(kind: "checkout" | "portal") {
-    setBusy(kind);
+  async function openPortal() {
+    setBusy(true);
     setError(null);
     try {
-      const url = await open(kind === "checkout" ? "/api/billing/checkout" : "/api/billing/portal");
+      const url = await open("/api/billing/portal");
       window.location.assign(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "開けませんでした");
-      setBusy(null);
+      setBusy(false);
     }
   }
 
@@ -90,6 +90,12 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, tr
 
       {state && (
         <dl className="mb-4 grid gap-x-6 gap-y-1 text-[13px] md:grid-cols-4">
+          {contracted && (
+            <div>
+              <dt className="text-muted">ご契約のプラン</dt>
+              <dd className="font-bold text-ink">{planLabel(contracted)}</dd>
+            </div>
+          )}
           <div>
             <dt className="text-muted">契約状況</dt>
             <dd className="font-bold text-ink">
@@ -126,20 +132,21 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, tr
         </Callout>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        {!subscribed && (
-          <Button type="button" size="lg" onClick={() => go("checkout")} loading={busy === "checkout"} disabled={busy !== null}>
-            {pro.label}（月額 {pro.priceYen.toLocaleString("ja-JP")} 円・税別）を申し込む
+      {!subscribed && (
+        <p className="mb-4 text-[13px] leading-relaxed text-ink">
+          お申し込みは、上の料金プランからご希望の段階の「申し込む」を押してください。プレミアム（伴走）は空き枠の確認が要るため、お問い合わせから承ります。
+        </p>
+      )}
+
+      {hasCustomer && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" size="lg" variant={subscribed ? "primary" : "secondary"} onClick={openPortal} loading={busy} disabled={busy}>
+            {subscribed ? "お支払い方法の変更・プランの変更・請求書・解約" : "請求書を確認する"}
           </Button>
-        )}
-        {hasCustomer && (
-          <Button type="button" size="lg" variant={subscribed ? "primary" : "secondary"} onClick={() => go("portal")} loading={busy === "portal"} disabled={busy !== null}>
-            {subscribed ? "お支払い方法の変更・請求書・解約" : "請求書を確認する"}
-          </Button>
-        )}
-      </div>
+        </div>
+      )}
       <p className="mt-3 text-[12px] leading-relaxed text-muted">
-        割引コードをお持ちの場合は、申し込み画面の「プロモーションコードを追加」から入力してください。解約は次回の更新日まで利用でき、日割りの返金はありません。詳しくは
+        割引コードをお持ちの場合は、申し込み画面の「プロモーションコードを追加」から入力してください。プランの変更（ライト ⇄ スタンダード）と解約は、上のボタンから開く Stripe の画面で行えます。解約は次回の更新日まで利用でき、日割りの返金はありません。詳しくは
         <a href="/legal/tokushoho" className="underline">
           特定商取引法に基づく表記
         </a>

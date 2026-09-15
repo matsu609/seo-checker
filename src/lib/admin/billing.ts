@@ -9,7 +9,7 @@
  * 通貨ごとの桁を見て表示用の文字列を作る。
  */
 import { planFromStripeState, type StripeState } from "@/lib/billing/state";
-import { toPlanId, type PlanId } from "@/lib/plans/catalog";
+import { planLabel, toPlanId, type PlanId } from "@/lib/plans/catalog";
 
 /** 小数を持たない通貨。円はここに入るので 100 で割ってはいけない */
 const ZERO_DECIMAL = new Set(["JPY", "KRW", "VND", "CLP", "ISK", "XAF", "XOF", "XPF"]);
@@ -207,11 +207,12 @@ export function summarizeStripeState(state: StripeState): BillingSummary {
     : "unknown";
   const monthly = state.amount !== null && state.currency ? toMoney({ amount: state.amount, currency: state.currency }) : null;
   const periodEnd = state.currentPeriodEnd ? Date.parse(state.currentPeriodEnd) : null;
+  const plan = planFromStripeState(state);
   return {
     status,
     statusLabel: STATUS_LABELS[status],
-    plan: planFromStripeState(state),
-    planName: "Stripe: オールインワン",
+    plan,
+    planName: `Stripe: ${plan ? planLabel(plan) : "契約なし"}`,
     monthly,
     subtotal: monthly,
     nextPaymentAt: state.cancelAtPeriodEnd ? null : periodEnd,

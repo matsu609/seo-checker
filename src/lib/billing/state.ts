@@ -9,7 +9,7 @@
  * Clerk Billing はドルにしか対応していないため（2026-09 時点）、円建ての料金は Stripe 直結にした。
  */
 import { z } from "zod";
-import type { PlanId } from "@/lib/plans/catalog";
+import { RECOMMENDED_PLAN, toPlanId, type PlanId } from "@/lib/plans/catalog";
 
 /** publicMetadata のキー */
 export const STRIPE_STATE_KEY = "stripe";
@@ -23,8 +23,14 @@ export type StripeStatus = (typeof STRIPE_STATUSES)[number];
 export const StripeStateSchema = z.object({
   subscriptionId: z.string(),
   status: z.enum(STRIPE_STATUSES),
-  /** Stripe の Price ID（price_…）。STRIPE_PRICE_PRO と一致すればオールインワン */
+  /** Stripe の Price ID（price_…） */
   priceId: z.string().nullable().default(null),
+  /**
+   * 契約しているプラン（light / standard）。Webhook が Price ID から引いて書く。
+   * この画面はクライアントでも読むので、env を引かずに済むよう保存しておく。
+   * 2026-09-15 より前に作られた契約にはこの値が無い（= 当時の唯一の商品 = いまのスタンダード）。
+   */
+  plan: z.string().nullable().default(null),
   /** 月額（最小単位。円なら 1 = 1 円）と通貨。画面と管理画面の表示用 */
   amount: z.number().nullable().default(null),
   currency: z.string().nullable().default(null),
@@ -45,13 +51,18 @@ export function stripeStateFromMetadata(metadata: unknown): StripeState | null {
 }
 
 /**
- * 契約状態 → プラン。有効（active / trialing）と支払い遅延（past_due。Stripe が再請求する猶予中）は pro。
+ * 契約状態 → プラン。有効（active / trialing）と支払い遅延（past_due。Stripe が再請求する猶予中）が契約中。
  * それ以外（解約・未払い・未完了・一時停止）は契約なし = null（他の判定に落ちる）。
- * Price が STRIPE_PRICE_PRO と違うときも pro 扱い（売っているのは 1 つだけ。将来プランを増やすならここで分ける）。
+ *
+ * どのプランかは保存してある `plan` を見る。入っていない（2026-09-15 より前の契約）か、
+ * 知らない値のときは本命のスタンダード扱いにする。ここで free に倒すと、
+ * 払っている人がツールを使えなくなるため。
  */
 export function planFromStripeState(state: StripeState | null): PlanId | null {
   if (!state) return null;
-  return state.status === "active" || state.status === "trialing" || state.status === "past_due" ? "pro" : null;
+  const active = state.status === "active" || state.status === "trialing" || state.status === "past_due";
+  if (!active) return null;
+  return toPlanId(state.plan) ?? RECOMMENDED_PLAN.id;
 }
 
 /** 契約があるとみなす（お支払い方法の変更・解約の画面を出す）状態か */
@@ -73,13 +84,21 @@ export interface SubscriptionLike {
   items: { data: { price: { id: string; unit_amount: number | null; currency: string }; current_period_end: number }[] };
 }
 
-export function stateFromSubscription(sub: SubscriptionLike, eventCreated: number, now = new Date()): StripeState {
+export interface StateFromSubscriptionOptions {
+  /** Price ID から引いたプラン（サーバー側で解決して渡す）。null なら本命として読む */
+  plan?: PlanId | null;
+  now?: Date;
+}
+
+export function stateFromSubscription(sub: SubscriptionLike, eventCreated: number, options: StateFromSubscriptionOptions = {}): StripeState {
+  const { plan = null, now = new Date() } = options;
   const item = sub.items.data[0] ?? null;
   const status = (STRIPE_STATUSES as readonly string[]).includes(sub.status) ? (sub.status as StripeStatus) : "incomplete";
   return {
     subscriptionId: sub.id,
     status,
     priceId: item?.price.id ?? null,
+    plan,
     amount: item?.price.unit_amount ?? null,
     currency: item?.price.currency?.toUpperCase() ?? null,
     currentPeriodEnd: item ? new Date(item.current_period_end * 1000).toISOString() : null,

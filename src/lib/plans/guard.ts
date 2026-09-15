@@ -6,7 +6,7 @@
  */
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { findFeatureById } from "@/lib/features/registry";
-import { PLAN_BY_ID, planAllows, planLabel, planPriceLabel, upgradeTarget, type PlanId } from "./catalog";
+import { PLAN_BY_ID, RECOMMENDED_PLAN, planAllows, planLabel, planPriceLabel, upgradeTarget, type PlanId } from "./catalog";
 import { getCurrentPlan } from "./current";
 import { overridesFromMetadata } from "./overrides";
 
@@ -20,13 +20,24 @@ export interface PlanDenial {
 export async function checkPlan(required: PlanId): Promise<PlanDenial | null> {
   const { plan } = await getCurrentPlan();
   if (planAllows(plan, required)) return null;
-  return {
-    required,
-    current: plan,
-    message:
-      `この機能は「${upgradeTarget(required).label}」（${planPriceLabel(upgradeTarget(required).id)}）でご利用いただけます。` +
-      `現在のプランは「${planLabel(plan)}」です。`,
-  };
+  return { required, current: plan, message: denialMessage(required, plan) };
+}
+
+/**
+ * 断りの文面。いちばん安く使えるプランを先に言い、それが本命でなければ本命も並べる。
+ * 3 段階にした意味（どれを買うかで比べていただく）がここで消えないようにする。
+ */
+export function denialMessage(required: PlanId, current: PlanId): string {
+  const target = upgradeTarget(required);
+  const alsoRecommended =
+    target.id === RECOMMENDED_PLAN.id
+      ? ""
+      : `AI が改修案・原稿まで作る「${RECOMMENDED_PLAN.label}」（${planPriceLabel(RECOMMENDED_PLAN.id)}）もございます。`;
+  return (
+    `この機能は「${target.label}」（${planPriceLabel(target.id)}）からご利用いただけます。` +
+    alsoRecommended +
+    `現在のプランは「${planLabel(current)}」です。`
+  );
 }
 
 /**

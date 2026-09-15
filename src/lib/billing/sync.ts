@@ -6,6 +6,7 @@
  * publicMetadata は丸ごと置き換わるので、他のキー（plan、featureOverrides）を必ず残す。
  */
 import { clerkClient } from "@clerk/nextjs/server";
+import { planForPriceId } from "./stripe";
 import { shouldApplyEvent, stateFromSubscription, STRIPE_CUSTOMER_KEY, STRIPE_STATE_KEY, stripeStateFromMetadata, type StripeState, type SubscriptionLike } from "./state";
 
 async function loadUser(userId: string) {
@@ -36,7 +37,8 @@ export async function applySubscription(userId: string, sub: SubscriptionLike, e
   const { client, publicMetadata, privateMetadata } = await loadUser(userId);
   const current = stripeStateFromMetadata(publicMetadata);
   if (!shouldApplyEvent(current, eventCreated)) return false;
-  const next = stateFromSubscription(sub, eventCreated);
+  // どのプランを買ったかは Price ID から引いて保存する（画面はクライアントでも読むので env を引けない）
+  const next = stateFromSubscription(sub, eventCreated, { plan: planForPriceId(sub.items.data[0]?.price.id ?? null) });
   await client.users.updateUserMetadata(userId, {
     publicMetadata: { ...publicMetadata, [STRIPE_STATE_KEY]: next },
     ...(customerId && privateMetadata[STRIPE_CUSTOMER_KEY] !== customerId ? { privateMetadata: { ...privateMetadata, [STRIPE_CUSTOMER_KEY]: customerId } } : {}),

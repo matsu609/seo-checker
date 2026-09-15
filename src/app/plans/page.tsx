@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/ui";
 import { Callout } from "@/components/ui/Callout";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { hasStripeSubscription, STRIPE_CUSTOMER_KEY, stripeStateFromMetadata, type StripeState } from "@/lib/billing/state";
-import { isStripeConfigured, isStripeLive, trialDays } from "@/lib/billing/stripe";
+import { isStripeConfigured, isStripeLive, purchasablePlanIds, trialDays } from "@/lib/billing/stripe";
 import { FIRST_TOOL_PATH } from "@/app/start/page";
 import { requireFeature } from "@/lib/features/registry";
 import { isBillingEnabled } from "@/lib/plans/billing";
@@ -26,7 +26,7 @@ const SOURCE_NOTE: Record<string, string> = {
   billing: "ご契約中のプランです。",
   metadata: "運用者が割り当てたプランです。",
   env: "サーバーの既定プラン（DEFAULT_PLAN）が適用されています。",
-  default: "プランが割り当てられていないため、無料診断のみご利用いただけます。",
+  default: "プランが割り当てられていないため、クイック診断のみご利用いただけます。下のプランからお申し込みいただけます。",
 };
 
 type Props = { searchParams: Promise<{ [key: string]: string | string[] | undefined }> };
@@ -60,7 +60,7 @@ export default async function Page({ searchParams }: Props) {
         {SOURCE_NOTE[source] ?? ""}
       </Callout>
 
-      <PlanTable current={plan} />
+      <PlanTable current={plan} purchasable={stripe ? purchasablePlanIds() : []} />
 
       {/* Stripe 直結（円建て）。申し込み・お支払い方法の変更・解約 */}
       {stripe && (

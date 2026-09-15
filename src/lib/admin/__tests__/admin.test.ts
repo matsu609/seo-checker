@@ -207,10 +207,10 @@ describe("契約情報のまとめ", () => {
       status: "active",
       subscriptionItems: [
         { status: "ended", plan: { name: "旧", slug: "free" } },
-        { status: "active", plan: { name: "プロ", slug: "pro" } },
+        { status: "active", plan: { name: "スタンダード", slug: "standard" } },
       ],
     });
-    expect(s.plan).toBe("pro");
+    expect(s.plan).toBe("standard");
   });
 
   // Clerk 側のスラッグを打ち間違えると「決済は通ったのに機能が開かない」

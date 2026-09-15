@@ -11,6 +11,7 @@
  */
 import { PricingTable } from "@clerk/nextjs";
 import { Card } from "@/components/ui/Card";
+import { RECOMMENDED_PLAN } from "@/lib/plans/catalog";
 
 export function BillingTable() {
   return (
@@ -23,7 +24,7 @@ export function BillingTable() {
         // 購入後は料金プランの画面へ戻す（新しいプランがすぐ反映される）
         newSubscriptionRedirectUrl="/plans"
         // Clerk 側のプランのスラッグ。catalog.ts の clerkPlan と同じ（plans.test.ts で固定）
-        highlightedPlan="pro"
+        highlightedPlan={RECOMMENDED_PLAN.id}
       />
     </Card>
   );
