@@ -80,3 +80,80 @@ GA4 の `analytics.readonly` と Search Console の `webmasters.readonly` は Go
 6. 連携の解除もできることを見せる（できれば）
 
 音声か字幕で「いま何をしているか」を説明する。2〜3 分で足りる。
+
+---
+
+# 申請に貼る文面（2026-09-17 作成）
+
+Google Cloud の「アプリを公開」→ 審査の申請フォームに、**スコープごとに**用途説明を入れる欄がある。
+下の文をそのまま貼る（英語欄なら英訳を使う）。**動画の URL も同じ欄に入れる。**
+
+## スコープ①: `https://www.googleapis.com/auth/webmasters.readonly`（Search Console・閲覧のみ）
+
+> 当サービス「SEO Checker」（https://seo-checker.tokyo/ ）は、日本の中小企業・店舗に向けて、自社ウェブサイトの検索での見つかりやすさを診断し、改善案を提示する月額制のツールです。
+>
+> このスコープは、**利用者本人が所有・管理する Search Console のプロパティ**から、検索パフォーマンスの実測値（検索クエリ、表示回数、クリック数、平均掲載順位、対象ページ）を**読み取るため**に使用します。
+>
+> 取得した値は、アプリ内の「検索パフォーマンス」画面と「精密診断」の報告書に、**その利用者本人にだけ**表示します。どのクエリで表示されていてクリックされていないか、順位が下がったページはどれか、といった改善点を具体的に示すために必要です。実測値が無いと、当サービスは一般論の助言しか出せず、中核となる機能が成立しません。
+>
+> 書き込み・削除は一切行わないため、読み取り専用のスコープのみを要求しています。データは利用者本人への表示以外の目的には使わず、第三者への販売・広告利用・他の利用者への開示は行いません。汎用的な AI・機械学習モデルの学習には使用しません。
+
+**英語版**
+
+> SEO Checker (https://seo-checker.tokyo/ ) is a subscription web app for small businesses in Japan that diagnoses how well their website is found in search and suggests concrete improvements.
+>
+> We use this scope to read search performance data (queries, impressions, clicks, average position, and pages) **from Search Console properties the user themselves owns**. We display these values only to that same user, inside our "Search performance" screen and our "Detailed diagnosis" report, so they can see which queries show but do not get clicked and which pages lost position. Without this real data our product can only give generic advice, so this is core functionality.
+>
+> We never write or delete anything, so we request the read-only scope. The data is used solely to present it back to the user. We do not sell it, use it for advertising, disclose it to other users, or use it to develop, improve, or train generalized AI/ML models.
+
+## スコープ②: `https://www.googleapis.com/auth/analytics.readonly`（Google アナリティクス・閲覧のみ）
+
+> このスコープは、**利用者本人が管理する GA4 プロパティ**から、サイトの利用状況（セッション数、参照元・メディア、ページ別の表示回数、コンバージョンなどの集計値）を**読み取るため**に使用します。プロパティの一覧を取得するために Admin API、数値を取得するために Data API を使います。
+>
+> 取得した値は、アプリ内の「サイトレポート」「生成 AI 流入分析」画面と「精密診断」の報告書に、**その利用者本人にだけ**表示します。当サービスの中心的な価値は、検索で見つかったあと実際にサイトで何が起きているか（直帰、離脱、問い合わせに至らない導線）まで含めて改善点を示すことにあり、GA4 の集計値が無いとこの部分が成立しません。
+>
+> 「生成 AI 流入分析」は、参照元に生成 AI サービスが含まれる訪問を集計して表示する機能で、GA4 の参照元データを使います。
+>
+> 個人を特定する情報（ユーザー ID、IP アドレス、端末識別子）は取得せず、集計値のみを扱います。書き込み・削除は行わないため読み取り専用のスコープのみを要求しています。汎用的な AI・機械学習モデルの学習には使用しません。
+
+**英語版**
+
+> We use this scope to read aggregated usage data (sessions, source/medium, pageviews, conversions) **from GA4 properties the user themselves administers**. We use the Admin API to list their properties and the Data API to read the numbers.
+>
+> We display these values only to that same user, in our "Site report" and "Generative-AI traffic" screens and in the "Detailed diagnosis" report. The core value of our product is showing what happens after a visitor arrives, not just how they found the site, so this data is required for the feature to work. The "Generative-AI traffic" screen aggregates visits whose referrer is a generative-AI service.
+>
+> We read aggregated metrics only; we do not request user IDs, IP addresses, or device identifiers. We never write or delete, so we request the read-only scope. We do not use this data to develop, improve, or train generalized AI/ML models.
+
+## AI に送っていることの説明（聞かれたら、あるいは先に書いておく）
+
+> 当サービスの「精密診断」では、上記のスコープで取得した**集計値**を、運営者が契約する AI 事業者（Anthropic）の API に送信し、その利用者本人に見せる分析文と改善案を生成します。送信するのは集計された数値と対象ページの情報で、Google アカウントのメールアドレスなどの識別情報は送信しません。AI 事業者側では、送信内容がモデルの学習に使用されない設定・契約のもとで利用しています。この取り扱いはプライバシーポリシー第 5 条・第 6 条に明記しています。
+
+**英語版**
+
+> In our "Detailed diagnosis" feature we send the **aggregated** values obtained through these scopes to our AI provider (Anthropic) in order to generate the written analysis and recommendations that we show back to that same user. We send aggregated figures and page information only; we do not send account identifiers such as the user's Google email address. Our agreement and settings with the provider ensure that this content is not used to train their models. This is disclosed in Articles 5 and 6 of our privacy policy.
+
+---
+
+# デモ動画の台本（2〜3 分。撮影は利用者）
+
+**撮り方**: 画面録画。**ブラウザのアドレスバーを必ず画面内に入れる。**マイクで話せるなら話す。話さないなら各場面にテロップを入れる。
+撮り終わったら **YouTube に「限定公開」**でアップし、**審査が終わるまで消さない**。URL を申請フォームに貼る。
+
+**撮影前の準備**: 連携を一度解除しておく（設定画面から Google の接続を外す）。既に連携済みだと同意画面が出ず、**動画の要件を満たさない**。
+
+| # | 画面 | 映すもの | 言う（テロップ） |
+|---|---|---|---|
+| 1 | https://seo-checker.tokyo/ | 紹介サイトのトップ。アドレスバーが見えること | 「SEO Checker は、中小企業のウェブサイトが検索でどう見つかっているかを診断するサービスです」 |
+| 2 | https://app.seo-checker.tokyo/ | ログイン。**アプリ名 `SEO Checker` が出ているログイン画面**を映す | 「利用者はアカウントを作ってログインします」 |
+| 3 | アプリ内の設定画面 | 「Google と連携する」ボタンを押す前の画面 | 「Search Console と Google アナリティクスのデータを読み取るため、Google 連携をお願いしています」 |
+| 4 | **Google の同意画面** | **全画面。アプリ名・要求スコープの文言が読める大きさで、3 秒以上静止する。スクロールして両方のスコープを見せる** | 「Search Console とアナリティクスの、**閲覧のみ**の権限を求めます」 |
+| 5 | 同意画面 | 「続行」を押す | 「利用者が許可します」 |
+| 6 | 設定画面に戻ったところ | 連携済みの表示、サイトとプロパティの一覧 | 「連携すると、利用者ご自身のサイトとプロパティを選べます」 |
+| 7 | 検索パフォーマンス画面 | **実際に数値が表示されているところ** | 「これが Search Console から読み取った実測値です。どの検索語で表示され、クリックされているかを本人にだけ表示します」 |
+| 8 | サイトレポート / 生成 AI 流入分析 | **実際に数値が表示されているところ** | 「こちらは GA4 から読み取った利用状況です」 |
+| 9 | 精密診断の報告書 | 分析文と改善案が出ているところ | 「これらの実測値をもとに、改善案を作って本人に示します」 |
+| 10 | 設定画面 | 連携を解除するところ | 「連携はいつでも解除できます」 |
+| 11 | https://app.seo-checker.tokyo/privacy | **第 5 条（Google アカウントのデータの取り扱い）が画面に出ているところ** | 「取り扱いはプライバシーポリシーに明記しています」 |
+
+**やってはいけないこと**: 同意画面を早送りする／モザイクをかける、テスト用の別アプリで撮る、
+申請したアプリ名と違う名前が映る、データが出ていない空の画面だけで終わる。
