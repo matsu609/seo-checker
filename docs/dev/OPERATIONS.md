@@ -14,6 +14,7 @@
   2. [tool-map.md](./tool-map.md) — どのツールがどの API キーでつながっているか、キーが切れると何が止まるか
   3. [services.md](./services.md) — GitHub / Vercel / Cloudflare / Clerk / Supabase / Google Cloud の全体像
   4. [ARCHITECTURE.md](./ARCHITECTURE.md) — 開発規約とディレクトリ、[README](../../README.md) — 機能の説明
+- Google の審査対応: **[google-oauth-verification.md](./google-oauth-verification.md)** — OAuth 本番公開審査（#13）で落ちる理由の類型と、こちらの現在地・申請の順番・デモ動画の中身
 - 決済の審査対応: **[stripe-checklist-prompt.md](./stripe-checklist-prompt.md)** — Stripe のセキュリティチェックリスト（#84）への回答プロンプトと、回答に使う「サービスの実態」の一覧
 - 仕様書: **自動診断（134 ルール）は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)**、精密診断は [seo-analysis-spec.md](./seo-analysis-spec.md)、口コミ支援は [review-support-design.md](./review-support-design.md)、画面の作りは [design-spec.md](./design-spec.md) / [ui-notes.md](./ui-notes.md)。
 - このファイルには重複させず、**状態と判断**だけを書く。
@@ -2003,3 +2004,14 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - **テスト状態の制約が 2 つ**: ①**テストユーザーに登録した Google アカウントしか連携できない**（100 人まで）②**トークンが 7 日で失効する**（お客様が週 1 回つなぎ直すことになる）。
 - **だから #13（OAuth の本番公開申請）が要る。**`analytics.readonly` が機密スコープなので Google の審査（2〜6 週間）。**今週のうちに出すのがいちばん効く**（①の分類。待ち時間が長い）。
 - なお PageSpeed Insights だけは API キー方式で、`PAGESPEED_API_KEY` として登録済み。
+
+### 2026-09-17（利用者の質問: OAuth 審査で落ちる事業者は何が違うのか）
+
+- 質問「通らない事業者は逆にどういうものなのですか。地雷を踏まないように申請したい」。→ **[google-oauth-verification.md](./google-oauth-verification.md)** を新規作成。
+- **まず安心材料**: 今回は**機密（sensitive）**スコープであって**制限付き（restricted）ではない**ので、**第三者機関の年次セキュリティ評価（CASA）は不要**。ブランドとポリシーの審査だけ。
+- **落ちる型は 9 つ**に整理した。多いのは ①**ブランディングの不一致**（アプリ名・ロゴ・ホームページ・ドメインが揃っていない）②**プライバシーポリシーの不備**（Limited Use の明記なし、取得するデータが曖昧、スコープと記載の食い違い）③**デモ動画の不備**（同意画面が映っていない、アプリ名が違う）④**申請後にメールを放置**（1〜2 週間で却下）。
+- **こちらの現在地を調べた結果、土台はできている**: 独自ドメインと所有確認（#31）、独自ドメインの連絡先、事業内容の分かる紹介サイト、**ログイン不要で robots も開けてあるプライバシーポリシー**、**Limited Use の明記あり**（`PrivacyPolicy.tsx` 第 5 条）、取得データの具体名あり、読み取り専用の明記と実装、Anthropic への提供の開示。
+- **足りないのは 6 つ**: ①ブランディングに規約・ポリシーの URL 未登録（#8）②**Clerk のアプリ名が `My Application` のまま**（#7。**デモ動画に映るので Google 側の `SEO Checker` と食い違って見える**）③「**Google のデータを汎用 AI モデルの学習に使わない**」の明記が弱い（第 6 条は「努めます」）④用途説明文 ⑤デモ動画 ⑥ロゴ。
+- **このサービス特有の要点**: **GSC / GA4 の集計値を Claude に送って分析文を作っている**（`src/lib/seo-analysis/ai/analyze.ts`）。隠さず「利用者本人に見せるレポートのためだけに使い、学習には使わない」と用途説明とポリシーの両方で言い切る。
+- 環境の制約: `developers.google.com` / `support.google.com` はこの環境の egress プロキシで遮断されており直接読めない。検索結果の要約と申請体験談をもとにまとめた旨を資料に明記した。
+- ドキュメントのみの更新。コードは触っていない。**次にこちらでやれるのは、ポリシー第 6 条の追記（③）と、用途説明文・動画台本の下書き。**
