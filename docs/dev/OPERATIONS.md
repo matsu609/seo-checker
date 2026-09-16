@@ -223,6 +223,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。残るは ⑧ 本番モード）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
 | 85 | **Gemini の既定モデルを切り替える**: `gemini-2.5-flash` は 2026-10-16 に提供終了予定（公式の料金ページの注記）。Vercel に `GEMINI_MODEL`（後継の Flash。公式の一覧で ID を確認）を追加 → Redeploy → LLMO の Gemini 列が動くこと。Gemini のキーが未設定のままなら急がない | 利用者 → Claude | 未（10 月中旬まで） |
 | 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **最優先・未着手** |
+| 85 | **古いブランチ 12 本の削除**（作り直す前の履歴の残骸。いまの main と共通の祖先が無く、中身は main に入り直し済み）。Claude からは `git push origin --delete` が 403 で拒否されるため、画面操作が要る。画面: https://github.com/matsu609/seo-checker/branches → 各行のごみ箱アイコン。ブランチ名と復元用の SHA は下の作業ログ（2026-09-16「返答フォーマットの追加と、古いブランチ 12 本の削除」）の表 | 利用者 | 未 |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
 | 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
 | 50 | 口コミポリシーの原文確認（この環境からは support.google.com / caa.go.jp が開けない）: review-support-design.md §10 の URL 1〜3 | 利用者 | 利用者が確認済みとして判断（09-11）。任意 |
@@ -1301,14 +1302,16 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
   (3) リリース番号の一覧、を図と表で出す。**値は必ず実際の git から取り、SHA・ブランチ名を推測で書かない**ことをルールに明記。
   - 未マージの作業ブランチ `claude/claude-response-format-t9moa7`（2026-09-06）に、同じ趣旨の古いルール案が眠っていた。
     削除する前に中身を読み、「必ず git の実状から取る / 捏造しない / 取れないものは不明と書く」という良い部分を新しいルールに引き継いだ。
-- 利用者の指示 ②「**古いブランチ 12 本をすべて削除できるなら削除して**」→ 削除した。
+- 利用者の指示 ②「**古いブランチ 12 本をすべて削除できるなら削除して**」→ **こちらからは削除できなかった（#85）。**
+  `git push origin --delete <ブランチ>` が **HTTP 403** で拒否される。通常の push は通るので、
+  このセッションの認証が **ref の削除だけを許可していない**。GitHub MCP にもブランチ削除のツールは無い。
+  **削除は利用者の画面操作が必要**（手順は #85）。削除してよいことは下記のとおり確認済み。
   - 12 本とも**いまの main と共通の祖先が無い**（`git merge-base` が空）。リポジトリの履歴を作り直す前のもので、
     そもそも今の main にマージできない。中身は作り直したあとの main に入り直しているか、役目を終えている。
-  - 削除前に、主な成果物が今の main にあることを確認した: `docs/dev/tool-map.md`、`src/lib/pdf/download.ts`、
+  - 主な成果物が今の main にあることは確認済み: `docs/dev/tool-map.md`、`src/lib/pdf/download.ts`、
     `src/app/admin/page.tsx`、`src/components/free/ServiceGuide.tsx`、noindex の判定（`src/lib/page-report/`）、
     口コミアンケートの多言語（`src/lib/reviews/translate.ts`）。
-  - **復元するための記録**（GitHub の Branches 画面で消したブランチは一定期間 Restore でき、SHA が分かれば
-    `git push origin <SHA>:refs/heads/<名前>` でも戻せる）:
+  - **削除対象と、復元するための記録**（GitHub の Branches 画面で消したブランチは一定期間 Restore できる）:
 
 | ブランチ | 先頭 SHA | 最終コミット日 | 最終コミット |
 |---|---|---|---|
