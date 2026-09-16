@@ -190,7 +190,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 28 | 紹介サイトの文面 | Claude | 完了（#30 に統合） |
 | 26 | contact@seo-checker.tokyo の受信（Cloudflare Email Routing） | 利用者 | 完了（利用者報告「転送設定は済んでいます」） |
 | 27 | Google Auth Platform → ブランディング（アプリ名 SEO Checker、サポートメール matsumatsu452@gmail.com、ホームページ https://seo-checker.tokyo/、プライバシー /privacy、承認済みドメイン seo-checker.tokyo、デベロッパー連絡先 2 件） | 利用者 | **完了（09-11 1:01 画面で保存済みを確認）**。ロゴは審査通過後に |
-| 7 | Clerk: Legal に `/terms` `/privacy` の URL、サインアップ時の同意 ON。アプリ名を `SEO Checker` に。Restrictions で許可リスト／招待制 | 利用者 | 未 |
+| 7 | Clerk: Legal に `/terms` `/privacy` の URL、サインアップ時の同意 ON。アプリ名を `SEO Checker` に。Restrictions で許可リスト／招待制 | 利用者 | **ほぼ完了（2026-09-17）**: Legal の 2 URL と「Require express consent」オンを保存し、開き直して反映を確認（利用者報告）。アプリ名も `SEO Checker`。**残りは Restrictions の Allowlist が有効（ON）になっているかの確認だけ**（識別子を足しただけでは制限が効かないことがある） |
 | 8 | Google Auth Platform → ブランディングに利用規約 / プライバシーの URL | 利用者 | 未 |
 | 9 | 鍵のローテーション: Clerk Production `sk_live_`（Instance → API keys → Regenerate → Vercel 更新 → Redeploy）、Clerk Development `sk_test_`、Google OAuth クライアントシークレット（シークレットを追加 → Clerk に貼り替え → 古い方を無効化） | 利用者 | 未 |
 | 10 | GSC / GA4 の権限付与（上記「Google 側のデータの持ち主」）→ 設定画面「一覧を取り直す」→ 検索パフォーマンス・生成 AI 流入分析で数値確認 | 利用者 | 未 |
@@ -2045,3 +2045,18 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - **「はじめかた」の手順を 3 → 4 に**（`src/lib/onboarding/steps.ts`）。1 番目を「ホームページの URL を登録する」にした。
 - 検証は 4 つとも通過（lint / tsc / test 1,946 件 / build）。ブラウザでも設定 → 8 タブを実際に開いて、登録した URL が各タブに出ること・コンソールエラーが無いことを確認した。
 - **利用者にお願いしたいこと**: 本番に反映されたら `https://app.seo-checker.tokyo/settings` で自社のホームページ URL を 1 回登録してください。登録はブラウザごと（localStorage）なので、**PC を変えたら登録し直し**になります。移すときは同じ設定画面の「JSON をダウンロード / 読み込む」が使えます。
+
+### 2026-09-17（Clerk の Legal と同意チェックを設定 / Chrome 側の指摘 4 点を突き合わせ）
+
+- **利用者が Clerk 本番の Legal を設定完了**（#7）: 利用規約 `https://app.seo-checker.tokyo/terms`、プライバシー `https://app.seo-checker.tokyo/privacy`、**Require express consent オン**。ページを開き直して反映を確認済み。
+- 利用者が Claude in Chrome からの指摘 4 点を転記。**こちらの実物と突き合わせた結果、残っているのは 1 点だけ**:
+
+| Chrome 側の指摘 | 実際 | 根拠 |
+|---|---|---|
+| Google Cloud のブランディングにも同じ 2 URL を入れる | **未。これだけが本当に残っている**（#8） | Google Auth Platform → ブランディング |
+| `/terms` `/privacy` をログイン不要にする | **済み** | `src/lib/auth/routes.ts` の `PUBLIC_PAGES` に両方あり。`src/proxy.ts` は `isProtectedPath()` が false のパスを Clerk に通さない。`src/app/robots.ts` も両方を Allow |
+| `seo-checker.tokyo` の所有確認と承認済みドメイン | **済み** | #31（09-11、Cloudflare 連携で Search Console 所有確認）、#27（09-11、承認済みドメイン登録を画面で確認） |
+| プライバシーポリシーに Google のデータの用途を書く | **済み（ただし 1 か所だけ弱い）** | 第 3 条の表に取得するデータを具体名で、第 5 条に用途と Limited Use の明記あり。**弱いのは第 6 条の「学習に利用されない契約・設定での利用に努めます」**。Google のデータについては言い切るほうが安全（[google-oauth-verification.md](./google-oauth-verification.md) の「足りないもの」③） |
+
+- 環境の制約: `app.seo-checker.tokyo` も egress プロキシで遮断されており、本番ページを直接開いての確認はできない。**コードの定義（`PUBLIC_PAGES` / `proxy.ts` / `robots.ts`）で確認した。**
+- ドキュメントのみの更新。コードは触っていない。
