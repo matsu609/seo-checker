@@ -319,6 +319,11 @@
       "commit": "e0514b4",
       "date": "2026-09-15",
       "summary": "プレミアムの契約を Stripe から正しく読めるようにする（STRIPE_PRICE_PREMIUM）"
+    },
+    {
+      "commit": "36a6dbb",
+      "date": "2026-09-16",
+      "summary": "プレミアムを「150,000 円〜・お見積り」表記に"
     }
   ]
 }
