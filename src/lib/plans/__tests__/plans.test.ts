@@ -129,8 +129,8 @@ describe("機能とプランの対応", () => {
 });
 
 describe("売るのは 3 段階（ライト / スタンダード / プレミアム）", () => {
-  it("料金表は高い順。未契約は出さない", () => {
-    expect(LISTED_PLANS.map((p) => p.id)).toEqual(["premium", "standard", "light"]);
+  it("料金表は安い順（左からライト → スタンダード → プレミアム）。未契約は出さない", () => {
+    expect(LISTED_PLANS.map((p) => p.id)).toEqual(["light", "standard", "premium"]);
   });
 
   it("画面から買えるのはライトとスタンダードだけ。プレミアムは問い合わせ", () => {

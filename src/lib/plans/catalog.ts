@@ -140,8 +140,8 @@ export const PLANS: readonly Plan[] = [
   },
 ] as const;
 
-/** 料金表に出すプラン（高い順。いちばん高い段を先に見せて基準にする） */
-export const LISTED_PLANS: readonly Plan[] = PLANS.filter((p) => p.listed).sort((a, b) => PLAN_RANK[b.id] - PLAN_RANK[a.id]);
+/** 料金表に出すプラン（安い順。左から段を上げて読ませる。利用者の指示 2026-09-17） */
+export const LISTED_PLANS: readonly Plan[] = PLANS.filter((p) => p.listed).sort((a, b) => PLAN_RANK[a.id] - PLAN_RANK[b.id]);
 
 /** 画面から Stripe で買えるプラン（安い順） */
 export const STRIPE_PLANS: readonly Plan[] = PLANS.filter((p) => p.checkout === "stripe").sort((a, b) => a.priceYen - b.priceYen);
