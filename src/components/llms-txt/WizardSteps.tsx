@@ -5,6 +5,7 @@
  * 状態は親（LlmsTxtWizard）が持ち、ここは表示と onChange だけを担う。
  */
 import { Button, Callout, Field, Input, Select, Textarea } from "@/components/ui";
+import { SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
 import { newId } from "@/lib/store/createStore";
 import type { LlmsTxtState } from "@/lib/llms-txt/types";
 
@@ -14,6 +15,12 @@ export interface StepProps {
 }
 
 const LANGUAGES = ["日本語", "English", "简体中文", "繁體中文", "한국어", "Español", "Français", "Deutsch"];
+
+/** 任意欄の placeholder を登録したホームページに合わせる（未登録なら例示のまま） */
+function useSiteBase(): string {
+  const site = useRegisteredSite();
+  return site.siteUrl || "https://example.co.jp/";
+}
 
 /** ① 基本情報 */
 export function StepBasics({ state, patch }: StepProps) {
@@ -65,16 +72,9 @@ export function StepBasics({ state, patch }: StepProps) {
         </Callout>
       )}
 
-      <Field label="トップページの URL" htmlFor="llms-site-url" required hint="ここを起点にページ候補を集めます">
-        <Input
-          id="llms-site-url"
-          value={state.siteUrl}
-          inputMode="url"
-          autoComplete="url"
-          placeholder="https://example.co.jp/"
-          onChange={(e) => patch({ siteUrl: e.target.value })}
-        />
-      </Field>
+      <SiteTargetNotice what="llms.txt の生成">
+        ここを起点にページ候補を集めます。
+      </SiteTargetNotice>
 
       <div className="grid gap-4 @2xl:grid-cols-2">
         <Field label="サイト名" htmlFor="llms-site-name" hint="llms.txt の 1 行目（# 見出し）になります">
@@ -184,6 +184,7 @@ export function StepCrawl({ state, patch }: StepProps) {
 
 /** ③ 会社情報 */
 export function StepCompany({ state, patch }: StepProps) {
+  const base = useSiteBase();
   return (
     <div className="space-y-4">
       <p className="text-[13px] leading-relaxed text-muted">
@@ -198,12 +199,12 @@ export function StepCompany({ state, patch }: StepProps) {
             onChange={(e) => patch({ companyName: e.target.value })}
           />
         </Field>
-        <Field label="会社概要ページの URL" htmlFor="llms-company-url">
+        <Field label="会社概要ページの URL（任意）" htmlFor="llms-company-url">
           <Input
             id="llms-company-url"
             value={state.companyUrl}
             inputMode="url"
-            placeholder="https://example.co.jp/company"
+            placeholder={`${base}company`}
             onChange={(e) => patch({ companyUrl: e.target.value })}
           />
         </Field>
@@ -241,6 +242,7 @@ export function StepCompany({ state, patch }: StepProps) {
 
 /** ⑤ 執筆者・RSS */
 export function StepAuthors({ state, patch }: StepProps) {
+  const base = useSiteBase();
   const update = (id: string, next: Partial<LlmsTxtState["authors"][number]>) =>
     patch({ authors: state.authors.map((a) => (a.id === id ? { ...a, ...next } : a)) });
 
@@ -299,21 +301,21 @@ export function StepAuthors({ state, patch }: StepProps) {
       </div>
 
       <div className="grid gap-4 @2xl:grid-cols-2">
-        <Field label="RSS / Atom フィードの URL" htmlFor="llms-rss">
+        <Field label="RSS / Atom フィードの URL（任意）" htmlFor="llms-rss">
           <Input
             id="llms-rss"
             value={state.rssUrl}
             inputMode="url"
-            placeholder="https://example.co.jp/feed.xml"
+            placeholder={`${base}feed.xml`}
             onChange={(e) => patch({ rssUrl: e.target.value })}
           />
         </Field>
-        <Field label="サイトマップの URL" htmlFor="llms-sitemap">
+        <Field label="サイトマップの URL（任意）" htmlFor="llms-sitemap">
           <Input
             id="llms-sitemap"
             value={state.sitemapUrl}
             inputMode="url"
-            placeholder="https://example.co.jp/sitemap.xml"
+            placeholder={`${base}sitemap.xml`}
             onChange={(e) => patch({ sitemapUrl: e.target.value })}
           />
         </Field>

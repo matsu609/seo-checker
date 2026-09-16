@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { ListingsDescribeResponse } from "@/app/api/listings/describe/route";
 import type { ListingsProfileResponse } from "@/app/api/listings/profile/route";
+import { useRegisteredSite } from "@/components/site/RegisteredSite";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -83,10 +84,14 @@ const KINDS: readonly MediaKind[] = ["self", "fed", "aggregator"];
 const STATUS_TONE: Record<ListingStatus, "neutral" | "warn" | "pass" | "info"> = { todo: "neutral", submitted: "warn", live: "pass", skip: "info" };
 
 export function ListingsTool() {
+  // 「サイト」欄は設定に登録したホームページを初期値にする（各タブで URL を打ち直させない）
+  const site = useRegisteredSite();
   const [data, setData] = useState<ListingsStoresResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState<string>("");
-  const [profile, setProfile] = useState<ListingProfile>(emptyProfile());
+  const [saved, setSaved] = useState<ListingProfile>(emptyProfile());
+  /** 「サイト」欄を利用者が自分で触ったか。触っていなければ登録したホームページを出す */
+  const [websiteTouched, setWebsiteTouched] = useState(false);
   const [states, setStates] = useState<ListingStates>({});
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -101,7 +106,8 @@ export function ListingsTool() {
   /** 選んだ店舗の記録を画面に読み込む */
   function selectStore(item: ListingsStoreItem | null) {
     setPlaceId(item?.placeId ?? "");
-    setProfile(item?.record?.profile ?? emptyProfile());
+    setSaved(item?.record?.profile ?? emptyProfile());
+    setWebsiteTouched(Boolean(item?.record?.profile?.website.trim()));
     setStates(item?.record?.states ?? {});
     setSavedAt(item?.record?.updatedAt ?? null);
     setDirty(false);
@@ -124,6 +130,13 @@ export function ListingsTool() {
     };
   }, []);
 
+  /** 画面と保存に使う内容。「サイト」が未入力なら登録したホームページで埋める */
+  const profile = useMemo<ListingProfile>(
+    () =>
+      websiteTouched || !site.siteUrl || saved.website.trim() ? saved : { ...saved, website: site.siteUrl },
+    [saved, websiteTouched, site.siteUrl],
+  );
+
   const store = useMemo(() => data?.stores.find((s) => s.placeId === placeId) ?? null, [data, placeId]);
   const mismatches = useMemo(() => (store?.google ? compareNap(profile, store.google) : []), [profile, store]);
   const summary = useMemo(() => summarizeStates(states), [states]);
@@ -131,7 +144,9 @@ export function ListingsTool() {
   const jsonLd = useMemo(() => jsonLdScript(profile), [profile]);
 
   function update<K extends keyof ListingProfile>(key: K, value: ListingProfile[K]) {
-    setProfile((p) => ({ ...p, [key]: value }));
+    if (key === "website") setWebsiteTouched(true);
+    // 派生値の profile から作ることで、初期値のホームページもそのまま保存対象になる
+    setSaved({ ...profile, [key]: value });
     setDirty(true);
     setSaveMessage(null);
   }
@@ -144,7 +159,7 @@ export function ListingsTool() {
 
   function importFromGoogle() {
     if (!store?.google) return;
-    setProfile((p) => prefillFromGoogle(p, store.google!));
+    setSaved((p) => prefillFromGoogle(p, store.google!));
     setDirty(true);
   }
 
@@ -155,7 +170,7 @@ export function ListingsTool() {
     setSaveMessage(null);
     try {
       const res = await request<ListingsProfileResponse>("/api/listings/profile", { method: "PUT", body: JSON.stringify({ placeId: store.placeId, profile, states }) });
-      setProfile(res.record.profile);
+      setSaved(res.record.profile);
       setStates(res.record.states);
       setSavedAt(res.record.updatedAt);
       setDirty(false);
@@ -181,7 +196,7 @@ export function ListingsTool() {
           hint,
         }),
       });
-      setProfile((p) => ({ ...p, shortDescription: res.short, longDescription: res.long }));
+      setSaved((p) => ({ ...p, shortDescription: res.short, longDescription: res.long }));
       setDirty(true);
     } catch (err) {
       setDescribeError(err instanceof Error ? err.message : "説明文を作れませんでした");

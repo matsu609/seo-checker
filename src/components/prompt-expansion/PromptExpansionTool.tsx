@@ -16,7 +16,6 @@ import {
   Card,
   EmptyState,
   Field,
-  Input,
   Select,
   StatCard,
   Textarea,
@@ -37,6 +36,7 @@ import {
 } from "@/lib/llmo/expansion/types";
 import { addPrompts } from "@/lib/llmo/store";
 import { useCurrentProject, useStore } from "@/lib/store/hooks";
+import { SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
 import { useIntegrations } from "@/lib/store/useIntegrations";
 import { useToolRun } from "@/lib/tools/run";
 
@@ -46,6 +46,8 @@ export function PromptExpansionTool() {
   const id = useId();
   const { status } = useIntegrations();
   const { project } = useCurrentProject();
+  // 対象サイトは設定に登録したホームページ。この画面では URL を聞かない
+  const site = useRegisteredSite();
   const [settings, setSettings] = useStore(promptExpansionSettingsStore);
   const [expansions] = useStore(promptExpansionsStore);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export function PromptExpansionTool() {
   const result = current?.result ?? null;
 
   const seedPrompts = parseSeedText(settings.seedText).slice(0, MAX_SEED_PROMPTS);
-  const siteUrl = settings.siteUrl.trim();
+  const siteUrl = site.siteUrl;
   const canGenerate = anthropicEnabled && seedPrompts.length > 0 && siteUrl.length > 0;
 
   async function runGenerate() {
@@ -171,7 +173,10 @@ export function PromptExpansionTool() {
           </>
         }
       >
-        <div className="grid gap-3 md:grid-cols-[1fr_18rem_8rem]">
+        <SiteTargetNotice what="プロンプト拡張" className="mb-3">
+          このサイトのトップページ（タイトル・ナビゲーション・見出し）を文脈として読み取ります。
+        </SiteTargetNotice>
+        <div className="grid gap-3 md:grid-cols-[1fr_8rem]">
           <Field
             label="参考プロンプト"
             htmlFor={`${id}-seed`}
@@ -184,14 +189,6 @@ export function PromptExpansionTool() {
               value={settings.seedText}
               onChange={(e) => setSettings({ ...settings, seedText: e.target.value })}
               placeholder={"AIO 対策に強い SEO ツールを教えて\nLLMO の始め方は？"}
-            />
-          </Field>
-          <Field label="対象サイト URL" htmlFor={`${id}-url`} required hint="業種に合ったプロンプトにするために読みます。">
-            <Input
-              id={`${id}-url`}
-              value={settings.siteUrl}
-              onChange={(e) => setSettings({ ...settings, siteUrl: e.target.value })}
-              placeholder={project?.startUrl || "https://example.co.jp/"}
             />
           </Field>
           <Field label="生成数" htmlFor={`${id}-count`}>
@@ -225,7 +222,7 @@ export function PromptExpansionTool() {
       {!result ? (
         <EmptyState
           title="まだ生成結果がありません"
-          description="参考プロンプトを 1 本以上と対象サイト URL を入れて「プロンプトを生成」を押してください。"
+          description="参考プロンプトを 1 本以上入れて「プロンプトを生成」を押してください。対象サイトは設定に登録したホームページです。"
         />
       ) : (
         <>
@@ -321,7 +318,7 @@ export function PromptExpansionTool() {
               <Button size="sm" onClick={registerToLlmo} disabled={selected.size === 0}>
                 LLMO モニタリングに登録（{selected.size}）
               </Button>
-              {!project && <Badge tone="neutral">プロジェクト未選択のまま登録できます</Badge>}
+              {!project && <Badge tone="neutral">ホームページ未登録のまま登録できます</Badge>}
             </div>
           </Card>
 

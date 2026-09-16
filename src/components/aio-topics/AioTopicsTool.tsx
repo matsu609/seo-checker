@@ -27,6 +27,8 @@ import { formatRate } from "@/lib/rank/classify";
 import { DEVICE_LABELS, rankKeywordsStore } from "@/lib/rank/store";
 import type { SerpDevice } from "@/lib/rank/types";
 import { useCurrentProject, useStore } from "@/lib/store/hooks";
+import { PageTargetField, SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
+import { resolvePageUrl } from "@/lib/site/target";
 import { useIntegrations } from "@/lib/store/useIntegrations";
 import { useToolRun } from "@/lib/tools/run";
 import { TopicTable } from "./TopicTable";
@@ -46,6 +48,8 @@ export function AioTopicsTool() {
   const serpEnabled = status?.serpapi === true;
   const anthropicEnabled = status?.anthropic === true;
   const { project } = useCurrentProject();
+  // カバー判定の対象は設定に登録したホームページ。ここで聞くのはページだけ
+  const site = useRegisteredSite();
 
   const [settings, setSettings] = useStore(aioTopicSettingsStore);
   const [dict] = useStore(aioTopicDictStore);
@@ -61,7 +65,7 @@ export function AioTopicsTool() {
   const coverage = useToolRun<CoverageResponse>();
 
   const keyword = settings.keyword.trim();
-  const pageUrl = settings.pageUrl.trim();
+  const pageUrl = resolvePageUrl(site.siteUrl, settings.page) ?? "";
 
   const history = useMemo(() => daysForKeyword(days, keyword), [days, keyword]);
   const topics = useMemo(() => topicsForKeyword(dict, keyword), [dict, keyword]);
@@ -173,6 +177,7 @@ export function AioTopicsTool() {
           </>
         }
       >
+        <SiteTargetNotice what="カバー状況の判定" className="mb-3" />
         <div className="grid gap-3 md:grid-cols-[1fr_9rem_11rem]">
           <Field label="キーワード" htmlFor={`${id}-kw`} required hint="順位計測に登録済みのキーワードも選べます。">
             <Input
@@ -208,18 +213,12 @@ export function AioTopicsTool() {
           </Field>
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-[1fr_9rem]">
-          <Field
-            label="自社の対象ページ URL（カバー判定に使用）"
-            htmlFor={`${id}-page`}
-            hint="このページの本文と見出しを読み、トピックごとに「記載あり / 一部のみ / 記載なし」を判定します。"
-          >
-            <Input
-              id={`${id}-page`}
-              value={settings.pageUrl}
-              onChange={(e) => setSettings({ ...settings, pageUrl: e.target.value })}
-              placeholder="https://example.com/blog/aio"
-            />
-          </Field>
+          <PageTargetField
+            id={`${id}-page`}
+            label="カバー判定を見る自社ページ（任意）"
+            value={settings.page}
+            onChange={(page) => setSettings({ ...settings, page })}
+          />
           <Field label="集計期間" htmlFor={`${id}-period`}>
             <Select id={`${id}-period`} value={period} onChange={(e) => setPeriod(Number(e.target.value))}>
               {PERIODS.map((p) => (
@@ -240,7 +239,7 @@ export function AioTopicsTool() {
               !anthropicEnabled
                 ? "ANTHROPIC_API_KEY が未設定のため判定できません"
                 : !pageUrl
-                  ? "自社の対象ページ URL を入力してください"
+                  ? "設定でホームページの URL を登録してください"
                   : aggregate.rows.length === 0
                     ? "先にトピックを抽出してください"
                     : undefined

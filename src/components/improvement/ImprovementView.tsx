@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * HP 改修提案。URL を入れてボタン一つで、機械的な診断と AI の改修案を出す。
+ * HP 改修提案。設定に登録したホームページを対象に、ボタン一つで機械的な診断と AI の改修案を出す。
  *
  * 想定の使い方:
  *   - お客様はこの画面を見るだけ（読み取り専用の内容）
@@ -11,6 +11,8 @@
  */
 import { useState } from "react";
 import { Badge, Button, Callout, Card, EmptyState, Field, Input, InlineDiff } from "@/components/ui";
+import { PageTargetField, SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
+import { resolvePageUrl } from "@/lib/site/target";
 import { AREA_LABELS, EFFORT_LABELS, PRIORITY_LABELS, type Proposal } from "@/lib/improvement/schema";
 import type { ImprovementResult } from "@/lib/improvement/generate";
 import type { BadgeTone } from "@/components/ui/Badge";
@@ -22,7 +24,10 @@ const PRIORITY_TONE: Record<Proposal["priority"], BadgeTone> = {
 };
 
 export function ImprovementView() {
-  const [url, setUrl] = useState("");
+  // 対象サイトは設定に登録したホームページ。ここで聞くのは「どのページか」だけ
+  const site = useRegisteredSite();
+  const [page, setPage] = useState("");
+  const targetUrl = resolvePageUrl(site.siteUrl, page);
   const [keyword, setKeyword] = useState("");
   const [result, setResult] = useState<ImprovementResult | null>(null);
   const [cached, setCached] = useState(false);
@@ -30,14 +35,14 @@ export function ImprovementView() {
   const [error, setError] = useState<string | null>(null);
 
   async function run(refresh = false) {
-    if (!url.trim()) return;
+    if (!targetUrl) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/improvement", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), keyword: keyword.trim() || undefined, refresh }),
+        body: JSON.stringify({ url: targetUrl, keyword: keyword.trim() || undefined, refresh }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? `生成できませんでした（HTTP ${res.status}）`);
@@ -54,20 +59,18 @@ export function ImprovementView() {
     <div className="space-y-6">
       <Card
         title="対象ページ"
-        description="URL を入れてボタンを押すだけです。ページを診断し、そのまま使える改修案を AI が作ります。1 回につき 1 ページを対象にします。"
+        description="ボタンを押すだけです。設定に登録したホームページを診断し、そのまま使える改修案を AI が作ります。ページを空欄にするとトップページを見ます（1 回につき 1 ページ）。"
         className="no-print"
       >
+        <SiteTargetNotice what="HP 改修提案" className="mb-3" />
         <div className="grid gap-3 @md:grid-cols-[1fr_16rem]">
-          <Field label="ページの URL" htmlFor="improve-url">
-            <Input
-              id="improve-url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/service"
-              inputMode="url"
-              disabled={loading}
-            />
-          </Field>
+          <PageTargetField
+            id="improve-page"
+            label="改修するページ（任意）"
+            value={page}
+            onChange={setPage}
+            disabled={loading}
+          />
           <Field label="対策キーワード（任意）" htmlFor="improve-kw" hint="入れると提案がその語に寄ります">
             <Input
               id="improve-kw"
@@ -79,7 +82,7 @@ export function ImprovementView() {
           </Field>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button onClick={() => void run()} loading={loading} disabled={url.trim().length === 0}>
+          <Button onClick={() => void run()} loading={loading} disabled={!targetUrl}>
             改修案を作る
           </Button>
           {result && (
@@ -102,7 +105,7 @@ export function ImprovementView() {
       {!result && !loading && !error && (
         <EmptyState
           title="まだ改修案はありません"
-          description="URL を入れて「改修案を作る」を押すと、診断結果をもとに具体的な改修案を作ります。"
+          description="「改修案を作る」を押すと、診断結果をもとに具体的な改修案を作ります。対象は設定に登録したホームページです。"
         />
       )}
 

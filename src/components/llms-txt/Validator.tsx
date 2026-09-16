@@ -4,10 +4,10 @@
  * 既存 llms.txt の検証。
  * ウィザードとは独立して使えるので、生成前でも「今どうなっているか」を確認できる。
  */
-import { useState } from "react";
-import { Badge, Button, Callout, Card, DataTable, EmptyState, Field, Input, type Column } from "@/components/ui";
+import { Badge, Button, Callout, Card, DataTable, EmptyState, type Column } from "@/components/ui";
 import type { CheckLevel, LlmsLink, ValidationCheck, ValidationResult } from "@/lib/llms-txt/types";
 import { useToolRun } from "@/lib/tools/run";
+import { SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
 
 const LEVEL_TONE: Record<CheckLevel, "pass" | "warn" | "fail"> = {
   pass: "pass",
@@ -65,8 +65,9 @@ const LINK_COLUMNS: Column<LlmsLink>[] = [
   },
 ];
 
-export function LlmsTxtValidator({ defaultUrl }: { defaultUrl: string }) {
-  const [url, setUrl] = useState(defaultUrl);
+/** 検証の対象は設定に登録したホームページ（/llms.txt を見に行く） */
+export function LlmsTxtValidator() {
+  const site = useRegisteredSite();
   const { state, run } = useToolRun<{ validation: ValidationResult; cached: boolean }>();
   const validation = state.phase === "done" ? state.data.validation : null;
   const running = state.phase === "running";
@@ -77,25 +78,20 @@ export function LlmsTxtValidator({ defaultUrl }: { defaultUrl: string }) {
       description="公開中の llms.txt を取得して、形式・サイズ・リンク切れを確認します。生成前の現状把握にも使えます。"
     >
       <form
-        className="grid gap-3 @2xl:grid-cols-[1fr_auto] @2xl:items-end"
+        className="grid gap-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (url.trim()) void run("/api/llms-txt/validate", { url, checkLinks: true });
+          if (site.siteUrl) void run("/api/llms-txt/validate", { url: site.siteUrl, checkLinks: true });
         }}
       >
-        <Field label="サイトまたは llms.txt の URL" htmlFor="llms-validate-url" hint="サイトの URL を入れると /llms.txt を見に行きます">
-          <Input
-            id="llms-validate-url"
-            value={url}
-            inputMode="url"
-            placeholder="https://example.co.jp/"
-            disabled={running}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-        </Field>
-        <Button type="submit" loading={running} disabled={!url.trim()}>
-          検証する
-        </Button>
+        <SiteTargetNotice what="llms.txt の検証">
+          このサイトの /llms.txt を見に行きます。
+        </SiteTargetNotice>
+        <div>
+          <Button type="submit" loading={running} disabled={!site.registered}>
+            検証する
+          </Button>
+        </div>
       </form>
 
       {state.phase === "error" && (

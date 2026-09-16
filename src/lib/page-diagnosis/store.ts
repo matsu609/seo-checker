@@ -113,7 +113,11 @@ export const pageDiagnosesStore = createStore<StoredDiagnosis[]>(
 
 export const PageDiagnosisSettingsSchema = z.object({
   keyword: z.string(),
-  url: z.string(),
+  /**
+   * 診断するページ。設定に登録したホームページからのパス（例: "/service/"）。
+   * 空なら検索結果の中で自社ドメインの最上位ページを自動で選ぶ。
+   */
+  page: z.string(),
   device: z.enum(["desktop", "mobile"]),
   location: z.string(),
 });
@@ -123,7 +127,7 @@ export type PageDiagnosisSettings = z.infer<typeof PageDiagnosisSettingsSchema>;
 export const pageDiagnosisSettingsStore = createStore<PageDiagnosisSettings>(
   "pageDiagnosisSettings",
   PageDiagnosisSettingsSchema,
-  { keyword: "", url: "", device: "desktop", location: "" },
+  { keyword: "", page: "", device: "desktop", location: "" },
 );
 
 /** (キーワード, 対象 URL) の組から安定した ID を作る */

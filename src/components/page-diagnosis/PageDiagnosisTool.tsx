@@ -12,7 +12,9 @@ import {
   removeDiagnosis,
 } from "@/lib/page-diagnosis/store";
 import type { DiagnosisResult } from "@/lib/page-diagnosis/types";
-import { useCurrentProject, useStore } from "@/lib/store/hooks";
+import { useStore } from "@/lib/store/hooks";
+import { PageTargetField, SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
+import { resolvePageUrl } from "@/lib/site/target";
 import { useIntegrations } from "@/lib/store/useIntegrations";
 import { useToolRun } from "@/lib/tools/run";
 import { ContentTab } from "./ContentTab";
@@ -41,7 +43,8 @@ export function PageDiagnosisTool() {
   // requiresAny: どちらか 1 つあれば実行できる（両方無いときは実行不可）
   const canRun = serpEnabled || anthropicEnabled;
 
-  const { project } = useCurrentProject();
+  // 対象サイトは設定に登録したホームページ。ここで聞くのはページだけ
+  const site = useRegisteredSite();
   const [settings, setSettings] = useStore(pageDiagnosisSettingsStore);
   const [diagnoses] = useStore(pageDiagnosesStore);
   const [rankKeywords] = useStore(rankKeywordsStore);
@@ -69,10 +72,10 @@ export function PageDiagnosisTool() {
     if (!keyword || !canRun) return;
     const data = await run("/api/page-diagnosis", {
       keyword,
-      ...(settings.url.trim() ? { url: settings.url.trim() } : {}),
+      ...(settings.page.trim() ? { url: resolvePageUrl(site.siteUrl, settings.page) ?? settings.page.trim() } : {}),
       device: settings.device,
       ...(settings.location.trim() ? { location: settings.location.trim() } : {}),
-      ...(project?.domain ? { projectDomain: project.domain } : {}),
+      ...(site.domain ? { projectDomain: site.domain } : {}),
     });
     if (!data) return;
     saveDiagnosis(data.result);
@@ -101,8 +104,9 @@ export function PageDiagnosisTool() {
 
       <Card
         title="診断する"
-        description="対策キーワードは必須です。対象 URL を省略すると、検索結果の中で自社ドメインの最上位ページを対象にします。"
+        description="対策キーワードは必須です。ページを省略すると、検索結果の中で自社ドメインの最上位ページを対象にします。"
       >
+        <SiteTargetNotice what="ページ診断" className="mb-4" />
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="対策キーワード" htmlFor={`${id}-keyword`} required hint="例: AIO 対策 とは">
             <Input
@@ -120,23 +124,14 @@ export function PageDiagnosisTool() {
             </datalist>
           </Field>
 
-          <Field
-            label="対象 URL（任意）"
-            htmlFor={`${id}-url`}
-            hint={
-              project?.domain
-                ? `省略すると ${project.domain} の最上位ページを自動で選びます`
-                : "省略する場合は、設定画面でプロジェクト（自社ドメイン）を登録してください"
-            }
-          >
-            <Input
-              id={`${id}-url`}
-              value={settings.url}
-              placeholder="https://example.com/page"
-              onChange={(e) => setSettings({ ...settings, url: e.target.value })}
-              disabled={running}
-            />
-          </Field>
+          <PageTargetField
+            id={`${id}-page`}
+            label="診断するページ（任意）"
+            value={settings.page}
+            onChange={(page) => setSettings({ ...settings, page })}
+            disabled={running}
+            emptyHint={`空欄にすると ${site.domain} の中で検索順位が最も高いページを自動で選びます`}
+          />
 
           <Field label="デバイス" htmlFor={`${id}-device`}>
             <Select

@@ -188,7 +188,7 @@ export function KeywordsTool() {
     if (checked.size === 0) return;
     if (!projectId) {
       setNoticeIsFailure(false);
-      setNotice("先に「設定」でプロジェクトを作成してください。順位計測はプロジェクト単位で管理します。");
+      setNotice("先に「設定」でホームページの URL を登録してください。順位計測はサイト単位で管理します。");
       return;
     }
     const added = addKeywords(Array.from(checked), { projectId, device: "desktop" });

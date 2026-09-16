@@ -16,6 +16,7 @@ import { MAX_ANALYSES_PER_RUN } from "@/lib/seo-analysis/limits";
 import type { RunSummary } from "@/lib/seo-analysis/runs";
 import { GOAL_LABELS, type AnalysisGoal, type AnalysisInput, type SeoFactSheet } from "@/lib/seo-analysis/sheet/types";
 import { seoAnalysisFormStore, splitLines } from "@/lib/seo-analysis/store";
+import { SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
 import { formatDateTime, hostOf } from "@/lib/report";
 import { useStore } from "@/lib/store/hooks";
 import { ReportView } from "./ReportView";
@@ -55,6 +56,8 @@ interface Loaded {
 
 export function SeoAnalysisView() {
   const [form, setForm] = useStore(seoAnalysisFormStore);
+  // 分析するサイトは設定に登録したホームページ。この画面では URL を聞かない（競合だけ残す）
+  const site = useRegisteredSite();
   const [meta, setMeta] = useState<RunsResponse | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -136,9 +139,9 @@ export function SeoAnalysisView() {
   );
 
   const start = useCallback(async () => {
-    const url = form.url.trim();
+    const url = site.siteUrl;
     if (!url) {
-      setError("分析するサイトの URL を入力してください");
+      setError("設定でホームページの URL を登録してください");
       setPhase("error");
       return;
     }
@@ -175,7 +178,7 @@ export function SeoAnalysisView() {
     } finally {
       if (controller.current === ac) controller.current = null;
     }
-  }, [form, reloadMeta, runAnalysis]);
+  }, [form, site.siteUrl, reloadMeta, runAnalysis]);
 
   const abort = useCallback(() => {
     controller.current?.abort();
@@ -241,7 +244,7 @@ export function SeoAnalysisView() {
       <Card
         className="mb-6"
         title="分析するサイト"
-        description="URL だけで動きます。サイト全体のクロール（旧・サイト診断: 48 ルールの課題一覧・ページ一覧・CSV は報告書の「詳細」に出ます）に、速度・検索順位・Google 連携の数字を足して AI が分析します。キーワード・業種・目的・競合を入れると、その分だけ分析が具体的になります。"
+        description="設定に登録したホームページを対象にします。サイト全体のクロール（旧・サイト診断: 48 ルールの課題一覧・ページ一覧・CSV は報告書の「詳細」に出ます）に、速度・検索順位・Google 連携の数字を足して AI が分析します。キーワード・業種・目的・競合を入れると、その分だけ分析が具体的になります。"
         actions={
           quota ? (
             <Badge tone={exhausted ? "fail" : "neutral"} icon={false}>
@@ -257,10 +260,8 @@ export function SeoAnalysisView() {
             void start();
           }}
         >
-          <div className="grid gap-3 @2xl:grid-cols-[1fr_10rem]">
-            <Field label="サイトの URL" htmlFor="sa-url" required hint="例: example.co.jp／https://example.co.jp/">
-              <Input id="sa-url" value={form.url} inputMode="url" autoComplete="url" placeholder="https://example.co.jp/" disabled={busy} onChange={(e) => setForm({ ...form, url: e.target.value })} />
-            </Field>
+          <SiteTargetNotice what="精密診断" />
+          <div className="grid gap-3 @2xl:grid-cols-[10rem_1fr]">
             <Field label="クロールの上限" htmlFor="sa-max" hint="多いほど時間がかかります">
               <Select id="sa-max" value={String(form.maxPages)} disabled={busy} onChange={(e) => setForm({ ...form, maxPages: Number(e.target.value) })}>
                 {PAGE_LIMITS.map((n) => (
@@ -302,7 +303,7 @@ export function SeoAnalysisView() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" size="lg" loading={busy} disabled={exhausted || (meta !== null && !meta.enabled)}>
+            <Button type="submit" size="lg" loading={busy} disabled={!site.registered || exhausted || (meta !== null && !meta.enabled)}>
               分析する
             </Button>
             {busy && (
@@ -353,7 +354,7 @@ export function SeoAnalysisView() {
         phase !== "collecting" && (
           <EmptyState
             title="まだ分析していません"
-            description="URL を入れて「分析する」を押すと、サイト全体のクロール・主要ページの速度・検索順位・Google 連携の数字を事実シートにまとめ、AI が現状分析と改善案を書きます。"
+            description="「分析する」を押すと、設定に登録したホームページについて、サイト全体のクロール・主要ページの速度・検索順位・Google 連携の数字を事実シートにまとめ、AI が現状分析と改善案を書きます。"
           />
         )
       )}
