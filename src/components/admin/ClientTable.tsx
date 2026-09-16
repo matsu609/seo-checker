@@ -4,12 +4,14 @@
  * マスター画面の顧客一覧（操作側）。
  *
  * 1 行 = 1 顧客。契約状況・月額・クーポンは読み取り専用で、
- * 触れるのは機能の個別開放（チェックボックス）と担当代理店（選択）だけ。
+ * 触れるのは機能の個別開放（チェックボックス）と担当代理店（選択）、
+ * そして「この方の画面を見る」（代理ログイン）だけ。
  *
- * どちらも押した瞬間に保存する。押した直後に見た目を戻さないよう、
+ * 保存はどちらも押した瞬間に行う。押した直後に見た目を戻さないよう、
  * 保存中は行の状態を先に進めておき、失敗したら元に戻す。
  */
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Field";
@@ -100,6 +102,45 @@ export function ClientTable({ initial, agencies }: ClientTableProps) {
     }
   }
 
+  /**
+   * そのお客様の画面をそのまま開く（代理ログイン）。
+   *
+   * 押すといまのログインがお客様のものに置き換わるので、必ず 1 枚挟んで止める。
+   * 戻るときは画面の下に出る帯の「終了して自分に戻る」から。
+   */
+  async function impersonate(row: ClientRow) {
+    const label = row.email || row.name || row.userId;
+    if (
+      !window.confirm(
+        `${label} さんの画面を開きます。\n\n` +
+          "・いまのログインがこの方のものに置き換わります（30 分で切れます）\n" +
+          "・画面の下の帯から、いつでも自分に戻れます\n" +
+          "・お支払いの操作はできません（確認のための機能です）",
+      )
+    ) {
+      return;
+    }
+    const key = `${row.userId}:impersonate`;
+    setBusy(key);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/impersonate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: row.userId }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !body.url) {
+        throw new Error(body.error ?? `代理ログインを開始できませんでした（HTTP ${res.status}）`);
+      }
+      // Clerk のチケットを受け取る URL。ここへ遷移した時点でお客様としてのログインになる
+      window.location.assign(body.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "代理ログインを開始できませんでした");
+      setBusy(null);
+    }
+  }
+
   if (rows.length === 0) {
     return (
       <Callout tone="info" title="まだ顧客がいません">
@@ -122,7 +163,22 @@ export function ClientTable({ initial, agencies }: ClientTableProps) {
         // 黙って「担当なし」に見せると、解除済みなのに気づけないので明示する
         const orphan = row.agencyId !== null && !agencies.some((a) => a.userId === row.agencyId);
         return (
-          <Card key={row.userId} title={row.email || row.name || row.userId} description={row.name || undefined}>
+          <Card
+            key={row.userId}
+            title={row.email || row.name || row.userId}
+            description={row.name || undefined}
+            actions={
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy === `${row.userId}:impersonate`}
+                onClick={() => void impersonate(row)}
+                title="このお客様としてログインし、画面の見え方をそのまま確認します"
+              >
+                この方の画面を見る
+              </Button>
+            }
+          >
             <div className="space-y-5">
               {/* 契約 */}
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 @lg:grid-cols-4">

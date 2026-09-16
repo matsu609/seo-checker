@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { FreeShell } from "@/components/free/FreeShell";
 import { findFeatureByPath } from "@/lib/features/registry";
+import { ImpersonationBanner } from "./ImpersonationBanner";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -94,11 +95,31 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
     }
   }
 
-  if (isBare) return <div className="min-h-screen">{children}</div>;
-  if (isFree) return <FreeShell authEnabled={authEnabled}>{children}</FreeShell>;
+  /*
+    代理ログイン中の帯は、どのシェルでも必ず出す。代理中はサイドバーの「マスター画面」が
+    消える（判定がお客様のアカウントで行われるため）ので、ここが自分に戻る唯一の入口になる。
+    ClerkProvider が無い環境（開発・E2E）では出せないので authEnabled で判断する。
+  */
+  const banner = authEnabled ? <ImpersonationBanner /> : null;
+
+  if (isBare)
+    return (
+      <div className="min-h-screen">
+        {banner}
+        {children}
+      </div>
+    );
+  if (isFree)
+    return (
+      <>
+        {banner}
+        <FreeShell authEnabled={authEnabled}>{children}</FreeShell>
+      </>
+    );
 
   return (
     <div className="app-shell min-h-screen md:grid md:grid-cols-[15rem_1fr]">
+      {banner}
       {/* デスクトップのサイドバー */}
       <aside className="no-print hidden w-60 flex-col overflow-y-auto bg-brand text-on-brand md:sticky md:top-0 md:flex md:h-screen">
         <Sidebar pathname={pathname} version={version} />

@@ -7,6 +7,7 @@
  * 受け付けると、Checkout が落ちるか、払っていない段階が開いてしまう。
  */
 import { currentUser } from "@clerk/nextjs/server";
+import { impersonationBlockedResponse, isImpersonating } from "@/lib/admin/impersonate";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
@@ -22,6 +23,8 @@ const NO_STORE = { "cache-control": "no-store" } as const;
 export async function POST(request: Request) {
   const denied = await requireAuth();
   if (denied) return denied;
+  // 代理ログイン中は塞ぐ。運用者がお客様の代わりに申し込んだり解約したりする事故を作らない
+  if (await isImpersonating()) return impersonationBlockedResponse();
   if (!isAuthEnabled()) return Response.json({ error: "ログインが設定されていない環境では申し込みできません" }, { status: 503, headers: NO_STORE });
   if (!isStripeConfigured()) return Response.json({ error: "決済が設定されていません", code: "not_configured" }, { status: 503, headers: NO_STORE });
   const userId = await currentUserId();

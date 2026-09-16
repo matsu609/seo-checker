@@ -219,6 +219,7 @@ describe("マスター画面・代理店画面は公開しない", () => {
     expect(isPublicPath("/api/admin/features")).toBe(false);
     expect(isPublicPath("/api/admin/agencies")).toBe(false);
     expect(isPublicPath("/api/admin/clients/agency")).toBe(false);
+    expect(isPublicPath("/api/admin/impersonate")).toBe(false);
   });
 
   // 担当分とはいえ他人の請求情報が出る画面。こちらもログイン必須
