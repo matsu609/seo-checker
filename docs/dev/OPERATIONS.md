@@ -247,6 +247,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
+| 89 | **Vercel のビルドが 1 push で 2 回走るのを止める**（2026-09-16 判明）: 作業ブランチと main に同じコミットを push しているため Production と Preview の両方がビルドされる。中身が同じなので Preview は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする（履歴の追いやすさは落ちる）②Vercel → Settings → Git で Preview を作るブランチを絞る。**急ぎではない**（上限には当たっていない） | 利用者 → Claude | 判断待ち |
 | 88 | **Ahrefs の Domain Rating ライセンスに目を通す**: https://ahrefs.com/legal/domain-rating-license 。有料サービスに組み込む以上、条件（帰属表示・再配布と競合の禁止・一括収集の禁止・いつでも取り消し可）を一度ご自身で確認しておく。Claude 側はこの環境から ahrefs.com に接続できず、検索インデックス経由でしか読めていない | 利用者 | 未 |
 | 87 | **Ahrefs の API キーを作り直す**（#83 で作った日の 1 年後）: **期限はマスター画面 https://app.seo-checker.tokyo/admin の「外部連携」→ Ahrefs の行に出る**（残り 30 日で黄色、切れると赤。r73 で実装）。切れたら https://app.ahrefs.com/account/api-keys で新しいキーを作る → Vercel の `AHREFS_API_KEY` を差し替え → `AHREFS_API_KEY_ISSUED_AT` も新しい日付に → Redeploy。**費用はかからない**（`domain-rating-free` は無料の公開エンドポイント） | 利用者 | #83 の完了待ち。期限日は画面が教えてくれるので、このメモに書き込む必要は無くなった |
 | 86 | **Open PageRank をどうするか決める**（2026-09-16 判明）: 旧 API が **2026-09-30 に終了**し、Keywords Everywhere の新 API（`openpagerank.keywordseverywhere.com`、Bearer 認証、無料枠 月 30,000 ドメイン）に移る。選択肢は ① 新 API に移行する ② Open PageRank をやめて Ahrefs の DR 一本にする（DR があれば採点は埋まる）。**推奨は ②**（DR が本命で、OPR は代替。移行の実装と利用者のアカウント作成が要る割に得るものが小さい）。②なら `src/lib/domain-power/openpagerank.ts` と関連の設定・文言を消す | 利用者 → Claude | 判断待ち |
@@ -1502,3 +1503,11 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 **キーの有効期限のバッジが出ないのも同じ理由**。`getKeyExpiries()` は**キーが設定済みの連携だけ**を対象にするので、`AHREFS_API_KEY` が入るまでバッジは出ない（行を開けば「キーの有効期限 / キー未設定」と、どの環境変数に何を入れればよいかは読める）。
 
 - 検証: lint / tsc / test（**1,840 件**）/ build 通過。
+
+### 2026-09-16（r75 の本番反映を確認 / ビルドが 2 回走っていることに気づいた）
+
+- 利用者が Vercel の Deployments 画面を共有。**`0ac25e0`（r75）が Production で Ready（44 秒）**、main の先頭と一致。r73 の「キーの有効期限」表示と r75 の「再確認」修正は**本番に出ている**。
+- r74 の行に「Redeploy of GeWjkxbYd」があり、利用者が手で Redeploy したことも確認できた。
+- **残っているのは #83 の手順 2〜5 だけ**（Ahrefs のキーを作る → Vercel に `AHREFS_API_KEY` と `AHREFS_API_KEY_ISSUED_AT` → Redeploy → `/admin` で確認）。
+- **気づき（#89）: 1 回の push で Vercel のビルドが 2 回走っている。** 作業ブランチと main に同じコミットを push しているため、Production（main）と Preview（`claude/practical-dirac-v1q4q3`）の両方がビルドされる。中身は同じなので Preview 側は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする ②Vercel の Settings → Git で Preview のブランチを絞る、のどちらか。**急ぎではない**（いまのところ上限に当たっていない）。
+- ドキュメントのみの更新。コードは触っていない。
