@@ -149,7 +149,7 @@ export function ClientTable({ initial }: { initial: ClientRow[] }) {
                       className={`ml-1 text-[11px] ${row.billing.plan === null ? "text-warn" : "text-muted"}`}
                       title={
                         row.billing.plan === null
-                          ? "Clerk 側のプランのスラッグが standard / pro のどちらでもありません。このままだと決済は通っても機能が開きません。"
+                          ? "Clerk 側のプランのスラッグが light / standard / premium のいずれでもありません。このままだと決済は通っても機能が開きません。"
                           : undefined
                       }
                     >

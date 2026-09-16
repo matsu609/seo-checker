@@ -9,7 +9,7 @@
  * 幅は download.ts の RENDER_WIDTH（768px）に合わせて組む。
  */
 import { FEATURE_GROUPS } from "@/lib/features/registry";
-import { SELLABLE_PLANS, planShortLabel, planPriceLabel } from "@/lib/plans/catalog";
+import { LISTED_PLANS, planShortLabel, planPriceLabel } from "@/lib/plans/catalog";
 
 /** クイック診断と設定を除いた、プランに含まれるツールのグループ */
 const TOOL_GROUPS = FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings");
@@ -94,12 +94,13 @@ export function ServiceGuide({ contactName, contactUrl, issuedOn }: ServiceGuide
         <section>
           <h2 className="border-l-4 border-brand pl-3 text-[18px] font-bold">料金プラン</h2>
           <div className="mt-3 grid grid-cols-3 gap-3">
-            {SELLABLE_PLANS.map((plan) => (
+            {LISTED_PLANS.map((plan) => (
               <div key={plan.id} className="rounded-sm border border-line bg-panel p-3">
                 <div className="text-[13px] font-bold">{plan.label}</div>
                 <div className="mt-1 text-[16px] font-bold tabular-nums">
                   {planPriceLabel(plan.id)}
                 </div>
+                {plan.limitNote && <div className="mt-0.5 text-[10px] font-bold text-brand">{plan.limitNote}</div>}
                 <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{plan.summary}</p>
                 <ul className="mt-2 space-y-1 text-[11px] leading-relaxed">
                   {plan.highlights.map((h) => (

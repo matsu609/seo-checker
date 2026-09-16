@@ -100,7 +100,7 @@ npm run dev                  # http://localhost:3000
 
 | ツール | ID | 内容 | 必要なキー |
 |---|---|---|---|
-| [パワーアップ分析](src/lib/seo-analysis) | — | URL だけで、サイト全体のクロール（48 ルール・構成・信頼）・トップの採点・主要 6 ページの PageSpeed と CrUX（実ユーザーの速度と 40 週の推移）・対策キーワードの順位と `site:` 件数・**ドメインパワー（推定）**・Search Console / GA4（連携済みなら）を 1 枚の**事実シート**（1 行 1 事実、ID つき）にまとめ、AI（Claude）がその数字だけを根拠に、結論・現状分析・強みと弱み・優先順位つきの改善案（何をどう変える / なぜ / 期待できること / 手間 / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く。主張には事実 ID が付き、シートに無い数値は注意として出る。ChatGPT のセカンドオピニオン（食い違う点だけ）、PDF、履歴。月 10 回（`SEO_ANALYSIS_MONTHLY_LIMIT`）。サイト診断など各画面にも「AI に分析させる」ボタンがあり、その画面の数字だけで短い分析を出す | Supabase + Anthropic（PageSpeed / SerpApi / OpenAI / Open PageRank は任意） |
+| [パワーアップ分析](src/lib/seo-analysis) | — | URL だけで、サイト全体のクロール（48 ルール・構成・信頼）・トップの採点・主要 6 ページの PageSpeed と CrUX（実ユーザーの速度と 40 週の推移）・対策キーワードの順位と `site:` 件数・**ドメインパワー（推定）**・Search Console / GA4（連携済みなら）を 1 枚の**事実シート**（1 行 1 事実、ID つき）にまとめ、AI（Claude）がその数字だけを根拠に、結論・現状分析・強みと弱み・優先順位つきの改善案（何をどう変える / なぜ / 期待できること / 手間 / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く。主張には事実 ID が付き、シートに無い数値は注意として出る。ChatGPT のセカンドオピニオン（食い違う点だけ）、PDF、履歴。月 10 回（`SEO_ANALYSIS_MONTHLY_LIMIT`）。サイト診断など各画面にも「AI に分析させる」ボタンがあり、その画面の数字だけで短い分析を出す | Supabase + Anthropic（PageSpeed / SerpApi / OpenAI / Ahrefs DR / Open PageRank は任意） |
 | ~~サイト診断（テクニカル SEO）~~ → **パワーアップ分析に統合（r58）**。[src/lib/audit](src/lib/audit) はその中で動き、報告書の「詳細」に出る。`/tools/site-audit` はパワーアップ分析へ転送 | A1 | 全ページをクロールし、48 のルールで課題を検出。10 カテゴリの件数、前回との差分、CSV 出力。**サイトの構成**（内部リンクの向きで見た重要度、本文中のリンクとナビの区別、クリック階層、行き止まり・到達不可、汎用アンカーの割合、ページ種別、パンくず・OG・hreflang の網羅、更新日、同じ題名のページ）と**信頼の手がかり**（会社情報・問い合わせ・規約・特商法のページ、Organization の構造化データ、電話・住所・メール、構造化データと本文の電話番号の一致、記事の著者）を同じ画面に表示（[src/lib/seo-analysis](src/lib/seo-analysis)） | 不要（要約のみ任意で AI） |
 | [ページ最適化レポート](src/lib/page-report) | A2 / A3 | 1 URL の AI フレンドリー度を 0〜100 で採点。項目ごとの測定値・理由・改善提案。AI クローラの robots.txt 判定。表示速度と Core Web Vitals | 不要（PSI は任意） |
 | [HP 改修提案（AI 最適化）](src/lib/improvement) | A2 / D2 | URL を入れてボタン一つで、診断結果をもとに**そのまま貼って使える改修案**を before → after で生成。タイトル・説明文・見出し・本文・構造化データ・alt が対象。提案ごとに理由・期待できること・優先度・手間を表示 | Anthropic |
@@ -140,22 +140,28 @@ npm run dev                  # http://localhost:3000
 
 ## 料金プラン
 
-| プラン | 月額 | 内容 |
+| プラン | 月額（税別） | 内容 |
 |---|---:|---|
-| **クイック診断** | 0 円 | サイトのクイック診断（`/`、1 ページまたは代表 10 ページ）と店舗のクイック診断（`/meo`、店舗 1 件）。ログイン不要 |
-| **オールインワン** | 50,000 円（定価） | SEO・AIO・MEO のすべてのツールと、**AI が成果物を作る**ツール（HP 改修提案・AI ライティング・llms.txt 生成）。**初月無料**（`STRIPE_TRIAL_DAYS`、既定 30 日）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力） |
+| **クイック診断** | 0 円 | サイトのクイック診断（`/`、1 ページまたは代表 10 ページ）と店舗のクイック診断（`/meo`、店舗 1 件）。ログイン不要。プランではない（`free` = 未契約） |
+| **ライト**（`light`） | 38,000 円 | SEO・AIO・MEO の**診断と計測**のツールすべて。AI が成果物を作るツール（7 つ）は含まない。**初月無料** |
+| **スタンダード**（`standard`・本命） | 50,000 円（定価） | ライトのすべて + **AI が成果物を作る**ツール（パワーアップ分析・HP 改修提案・AI ライティング・llms.txt 生成・口コミ支援・AI 返信案・NAP 一括掲載）。**初月無料**（`STRIPE_TRIAL_DAYS`、既定 30 日）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力） |
+| **プレミアム（伴走）**（`premium`） | 150,000 円 | スタンダードのすべて + 人の作業（月 1 回の報告ミーティング・レポート代行・優先サポート）。**月 3 社まで**。料金画面に「申し込む」を出さず、お問い合わせから受ける（受注後に Stripe の支払いリンク・請求書で契約を立て、その価格を `STRIPE_PRICE_PREMIUM` に入れる） |
 
 申し込みの入口は `https://app.seo-checker.tokyo/sign-up` です（新規登録 → `/start` → 未契約なので `/plans` → 申し込み）。紹介サイトの「初月無料ではじめる」もここへ送ります。登録済みの人は `/plans` から申し込み・カードの変更・解約ができます。
 
-売るのは「オールインワン」1 つです（2026-09-11 決定。定価 50,000 円 + クーポンで割引は 2026-09-13 決定）。内部では機能ごとに `standard`（測る・調べる）/ `pro`（AI が作る）の 2 段階を持ったままで、オールインワン = `pro` が両方を含みます。`standard` は販売せず、割引の個別対応（運用者が Clerk の `publicMetadata.plan` に割り当てる）に残しています。定義は `src/lib/plans/catalog.ts` と、機能ごとの `plan` フィールド（`src/lib/features/registry.ts`）の 2 か所だけにあり、`src/lib/plans/__tests__/plans.test.ts` が対応表を固定しています。
+**なぜ 3 段階か**（2026-09-15 決定）。1 つだけ並べると、お客様が比べる軸が「買うか買わないか」になります。3 つ並べると軸が「どれを買うか」に変わり、両端を避けて真ん中が選ばれやすくなります（極端回避性・松竹梅）。上に高い段を置くと、それが基準になって真ん中が手ごろに見えます（アンカリング）。本命は真ん中のスタンダードで、料金表では高い順（プレミアム → スタンダード → ライト）に並べ、真ん中に「いちばん選ばれています」を出します。
+
+線の引き方は `registry.ts` の `plan` フィールドと一致させています（読む・測る = `light` / AI が作る = `standard`）。恣意的な値付けにしないためで、「なぜここで切れているのか」をそのままお客様に説明できます。値引きの要望にはクーポンではなくライトを案内します（同じ商品を値引きすると定価が崩れるため）。定義は `src/lib/plans/catalog.ts` と `src/lib/features/registry.ts` の 2 か所だけにあり、`src/lib/plans/__tests__/plans.test.ts` が対応表を固定しています。
+
+旧プラン ID の `pro`（2026-09-15 までの「オールインワン」＝ 全機能）は、`toPlanId()` が今の `standard` に読み替えます。`DEFAULT_PLAN=pro` や Clerk の `publicMetadata.plan` に残っていてもそのまま動きます。
 
 ### プランの決まり方
 
 上から順に見て、最初に決まったものを使います。
 
-1. **ログインが未設定** … すべて `pro` 扱い（開発・E2E で全機能を開けたままにするため）
-2. **Stripe の契約状態**（`publicMetadata.stripe`。Webhook が書く。無料期間中の `trialing` も契約中として扱う）… 有効・トライアル・支払い遅延なら `pro`。Clerk Billing の `has({ plan })` も残っていますが使っていません
-3. **Clerk の `publicMetadata.plan`** … 決済を入れる前に、運用者がダッシュボードで `"free"` / `"standard"` / `"pro"` を割り当てます
+1. **ログインが未設定** … すべて `premium` 扱い（開発・E2E で全機能を開けたままにするため）
+2. **Stripe の契約状態**（`publicMetadata.stripe`。Webhook が書く。無料期間中の `trialing` も契約中として扱う）… 有効・トライアル・支払い遅延なら、契約状態に保存した `plan`（Webhook が Price ID から引く）。保存が無い古い契約はスタンダード扱い。Clerk Billing の `has({ plan })` も残っていますが使っていません
+3. **Clerk の `publicMetadata.plan`** … 決済を入れる前に、運用者がダッシュボードで `"free"` / `"light"` / `"standard"` / `"premium"` を割り当てます
 4. **`DEFAULT_PLAN` 環境変数** … 全員へ一律で開放したいとき
 5. どれも無ければ `free`
 
@@ -165,12 +171,12 @@ npm run dev                  # http://localhost:3000
 
 準備は 1 回だけです（画面つきの手順は `docs/dev/OPERATIONS.md` の「Stripe を有効にする手順」）。
 
-1. Stripe ダッシュボードで商品「オールインワン」と月額 50,000 円（JPY、継続）の価格を作り、**Price ID（`price_…`）** を控える。割引はクーポン → プロモーションコードで作る
+1. Stripe ダッシュボードで商品「スタンダード」（月額 50,000 円・JPY・継続）と「ライト」（月額 38,000 円・JPY・継続）を作り、それぞれの **Price ID（`price_…`）** を控える。割引はクーポン → プロモーションコードで作る。プレミアム（伴走）は Stripe に作らない（お問い合わせから受ける）
 2. 開発者 → Webhook で `https://app.seo-checker.tokyo/api/billing/webhook` を登録し、イベント `checkout.session.completed` / `customer.subscription.created` / `customer.subscription.updated` / `customer.subscription.deleted` を選ぶ → **署名シークレット（`whsec_…`）** を控える
 3. 設定 → カスタマーポータルを有効にする（お支払い方法の更新・請求書・解約を許可）
-4. Vercel の環境変数に `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` を入れて Redeploy
+4. Vercel の環境変数に `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` を入れて Redeploy（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名として今も読みます）。プレミアムを受注して支払いリンク・請求書で契約を立てるときは、その価格を `STRIPE_PRICE_PREMIUM` にも入れます（入れないと、その契約がスタンダードとして記録されます）
 
-3 つがそろうと `/plans` に「申し込む」（契約前）と「お支払い方法の変更・請求書・解約」（契約後）が出ます（`src/components/plans/StripeBillingCard.tsx`）。テストキー（`sk_test_`）のときは画面に「テストモード」と出ます。未設定なら案内文が「プラン変更は運用者までご連絡ください」に変わり、上の 3（`publicMetadata.plan`）を手で割り当てる運用になります。申し込み画面では Stripe のプロモーションコード（クーポン）を入力できます。
+鍵・スタンダードの Price・Webhook がそろうと `/plans` の料金表に各プランの「申し込む」（契約前）が出て、契約後は「お支払い方法の変更・請求書・解約」が出ます（`src/components/plans/PlanCheckoutButton.tsx` と `src/components/plans/StripeBillingCard.tsx`）。`STRIPE_PRICE_LIGHT` が未設定ならライトの「申し込む」だけが出ません。テストキー（`sk_test_`）のときは画面に「テストモード」と出ます。未設定なら案内文が「プラン変更は運用者までご連絡ください」に変わり、上の 3（`publicMetadata.plan`）を手で割り当てる運用になります。申し込み画面では Stripe のプロモーションコード（クーポン）を入力できます。
 
 `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1` の Clerk Billing の料金表（`BillingTable.tsx`）は残してありますが、Stripe が設定されているときは出しません。
 
@@ -295,7 +301,8 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO モニタリングの対象を増やす |
 | `SERPAPI_KEY` | 順位計測、AI Overviews の引用チェック、ページ診断の上位 10 件 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
-| `OPENPAGERANK_API_KEY` | ドメインパワーの「外部からのリンクの評価」（Open PageRank。無料。未設定なら他の指標だけで採点） |
+| `AHREFS_API_KEY` | ドメインパワーの DR（0〜100。無料のドメインパワー測定サイトと同じ数値。Ahrefs の無料公開エンドポイント） |
+| `OPENPAGERANK_API_KEY` | 同上の代替（Open PageRank 0〜10。無料。どちらも未設定なら他の指標だけで採点） |
 | `CRUX_API_KEY` | CrUX（実ユーザーの速度）。無ければ `PAGESPEED_API_KEY` を使う（Google Cloud で Chrome UX Report API を有効にする） |
 | `SEO_ANALYSIS_MONTHLY_LIMIT` | パワーアップ分析の月の回数（既定 10。運営者は無制限） |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（MEO）。Places API (New) 専用に制限したキー。請求先アカウントが必要（無料枠あり） |
@@ -306,7 +313,8 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `CRON_SECRET` | 毎週月曜 5:00 の一斉更新（`vercel.json` の Cron → `/api/cron/maps-refresh`）。未設定なら一斉更新は動かない |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |
-| `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・オールインワンの Price ID・Webhook の署名シークレット。3 つそろうと `/plans` に申し込みとお支払いの管理が出る |
+| `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・スタンダードとライトの Price ID・Webhook の署名シークレット。鍵・スタンダードの Price・Webhook がそろうと `/plans` に申し込みとお支払いの管理が出る（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名） |
+| `STRIPE_PRICE_PREMIUM` | 任意。プレミアム（伴走）の Price ID。料金画面には出ないが、支払いリンク・請求書で立てた契約をプレミアムとして記録するために使う |
 | `STRIPE_TRIAL_DAYS` | 無料期間の日数（既定 30 = 初月無料）。`0` でトライアルなし。特商法ページと料金画面の文面もこの値に従う |
 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（ドルのみ）の料金表を出す。Stripe が設定されていれば出さない |
 | `ADMIN_EMAILS` | マスター画面（`/admin`）を開けるメールアドレス。未設定なら誰も入れない |

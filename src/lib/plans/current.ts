@@ -22,8 +22,8 @@ export function defaultPlanFromEnv(): PlanId | null {
   return toPlanId(process.env.DEFAULT_PLAN);
 }
 
-/** 認証が無効なときに使うプラン。開発と E2E で全機能を開けたままにする */
-const PLAN_WHEN_AUTH_DISABLED: PlanId = "pro";
+/** 認証が無効なときに使うプラン。開発と E2E で全機能を開けたままにする（いちばん上の段） */
+const PLAN_WHEN_AUTH_DISABLED: PlanId = "premium";
 
 export interface CurrentPlan {
   plan: PlanId;

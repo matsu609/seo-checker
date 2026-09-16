@@ -107,7 +107,7 @@ export function ReportView(props: ReportViewProps) {
               label="ドメインパワー（推定）"
               value={domain.score === null ? "判定できず" : domain.score}
               unit={domain.score === null ? undefined : "/ 100"}
-              hint={domain.score === null ? `採点できた配点 ${domain.measuredMax} / 100` : `${domain.grade ? GRADE_LABELS[domain.grade] : ""}（採点できた配点 ${domain.measuredMax} / 100）`}
+              hint={[domain.score === null ? `採点できた配点 ${domain.measuredMax} / 100` : `${domain.grade ? GRADE_LABELS[domain.grade] : ""}（採点できた配点 ${domain.measuredMax} / 100）`, domain.ahrefsDr === null ? null : `Ahrefs DR ${domain.ahrefsDr.toFixed(0)}`].filter(Boolean).join(" ／ ")}
             />
           )}
         </div>

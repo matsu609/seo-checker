@@ -7,7 +7,7 @@
  * DomainPowerSignal として持ち、合計点はその積み上げにする。
  *
  * 指標の内訳（配点。合計 100）:
- *   links   25  外部リンクの評価（Open PageRank。Common Crawl のリンクグラフ）
+ *   links   25  外部リンクの評価（Ahrefs の DR。無ければ Open PageRank）
  *   age     15  ドメインの登録からの年数（RDAP）
  *   index   15  Google に登録されているページ数（site: 検索）
  *   keyword 15  対策キーワードの順位
@@ -47,7 +47,7 @@ export const SIGNAL_MAX: Record<DomainPowerSignalId, number> = {
 
 /** 何を見た指標かの説明（画面の「この数字の出どころ」に出す） */
 export const SIGNAL_SOURCES: Record<DomainPowerSignalId, string> = {
-  links: "Open PageRank（Common Crawl のリンクグラフから算出された 0〜10 の評価）",
+  links: "Ahrefs の Domain Rating（0〜100。無料のドメインパワー測定サイトと同じ数値）。無ければ Open PageRank（Common Crawl のリンクグラフから算出された 0〜10）",
   age: "RDAP（ドメイン登録情報）の登録日",
   index: "Google の site: 検索の概算件数（SerpApi）",
   keyword: "入力した対策キーワードの検索順位（SerpApi）",
@@ -93,6 +93,8 @@ export const GRADE_LABELS: Record<DomainPowerGrade, string> = {
 /** 競合との比較に出す最小限の値（競合はクロールしないので 2 指標だけ） */
 export interface DomainPowerPeer {
   host: string;
+  /** Ahrefs の Domain Rating（0〜100）。取れなければ null */
+  ahrefsDr: number | null;
   /** Open PageRank（0〜10）。取れなければ null */
   openPageRank: number | null;
   /** 登録日（ISO の日付）。取れなければ null */
@@ -110,6 +112,8 @@ export interface DomainPowerResult {
   signals: DomainPowerSignal[];
   /** 採点に使えた配点の合計（100 未満なら一部の指標が未取得） */
   measuredMax: number;
+  /** 自社の Ahrefs Domain Rating（0〜100）。取れなければ null */
+  ahrefsDr: number | null;
   /** 自社の Open PageRank（0〜10）。取れなければ null */
   openPageRank: number | null;
   /** Open PageRank の世界順位。取れなければ null */
@@ -120,7 +124,7 @@ export interface DomainPowerResult {
   /** 取得できなかったものの説明（画面にそのまま出す） */
   notes: string[];
   /** どの取得が動いたか */
-  sources: { openPageRank: boolean; rdap: boolean; serp: boolean; crux: boolean };
+  sources: { ahrefs: boolean; openPageRank: boolean; rdap: boolean; serp: boolean; crux: boolean };
 }
 
 export function gradeOf(score: number): DomainPowerGrade {

@@ -1,22 +1,34 @@
 /**
  * 料金プランの定義。純粋なデータだけを置く（クライアントからも読める）。
  *
- * 売るのは 1 つだけ（利用者の決定 2026-09-11）:
- *   free     … 未契約。ツールは使えない。クイック診断（/ と /meo）は、こちらが URL を渡した見込み客だけが使う公開ページ
- *   pro      … 「オールインワン」定価 月額 50,000 円（利用者の決定 2026-09-13。割引はクーポンコードで）。SEO / AIO / MEO の全機能 + AI が作る成果物
- *   standard … 販売しない内部の段階（AI が作る機能を除いた全部）。
- *              個別対応（運用者が Clerk の publicMetadata.plan に手で割り当てる）用途に残している。
- *              料金の割引は Stripe のクーポンコードで行うので、この段階に独自の価格は無い
+ * 3 段階にする（利用者の決定 2026-09-15）。1 つだけ並べると、お客様が比べる軸が
+ * 「買うか買わないか」になる。3 つ並べると軸が「どれを買うか」に変わり、両端を避けて
+ * 真ん中が選ばれやすくなる（極端回避性・松竹梅）。上に高い段を置くと、それが基準になって
+ * 真ん中が手ごろに見える（アンカリング）。
  *
- * 機能ごとの `plan`（registry.ts）は standard / pro の 2 段階のまま。
- * オールインワン（pro）は両方を含むので、購入者にはすべて開く。
+ *   free     … 未契約。ツールは使えない。クイック診断（/ と /meo）は、こちらが URL を渡した見込み客だけが使う公開ページ
+ *   light    … 「ライト」月額 38,000 円。診断と計測だけ。AI が改修案・原稿を作るツールは付かない（= 意図的に物足りない段）
+ *   standard … 「スタンダード」月額 50,000 円。本命。ライトのすべて + AI が改修案・原稿まで作る（= AI がコンサルする段）
+ *   premium  … 「プレミアム（伴走）」月額 150,000 円。スタンダードのすべて + 人の作業（月 1 回の報告ミーティング・
+ *              レポート代行・優先サポート）。松下の時間が要るので月 3 社まで。申し込みはお問い合わせから（Stripe には出さない）
+ *
+ * ライトとスタンダードの差は 12,000 円しかない。ライトを選ぶと 1 領域も欠けないかわりに
+ * 「AI が作る 7 つのツール」がまるごと落ちる、という線の引き方にしてある。これは
+ * registry.ts の `plan` フィールドの線（読む・測る = light / AI が作る = standard）と同じなので、
+ * 「なぜここで切れているのか」をお客様に説明できる。恣意的な値付けにしないための決まりごと。
+ *
+ * 割引は Stripe のクーポンコードで行う（2026-09-13 の決定のまま）。ただし段を作った以上、
+ * 「高いので下げてほしい」にはクーポンではなくライトを案内する。同じ商品を値引きすると定価が崩れる。
  */
 
-export const PLAN_IDS = ["free", "standard", "pro"] as const;
+export const PLAN_IDS = ["free", "light", "standard", "premium"] as const;
 export type PlanId = (typeof PLAN_IDS)[number];
 
 /** 上位ほど大きい。プランの比較はこの順位で行う */
-export const PLAN_RANK: Record<PlanId, number> = { free: 0, standard: 1, pro: 2 };
+export const PLAN_RANK: Record<PlanId, number> = { free: 0, light: 1, standard: 2, premium: 3 };
+
+/** 申し込みの方法。stripe = 画面から買える / contact = 問い合わせて枠を確認してから / none = 買うものではない */
+export type PlanCheckout = "stripe" | "contact" | "none";
 
 export interface Plan {
   id: PlanId;
@@ -29,12 +41,18 @@ export interface Plan {
    * Clerk Billing（決済の実体は Stripe）のプラン識別子。
    *
    * 形式は `user:<スラッグ>`。Clerk ダッシュボードの「請求する」で作るプランの
-   * スラッグを、この id と同じ文字列（standard / pro）にしておくこと。
+   * スラッグを、この id と同じ文字列にしておくこと。
    * ずれると購入しても機能が開かない。plans.test.ts で形式を固定している。
    */
   clerkPlan: string;
-  /** 料金表に出して購入できるか。false は個別対応用の内部段階 */
-  purchasable: boolean;
+  /** 料金表（/plans と紹介サイト）に出すか。false は内部の段階 */
+  listed: boolean;
+  /** 申し込みの方法 */
+  checkout: PlanCheckout;
+  /** 料金表で「いちばん選ばれています」を付ける本命。1 つだけ */
+  recommended?: boolean;
+  /** 枠の制限（料金表に小さく出す）。無ければ null */
+  limitNote?: string;
   /** サイドバーの鍵バッジなど、短く出すとき */
   shortLabel: string;
 }
@@ -44,46 +62,83 @@ export const PLANS: readonly Plan[] = [
     id: "free",
     label: "未契約",
     priceYen: 0,
-    summary: "まだお申し込みが済んでいない状態です。診断ツールは精密診断（オールインワン）のお申し込み後にご利用いただけます。",
+    summary: "まだお申し込みが済んでいない状態です。診断ツールは精密診断のお申し込み後にご利用いただけます。",
     highlights: [
       "ツールはご利用いただけません（料金プランの画面からお申し込みできます）",
       "初月無料。お申し込み時はカードのご登録だけで、無料期間中に解約すれば料金は発生しません",
     ],
     clerkPlan: "user:free",
-    purchasable: true,
+    listed: false,
+    checkout: "none",
     shortLabel: "無料",
   },
   {
-    id: "standard",
-    label: "スタンダード（個別対応）",
-    priceYen: 50_000,
-    summary: "AI が作る機能を除いた内部の段階。個別のご相談で割り当てます（料金はクーポンで調整）。",
-    highlights: ["SEO・AIO・MEO の計測・診断ツールすべて"],
-    clerkPlan: "user:standard",
-    purchasable: false,
-    shortLabel: "有料",
-  },
-  {
-    id: "pro",
-    label: "オールインワン",
-    priceYen: 50_000,
-    summary: "精密診断。Search Console と GA4 の実データ・時系列・競合まで見て、SEO・AIO・MEO のすべてを 1 つの料金で。AI が改修案と原稿も作ります。",
+    id: "light",
+    label: "ライト",
+    priceYen: 38_000,
+    summary: "現状を正しく知るための段階。SEO・AIO・MEO の診断と計測がすべて使えます。AI が改修案や原稿を作るツールは含みません。",
     highlights: [
       "SEO: サイト診断・ページ診断・順位計測・検索パフォーマンス（Search Console）・サイトレポート・キーワード調査",
       "AIO: ページ最適化レポート・AIO 頻出トピック・LLMO モニタリング・プロンプト拡張・生成 AI 流入分析（GA4）",
-      "MEO: Google マップの店舗診断、毎週の自動更新と履歴、競合 5 店舗との比較、AI 総評、口コミ支援（アンケート QR と AI 下書き）",
-      "AI が作る: HP 改修提案（before → after）・AI ライティング・llms.txt 生成",
-      "初月無料。お申し込み時はカードの登録だけで、無料期間中に解約すれば料金は発生しません",
-      "定価は月額 50,000 円。割引コードをお持ちの場合は申し込み画面で入力すると割引後の金額になります",
+      "MEO: Google マップの店舗診断、毎週の自動更新と履歴、競合 5 店舗との比較",
+      "AI が改修案・原稿を作るツール（7 つ）は含みません。「何が悪いか」は分かりますが、「どう直すか」はご自身で考えていただく形になります",
+      "初月無料。お申し込み時はカードのご登録だけで、無料期間中に解約すれば料金は発生しません",
     ],
-    clerkPlan: "user:pro",
-    purchasable: true,
+    clerkPlan: "user:light",
+    listed: true,
+    checkout: "stripe",
+    shortLabel: "有料",
+  },
+  {
+    id: "standard",
+    label: "スタンダード",
+    priceYen: 50_000,
+    summary: "ライトのすべてに加えて、AI が改修案・原稿・返信文まで作ります。「どこが悪いか」で終わらず「どう直すか」まで出る段階です。",
+    highlights: [
+      "ライトのすべて（SEO・AIO・MEO の診断と計測）",
+      "パワーアップ分析: サイト全体の診断と、AI による現状分析・改善案",
+      "HP 改修提案: 直すべき箇所を before → after の形で AI が作成",
+      "AI ライティング・エディター / llms.txt 生成",
+      "口コミ支援（店内 QR のアンケート）と、口コミへの AI 返信案",
+      "26 媒体への基本情報の一括掲載（NAP）",
+      "ライトとの差は月 12,000 円。AI が作る 7 つのツールがすべて開きます",
+      "初月無料。お申し込み時はカードのご登録だけで、無料期間中に解約すれば料金は発生しません",
+    ],
+    clerkPlan: "user:standard",
+    listed: true,
+    checkout: "stripe",
+    recommended: true,
+    shortLabel: "有料",
+  },
+  {
+    id: "premium",
+    label: "プレミアム（伴走）",
+    priceYen: 150_000,
+    summary: "スタンダードのすべてに加えて、人が伴走します。レポートの作成と改善作業をこちらで引き受ける段階です。",
+    highlights: [
+      "スタンダードのすべて",
+      "月 1 回の報告ミーティング（60 分・オンライン）",
+      "月次レポートの作成と、改善作業の代行",
+      "優先サポート（メール・チャットを平日 24 時間以内に返信）",
+      "ご相談のうえ、店舗数・対策キーワード数の上限を個別に設定します",
+      "松下が手を動かす枠のため、月 3 社までとさせていただきます",
+    ],
+    clerkPlan: "user:premium",
+    listed: true,
+    checkout: "contact",
+    limitNote: "月 3 社まで",
     shortLabel: "有料",
   },
 ] as const;
 
-/** 料金表に出すプラン（購入できるものだけ） */
-export const SELLABLE_PLANS: readonly Plan[] = PLANS.filter((p) => p.purchasable);
+/** 料金表に出すプラン（高い順。いちばん高い段を先に見せて基準にする） */
+export const LISTED_PLANS: readonly Plan[] = PLANS.filter((p) => p.listed).sort((a, b) => PLAN_RANK[b.id] - PLAN_RANK[a.id]);
+
+/** 画面から Stripe で買えるプラン（安い順） */
+export const STRIPE_PLANS: readonly Plan[] = PLANS.filter((p) => p.checkout === "stripe").sort((a, b) => a.priceYen - b.priceYen);
+
+/** 本命のプラン（料金表で強調し、クイック診断からの導線でも名前を出す） */
+export const RECOMMENDED_PLAN: Plan = PLANS.find((p) => p.recommended) ?? PLANS[PLANS.length - 1];
 
 export const PLAN_BY_ID: Record<PlanId, Plan> = Object.fromEntries(
   PLANS.map((p) => [p.id, p]),
@@ -98,7 +153,7 @@ export function planShortLabel(id: PlanId): string {
   return PLAN_BY_ID[id].shortLabel;
 }
 
-/** 価格の表示（「無料」「月額 5,000 円」） */
+/** 価格の表示（「無料」「月額 50,000 円」） */
 export function planPriceLabel(id: PlanId): string {
   const yen = PLAN_BY_ID[id].priceYen;
   return yen === 0 ? "無料" : `月額 ${yen.toLocaleString("ja-JP")} 円`;
@@ -109,18 +164,26 @@ export function planAllows(current: PlanId, required: PlanId): boolean {
   return PLAN_RANK[current] >= PLAN_RANK[required];
 }
 
+/**
+ * 旧プラン ID。値は今の ID に読み替える。
+ *
+ * `pro` は 2026-09-15 までの「オールインワン」＝ 全機能の段階で、いまの `standard` と中身が同じ。
+ * Vercel の `DEFAULT_PLAN=pro` や Clerk の publicMetadata に残っていても、そのまま動くようにしておく。
+ */
+const LEGACY_PLAN_IDS: Record<string, PlanId> = { pro: "standard" };
+
 /** 文字列を PlanId にする。知らない値は null（呼び出し側で既定に倒す） */
 export function toPlanId(value: unknown): PlanId | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase().replace(/^user:/, "").replace(/^org:/, "");
-  return (PLAN_IDS as readonly string[]).includes(normalized) ? (normalized as PlanId) : null;
+  if ((PLAN_IDS as readonly string[]).includes(normalized)) return normalized as PlanId;
+  return LEGACY_PLAN_IDS[normalized] ?? null;
 }
 
 /**
- * required を満たすために必要な、いちばん安い「購入できる」プラン。
- * standard は販売していないので、standard の機能でも案内はオールインワンになる。
+ * required を満たすために必要な、いちばん安い「画面から買える」プラン。
+ * プレミアムは問い合わせ枠なので、ここには出てこない。
  */
 export function upgradeTarget(required: PlanId): Plan {
-  const candidates = SELLABLE_PLANS.filter((p) => planAllows(p.id, required)).sort((a, b) => a.priceYen - b.priceYen);
-  return candidates[0] ?? PLAN_BY_ID[required];
+  return STRIPE_PLANS.find((p) => planAllows(p.id, required)) ?? PLAN_BY_ID[required];
 }

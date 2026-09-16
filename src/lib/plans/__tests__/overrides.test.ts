@@ -60,19 +60,19 @@ describe("他ユーザーのプラン判定", () => {
   // getCurrentPlan と同じ順番であること。ずれるとマスター画面の表示と実態が食い違う
   it("契約が最優先", () => {
     expect(
-      resolveUserPlan({ billingPlan: "pro", metadataPlan: "standard", envDefault: "free" }),
-    ).toEqual({ plan: "pro", source: "billing" });
+      resolveUserPlan({ billingPlan: "standard", metadataPlan: "light", envDefault: "free" }),
+    ).toEqual({ plan: "standard", source: "billing" });
   });
 
   it("契約が無ければ metadata", () => {
     expect(
-      resolveUserPlan({ billingPlan: null, metadataPlan: "standard", envDefault: "free" }),
-    ).toEqual({ plan: "standard", source: "metadata" });
+      resolveUserPlan({ billingPlan: null, metadataPlan: "light", envDefault: "free" }),
+    ).toEqual({ plan: "light", source: "metadata" });
   });
 
   it("metadata が無ければ環境変数", () => {
-    expect(resolveUserPlan({ billingPlan: null, metadataPlan: null, envDefault: "pro" })).toEqual({
-      plan: "pro",
+    expect(resolveUserPlan({ billingPlan: null, metadataPlan: null, envDefault: "standard" })).toEqual({
+      plan: "standard",
       source: "env",
     });
   });

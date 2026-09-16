@@ -7,14 +7,17 @@
  */
 import { trialDays } from "@/lib/billing/trial";
 import { OPERATOR, SERVICE_NAME, operatorLabel } from "@/lib/legal/operator";
-import { PLAN_BY_ID } from "@/lib/plans/catalog";
+import { LISTED_PLANS } from "@/lib/plans/catalog";
 
 interface Row {
   label: string;
   value: string | string[];
 }
 
-const pro = PLAN_BY_ID.pro;
+// 料金表に出しているプランをそのまま並べる（catalog.ts が唯一の定義。値段を書き写さない）
+const priceRows = [...LISTED_PLANS]
+  .sort((a, b) => a.priceYen - b.priceYen)
+  .map((p) => `${p.label}: 月額 ${p.priceYen.toLocaleString("ja-JP")} 円（税別。消費税は別途申し受けます）${p.limitNote ? `／${p.limitNote}` : ""}`);
 const trial = trialDays();
 
 export const TOKUSHOHO_ROWS: Row[] = [
@@ -26,7 +29,7 @@ export const TOKUSHOHO_ROWS: Row[] = [
   { label: "サービス名", value: SERVICE_NAME },
   {
     label: "販売価格",
-    value: [`${pro.label}: 月額 ${pro.priceYen.toLocaleString("ja-JP")} 円（税別。消費税は別途申し受けます）`, "クイック診断（アカウント不要）: 0 円", "割引コードをお持ちの場合は、申し込み画面で入力すると割引後の金額で決済されます。コードの発行条件はお問い合わせください。"],
+    value: [...priceRows, "クイック診断（アカウント不要）: 0 円", "割引コードをお持ちの場合は、申し込み画面で入力すると割引後の金額で決済されます。コードの発行条件はお問い合わせください。"],
   },
   { label: "販売価格以外にお客様が負担する費用", value: "インターネット接続にかかる通信料はお客様のご負担です。" },
   { label: "お支払い方法", value: "クレジットカード（Visa / Mastercard / American Express / JCB。決済は Stripe, Inc. を通じて行います）" },

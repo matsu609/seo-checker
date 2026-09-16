@@ -11,7 +11,7 @@ import Link from "next/link";
 import { buttonClass } from "@/components/ui/Button";
 import { PAID_DIAGNOSIS_LABEL } from "@/lib/features/registry";
 import { PLANS_PATH, SIGN_UP_PATH, UPSELL, type FreeKind } from "@/lib/free/upsell";
-import { PLAN_BY_ID } from "@/lib/plans/catalog";
+import { PLAN_BY_ID, RECOMMENDED_PLAN } from "@/lib/plans/catalog";
 import { ServiceGuideButton } from "./ServiceGuideButton";
 
 export interface UpgradeCtaProps {
@@ -23,7 +23,9 @@ export interface UpgradeCtaProps {
 
 export function UpgradeCta({ kind, note = null, className = "" }: UpgradeCtaProps) {
   const copy = UPSELL[kind];
-  const pro = PLAN_BY_ID.pro;
+  // 名前を出すのは本命のスタンダード。安い段（ライト）は「もある」として最後に添えるだけにする
+  const main = RECOMMENDED_PLAN;
+  const light = PLAN_BY_ID.light;
 
   return (
     <section className={`no-print rounded-sm border border-accent/40 bg-accent-soft p-5 md:p-6 ${className}`} aria-labelledby="upgrade-cta-title">
@@ -34,7 +36,7 @@ export function UpgradeCta({ kind, note = null, className = "" }: UpgradeCtaProp
       <p className="mt-2 text-[13px] leading-relaxed text-ink">{copy.limit}</p>
 
       <p className="mt-4 text-[13px] font-bold text-ink">
-        {PAID_DIAGNOSIS_LABEL}（{pro.label}）で分かること
+        {PAID_DIAGNOSIS_LABEL}（{main.label}）で分かること
       </p>
       <ul className="mt-2 space-y-1.5">
         {copy.points.map((point) => (
@@ -53,7 +55,8 @@ export function UpgradeCta({ kind, note = null, className = "" }: UpgradeCtaProp
       </div>
       <p className="mt-3 text-[12px] leading-relaxed text-muted">
         初月無料。お申し込み時はカードのご登録だけで、無料期間中に解約すれば料金はかかりません（以降は月額{" "}
-        {pro.priceYen.toLocaleString("ja-JP")} 円・税別）。
+        {main.priceYen.toLocaleString("ja-JP")} 円・税別。AI が改修案・原稿を作らない{light.label}は{" "}
+        {light.priceYen.toLocaleString("ja-JP")} 円）。
         <Link href={PLANS_PATH} className="ml-1 text-accent underline underline-offset-2">
           料金の詳細
         </Link>

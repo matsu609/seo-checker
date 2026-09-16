@@ -29,6 +29,8 @@ export type CruxCoverage = "url" | "origin" | "none" | "unknown";
 export interface ScoreDomainPowerInput {
   /** 登録ドメイン */
   host: string;
+  /** Ahrefs の Domain Rating（0〜100）。未取得は null */
+  ahrefsDr: number | null;
   /** Open PageRank（0〜10）。未取得は null */
   openPageRank: number | null;
   openPageRankWorldRank?: number | null;
@@ -65,12 +67,23 @@ function unknown(id: DomainPowerSignalId, detail: string): DomainPowerSignal {
 
 /* ───────────── 指標ごとの採点 ───────────── */
 
-export function scoreLinks(opr: number | null, worldRank: number | null): DomainPowerSignal {
-  if (opr === null) return unknown("links", "Open PageRank を取得していません（OPENPAGERANK_API_KEY が未設定か、このドメインのデータがありません）");
+/**
+ * 外部からのリンクの評価。Ahrefs の DR（0〜100）があればそれを使い、
+ * 無ければ Open PageRank（0〜10）で代用する。DR は無料のドメインパワー
+ * 測定サイトが出しているのと同じ数値なので、あるときは必ずそちらを優先する。
+ */
+export function scoreLinks(dr: number | null, opr: number | null, worldRank: number | null): DomainPowerSignal {
+  if (dr !== null) {
+    const point = dr >= 60 ? 25 : dr >= 45 ? 22 : dr >= 30 ? 18 : dr >= 20 ? 14 : dr >= 10 ? 9 : dr >= 3 ? 4 : 0;
+    const status: SignalStatus = dr >= 30 ? "good" : dr >= 10 ? "fair" : "poor";
+    const also = opr !== null ? `。Open PageRank は ${opr.toFixed(2)} / 10` : "";
+    return signal("links", point, status, `DR ${dr.toFixed(0)} / 100`, `Ahrefs の Domain Rating は ${dr.toFixed(0)}${also}。中小企業のサイトは 0〜20 が目安で、30 を超えると外部からのリンクがよく集まっている`);
+  }
+  if (opr === null) return unknown("links", "外部からのリンクの評価を取得していません（AHREFS_API_KEY と OPENPAGERANK_API_KEY のどちらも未設定か、このドメインのデータがありません）");
   const point = opr >= 6 ? 25 : opr >= 5 ? 22 : opr >= 4 ? 18 : opr >= 3 ? 14 : opr >= 2 ? 9 : opr >= 1 ? 4 : 0;
   const status: SignalStatus = opr >= 4 ? "good" : opr >= 2 ? "fair" : "poor";
   const world = worldRank ? `。世界順位 ${worldRank.toLocaleString("ja-JP")} 位` : "";
-  return signal("links", point, status, `${opr.toFixed(2)} / 10`, `Open PageRank（0〜10）は ${opr.toFixed(2)}${world}。中小企業のサイトは 2〜4 が目安で、4 を超えると外部からのリンクがよく集まっている`);
+  return signal("links", point, status, `OPR ${opr.toFixed(2)} / 10`, `Open PageRank（0〜10）は ${opr.toFixed(2)}${world}。中小企業のサイトは 2〜4 が目安で、4 を超えると外部からのリンクがよく集まっている。Ahrefs の DR（0〜100）は AHREFS_API_KEY を入れると出る`);
 }
 
 export function scoreAge(registeredAt: string | null, now?: Date): DomainPowerSignal {
@@ -135,7 +148,7 @@ export function scoreTrust(trust: { pass: number; total: number } | null, https:
 
 export function scoreDomainPower(input: ScoreDomainPowerInput): DomainPowerResult {
   const signals: DomainPowerSignal[] = [
-    scoreLinks(input.openPageRank, input.openPageRankWorldRank ?? null),
+    scoreLinks(input.ahrefsDr, input.openPageRank, input.openPageRankWorldRank ?? null),
     scoreAge(input.registeredAt, input.now),
     scoreIndex(input.indexedPages, input.crawledPages),
     scoreKeyword(input.keywordRanks),
@@ -165,6 +178,7 @@ export function scoreDomainPower(input: ScoreDomainPowerInput): DomainPowerResul
     grade: score === null ? null : gradeOf(score),
     signals,
     measuredMax,
+    ahrefsDr: input.ahrefsDr,
     openPageRank: input.openPageRank,
     openPageRankWorldRank: input.openPageRankWorldRank ?? null,
     registeredAt: input.registeredAt,

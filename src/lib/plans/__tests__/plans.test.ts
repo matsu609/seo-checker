@@ -5,11 +5,13 @@
 import { describe, expect, it } from "vitest";
 import { features, FEATURE_GROUPS } from "@/lib/features/registry";
 import {
+  LISTED_PLANS,
   PLANS,
   PLAN_BY_ID,
   PLAN_IDS,
   PLAN_RANK,
-  SELLABLE_PLANS,
+  RECOMMENDED_PLAN,
+  STRIPE_PLANS,
   planAllows,
   planPriceLabel,
   planShortLabel,
@@ -20,17 +22,18 @@ import {
 
 describe("プランの順位", () => {
   it("上位プランは下位の機能をすべて使える", () => {
-    expect(planAllows("pro", "free")).toBe(true);
-    expect(planAllows("pro", "standard")).toBe(true);
-    expect(planAllows("pro", "pro")).toBe(true);
-    expect(planAllows("standard", "free")).toBe(true);
-    expect(planAllows("standard", "standard")).toBe(true);
+    expect(planAllows("premium", "free")).toBe(true);
+    expect(planAllows("premium", "light")).toBe(true);
+    expect(planAllows("premium", "standard")).toBe(true);
+    expect(planAllows("standard", "light")).toBe(true);
+    expect(planAllows("light", "free")).toBe(true);
   });
 
   it("下位プランは上位の機能を使えない", () => {
+    expect(planAllows("free", "light")).toBe(false);
     expect(planAllows("free", "standard")).toBe(false);
-    expect(planAllows("free", "pro")).toBe(false);
-    expect(planAllows("standard", "pro")).toBe(false);
+    expect(planAllows("light", "standard")).toBe(false);
+    expect(planAllows("standard", "premium")).toBe(false);
   });
 
   it("順位に重複が無い", () => {
@@ -41,10 +44,16 @@ describe("プランの順位", () => {
 
 describe("プラン ID の正規化", () => {
   it("Clerk の接頭辞つきでも受ける", () => {
-    expect(toPlanId("user:pro")).toBe("pro");
-    expect(toPlanId("org:standard")).toBe("standard");
-    expect(toPlanId("PRO")).toBe("pro");
+    expect(toPlanId("user:standard")).toBe("standard");
+    expect(toPlanId("org:light")).toBe("light");
+    expect(toPlanId("PREMIUM")).toBe("premium");
     expect(toPlanId(" free ")).toBe("free");
+  });
+
+  // 2026-09-15 の 3 段階化より前の値。Vercel の DEFAULT_PLAN=pro や Clerk に残っていても動くこと
+  it("旧 ID の pro は今のスタンダードとして読む", () => {
+    expect(toPlanId("pro")).toBe("standard");
+    expect(toPlanId("user:pro")).toBe("standard");
   });
 
   // 知らない値を勝手に上位プランへ倒さない
@@ -53,15 +62,16 @@ describe("プラン ID の正規化", () => {
     expect(toPlanId("")).toBeNull();
     expect(toPlanId(null)).toBeNull();
     expect(toPlanId(123)).toBeNull();
-    expect(toPlanId({ plan: "pro" })).toBeNull();
+    expect(toPlanId({ plan: "standard" })).toBeNull();
   });
 });
 
 describe("価格の表示", () => {
   it("金額どおりに出す", () => {
     expect(planPriceLabel("free")).toBe("無料");
+    expect(planPriceLabel("light")).toBe("月額 38,000 円");
     expect(planPriceLabel("standard")).toBe("月額 50,000 円");
-    expect(planPriceLabel("pro")).toBe("月額 50,000 円");
+    expect(planPriceLabel("premium")).toBe("月額 150,000 円");
   });
 });
 
@@ -78,26 +88,30 @@ describe("機能とプランの対応", () => {
     expect(free.sort()).toEqual(["free", "free-meo", "plans", "settings"]);
   });
 
-  // AI が成果物を作る機能は pro に置く（値付けの根拠）
-  it("AI が成果物を作る機能は pro", () => {
-    const pro = features.filter((f) => f.plan === "pro").map((f) => f.id).sort();
-    expect(pro).toEqual(["improvement", "listings", "llms-txt", "replies", "reviews", "seo-analysis", "writing"]);
+  // AI が成果物を作る機能はスタンダードに置く。これがライトとの差 12,000 円の中身
+  it("AI が成果物を作る機能はスタンダード", () => {
+    const standard = features.filter((f) => f.plan === "standard").map((f) => f.id).sort();
+    expect(standard).toEqual(["improvement", "listings", "llms-txt", "replies", "reviews", "seo-analysis", "writing"]);
   });
 
-  it("残りは standard", () => {
-    const standard = features.filter((f) => f.plan === "standard").map((f) => f.id);
-    expect(standard).toContain("site-audit");
-    expect(standard).toContain("search-performance");
-    expect(standard).toContain("rank");
-    expect(standard.length).toBeGreaterThanOrEqual(9);
+  it("読む・測る系はライト", () => {
+    const light = features.filter((f) => f.plan === "light").map((f) => f.id);
+    expect(light).toContain("site-audit");
+    expect(light).toContain("search-performance");
+    expect(light).toContain("rank");
+    expect(light.length).toBeGreaterThanOrEqual(9);
+  });
+
+  // プレミアムは人の作業だけを足す段。ツールのゲートには使わない
+  it("プレミアム限定のツールは無い", () => {
+    expect(features.filter((f) => f.plan === "premium")).toEqual([]);
   });
 
   it("プラン一覧のハイライトが実態と矛盾しない", () => {
-    // オールインワン（pro）は SEO / AIO / MEO と AI が作る機能をすべて含む、と書いてあること
-    const pro = PLANS.find((p) => p.id === "pro")!;
-    for (const word of ["SEO", "AIO", "MEO", "AI が作る"]) {
-      expect(pro.highlights.some((h) => h.includes(word)), word).toBe(true);
-    }
+    // ライトは AI が作るツールを含まないことを必ず書く（買ってから気づく形にしない）
+    expect(PLAN_BY_ID.light.highlights.some((h) => h.includes("含みません"))).toBe(true);
+    // スタンダードはライトとの差額を書く（3 段階にした意味がここに出る）
+    expect(PLAN_BY_ID.standard.highlights.some((h) => h.includes("12,000 円"))).toBe(true);
   });
 
   it("サイドバーに出る機能はすべてプランを持つ", () => {
@@ -109,24 +123,41 @@ describe("機能とプランの対応", () => {
   });
 });
 
-describe("売るプランは 1 つ（オールインワン）", () => {
-  it("料金表に出るのは無料とオールインワンだけ。standard は内部の段階", () => {
-    expect(SELLABLE_PLANS.map((p) => p.id)).toEqual(["free", "pro"]);
-    expect(PLAN_BY_ID.pro.label).toBe("オールインワン");
-    expect(PLAN_BY_ID.standard.purchasable).toBe(false);
+describe("売るのは 3 段階（ライト / スタンダード / プレミアム）", () => {
+  it("料金表は高い順。未契約は出さない", () => {
+    expect(LISTED_PLANS.map((p) => p.id)).toEqual(["premium", "standard", "light"]);
   });
 
-  // standard の機能でも、案内する購入先はオールインワン（standard は売っていない）
-  it("案内する購入先は必ず購入できるプラン", () => {
-    expect(upgradeTarget("standard").id).toBe("pro");
-    expect(upgradeTarget("pro").id).toBe("pro");
-    expect(upgradeTarget("free").id).toBe("free");
+  it("画面から買えるのはライトとスタンダードだけ。プレミアムは問い合わせ", () => {
+    expect(STRIPE_PLANS.map((p) => p.id)).toEqual(["light", "standard"]);
+    expect(PLAN_BY_ID.premium.checkout).toBe("contact");
+    expect(PLAN_BY_ID.free.checkout).toBe("none");
+  });
+
+  // 本命は真ん中の 1 つだけ（極端回避性。2 つ強調すると効かない）
+  it("本命はスタンダード 1 つだけ", () => {
+    expect(RECOMMENDED_PLAN.id).toBe("standard");
+    expect(PLANS.filter((p) => p.recommended)).toHaveLength(1);
+  });
+
+  // 値段の並びが崩れると松竹梅にならない
+  it("ライト < スタンダード < プレミアム", () => {
+    expect(PLAN_BY_ID.light.priceYen).toBeLessThan(PLAN_BY_ID.standard.priceYen);
+    expect(PLAN_BY_ID.standard.priceYen).toBeLessThan(PLAN_BY_ID.premium.priceYen);
+  });
+
+  it("案内する購入先は必ず画面から買えるプラン", () => {
+    expect(upgradeTarget("light").id).toBe("light");
+    expect(upgradeTarget("standard").id).toBe("standard");
+    // プレミアムは買えないので、そのまま返して問い合わせに案内する
+    expect(upgradeTarget("premium").id).toBe("premium");
   });
 
   it("鍵バッジの短い表示", () => {
     expect(planShortLabel("free")).toBe("無料");
+    expect(planShortLabel("light")).toBe("有料");
     expect(planShortLabel("standard")).toBe("有料");
-    expect(planShortLabel("pro")).toBe("有料");
+    expect(planShortLabel("premium")).toBe("有料");
   });
 });
 

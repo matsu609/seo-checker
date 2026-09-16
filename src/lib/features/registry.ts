@@ -84,7 +84,8 @@ export interface Feature {
   hidden?: boolean;
   /**
    * この機能を使うのに必要な料金プラン（src/lib/plans/catalog.ts）。
-   * 読む・測る系は standard、AI が成果物を作る系は pro。
+   * 読む・測る系は light（ライト）、AI が成果物を作る系は standard（スタンダード）。
+   * この線が料金表の「ライトとスタンダードの差」そのものなので、動かすときは catalog.ts の文言も直す。
    */
   plan: PlanId;
 }
@@ -175,7 +176,7 @@ const DIAGNOSIS: readonly Feature[] = [
     optional: ["pagespeed", "serpapi", "openai"],
     group: "diagnosis",
     category: "seo",
-    plan: "pro",
+    plan: "standard",
   },
   {
     id: "site-audit",
@@ -197,7 +198,7 @@ const DIAGNOSIS: readonly Feature[] = [
     optional: ["anthropic"],
     group: "diagnosis",
     category: "seo",
-    plan: "standard",
+    plan: "light",
     // 2026-09-15 パワーアップ分析に統合（同じクロールと 48 ルールをその中で実行し、詳細も出す）。
     // /tools/site-audit はパワーアップ分析へ転送。API と履歴の部品は残す
     hidden: true,
@@ -221,7 +222,7 @@ const DIAGNOSIS: readonly Feature[] = [
     optional: ["pagespeed"],
     group: "diagnosis",
     category: "aio",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "page-diagnosis",
@@ -242,7 +243,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requiresAny: ["serpapi", "anthropic"],
     group: "diagnosis",
     category: "seo",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "aio-topics",
@@ -262,7 +263,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requires: ["serpapi", "anthropic"],
     group: "diagnosis",
     category: "aio",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "improvement",
@@ -282,7 +283,7 @@ const DIAGNOSIS: readonly Feature[] = [
     requires: ["anthropic"],
     group: "diagnosis",
     category: "aio",
-    plan: "pro",
+    plan: "standard",
   },
 ];
 
@@ -305,7 +306,7 @@ const MEASURE: readonly Feature[] = [
     requires: ["serpapi"],
     group: "measure",
     category: "seo",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "search-performance",
@@ -327,7 +328,7 @@ const MEASURE: readonly Feature[] = [
     requires: [],
     group: "measure",
     category: "seo",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "maps",
@@ -350,7 +351,7 @@ const MEASURE: readonly Feature[] = [
     requires: ["places", "supabase"],
     group: "measure",
     category: "meo",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "reviews",
@@ -374,7 +375,7 @@ const MEASURE: readonly Feature[] = [
     optional: ["anthropic", "places"],
     group: "measure",
     category: "meo",
-    plan: "pro",
+    plan: "standard",
   },
   {
     id: "llmo",
@@ -395,7 +396,7 @@ const MEASURE: readonly Feature[] = [
     optional: ["openai", "gemini", "perplexity"],
     group: "measure",
     category: "aio",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "prompt-expansion",
@@ -415,7 +416,7 @@ const MEASURE: readonly Feature[] = [
     requires: ["anthropic"],
     group: "measure",
     category: "aio",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "ai-traffic",
@@ -435,7 +436,7 @@ const MEASURE: readonly Feature[] = [
     requires: ["ga4"],
     group: "measure",
     category: "aio",
-    plan: "standard",
+    plan: "light",
   },
   {
     id: "site-report",
@@ -455,7 +456,7 @@ const MEASURE: readonly Feature[] = [
     requires: ["ga4", "serpapi"],
     group: "measure",
     category: "seo",
-    plan: "standard",
+    plan: "light",
   },
 ];
 
@@ -479,7 +480,7 @@ const RESEARCH: readonly Feature[] = [
     optional: ["anthropic"],
     group: "research",
     category: "seo",
-    plan: "standard",
+    plan: "light",
   },
 ];
 
@@ -503,7 +504,7 @@ const GENERATE: readonly Feature[] = [
     requires: ["anthropic"],
     group: "generate",
     category: "seo",
-    plan: "pro",
+    plan: "standard",
   },
   {
     id: "replies",
@@ -525,7 +526,7 @@ const GENERATE: readonly Feature[] = [
     optional: ["anthropic", "supabase", "places"],
     group: "generate",
     category: "meo",
-    plan: "pro",
+    plan: "standard",
   },
   {
     id: "listings",
@@ -548,7 +549,7 @@ const GENERATE: readonly Feature[] = [
     optional: ["anthropic", "places"],
     group: "generate",
     category: "aio",
-    plan: "pro",
+    plan: "standard",
   },
   {
     id: "llms-txt",
@@ -567,7 +568,7 @@ const GENERATE: readonly Feature[] = [
     requires: [],
     group: "generate",
     category: "aio",
-    plan: "pro",
+    plan: "standard",
   },
 ];
 
