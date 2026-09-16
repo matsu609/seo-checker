@@ -81,6 +81,42 @@
 3. Stripe の画面に出ている次のステップと、審査期間の記載
 ```
 
+## 実際に出た設問と回答（2026-09-16。利用者が画面を共有）
+
+画面の URL は `dashboard.stripe.com/acct_…/verifications/additional_details/interv_…`、見出しは
+**Tell us about your security posture**（「日本の事業者は、オンライン決済を受け付けるためにクレジット取引セキュリティ対策協議会の
+セキュリティチェックリストへの回答が必要」）。**「システムが開発中の場合は、決済の受付を始める前に実施する対策で回答してよい」**と明記されている。
+
+### ① Outsourcing — Who is implementing security measures on behalf of your company?
+
+**回答: `Employee(s)`（既定のまま）。**
+個人事業で代表本人が設定・運用しているため。`Contractor(s)` は開発・運用を外部の会社に委託している場合。
+Vercel / Clerk / Stripe / Supabase は SaaS の利用であって「委託先が対策を実施している」ではないと判断した。
+
+### ② Provide details about your login security measures（1 つ以上必須）
+
+| 選択肢 | 回答 | 根拠 |
+|---|---|---|
+| Restricting access from suspicious IP addresses | **チェックしない** | 実装していない |
+| Two-factor or multi-factor authentication for identity verification | **Clerk で有効にしてからチェック**（下記） | Clerk → Configure → Multi-factor。ログイン画面はキャッチオールルートなので 2 要素のステップも受けられる（`src/app/sign-in/[[...sign-in]]/page.tsx`） |
+| Verification of personal information at time of user registration | **チェックする** | Clerk のメール確認済みアカウントのみ。さらに許可リスト制で、こちらが招待したメールアドレスだけが登録できる（#7 / A-2） |
+| Limited number of login attempts and throttling | **Clerk の画面で確認してからチェック** | Clerk → Configure → Attack protection（ボット対策・試行回数の制限）が ON なら真 |
+| Email/SMS notification at login or account information change | **チェックしない** | アプリからは通知していない（Google アカウント側の通知は当社の対策ではない） |
+| Behavioral analysis | **チェックしない** | 実装していない |
+| Device fingerprints | **チェックしない** | 実装していない |
+| Other countermeasures | **チェックする** | 自由記述に下の文案を入れる |
+| Not applicable: No user login function | **絶対にチェックしない** | ログイン機能はある（Clerk） |
+
+**Other countermeasures の文案**（自由記述。事実のみ）
+
+> ログインは認証基盤 Clerk 経由の Google アカウント認証のみで、当社はパスワードを保持しません。
+> 新規登録は許可リスト制で、当社が招待したメールアドレスのみ登録できます（メールアドレスは Clerk で確認済みのものに限る）。
+> 管理画面は、ログイン済みかつ確認済みメールアドレスが許可リストに一致する場合のみアクセスでき、管理者は代表 1 名です。
+> カード情報の入力・変更は Stripe Checkout およびカスタマーポータルのホスト画面で行い、当社のシステムを通りません。
+
+**送信前にやること**: 上の 2 つ（Clerk の Multi-factor と Attack protection）を Clerk のダッシュボードで確認・有効化する。
+確認できるまでは **「後で続けるために保存」** で中断してよい（「送信」は次の段階に進んでしまう）。
+
 ## 使い終わったら
 
 エージェントが出した「設問と回答の一覧」をこのセッションに貼れば、内容の妥当性を確認して OPERATIONS.md の作業ログに記録する。
