@@ -259,6 +259,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 93 | **AI 検索モニタリングをどのプランに入れるか決める**: いまは**スタンダード**に置いてある（1 アカウント月 ¥2,000 前後の変動費が出るため）。「測る」系なので本来の線引きではライトだが、原価が他のツールと桁違い。ライトに下ろすなら料金表（`src/lib/plans/catalog.ts`）・紹介サイト・サービス資料・`src/lib/features/registry.ts` の `plan` とテストをまとめて直す（Claude 側 30 分）。**このままスタンダードでよければ何もしなくてよい** | 利用者 → Claude | 判断待ち |
 | 92 | AI 検索モニタリングの**生成処理**（仕様書 §7.2 / §7.3）: 週次レポート（軽量モデル + テンプレート）と月次深掘り（高性能モデル 月 1 回）、差分実行（前回とほぼ同じなら再生成しない）。クレジットのレート（週次 30 / 月次 150）と台帳は実装済みなので、`run.ts` の後段に足すだけ | Claude | 未（計測が回ってから） |
 | 90 | **露出した Ahrefs の API キーを作り直す（急ぎ）**: 2026-09-16 に Vercel の環境変数画面のスクリーンショット（値が平文表示）が会話に貼られた。https://app.ahrefs.com/account/api-keys で**そのキーを削除 → 新しいキーを作成** → Vercel の間違った変数 `AHREFS_API_KEY_ISSUED_2026_09_17` を削除 → 正しい名前で `AHREFS_API_KEY`（Sensitive）と `AHREFS_API_KEY_ISSUED_AT` を作る → Redeploy。DR は無料エンドポイントなので、漏れても課金の被害は無いが、他人がこのアカウントのキーとして使える状態は避ける | 利用者 | **未（急ぎ）** |
+| 90 | **Search Console にサイトマップを 2 本送信する**（2026-09-17 の質問）。画面: https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Aseo-checker.tokyo → 「新しいサイトマップの追加」に**フル URL**を入れて送信（ドメイン プロパティなのでホスト名の省略はできない）。①`https://seo-checker.tokyo/sitemap.xml`（紹介サイト。トップ 1 ページ）②`https://app.seo-checker.tokyo/sitemap.xml`（アプリ。規約・プライバシー・特商法の 3 ページだけ。**OAuth 審査でプライバシーポリシーが参照されるので、こちらも出しておく**）。送信後「ステータス = 成功」と「検出された URL」が 1 / 3 になれば完了（反映に数時間〜数日） | 利用者 | 未 |
 | 89 | **Vercel のビルドが 1 push で 2 回走るのを止める**（2026-09-16 判明）: 作業ブランチと main に同じコミットを push しているため Production と Preview の両方がビルドされる。中身が同じなので Preview は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする（履歴の追いやすさは落ちる）②Vercel → Settings → Git で Preview を作るブランチを絞る。**急ぎではない**（上限には当たっていない） | 利用者 → Claude | 判断待ち |
 | 88 | **Ahrefs の Domain Rating ライセンスに目を通す**: https://ahrefs.com/legal/domain-rating-license 。有料サービスに組み込む以上、条件（帰属表示・再配布と競合の禁止・一括収集の禁止・いつでも取り消し可）を一度ご自身で確認しておく。Claude 側はこの環境から ahrefs.com に接続できず、検索インデックス経由でしか読めていない | 利用者 | 未 |
 | 87 | **Ahrefs の API キーを作り直す**（#83 で作った日の 1 年後）: **期限はマスター画面 https://app.seo-checker.tokyo/admin の「外部連携」→ Ahrefs の行に出る**（残り 30 日で黄色、切れると赤。r73 で実装）。切れたら https://app.ahrefs.com/account/api-keys で新しいキーを作る → Vercel の `AHREFS_API_KEY` を差し替え → `AHREFS_API_KEY_ISSUED_AT` も新しい日付に → Redeploy。**費用はかからない**（`domain-rating-free` は無料の公開エンドポイント） | 利用者 | #83 の完了待ち。期限日は画面が教えてくれるので、このメモに書き込む必要は無くなった |
@@ -2045,3 +2046,13 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - **「はじめかた」の手順を 3 → 4 に**（`src/lib/onboarding/steps.ts`）。1 番目を「ホームページの URL を登録する」にした。
 - 検証は 4 つとも通過（lint / tsc / test 1,946 件 / build）。ブラウザでも設定 → 8 タブを実際に開いて、登録した URL が各タブに出ること・コンソールエラーが無いことを確認した。
 - **利用者にお願いしたいこと**: 本番に反映されたら `https://app.seo-checker.tokyo/settings` で自社のホームページ URL を 1 回登録してください。登録はブラウザごと（localStorage）なので、**PC を変えたら登録し直し**になります。移すときは同じ設定画面の「JSON をダウンロード / 読み込む」が使えます。
+
+### 2026-09-17（利用者の質問: Search Console のサイトマップ画面に何を入れるのか）
+
+- 利用者が **Search Console → サイトマップ**（プロパティ `sc-domain:seo-checker.tokyo`）の画面を共有。「新しいサイトマップの追加」が空、「送信されたサイトマップ」も 0 件。→ **まだ 1 本も送っていない状態**。
+- **答え: 送るのは 2 本で、どちらもフル URL を入れる。**このプロパティは**ドメイン プロパティ**（`sc-domain:`）なので、ホスト名を省いた `sitemap.xml` だけでは受け付けられない。ドメイン プロパティは `seo-checker.tokyo` とそのサブドメイン全部（= `app.` も）を含むので、2 本とも同じ画面から送れる。
+  1. `https://seo-checker.tokyo/sitemap.xml` … 紹介サイト（Cloudflare Workers `seo-checker-hp` が配信。正本は `marketing/public/sitemap.xml`）。**URL は 1 本**（1 ページの静的サイトなので正しい）。
+  2. `https://app.seo-checker.tokyo/sitemap.xml` … アプリ（Vercel。正本は `src/app/sitemap.ts`）。**URL は 3 本**（`/terms`・`/privacy`・`/legal/tokushoho`）。アプリ本体は `robots.ts` で意図的に塞いであり（利用者の決定 09-13）、開いているのは規約類だけなので、サイトマップもその 3 ページだけになっているのが正しい。**#13 の OAuth 審査で Google がプライバシーポリシーを見に来るので、こちらも送っておくと早くインデックスされる。**
+- **ついでに直したこと**: 紹介サイトの `sitemap.xml` の `<lastmod>` が **2026-09-11 のまま**だった（`index.html` は 09-16 の r80 まで更新されている）。日付を 09-16 に直し、`marketing/README.md` に「`index.html` を直したら `lastmod` も直す」と明記した。lastmod が実態とずれていると Google がその値を信用しなくなり、更新を知らせる意味が無くなるため。
+- **確認できなかったこと**: この環境の egress プロキシが `seo-checker.tokyo` / `app.seo-checker.tokyo` への接続を 403 で止めるため、**公開中の `sitemap.xml` / `robots.txt` に実際にアクセスして確かめることはできていない**（リポジトリの中身と生成コードから判断した）。送信時に Search Console がエラーを返したら、その文言をお知らせください。
+- 残タスクに **#90** として手順を追加した。

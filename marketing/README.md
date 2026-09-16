@@ -11,7 +11,7 @@ apex ドメイン `https://seo-checker.tokyo/` で配信している**サービ�
 | --- | --- |
 | `public/index.html` | 配信されるページそのもの |
 | `public/favicon.ico` / `public/icon.svg` / `public/apple-icon.png` | タブのアイコン。アプリ本体と同じ `src/app/icon.svg` から生成 |
-| `public/sitemap.xml` / `public/robots.txt` / `public/llms.txt` | 検索・AI クローラ向けの補助ファイル（1 ページなのでどれも短い） |
+| `public/sitemap.xml` / `public/robots.txt` / `public/llms.txt` | 検索・AI クローラ向けの補助ファイル（1 ページなのでどれも短い）。**`index.html` の中身を直したら `sitemap.xml` の `<lastmod>` もその日付に直す**（古いままだと Google が lastmod を信用しなくなる） |
 | `wrangler.jsonc` | Cloudflare Workers の設定。Worker 名 `seo-checker-hp`、`assets.directory` は `./public` |
 
 アイコンは**手でコピーしない**でください。形を変えたら `node scripts/generate-icons.mjs` を
