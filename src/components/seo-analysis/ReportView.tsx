@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * パワーアップ分析の報告書。
+ * 精密分析の報告書。
  * 上から: KPI → 結論と現状分析 → 改善案 → 強み・弱み → コンサルの視点 → セカンドオピニオン → 速度 → 付録。
  * すべての主張に事実 ID のチップが付く。
  */
@@ -62,7 +62,7 @@ export function ReportView(props: ReportViewProps) {
     if (!sheetRef.current) return;
     setPdfBusy(true);
     try {
-      await downloadPdf({ element: sheetRef.current, fileName: `パワーアップ分析_${hostOf(site.origin)}_${sheet.generatedAt.slice(0, 10)}` });
+      await downloadPdf({ element: sheetRef.current, fileName: `精密分析_${hostOf(site.origin)}_${sheet.generatedAt.slice(0, 10)}` });
     } finally {
       setPdfBusy(false);
     }
@@ -310,7 +310,7 @@ export function ReportView(props: ReportViewProps) {
 
         <Card
           title="詳細: サイト診断（クロールの全結果）"
-          description="パワーアップ分析の中で実行したクロールの結果です。48 ルールの課題一覧（CSV 出力可）、カテゴリ別の件数、サイトの構成、信頼の手がかり、診断したページの一覧。"
+          description="精密分析の中で実行したクロールの結果です。48 ルールの課題一覧（CSV 出力可）、カテゴリ別の件数、サイトの構成、信頼の手がかり、診断したページの一覧。"
           actions={
             audit ? (
               <Button variant="secondary" size="sm" className="no-print" onClick={() => setShowDetail((v) => !v)}>

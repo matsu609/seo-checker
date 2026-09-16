@@ -47,7 +47,7 @@ describe("タブの定義", () => {
     expect(ids("aio")).toContain("page-report");
     expect(ids("seo")).toContain("seo-analysis");
     expect(ids("seo")).toContain("rank");
-    // サイト診断はパワーアップ分析に統合したのでサイドバーには出ない（ページと API は残る）
+    // サイト診断は精密分析に統合したのでサイドバーには出ない（ページと API は残る）
     expect(ids("seo")).not.toContain("site-audit");
     expect(groupsForSidebar().tools.flatMap((g) => g.features.map((f) => f.id))).not.toContain("site-audit");
   });

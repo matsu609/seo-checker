@@ -1,5 +1,5 @@
 /**
- * パワーアップ分析の実行記録（Supabase の analysis_runs テーブル）。サーバー専用。
+ * 精密分析の実行記録（Supabase の analysis_runs テーブル）。サーバー専用。
  *
  * 1 行 = 1 回の分析（収集 → AI 分析）。月の回数制限はこの行数で数える。
  * 行は必ず user_id で絞る（service_role は RLS を素通りするため）。

@@ -5,7 +5,7 @@
 
 - 定義の**正本はコード**です。この文書とコードがずれていたらコードが正しいので、気づいたらここを直してください。
 - 状態（いま何が設定済みか）は [OPERATIONS.md](./OPERATIONS.md)、開発規約は [ARCHITECTURE.md](./ARCHITECTURE.md)、どのツールがどの API キーを使うかは [tool-map.md](./tool-map.md) にあります。
-- 自動診断（134 ルール）の仕様そのものは [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)、パワーアップ分析の要件は [seo-analysis-spec.md](./seo-analysis-spec.md) にあります。
+- 自動診断（134 ルール）の仕様そのものは [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)、精密分析の要件は [seo-analysis-spec.md](./seo-analysis-spec.md) にあります。
 
 ---
 
@@ -43,7 +43,7 @@
 ## 1. クイック診断（サイト・SEO / AIO の採点）
 
 **何を測るか**: 1 ページの HTML が、検索エンジンと生成 AI にとって読み取りやすいか。
-**入口**: `/`（ログイン不要・無料）。パワーアップ分析の中でもトップページに対して実行します。
+**入口**: `/`（ログイン不要・無料）。精密分析の中でもトップページに対して実行します。
 **コード**: `src/lib/analyzer/`（`scoring.ts` = 集計、`check.ts` = 判定の型、各ファイルが項目）
 
 ### 計算方法
@@ -78,7 +78,7 @@
 ## 2. サイト診断（テクニカル SEO・48 ルール）
 
 **何を測るか**: サイト全体をクロールして、技術的な不備を洗い出す。
-**入口**: パワーアップ分析に統合済み（報告書の「詳細: サイト診断」。旧 `/tools/site-audit`）。
+**入口**: 精密分析に統合済み（報告書の「詳細: サイト診断」。旧 `/tools/site-audit`）。
 **コード**: `src/lib/audit/`（`rules/page.ts` = ページ単位、`rules/cross.ts` = サイト横断、`config.ts` = 閾値）
 
 **48 ルール**を 10 カテゴリ（タイトルタグ / メタタグ / コンテンツ / 見出しタグ / 画像 / カノニカルタグ / 基本的な設定 / セキュリティ / パフォーマンス / 構造）に分けます。
@@ -103,7 +103,7 @@
 
 ---
 
-## 3. サイトの構成・信頼（パワーアップ分析の差別化部分）
+## 3. サイトの構成・信頼（精密分析の差別化部分）
 
 **コード**: `src/lib/seo-analysis/structure.ts` / `trust.ts` / `kinds.ts`
 
@@ -350,7 +350,7 @@ Organic CVR      = 自然検索のフォーム完了セッション ÷ 自然検
 
 | 項目 | 値 |
 |---|---|
-| パワーアップ分析の月間回数 | 10 回（`SEO_ANALYSIS_MONTHLY_LIMIT`。運営者は無制限） |
+| 精密分析の月間回数 | 10 回（`SEO_ANALYSIS_MONTHLY_LIMIT`。運営者は無制限） |
 | 1 回の収集につき AI 分析をやり直せる回数 | 3 回 |
 | 実費 | AI の生成（数十〜数百円）+ SerpApi（1 回数円 × 7 検索）。クロール・PSI・CrUX・RDAP・Open PageRank は 0 円 |
 

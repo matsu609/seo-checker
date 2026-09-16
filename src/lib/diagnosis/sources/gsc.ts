@@ -33,7 +33,7 @@ export interface CollectGscOptions {
 /**
  * 診断用のデータを取る。
  *
- * 失敗したら例外を投げずに null を返す（報告書全体を止めないため。パワーアップ分析の
+ * 失敗したら例外を投げずに null を返す（報告書全体を止めないため。精密分析の
  * 既存の方針と同じ）。何が起きたかは notes に入れて呼び出し側が受け取る。
  */
 export async function collectGscDataset(

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * パワーアップ分析の入力フォームの保存（ブラウザの localStorage）。
+ * 精密分析の入力フォームの保存（ブラウザの localStorage）。
  * 結果そのものは Supabase に保存するので、ここには入力だけを残す。
  */
 import { z } from "zod";

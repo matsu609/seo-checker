@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * パワーアップ分析の画面。
+ * 精密分析の画面。
  *
  * 流れ: 入力 → 収集（NDJSON で進捗）→ AI 分析（別リクエスト）→ セカンドオピニオン（任意）→ 報告書。
  * 収集と分析を分けているのは、サーバーの実行時間の上限に収めるためと、
@@ -227,7 +227,7 @@ export function SeoAnalysisView() {
     <>
       {meta && !meta.enabled && (
         <Callout tone="warn" title="サーバーの設定が足りません" className="mb-6">
-          パワーアップ分析には <code className="font-mono">SUPABASE_URL</code> / <code className="font-mono">SUPABASE_SERVICE_ROLE_KEY</code>（保存と回数制限）と{" "}
+          精密分析には <code className="font-mono">SUPABASE_URL</code> / <code className="font-mono">SUPABASE_SERVICE_ROLE_KEY</code>（保存と回数制限）と{" "}
           <code className="font-mono">ANTHROPIC_API_KEY</code>（AI 分析）が必要です。
         </Callout>
       )}

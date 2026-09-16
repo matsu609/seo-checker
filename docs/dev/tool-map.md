@@ -3,7 +3,7 @@
 **どのツール（画面）が、どの外部 API に、どのキーでつながっているか**を 1 か所にまとめた図。
 「このキーを入れると何が動くか」「このキーが切れると何が止まるか」をここで引く。
 
-最終更新: 2026-09-16（パワーアップ分析の統合、ドメインパワー、数字の診断、料金 3 段階を反映）。
+最終更新: 2026-09-16（精密分析の統合、ドメインパワー、数字の診断、料金 3 段階を反映）。
 
 - サービス全体の構成（GitHub / Vercel / Cloudflare / Clerk / Supabase / Google Cloud）→ [services.md](./services.md)
 - ルーティングと機能の一覧 → [ARCHITECTURE.md](./ARCHITECTURE.md)
@@ -80,7 +80,7 @@ flowchart LR
 |---|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | クイック診断（サイト） | `/` | 無料 | 不要 | ○ | − | − | − | − | − | − | − |
 | クイック診断（店舗） | `/meo` | 無料 | 不要 | − | − | − | − | ● | − | − | − |
-| **パワーアップ分析** | `/tools/seo-analysis` | standard | 必須 | ● | ○ | ○ | − | − | ● | ○ ※6 | ○ GSC / GA4 ※7 |
+| **精密分析** | `/tools/seo-analysis` | standard | 必須 | ● | ○ | ○ | − | − | ● | ○ ※6 | ○ GSC / GA4 ※7 |
 | サイト診断 | `/tools/site-audit` | light | 必須 | − | − | − | − | − | − | − | − |
 | ページ最適化レポート | `/tools/page-report` | light | 必須 | − | − | ○ | − | − | − | − | − |
 | ページ診断（競合比較） | `/tools/page-diagnosis` | light | 必須 | ◍ | ◍ | − | − | − | − | − | − |
@@ -111,9 +111,9 @@ flowchart LR
 - ※6 セカンドオピニオン（`OPENAI_API_KEY`）。無ければ Claude だけで報告書は完成する。
 - ※7 **連携していなくても報告書は完成する**（URL だけで動くのがこのツールの前提）。連携すると「数字の診断」が 134 ルールまで増える → [scoring-reference.md](./scoring-reference.md) §7。
 - ページ診断は SerpApi が無いとき **Claude の Web 検索で上位ページを推定**する（実測の順位ではない旨が画面に出る）。
-- サイト診断（`/tools/site-audit`）は**パワーアップ分析に統合済み**で、サイドバーには出ない（registry の `hidden: true`）。URL は `/tools/seo-analysis` へ転送する。
+- サイト診断（`/tools/site-audit`）は**精密分析に統合済み**で、サイドバーには出ない（registry の `hidden: true`）。URL は `/tools/seo-analysis` へ転送する。
 
-### パワーアップ分析が 1 回で触る外部 API
+### 精密分析が 1 回で触る外部 API
 
 1 つの画面が最も多くの API を使うので、内訳を出しておく。
 
@@ -219,7 +219,7 @@ flowchart LR
 | `review_forms` / `review_channels` | reviews（アンケートと店舗別・経路別の QR） |
 | `review_responses` | 来店客の `/r/<slug>` が書き、reviews が読む |
 | `listing_profiles` | listings（NAP の正本） |
-| `analysis_runs` | パワーアップ分析（入力・事実シート・サイト診断の全結果・AI の出力・セカンドオピニオン。月の回数もこの行数で数える） |
+| `analysis_runs` | 精密分析（入力・事実シート・サイト診断の全結果・AI の出力・セカンドオピニオン。月の回数もこの行数で数える） |
 
 ブラウザ側のデータは設定画面から JSON でエクスポート / インポートできる（`exportAll` / `importAll`）。端末を変えると引き継げないのはこの③だけ。
 
@@ -262,14 +262,14 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | `GOOGLE_PLACES_API_KEY` | 無料 MEO 診断・Google マップ（MEO）・毎週の一斉更新 | listings / replies は登録済みデータの閲覧のみ |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Google マップ（MEO）・口コミ支援・基本情報掲載・一斉更新 | それ以外すべて |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析・サイトレポート（利用者が GA4 を連携していない場合） | 利用者が連携していれば②で動く |
-| `PAGESPEED_API_KEY` | 実ユーザーの速度（CrUX）と、ドメインパワーの「実ユーザーの規模」（配点 10）。PSI 自体は未設定でも低頻度なら取れる | ページ最適化レポート（速度以外の項目はそのまま）・パワーアップ分析（速度の節が空になるだけ） |
+| `PAGESPEED_API_KEY` | 実ユーザーの速度（CrUX）と、ドメインパワーの「実ユーザーの規模」（配点 10）。PSI 自体は未設定でも低頻度なら取れる | ページ最適化レポート（速度以外の項目はそのまま）・精密分析（速度の節が空になるだけ） |
 | `AHREFS_API_KEY` | ドメインパワーの「外部からのリンクの評価」が Open PageRank に落ちる | それ以外すべて |
 | `OPENPAGERANK_API_KEY` | 上記も無ければ配点 25 点分が分母から外れる（合計点は残り 75 点分で出る） | それ以外すべて |
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO の対象モデルが Claude だけになる | LLMO 本体 |
 | `CRON_SECRET` | 毎週の一斉更新（503 で自分から止まる） | 手動の登録・診断 |
 | `CLERK_SECRET_KEY` / `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | ログインと、ログインが要る全ツール | 無料診断 2 本・規約・アンケート `/r/<slug>` |
 | `STRIPE_*` | 購入と契約状態の同期 | `publicMetadata.plan` と `DEFAULT_PLAN` による手割り当て |
-| （キーではない）利用者の Google 連携が未接続 | 検索パフォーマンス、口コミ返信の全件取得・投稿、**数字の診断の 126 ルール**（D05 だけが「必須データ不足」として出る） | 生成 AI 流入・サイトレポートは①のサービスアカウントに落ちて動く。パワーアップ分析の報告書も従来どおり完成する |
+| （キーではない）利用者の Google 連携が未接続 | 検索パフォーマンス、口コミ返信の全件取得・投稿、**数字の診断の 126 ルール**（D05 だけが「必須データ不足」として出る） | 生成 AI 流入・サイトレポートは①のサービスアカウントに落ちて動く。精密分析の報告書も従来どおり完成する |
 
 実費が出るキーには、キーとは別にガードがある。
 
@@ -278,7 +278,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | Places（詳細取得 1 回 ≒ 4 円） | 無料 MEO 診断は IP ごとの回数制限 + 1 日の全体上限（`FREE_MEO_DAILY_LIMIT` 既定 500 / `FREE_MEO_DAILY_SEARCH_LIMIT` 既定 1,500。`0` で停止）。有料側はログイン必須 |
 | SerpApi・各 LLM | ログイン必須 + プラン判定。公開しているのは無料診断の FAQ だけ（同じ URL と本文なら 1 時間キャッシュ） |
 | クロール | `SITE_MAX_PAGES`（コードの既定 300・最大 1,000。本番は 100 に設定）。クイック診断だけ `FREE_SITE_MAX_PAGES`（代表 10 ページ）。社内ホストへのアクセスは `ALLOW_PRIVATE_HOSTS=1` のときだけ許す |
-| パワーアップ分析（AI + SerpApi） | 利用者ごとに月 `SEO_ANALYSIS_MONTHLY_LIMIT` 回（既定 10。運営者は無制限）。1 回の収集につき AI のやり直しは 3 回まで |
+| 精密分析（AI + SerpApi） | 利用者ごとに月 `SEO_ANALYSIS_MONTHLY_LIMIT` 回（既定 10。運営者は無制限）。1 回の収集につき AI のやり直しは 3 回まで |
 | Cron | `CRON_SECRET`。未設定なら一斉更新そのものを無効化 |
 
 ### 切り分けの順番

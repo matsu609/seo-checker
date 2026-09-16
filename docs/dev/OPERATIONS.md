@@ -14,7 +14,7 @@
   2. [tool-map.md](./tool-map.md) — どのツールがどの API キーでつながっているか、キーが切れると何が止まるか
   3. [services.md](./services.md) — GitHub / Vercel / Cloudflare / Clerk / Supabase / Google Cloud の全体像
   4. [ARCHITECTURE.md](./ARCHITECTURE.md) — 開発規約とディレクトリ、[README](../../README.md) — 機能の説明
-- 仕様書: **自動診断（134 ルール）は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)**、パワーアップ分析は [seo-analysis-spec.md](./seo-analysis-spec.md)、口コミ支援は [review-support-design.md](./review-support-design.md)、画面の作りは [design-spec.md](./design-spec.md) / [ui-notes.md](./ui-notes.md)。
+- 仕様書: **自動診断（134 ルール）は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)**、精密分析は [seo-analysis-spec.md](./seo-analysis-spec.md)、口コミ支援は [review-support-design.md](./review-support-design.md)、画面の作りは [design-spec.md](./design-spec.md) / [ui-notes.md](./ui-notes.md)。
 - このファイルには重複させず、**状態と判断**だけを書く。
 
 ## よく使う画面の URL
@@ -75,7 +75,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r68 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r69 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -241,14 +241,14 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 63 | サイト診断: **検索に載せないページを採点対象外（参考）にする**。noindex か robots.txt で実際に検索から外されているサイト内検索の結果などは、診断はするが平均点・項目の集計・ページ一覧に入れず、付録 A に理由つきで載せる | Claude | **完了（r44）** |
 | 64 | 採点ツール: **本文の具体性の判定を多言語対応にする**（英語ページが本文を 2 倍にしても「1 / 全 1 文・改善余地」から動かない件）。言語判定・文の区切り・事実の手がかりを多言語化し、文が少ないページは比率で判定しない。判定根拠（総文数・言語・基準・実例 3 件）をレポートに出す | Claude | **完了（r45、09-13 に利用者の指示で main へマージ）**。マージ後の main でも lint / tsc / test（110 ファイル・1,490 件）/ build を通してから push した |
 | 65 | 依頼の任意項目「意図的な仕様の申告」: noindex の検索結果ページやトップのパンくずのように、意図して外している項目を申告して指摘から外す仕組み。r43 / r44 で自動判定できるものは既に外してあるので、残るのは「自動では区別できないもの」の手動申告 | 利用者 → Claude | 判断待ち（下の「入力待ち」） |
-| 66 | **パワーアップ分析（連携不要の SEO 分析。有料・回数制限つき）**: 設計は [seo-analysis-spec.md](./seo-analysis-spec.md) §0。利用者の決定（09-13、6 点すべて推奨案）。**A′（r55）に続き B′〜E′ を r56 で main にマージ**（09-14、利用者の指示「一気に実装してメインにマージ」）: `/tools/seo-analysis`（事実シート → Claude の分析 → ChatGPT のセカンドオピニオン → 報告書 PDF → 履歴）、CrUX、SerpApi、GSC / GA4 の任意層、各画面の「AI に分析させる」（まずサイト診断）。**利用者側の作業**: ① Supabase で `analysis_runs` の SQL を実行（下の「パワーアップ分析の実行記録」）② Google Cloud で Chrome UX Report API を有効化し PageSpeed 用キーの制限に追加（下の #78）③ 本番で 1 回動かして AI の出力とトークン量を確認。残り: URL Inspection（E′ の一部）、実際の出力を見てのプロンプト調整 | 利用者 → Claude | **B′〜E′ 完了（r56）。利用者の作業 ①② 待ち** |
-| 78 | **パワーアップ分析を動かすための設定**（下の表「パワーアップ分析を有効にする手順」）: ~~Supabase の SQL~~ → Chrome UX Report API の有効化とキーの制限追加 → 本番で試す → `SEO_ANALYSIS_MONTHLY_LIMIT` は既定 10 のままでよいか | 利用者 | **1・2 完了（09-15。`analysis_runs` を作成、Chrome UX Report API を有効化）**。**1b・3 完了（09-15。`audit` 列を追加、キーの API の制限に Chrome UX Report API を追加）**。残り 4（本番で 1 回実行） |
-| 79 | **SerpApi を有効にする**: ~~アカウント → API キー → Vercel `SERPAPI_KEY` → Redeploy → `/admin` で確認~~ → パワーアップ分析を再実行して「対策キーワードの順位」が出ること | 利用者 | **設定完了（09-15、`/admin` で「設定済み」を確認）**。残りは本番で 1 回の再実行 |
+| 66 | **精密分析（連携不要の SEO 分析。有料・回数制限つき）**: 設計は [seo-analysis-spec.md](./seo-analysis-spec.md) §0。利用者の決定（09-13、6 点すべて推奨案）。**A′（r55）に続き B′〜E′ を r56 で main にマージ**（09-14、利用者の指示「一気に実装してメインにマージ」）: `/tools/seo-analysis`（事実シート → Claude の分析 → ChatGPT のセカンドオピニオン → 報告書 PDF → 履歴）、CrUX、SerpApi、GSC / GA4 の任意層、各画面の「AI に分析させる」（まずサイト診断）。**利用者側の作業**: ① Supabase で `analysis_runs` の SQL を実行（下の「精密分析の実行記録」）② Google Cloud で Chrome UX Report API を有効化し PageSpeed 用キーの制限に追加（下の #78）③ 本番で 1 回動かして AI の出力とトークン量を確認。残り: URL Inspection（E′ の一部）、実際の出力を見てのプロンプト調整 | 利用者 → Claude | **B′〜E′ 完了（r56）。利用者の作業 ①② 待ち** |
+| 78 | **精密分析を動かすための設定**（下の表「精密分析を有効にする手順」）: ~~Supabase の SQL~~ → Chrome UX Report API の有効化とキーの制限追加 → 本番で試す → `SEO_ANALYSIS_MONTHLY_LIMIT` は既定 10 のままでよいか | 利用者 | **1・2 完了（09-15。`analysis_runs` を作成、Chrome UX Report API を有効化）**。**1b・3 完了（09-15。`audit` 列を追加、キーの API の制限に Chrome UX Report API を追加）**。残り 4（本番で 1 回実行） |
+| 79 | **SerpApi を有効にする**: ~~アカウント → API キー → Vercel `SERPAPI_KEY` → Redeploy → `/admin` で確認~~ → 精密分析を再実行して「対策キーワードの順位」が出ること | 利用者 | **設定完了（09-15、`/admin` で「設定済み」を確認）**。残りは本番で 1 回の再実行 |
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
-| 80 | **Open PageRank を有効にする**（ドメインパワーの「外部からのリンクの評価」。無料）: domcop で登録 → API キー → Vercel `OPENPAGERANK_API_KEY`（Secret、Production）→ Redeploy → `/admin` の外部連携で「設定済み」を確認 → パワーアップ分析を再実行してドメインパワーの内訳に「外部からのリンクの評価」が出ること。下の「Open PageRank を有効にする手順」 | 利用者 | 未 |
-| 83 | **Ahrefs の DR を有効にする**（利用者の質問 09-15「無料でドメインパワーを測るサイトと同じ機能にしたい」への回答。**これが本命**）: Ahrefs の無料アカウント → API キー → Vercel `AHREFS_API_KEY`（Secret、Production）→ Redeploy → `/admin` で確認 → パワーアップ分析を再実行して「よく使われる無料ツールと同じ指標」に DR が出ること。下の「Ahrefs の DR を有効にする手順」 | 利用者 | 未 |
+| 80 | **Open PageRank を有効にする**（ドメインパワーの「外部からのリンクの評価」。無料）: domcop で登録 → API キー → Vercel `OPENPAGERANK_API_KEY`（Secret、Production）→ Redeploy → `/admin` の外部連携で「設定済み」を確認 → 精密分析を再実行してドメインパワーの内訳に「外部からのリンクの評価」が出ること。下の「Open PageRank を有効にする手順」 | 利用者 | 未 |
+| 83 | **Ahrefs の DR を有効にする**（利用者の質問 09-15「無料でドメインパワーを測るサイトと同じ機能にしたい」への回答。**これが本命**）: Ahrefs の無料アカウント → API キー → Vercel `AHREFS_API_KEY`（Secret、Production）→ Redeploy → `/admin` で確認 → 精密分析を再実行して「よく使われる無料ツールと同じ指標」に DR が出ること。下の「Ahrefs の DR を有効にする手順」 | 利用者 | 未 |
 | 81 | ドメインパワーの本番確認: 日本の `.jp` / `.co.jp` のサイトで **RDAP（ドメインの登録日）が取れるか**を 1 回見る。取れなければ内訳の「ドメインの年数」が「未取得」になり、配点 15 点分が分母から外れるだけで報告書は出る（対応が要るなら別の取得先を検討） | Claude + 利用者 | 未 |
 | 70 | **MEO の採点基準を厳しくする（v2）**: 営業時間の欠け → 要改善、自社サイト以外の URL → 注意、平均評価 4.5 / 4.2、口コミ件数 50 件、口コミの新しさ 30 / 90 日、オーナー写真 5 枚、低解像度が半数で要改善、口コミ本文 3 割未満で要改善、属性は「はい」だけ数える | Claude | **完了（r51、09-13）**。lint / tsc / test（1,510 件）/ build 通過。本番の登録店舗は次回の一斉更新（月曜 5:00 JST）で新基準に切り替わる |
 | 71 | 採点基準 v2 への切り替えを既存のお客様に伝える（スコアが全体に下がるため）。報告書の末尾には「採点基準 v2（2026-09-13 改定）」と履歴が直接つながらない旨を明記済み | 利用者 | 未（お客様に渡す前に） |
@@ -258,7 +258,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 75 | クイック診断（店舗）に「その場で答える 9 項目」を置くか（案 A） | — | **見送り（利用者の判断 2026-09-13）**。9 項目はオーナーにしか分からない情報なので、精密診断の「オーナー情報の入力」に残す |
 | 76 | **クイック診断の入口を塞ぐ**（サイドバーから削除・ログイン済みは `/start` へ・紹介サイトと robots から除外）とタブ順を SEO → MEO → AIO に | Claude | **完了（r54、09-13）** |
 | 77 | 紹介サイトの「クイック診断 0 円」の料金カードを消したので、**無料の診断を営業でどう使うか**（誰に、どの場面で URL を渡すか）を決める。渡す URL は `https://app.seo-checker.tokyo/` と `/meo` | 利用者 | 未 |
-| 82 | **GSC / GA4 / CRM の自動診断 + コンサル回答生成**: 仕様は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)。利用者の決定（09-15）= 入口は既存の Google 連携のみ・CSV は作らない／パワーアップ分析と同義。**G1〜G6 完了（r61 / r65 / r66）= 134 ルール**（GSC 79 + GA4 47 + 突き合わせ 8）。§11 の 20 件は重複・共起を除いて 8 件に絞った（利用者の指示「件数より体験の質」）。残り: G7（人間による承認）／ G8（CRM） | Claude | **G1〜G6 完了（r66）。残りは G7・G8 で、どちらも利用者の判断待ち** |
+| 82 | **GSC / GA4 / CRM の自動診断 + コンサル回答生成**: 仕様は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)。利用者の決定（09-15）= 入口は既存の Google 連携のみ・CSV は作らない／精密分析と同義。**G1〜G6 完了（r61 / r65 / r66）= 134 ルール**（GSC 79 + GA4 47 + 突き合わせ 8）。§11 の 20 件は重複・共起を除いて 8 件に絞った（利用者の指示「件数より体験の質」）。残り: G7（人間による承認）／ G8（CRM） | Claude | **G1〜G6 完了（r66）。残りは G7・G8 で、どちらも利用者の判断待ち** |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
 
@@ -271,29 +271,29 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 ①が終わる前に④を押しても害は無い（権限は付くが、口コミ一覧が「利用申請が承認され…」のエラーになる）。承認後に画面を開き直せばそのまま動く。
 
-### パワーアップ分析を有効にする手順（#78。利用者の作業）
+### 精密分析を有効にする手順（#78。利用者の作業）
 
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
-| 1 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | 下の「パワーアップ分析の実行記録（r56）」の SQL を貼って Run → Success を確認。Table Editor に `analysis_runs` が出れば完了 |
+| 1 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | 下の「精密分析の実行記録（r56）」の SQL を貼って Run → Success を確認。Table Editor に `analysis_runs` が出れば完了 |
 | 1b | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | **r58 で列が 1 つ増えた**: `alter table analysis_runs add column if not exists audit jsonb;` を貼って Run → Success。これが無いと報告書の「詳細: サイト診断」が空になる（他は動く） |
 | 2 | Google Cloud → API ライブラリ（Chrome UX Report API） | https://console.cloud.google.com/apis/library/chromeuxreport.googleapis.com?project=seo-checker-508104 | 「有効にする」。無料・請求先不要 |
 | 3 | Google Cloud → 認証情報 | https://console.cloud.google.com/apis/credentials?project=seo-checker-508104 | API キー「PageSpeed Insights (seo-checker)」を開く → 「API の制限」で **Chrome UX Report API** を追加して保存（別キーにするなら Vercel に `CRUX_API_KEY` を追加 → Redeploy）。制限が「制限なし」なら何もしなくてよい |
-| 4 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | `seo-checker.tokyo` などで 1 回実行（収集 1〜5 分 → AI 1〜3 分）。報告書の「結論」「改善案」「セカンドオピニオン」「速度」「付録」が出ること、右上の「今月 n / 10 回」が増えることを確認。運営者（ADMIN_EMAILS）は無制限 |
+| 4 | 本番 → 精密分析 | https://app.seo-checker.tokyo/tools/seo-analysis | `seo-checker.tokyo` などで 1 回実行（収集 1〜5 分 → AI 1〜3 分）。報告書の「結論」「改善案」「セカンドオピニオン」「速度」「付録」が出ること、右上の「今月 n / 10 回」が増えることを確認。運営者（ADMIN_EMAILS）は無制限 |
 | 5 | Vercel → 環境変数（任意） | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 月の回数を変えるなら `SEO_ANALYSIS_MONTHLY_LIMIT`（既定 10）。ChatGPT のセカンドオピニオンは `OPENAI_API_KEY`（LLMO と共用。未設定なら Claude だけで完成） |
 
 ### SerpApi を有効にする手順（#79。利用者の作業）
 
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
-| 1 | SerpApi → 登録 | https://serpapi.com/users/sign_up | メールで登録（Google ログイン可）。無料プランは月の検索回数に上限がある（回数と料金は https://serpapi.com/pricing で確認。パワーアップ分析 1 回 = 最大 7 回、順位計測 = キーワード数 × 実行回数） |
+| 1 | SerpApi → 登録 | https://serpapi.com/users/sign_up | メールで登録（Google ログイン可）。無料プランは月の検索回数に上限がある（回数と料金は https://serpapi.com/pricing で確認。精密分析 1 回 = 最大 7 回、順位計測 = キーワード数 × 実行回数） |
 | 2 | SerpApi → API キー | https://serpapi.com/manage-api-key | 「Your Private API Key」をコピー（会話には貼らない） |
 | 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `SERPAPI_KEY`、Value にキー、Environment は Production（Preview も使うなら両方）、Sensitive にチェック → Save |
 | 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy（環境変数はデプロイ時に読まれるため） |
 | 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の SerpApi が「設定済み」になり、サイドバーの順位計測の「要設定」が消えることを確認 |
-| 6 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 対策キーワードを入れて「分析する」。KPI の「対策キーワードの順位」に「n / m 語が 100 位以内」と出れば完了（このときも今月の回数を 1 つ使う） |
+| 6 | 本番 → 精密分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 対策キーワードを入れて「分析する」。KPI の「対策キーワードの順位」に「n / m 語が 100 位以内」と出れば完了（このときも今月の回数を 1 つ使う） |
 
-SerpApi の実費が出るのはパワーアップ分析（1 回 ≤ 7 検索）・順位計測・AI Overviews 引用・ページ診断の上位 10 件・AIO 頻出トピック。無料枠を超えないよう、SerpApi のダッシュボード（https://serpapi.com/dashboard ）で残り回数を見る。
+SerpApi の実費が出るのは精密分析（1 回 ≤ 7 検索）・順位計測・AI Overviews 引用・ページ診断の上位 10 件・AIO 頻出トピック。無料枠を超えないよう、SerpApi のダッシュボード（https://serpapi.com/dashboard ）で残り回数を見る。
 
 ### Ahrefs の DR を有効にする手順（#83。利用者の作業。無料）
 
@@ -306,7 +306,7 @@ SerpApi の実費が出るのはパワーアップ分析（1 回 ≤ 7 検索）
 | 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `AHREFS_API_KEY`、Value にキー、Environment は Production、Sensitive にチェック → Save |
 | 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy |
 | 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の Ahrefs が「設定済み」になることを確認 |
-| 6 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」カードの中の「よく使われる無料ツールと同じ指標」に **DR（0〜100）** が出れば完了。他社の測定サイトで同じドメインを調べて、同じ数値になるか見比べられる |
+| 6 | 本番 → 精密分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」カードの中の「よく使われる無料ツールと同じ指標」に **DR（0〜100）** が出れば完了。他社の測定サイトで同じドメインを調べて、同じ数値になるか見比べられる |
 
 注意: Ahrefs の条件で、**DR を画面に出すときは「Domain Rating by Ahrefs」の表示とリンクが要る**（カードに入れてある。消さないこと）。回数制限は Ahrefs API 全体の既定で **1 分 60 回**（超えると HTTP 429。公式ドキュメント「Limits consumption」）。無料エンドポイントは API ユニットを消費しない。1 回の分析では自社 + 競合 2 件 = 最大 3 回しか呼ばず、同じドメインは 24 時間キャッシュするので、月 10 回の分析ではこの制限に触れない。429 が返ったときは「未取得」として報告書を続け、失敗はキャッシュしない（次の分析で再取得する）。日次・月次の上限が別にあるかは公式ページをこの環境から開けず未確認（09-16）。
 
@@ -321,7 +321,7 @@ SerpApi の実費が出るのはパワーアップ分析（1 回 ≤ 7 検索）
 | 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `OPENPAGERANK_API_KEY`、Value にキー、Environment は Production、Sensitive にチェック → Save |
 | 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy |
 | 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の Open PageRank が「設定済み」になることを確認 |
-| 6 | 本番 → パワーアップ分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」のカードで、内訳の「外部からのリンクの評価」が「未取得」でなく 0〜10 の数値になれば完了。競合 URL を入れると「競合との比較」の表にも出る |
+| 6 | 本番 → 精密分析 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」のカードで、内訳の「外部からのリンクの評価」が「未取得」でなく 0〜10 の数値になれば完了。競合 URL を入れると「競合との比較」の表にも出る |
 
 ### Stripe を有効にする手順（#58。すべて利用者の作業。まずテストモードで通し、最後に本番キーへ）
 
@@ -524,7 +524,7 @@ create table if not exists listing_profiles (
 alter table listing_profiles enable row level security;
 ```
 
-**パワーアップ分析の実行記録（r56、#66）**:
+**精密分析の実行記録（r56、#66）**:
 
 ```sql
 create table if not exists analysis_runs (
@@ -645,15 +645,15 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 - **定価 50,000 円 + クーポン割引（2026-09-13）**: 利用者が Stripe で価格を作る際に「50,000 を定価にして、割引を基本にする」と決定。アプリの料金表・特商法ページ・紹介サイト（JSON-LD の offers、FAQ、llms.txt）・README を 50,000 円に揃え、「機能ごとに 3,000 円引き」の文言は全部消した。割引は Stripe のクーポン → プロモーションコード（Checkout で入力。`allow_promotion_codes` は r41 で有効）。内部の `standard` 段階は価格を持たない意味で 50,000 に合わせた（販売しない・料金はクーポンで調整）。
 
-- **SEO 分析ツールは Google 連携を前提にせず、URL だけで動く「パワーアップ分析」にする（2026-09-13）**: 利用者の指示。顧客は WordPress を外注していて GSC / GA4 を把握していないことが多い。連携で止まるより、無料・安価な API の指標を集めて AI に語らせる方が「中身の無いコンサル」を置き換えられる。連携は任意の層として残す（[seo-analysis-spec.md](./seo-analysis-spec.md) §0）。
+- **SEO 分析ツールは Google 連携を前提にせず、URL だけで動く「精密分析」にする（2026-09-13）**: 利用者の指示。顧客は WordPress を外注していて GSC / GA4 を把握していないことが多い。連携で止まるより、無料・安価な API の指標を集めて AI に語らせる方が「中身の無いコンサル」を置き換えられる。連携は任意の層として残す（[seo-analysis-spec.md](./seo-analysis-spec.md) §0）。
 
-- **パワーアップ分析の 6 点は推奨案どおり（2026-09-13）**: 月 10 回・ChatGPT はセカンドオピニオン・URL だけで動く・300 ページ + PSI 6 本・A′ → E′ の順・`/tools/seo-analysis` を 1 つ追加。加えて「最終的には**個々の分析結果ごとに AI の分析を見られるようにしたい**」→ B′ の事実シート → AI 分析は画面ごとの部分シートでも動く形に分ける（報告書 = 各画面の分析の合成）。
+- **精密分析の 6 点は推奨案どおり（2026-09-13）**: 月 10 回・ChatGPT はセカンドオピニオン・URL だけで動く・300 ページ + PSI 6 本・A′ → E′ の順・`/tools/seo-analysis` を 1 つ追加。加えて「最終的には**個々の分析結果ごとに AI の分析を見られるようにしたい**」→ B′ の事実シート → AI 分析は画面ごとの部分シートでも動く形に分ける（報告書 = 各画面の分析の合成）。
 - **A′ は新しいルールを足さず、別の層として同梱した（2026-09-14）**: 構成・信頼の指標は「課題（Issue）」ではなく「事実」として扱う。ルールにすると課題件数が跳ね上がって前回比が壊れるうえ、B′ で AI に読ませるのは判定済みの課題より生の数字の方がよい。48 ルールと 10 カテゴリの集計はそのまま。
 - **重要度は PageRank 風の計算にした（2026-09-14）**: 被リンク数だけだとナビに載っているページが全部同点になる。リンクの向きを 30 回反復して、トップから近くリンクを多く受けるページが高くなるようにし、サイト内の最大を 100 に正規化して画面に出す。本文のリンクとナビのリンクは別に数える（`main / article / [role=main]` の中で、`nav / header / footer / aside` の外を本文とみなす）。
 
 - **外部連携（API キーの設定状況）はお客様に見せない（2026-09-15）**: 利用者の指示「ユーザーに見える必要はない。マスターアカウントだけが把握していればいい」。設定画面から外し、マスター画面 `/admin` に移した（r57）。お客様の設定画面は「プロジェクト・競合・Google 連携・データ」だけ。各ツールの `SetupNotice`（未設定のキー名を出す案内）はまだお客様にも見えるので、隠すなら別途。
 
-- **サイト診断はパワーアップ分析に統合、ページ診断は別のまま（2026-09-15）**: 利用者の質問「3 つの違いは？同じなら統合して」。サイト診断（A1）はパワーアップ分析の中で同じクロール + 48 ルールを実行している部分集合なので、二重に持たず統合（r58）。課題一覧・カテゴリ別・ページ一覧・CSV は報告書の「詳細」に残した。ページ診断（A4）は「1 キーワード × Google 上位 10 件 × 自社 1 ページ」の競合比較で軸が違うため別のまま（名前を「ページ診断（競合比較）」に）。前回比（差分）はブラウザ履歴に依存していたので今回は落とした。要望があれば Supabase の前回の run と比べる形で復活できる。
+- **サイト診断は精密分析に統合、ページ診断は別のまま（2026-09-15）**: 利用者の質問「3 つの違いは？同じなら統合して」。サイト診断（A1）は精密分析の中で同じクロール + 48 ルールを実行している部分集合なので、二重に持たず統合（r58）。課題一覧・カテゴリ別・ページ一覧・CSV は報告書の「詳細」に残した。ページ診断（A4）は「1 キーワード × Google 上位 10 件 × 自社 1 ページ」の競合比較で軸が違うため別のまま（名前を「ページ診断（競合比較）」に）。前回比（差分）はブラウザ履歴に依存していたので今回は落とした。要望があれば Supabase の前回の run と比べる形で復活できる。
 
 ## 進行中の開発の設計メモ
 
@@ -1330,3 +1330,13 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 - **残したブランチ**: `main` と、いま動いているセッションの作業ブランチだけ。作業ブランチは main にマージ済みでも、
   そのセッションが続いている間は消さない（消すとそのセッションの push 先が無くなる）。
+
+### 2026-09-16（「パワーアップ分析」を「精密分析」に改称、r69）
+
+- 利用者の指示「パワーアップ分析の名前を精密分析に変えてください」。
+- **画面・PDF・紹介サイト・サービス資料・料金表・オンボーディング・README・設計ドキュメント・コード中の説明文**をすべて `精密分析` に置換（30 ファイル）。サイドバーの表示、PDF のファイル名（`精密分析_<ドメイン>_<日付>.pdf`）、`/tools/site-audit` の転送案内、Google 連携のイベント割り当ての保存メッセージも新しい名前になる。
+- **変えていないもの**（意図的）:
+  - **URL `/tools/seo-analysis` と API `/api/seo-analysis/*`**、`src/lib/seo-analysis/`、Supabase の `analysis_runs` テーブル。英語の識別子は「精密分析」でも意味が通り、変えるとブックマーク・保存済みの履歴・テーブル定義まで壊れるため。
+  - **リリース履歴（`releases.json`）と、この運用メモの「作業ログ」の過去の記述**。当時の名前のままにしてある（後から読んだときに、いつ何が起きたかが変わってしまわないように）。**旧称「パワーアップ分析」= 現在の「精密分析」**。
+- **名前が近い用語との関係**: このツールとは別に、無料の「クイック診断」に対する有料側の総称として **「精密診断」**（`PAID_DIAGNOSIS_LABEL`）を使っている。今回の「精密分析」は `/tools/seo-analysis` という個別ツールの名前で、別物。1 文字違いで紛らわしければ、どちらかを変える（例: 有料側の総称を「有料プラン」に、またはツール名を「精密SEO分析」に）ので声をかけてほしい。
+- 検証: lint / tsc / test（1,817 件）/ build 通過。文言だけの変更で、API・保存形式・採点ロジックは触っていない。

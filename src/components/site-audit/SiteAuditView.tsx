@@ -352,7 +352,7 @@ export function SiteAuditView() {
             title="サイト診断（課題・構成・信頼）"
             facts={auditFacts}
             aiEnabled={status ? status.anthropic : null}
-            description="この診断の数字（課題の集計・サイトの構成・信頼の手がかり）だけを AI に読ませ、言えることと次にやることを書かせます。サイト全体の報告書が欲しいときは「パワーアップ分析」へ。"
+            description="この診断の数字（課題の集計・サイトの構成・信頼の手がかり）だけを AI に読ませ、言えることと次にやることを書かせます。サイト全体の報告書が欲しいときは「精密分析」へ。"
           />
 
           <AuditIssues issues={issueRows} origin={result.origin} hasPrevious={Boolean(diff)} />

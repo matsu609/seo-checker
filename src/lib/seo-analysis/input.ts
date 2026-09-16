@@ -1,5 +1,5 @@
 /**
- * パワーアップ分析の入力の検証（zod）。API とフォームの両方で使う。
+ * 精密分析の入力の検証（zod）。API とフォームの両方で使う。
  */
 import { z } from "zod";
 import type { AnalysisInput } from "./sheet/types";
