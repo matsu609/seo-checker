@@ -354,6 +354,11 @@
       "commit": "d4bb34d",
       "date": "2026-09-16",
       "summary": "精密診断をライトにも含め、llms.txt の有無を評価"
+    },
+    {
+      "commit": "48bb24a",
+      "date": "2026-09-16",
+      "summary": "外部連携のリンク切れを修正、Open PageRank の旧 API 終了を記録"
     }
   ]
 }
