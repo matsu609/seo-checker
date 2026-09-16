@@ -2015,3 +2015,14 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - **このサービス特有の要点**: **GSC / GA4 の集計値を Claude に送って分析文を作っている**（`src/lib/seo-analysis/ai/analyze.ts`）。隠さず「利用者本人に見せるレポートのためだけに使い、学習には使わない」と用途説明とポリシーの両方で言い切る。
 - 環境の制約: `developers.google.com` / `support.google.com` はこの環境の egress プロキシで遮断されており直接読めない。検索結果の要約と申請体験談をもとにまとめた旨を資料に明記した。
 - ドキュメントのみの更新。コードは触っていない。**次にこちらでやれるのは、ポリシー第 6 条の追記（③）と、用途説明文・動画台本の下書き。**
+
+### 2026-09-17（Clerk の本番インスタンスの画面を確認）
+
+- 利用者が Clerk ダッシュボードの **Production インスタンスの Overview** を共有（`dashboard.clerk.com/apps/app_3J2KNwgzUABIRRWZzdE3RdipIVy/instances/ins_3J5Ge14Mu0nl6S9gqL7fxZcvQzz`）。
+- **分かったこと**:
+  - パンくずは「まつした's Organization（**Pro** プラン）/ **SEO Checker** / Production」。**アプリ名は既に `SEO Checker`**（#7 の「アプリ名が `My Application` のまま」は解消済みに見える。ログイン画面での表示は要確認）。
+  - **Clerk の組織が Pro プラン**。無料枠を超えた課金が発生している可能性があるので、Billing タブで月額を一度見ておく。
+  - 利用者数は **Active 2 / New 0 / Retained 2**（9/14 の週）。運営者本人ぶんと見られる。
+  - 上部に「Email setup: Add a second email provider to increase deliverability」の案内。**必須ではない**（Clerk の既定の送信元でも確認メールは届く）。#26 で `contact@seo-checker.tokyo` の受信は設定済み。
+- **この画面で残っている作業は 3 つで、すべて `Configure` タブの中**（#7）: ①Restrictions で招待制／許可リスト ②Legal に `/terms` `/privacy` と登録時の同意 ③アプリ名の最終確認。
+- ドキュメントのみの更新。コードは触っていない。
