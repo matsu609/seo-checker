@@ -256,7 +256,7 @@ Google Cloud の「アプリを公開」→ 審査の申請フォームに、**�
 
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
-| 1 | Google Cloud → OAuth → ブランディング | https://console.cloud.google.com/auth/branding?project=seo-checker-508104 | **先にこれ（#8）**。利用規約 `https://app.seo-checker.tokyo/terms`、プライバシー `https://app.seo-checker.tokyo/privacy` を入れて保存 |
+| 1 | ~~Google Cloud → OAuth → ブランディング~~ | https://console.cloud.google.com/auth/branding?project=seo-checker-508104 | **完了（2026-09-17、別セッションで利用者が実施）**。規約とプライバシーの URL は登録済み |
 | 2 | Google Cloud → OAuth → データアクセス | https://console.cloud.google.com/auth/scopes?project=seo-checker-508104 | **使っていないスコープが混ざっていないか**確認。必要なのは `webmasters.readonly` と `analytics.readonly` だけ |
 | 3 | Google Cloud → OAuth → 概要 | https://console.cloud.google.com/auth/overview?project=seo-checker-508104 | 「アプリを公開」→ 確認画面 → 審査に出す |
 | 4 | 申請フォーム | 同上 | スコープごとの用途説明（この資料の「申請に貼る文面」）と、**動画 URL** を貼る |
