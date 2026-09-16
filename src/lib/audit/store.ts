@@ -49,15 +49,16 @@ export type AuditHistory = z.infer<typeof HistorySchema>;
 export const auditHistoryStore = createStore<AuditHistory>("auditHistory", HistorySchema, []);
 
 const FormSchema = z.object({
-  url: z.string(),
   maxPages: z.number().int().positive(),
 });
 
 export type AuditForm = z.infer<typeof FormSchema>;
 
-/** 入力内容。リロードしても診断対象を打ち直さずに済むように保存する */
+/**
+ * 入力内容。診断するサイトは設定に登録したホームページを使うので、
+ * ここにはクロールの上限だけを残す（利用者の指示 2026-09-16）。
+ */
 export const auditFormStore = createStore<AuditForm>("auditForm", FormSchema, {
-  url: "",
   maxPages: 100,
 });
 

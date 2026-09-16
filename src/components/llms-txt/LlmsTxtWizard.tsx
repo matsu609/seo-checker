@@ -6,11 +6,12 @@
  * 外部連携は不要。入力は localStorage に保存されるので、途中でリロードしても
  * やり直しにならない。生成そのものは純関数（lib/llms-txt/render.ts）。
  */
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Button, Card } from "@/components/ui";
 import { llmsTxtStore, INITIAL_STATE } from "@/lib/llms-txt/store";
 import { WIZARD_STEPS, type LlmsTxtState, type StepId } from "@/lib/llms-txt/types";
 import { useStore } from "@/lib/store/hooks";
+import { useRegisteredSite } from "@/components/site/RegisteredSite";
 import { StepPages } from "./PagesStep";
 import { StepResult } from "./ResultStep";
 import { LlmsTxtValidator } from "./Validator";
@@ -18,11 +19,18 @@ import { StepAuthors, StepBasics, StepCompany, StepCrawl } from "./WizardSteps";
 
 export function LlmsTxtWizard() {
   const [state, setState] = useStore(llmsTxtStore);
+  const site = useRegisteredSite();
 
   const patch = useCallback(
     (next: Partial<LlmsTxtState>) => setState((prev) => ({ ...prev, ...next })),
     [setState],
   );
+
+  // 対象サイトは設定に登録したホームページ。この画面では URL を聞かない
+  // （利用者の指示 2026-09-16）。設定で変えたらここも追従する。
+  useEffect(() => {
+    if (site.siteUrl && state.siteUrl !== site.siteUrl) patch({ siteUrl: site.siteUrl });
+  }, [site.siteUrl, state.siteUrl, patch]);
 
   const goTo = useCallback((step: StepId) => patch({ step }), [patch]);
   const current = WIZARD_STEPS.find((s) => s.id === state.step) ?? WIZARD_STEPS[0];
@@ -100,7 +108,7 @@ export function LlmsTxtWizard() {
         </div>
       </Card>
 
-      <LlmsTxtValidator defaultUrl={state.siteUrl} />
+      <LlmsTxtValidator />
     </div>
   );
 }

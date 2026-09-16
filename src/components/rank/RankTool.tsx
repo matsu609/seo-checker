@@ -150,8 +150,8 @@ export function RankTool() {
   return (
     <div className="space-y-6">
       {projects.length === 0 && (
-        <Callout tone="info" title="プロジェクト（自社ドメイン）が未登録です">
-          自社ドメインと競合を登録すると、順位と AI Overviews の引用を自社・競合で判定できます。
+        <Callout tone="info" title="ホームページの URL が未登録です">
+          ホームページと競合を登録すると、順位と AI Overviews の引用を自社・競合で判定できます。
           <Link href="/settings" className="ml-1 font-bold text-accent underline-offset-2 hover:underline">
             設定画面で登録する
           </Link>
@@ -162,8 +162,8 @@ export function RankTool() {
         title="計測対象"
         description={
           project
-            ? `プロジェクト「${project.name}」（${project.domain}）／ 競合 ${competitorDomains.length} ドメイン`
-            : "プロジェクト未選択のため、キーワードの登録のみ利用できます。"
+            ? `ホームページ「${project.name}」（${project.domain}）／ 競合 ${competitorDomains.length} ドメイン`
+            : "ホームページが未登録のため、キーワードの登録のみ利用できます。"
         }
         actions={
           <>
@@ -175,7 +175,7 @@ export function RankTool() {
                 !serpEnabled
                   ? "SERPAPI_KEY が未設定のため計測できません"
                   : !projectDomain
-                    ? "設定画面でプロジェクト（自社ドメイン）を登録してください"
+                    ? "設定画面でホームページの URL を登録してください"
                     : visible.length === 0
                       ? "計測するキーワードがありません"
                       : undefined

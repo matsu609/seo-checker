@@ -45,9 +45,9 @@ export const StoredExpansionSchema = z.object({
 
 export type StoredExpansion = z.infer<typeof StoredExpansionSchema>;
 
+/** 対象サイトは設定に登録したホームページを使うので、ここには持たない（2026-09-16） */
 export const ExpansionSettingsSchema = z.object({
   seedText: z.string(),
-  siteUrl: z.string(),
   count: z.number(),
 });
 
@@ -62,7 +62,7 @@ export const promptExpansionsStore = createStore<StoredExpansion[]>(
 export const promptExpansionSettingsStore = createStore<ExpansionSettings>(
   "promptExpansionSettings",
   ExpansionSettingsSchema,
-  { seedText: "", siteUrl: "", count: DEFAULT_COUNT },
+  { seedText: "", count: DEFAULT_COUNT },
 );
 
 /** 新しい結果を先頭に積む（古いものから捨てる） */

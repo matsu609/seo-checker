@@ -33,7 +33,7 @@
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
 | 生成 | `/tools/listings` | 基本情報掲載（NAP 一括登録） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
 | 生成 | `/tools/llms-txt` | llms.txt 生成 | D6 | なし |
-| 設定 | `/settings` | プロジェクト・競合・Google 連携・GA4 イベントの割り当て（API キーの設定状況は `/admin` に移動） | E1, E2 | なし |
+| 設定 | `/settings` | **ホームページ（自社サイト）の URL**・競合・Google 連携・GA4 イベントの割り当て（API キーの設定状況は `/admin` に移動） | E1, E2 | なし |
 | 運用 | `/admin` | マスター画面（全登録者の契約状況・機能の個別開放・代理店の追加と担当の割り当て）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
 | 運用 | `/agency` | 代理店画面（担当として割り当てられた登録者だけを表示のみ）。`publicMetadata.role = "agency"` の人だけ。ほかは 404 | — | Clerk |
 | 共通 | `/legal/tokushoho` | 特定商取引法に基づく表記（ログイン不要） | — | なし |
@@ -85,6 +85,7 @@ src/
 
 ## 状態の保存
 
+- **対象サイトの URL は `/settings` の「ホームページ」カードだけで登録する**（利用者の指示 2026-09-16）。各ツールは `useRegisteredSite()`（`src/components/site/RegisteredSite.tsx`）で受け取り、画面の先頭に `SiteTargetNotice` を置く。ページ単位のツールは `PageTargetField` でパスだけを聞き、空欄ならトップページ。**新しいツールに自社サイトの URL 入力欄を足さない。**URL 入力欄を置いてよいのは競合とクイック診断（`/`・`/meo`）だけ。正規化と解決は `src/lib/site/target.ts` の純関数（`toSiteUrl` / `resolvePageUrl`）。
 - サーバーに DB は無い。ユーザーの登録情報（プロジェクト、競合、キーワード、プロンプト、計測履歴、診断履歴）は **ブラウザの localStorage** に保存する。`src/lib/store/` の `createStore(name, schema)` を通し、キーは `seo-checker:v1:<name>` で統一、zod で検証し、壊れていれば初期値に戻す。
 - 設定画面から JSON でエクスポート / インポートできるようにする。
 - Route Handler はステートレス。入力を受け取って結果を返すだけ（キャッシュは既存の `globalCache`）。

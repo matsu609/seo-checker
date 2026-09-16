@@ -43,7 +43,11 @@ export const AioTopicSettingsSchema = z.object({
   keyword: z.string(),
   device: z.enum(["desktop", "mobile"]),
   location: z.string(),
-  pageUrl: z.string(),
+  /**
+   * カバー判定を見る自社ページ。設定に登録したホームページからのパス（例: "/blog/aio"）。
+   * 空ならトップページ（利用者の指示 2026-09-16: 各タブで URL を聞かない）。
+   */
+  page: z.string(),
 });
 
 export type CoverageRecord = z.infer<typeof CoverageRecordSchema>;
@@ -60,7 +64,7 @@ export const aioTopicSettingsStore = createStore<AioTopicSettings>("aioTopicSett
   keyword: "",
   device: "desktop",
   location: "",
-  pageUrl: "",
+  page: "",
 });
 
 /** 同じキーワード・同じ日は後勝ち。古い日から捨てる */

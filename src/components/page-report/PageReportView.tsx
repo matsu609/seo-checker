@@ -16,7 +16,6 @@ import {
   DataTable,
   EmptyState,
   Field,
-  Input,
   Select,
   StatStrip,
   Tabs,
@@ -30,6 +29,8 @@ import { csvFileName, downloadCsv, type CsvColumn } from "@/lib/export/csv";
 import { fmt, formatDateTime, hostOf } from "@/lib/report";
 import { useStore } from "@/lib/store/hooks";
 import { useIntegrations } from "@/lib/store/useIntegrations";
+import { PageTargetField, SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
+import { resolvePageUrl } from "@/lib/site/target";
 import { useToolRun } from "@/lib/tools/run";
 import { gradeOf } from "@/lib/ui/grade";
 import { palette } from "@/lib/ui/palette";
@@ -82,6 +83,9 @@ const JSONLD_COLUMNS: Column<JsonLdNode>[] = [
 export function PageReportView() {
   const [form, setForm] = useStore(pageReportFormStore);
   const { status } = useIntegrations();
+  // 対象サイトは設定に登録したホームページ。ここで聞くのは「どのページか」だけ
+  const site = useRegisteredSite();
+  const targetUrl = resolvePageUrl(site.siteUrl, form.page);
   const { state, run, cancel } = useToolRun<{ report: PageReport; cached: boolean }>();
   const [tab, setTab] = useState<TabId>("meta");
 
@@ -91,16 +95,15 @@ export function PageReportView() {
 
   const submit = useCallback(
     (refresh: boolean) => {
-      const url = form.url.trim();
-      if (!url) return;
+      if (!targetUrl) return;
       void run("/api/page-report", {
-        url,
+        url: targetUrl,
         psi: form.psi,
         strategy: form.strategy,
         ...(refresh ? { refresh: true } : {}),
       });
     },
-    [form.url, form.psi, form.strategy, run],
+    [targetUrl, form.psi, form.strategy, run],
   );
 
   const csvRows = useMemo<CsvRow[]>(
@@ -135,8 +138,9 @@ export function PageReportView() {
       <Card
         className="mb-6"
         title="診断するページ"
-        description="1 ページの AI フレンドリー度を 0〜100 点で評価します。本文抽出・見出し・構造化データ・robots.txt の AI クローラ判定まで、外部 API なしで診断できます。"
+        description="設定に登録したホームページの 1 ページを、AI フレンドリー度 0〜100 点で評価します。ページを空欄にするとトップページを見ます。本文抽出・見出し・構造化データ・robots.txt の AI クローラ判定まで、外部 API なしで診断できます。"
       >
+        <SiteTargetNotice what="ページ最適化レポート" className="mb-4" />
         <form
           className="grid gap-3 @2xl:grid-cols-[1fr_10rem_auto] @2xl:items-end"
           onSubmit={(e) => {
@@ -144,17 +148,13 @@ export function PageReportView() {
             submit(false);
           }}
         >
-          <Field label="ページの URL" htmlFor="report-url" required hint="トップページでも下層ページでも診断できます">
-            <Input
-              id="report-url"
-              value={form.url}
-              inputMode="url"
-              autoComplete="url"
-              placeholder="https://example.co.jp/service/"
-              disabled={running}
-              onChange={(e) => setForm({ ...form, url: e.target.value })}
-            />
-          </Field>
+          <PageTargetField
+            id="report-page"
+            label="診断するページ（任意）"
+            value={form.page}
+            disabled={running}
+            onChange={(page) => setForm({ ...form, page })}
+          />
           <Field label="計測デバイス" htmlFor="report-strategy" hint="表示速度の計測条件">
             <Select
               id="report-strategy"
@@ -167,7 +167,7 @@ export function PageReportView() {
             </Select>
           </Field>
           <div className="flex gap-2">
-            <Button type="submit" size="lg" loading={running} className="w-full @2xl:w-auto">
+            <Button type="submit" size="lg" loading={running} disabled={!targetUrl} className="w-full @2xl:w-auto">
               レポートを作成
             </Button>
             {running && (
@@ -211,7 +211,7 @@ export function PageReportView() {
       {!report && !running && (
         <EmptyState
           title="まだ診断していません"
-          description="URL を入れて「レポートを作成」を押すと、項目ごとの評価と改善提案を表にまとめます。"
+          description="「レポートを作成」を押すと、項目ごとの評価と改善提案を表にまとめます。対象は設定に登録したホームページです。"
         />
       )}
 

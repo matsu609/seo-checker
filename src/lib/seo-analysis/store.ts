@@ -8,7 +8,6 @@ import { z } from "zod";
 import { createStore } from "@/lib/store/createStore";
 
 const FormSchema = z.object({
-  url: z.string(),
   keywords: z.string(),
   industry: z.string(),
   goal: z.enum(["inquiry", "ec", "recruit", "visit", "media", "other"]),
@@ -20,8 +19,11 @@ const FormSchema = z.object({
 
 export type SeoAnalysisForm = z.infer<typeof FormSchema>;
 
+/**
+ * 分析するサイトは設定に登録したホームページを使うので、ここには持たない
+ * （利用者の指示 2026-09-16）。競合の URL だけは入力欄を残す。
+ */
 export const seoAnalysisFormStore = createStore<SeoAnalysisForm>("seoAnalysisForm", FormSchema, {
-  url: "",
   keywords: "",
   industry: "",
   goal: "inquiry",

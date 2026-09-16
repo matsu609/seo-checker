@@ -15,7 +15,6 @@ import {
   Card,
   EmptyState,
   Field,
-  Input,
   Select,
   StatCard,
 } from "@/components/ui";
@@ -31,6 +30,7 @@ import type { AuditProgress as Progress, AuditResult, AuditSummary } from "@/lib
 import { fmt, formatDateTime, hostOf } from "@/lib/report";
 import { useStore } from "@/lib/store/hooks";
 import { useIntegrations } from "@/lib/store/useIntegrations";
+import { SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
 import { AiCommentCard, StructureCard, TrustCard } from "@/components/seo-analysis";
 import { factsFromAudit } from "@/lib/seo-analysis/sheet/build";
 import { AuditCategoryTable } from "./AuditCategoryTable";
@@ -46,6 +46,8 @@ type Phase = "idle" | "running" | "error" | "done";
 
 export function SiteAuditView() {
   const [form, setForm] = useStore(auditFormStore);
+  // 診断するサイトは設定に登録したホームページ。この画面では URL を聞かない
+  const site = useRegisteredSite();
   const [history] = useStore(auditHistoryStore);
   const { status } = useIntegrations();
 
@@ -76,9 +78,9 @@ export function SiteAuditView() {
 
   const run = useCallback(
     async (refresh: boolean) => {
-      const url = form.url.trim();
+      const url = site.siteUrl;
       if (!url) {
-        setError("診断するサイトの URL を入力してください");
+        setError("設定でホームページの URL を登録してください");
         setPhase("error");
         return;
       }
@@ -119,7 +121,7 @@ export function SiteAuditView() {
         if (controller.current === ac) controller.current = null;
       }
     },
-    [form.url, form.maxPages],
+    [site.siteUrl, form.maxPages],
   );
 
   const abort = useCallback(() => {
@@ -212,26 +214,16 @@ export function SiteAuditView() {
       <Card
         className="mb-6"
         title="診断するサイト"
-        description="開始 URL から sitemap と内部リンクをたどってページを集め、テクニカル SEO のルールを適用します。外部 API は使いません。"
+        description="設定に登録したホームページから sitemap と内部リンクをたどってページを集め、テクニカル SEO のルールを適用します。外部 API は使いません。"
       >
+        <SiteTargetNotice what="サイト診断" className="mb-4" />
         <form
-          className="grid gap-3 @2xl:grid-cols-[1fr_10rem_auto] @2xl:items-end"
+          className="grid gap-3 @2xl:grid-cols-[10rem_auto] @2xl:items-end"
           onSubmit={(e) => {
             e.preventDefault();
             void run(false);
           }}
         >
-          <Field label="サイトの URL" htmlFor="audit-url" required hint="例: example.co.jp／https://example.co.jp/">
-            <Input
-              id="audit-url"
-              value={form.url}
-              inputMode="url"
-              autoComplete="url"
-              placeholder="https://example.co.jp/"
-              disabled={disabled}
-              onChange={(e) => setForm({ ...form, url: e.target.value })}
-            />
-          </Field>
           <Field label="上限ページ数" htmlFor="audit-max-pages" hint="サーバー側の上限まで">
             <Select
               id="audit-max-pages"
@@ -247,7 +239,7 @@ export function SiteAuditView() {
             </Select>
           </Field>
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" size="lg" loading={disabled} className="w-full @2xl:w-auto">
+            <Button type="submit" size="lg" loading={disabled} disabled={!site.registered} className="w-full @2xl:w-auto">
               診断する
             </Button>
             {phase === "done" && (
@@ -272,7 +264,7 @@ export function SiteAuditView() {
       {phase !== "running" && !result && (
         <EmptyState
           title="まだ診断していません"
-          description="URL を入れて「診断する」を押すと、サイト全体をクロールして課題を一覧にします。300 ページで数分かかることがあります。"
+          description="「診断する」を押すと、設定に登録したホームページの全体をクロールして課題を一覧にします。300 ページで数分かかることがあります。"
         />
       )}
 

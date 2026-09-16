@@ -189,7 +189,7 @@ export function MonitorPanel({ project, entities, models, onModelsChange, status
   if (!project) {
     return (
       <EmptyState
-        title="先にプロジェクトを登録してください"
+        title="先に設定でホームページを登録してください"
         description="自社ドメインとブランド表記（別名）、競合を設定画面で登録すると、回答内の言及と引用元を自動で判定できます。"
       />
     );

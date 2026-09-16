@@ -214,7 +214,7 @@ const DIAGNOSIS: readonly Feature[] = [
     label: "ページ最適化レポート（AIO/LLM）",
     shortLabel: "ページ最適化レポート",
     description:
-      "1 URL の AI フレンドリー度を 0〜100 点で評価し、項目ごとの測定値・理由・改善提案を表にまとめます。表示速度と Core Web Vitals も併記。",
+      "設定に登録したホームページの 1 ページを AI フレンドリー度 0〜100 点で評価し、項目ごとの測定値・理由・改善提案を表にまとめます。表示速度と Core Web Vitals も併記。",
     details: [
       "本文抽出・内部リンク・robots.txt / llms.txt・構造化データ・head・見出し・alt を項目別に評価",
       "スコア・総評・項目別（ステータス / 測定値・理由 / 改善提案）",
@@ -623,13 +623,13 @@ const SETTINGS: readonly Feature[] = [
   {
     id: "settings",
     path: "/settings",
-    label: "プロジェクト・競合・Google 連携",
+    label: "ホームページ・競合・Google 連携",
     shortLabel: "設定",
     description:
-      "プロジェクト（ドメイン）と競合の登録、Google アカウントの連携（Search Console / GA4）、データのエクスポート / インポート。",
+      "ホームページ（自社サイト）の URL と競合の登録、Google アカウントの連携（Search Console / GA4）、データのエクスポート / インポート。ここで登録した URL を全タブが使うので、各タブで URL を入力する必要はありません。",
     details: [
-      "プロジェクト（名前・ドメイン・開始 URL・ブランド表記）の追加・編集・削除",
-      "競合（名前・ドメイン・ブランド表記）の登録",
+      "ホームページの URL（サイト名・ブランド表記も任意で）の登録・変更・削除",
+      "競合（名前・URL・ブランド表記）の登録",
       "Google アカウントの連携（Search Console のサイト・GA4 のプロパティの選択）",
       "ブラウザに保存したデータの JSON エクスポート / インポート",
     ],

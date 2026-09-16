@@ -46,7 +46,7 @@ export function LlmoTool() {
   return (
     <div className="space-y-6">
       <Card
-        title="対象プロジェクトと連携状況"
+        title="対象サイトと連携状況"
         description="回答内のブランド言及・引用ドメインは、設定画面で登録した自社・競合の情報で判定します。"
       >
         {/* 連携状況のバッジは 4 つ並ぶと Card の actions（shrink-0）では折り返せず
@@ -60,7 +60,7 @@ export function LlmoTool() {
           ))}
         </div>
         <div className="grid gap-3 md:grid-cols-[18rem_1fr]">
-          <Field label="プロジェクト" htmlFor="llmo-project">
+          <Field label="対象のホームページ" htmlFor="llmo-project">
             <Select
               id="llmo-project"
               value={currentProjectId ?? project?.id ?? ""}
@@ -77,7 +77,7 @@ export function LlmoTool() {
           </Field>
           <div className="text-[13px] leading-relaxed text-muted">
             {entities.length === 0 ? (
-              <p>設定画面でプロジェクト（自社ドメインとブランド表記）を登録すると判定できるようになります。</p>
+              <p>設定画面でホームページの URL とブランド表記を登録すると判定できるようになります。</p>
             ) : (
               <>
                 <p>

@@ -4,7 +4,7 @@ import { ONBOARDING_STEPS } from "../steps";
 
 describe("はじめかたの手順", () => {
   it("番号が 1 から連番になっている", () => {
-    expect(ONBOARDING_STEPS.map((s) => s.n)).toEqual([1, 2, 3]);
+    expect(ONBOARDING_STEPS.map((s) => s.n)).toEqual([1, 2, 3, 4]);
   });
 
   it("リンク先はすべて実在する画面", () => {
@@ -13,8 +13,13 @@ describe("はじめかたの手順", () => {
     }
   });
 
-  it("最初の手順は Google 連携（設定画面）", () => {
+  it("最初の手順はホームページの登録（設定画面）", () => {
     expect(ONBOARDING_STEPS[0].href).toBe("/settings");
-    expect(ONBOARDING_STEPS[0].body).toContain("読む許可は別に必要");
+    expect(ONBOARDING_STEPS[0].body).toContain("打ち直す必要はありません");
+  });
+
+  it("2 番目の手順は Google 連携（設定画面）", () => {
+    expect(ONBOARDING_STEPS[1].href).toBe("/settings");
+    expect(ONBOARDING_STEPS[1].body).toContain("読む許可は別に必要");
   });
 });

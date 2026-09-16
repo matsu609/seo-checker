@@ -1,6 +1,13 @@
 "use client";
 
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+/**
+ * 設定画面。
+ *
+ * 利用者の指示（2026-09-16）: ホームページの URL はここで 1 回だけ登録し、
+ * ほかのタブでは URL の入力を求めない。競合の URL だけは入力欄を残す。
+ * そのため、いちばん上に「ホームページ」カードを置き、競合は別カードに分ける。
+ */
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
@@ -9,53 +16,14 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { requireFeature } from "@/lib/features/registry";
+import { displayUrl, toSiteUrl } from "@/lib/site/target";
 import { exportAll, importAll, newId, resetAll, splitList, type Competitor, type Project } from "@/lib/store";
 import { useCurrentProject, useProjects } from "@/lib/store/hooks";
 
 const feature = requireFeature("settings");
 
-interface CompetitorDraft {
-  id: string;
-  name: string;
-  domains: string;
-  brandAliases: string;
-}
-
-interface ProjectDraft {
-  name: string;
-  domain: string;
-  startUrl: string;
-  brandAliases: string;
-  competitors: CompetitorDraft[];
-}
-
-const EMPTY_DRAFT: ProjectDraft = { name: "", domain: "", startUrl: "", brandAliases: "", competitors: [] };
-
-function toDraft(p: Project): ProjectDraft {
-  return {
-    name: p.name,
-    domain: p.domain,
-    startUrl: p.startUrl,
-    brandAliases: p.brandAliases.join("\n"),
-    competitors: p.competitors.map((c) => ({
-      id: c.id,
-      name: c.name,
-      domains: c.domains.join(", "),
-      brandAliases: c.brandAliases.join(", "),
-    })),
-  };
-}
-
-function draftCompetitors(draft: ProjectDraft): Competitor[] {
-  return draft.competitors
-    .map((c) => ({
-      id: c.id,
-      name: c.name.trim(),
-      domains: splitList(c.domains),
-      brandAliases: splitList(c.brandAliases),
-    }))
-    .filter((c) => c.name || c.domains.length > 0);
-}
+/** ホームページ登録カードの id。各ツールからここへ直接飛ばす（/settings#home-url） */
+const HOME_URL_ANCHOR = "home-url";
 
 function stamp(): string {
   const d = new Date();
@@ -72,7 +40,8 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
     <div className="mx-auto w-full max-w-6xl">
       <PageHeader feature={feature} />
       <div className="space-y-6">
-        <ProjectsCard />
+        <HomeUrlCard />
+        <CompetitorsCard />
         {googleSection}
         <DataCard />
       </div>
@@ -80,88 +49,120 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
   );
 }
 
-/* ───────────────────────── プロジェクト ───────────────────────── */
+/* ───────────────────── ホームページ（自社サイト） ───────────────────── */
 
-function ProjectsCard() {
-  const { projects, add, update, remove } = useProjects();
-  const { project: current, currentProjectId, setCurrentProjectId } = useCurrentProject();
-  const [editing, setEditing] = useState<"new" | string | null>(null);
-  const [draft, setDraft] = useState<ProjectDraft>(EMPTY_DRAFT);
+interface SiteDraft {
+  url: string;
+  name: string;
+  brandAliases: string;
+}
+
+const EMPTY_SITE: SiteDraft = { url: "", name: "", brandAliases: "" };
+
+function toSiteDraft(p: Project): SiteDraft {
+  return {
+    url: p.startUrl || (p.domain ? `https://${p.domain}/` : ""),
+    name: p.name,
+    brandAliases: p.brandAliases.join("\n"),
+  };
+}
+
+/**
+ * ホームページの URL を登録するカード。
+ * ここに入れた URL が、サイト診断・精密診断・llms.txt・プロンプト拡張などの対象になる。
+ */
+function HomeUrlCard() {
+  const { add, update, remove } = useProjects();
+  const { project, projects, setCurrentProjectId } = useCurrentProject();
+  const [draft, setDraft] = useState<SiteDraft>(EMPTY_SITE);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
 
-  function startNew() {
-    setDraft(EMPTY_DRAFT);
-    setEditing("new");
+  // 保存済みの値を入力欄に流し込む。localStorage はマウント後に読まれるので
+  // 初回と、サイトを切り替えたときだけ同期する（入力中の値は上書きしない）。
+  const syncedId = useRef<string | null>(null);
+  useEffect(() => {
+    if (adding) return;
+    const id = project?.id ?? null;
+    if (syncedId.current === id) return;
+    syncedId.current = id;
+    setDraft(project ? toSiteDraft(project) : EMPTY_SITE);
+  }, [project, adding]);
+
+  function startAdding() {
+    setAdding(true);
+    setDraft(EMPTY_SITE);
     setError(null);
+    setSaved(null);
   }
 
-  function startEdit(p: Project) {
-    setDraft(toDraft(p));
-    setEditing(p.id);
-    setError(null);
-  }
-
-  function cancel() {
-    setEditing(null);
+  function cancelAdding() {
+    setAdding(false);
+    syncedId.current = null;
     setError(null);
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!draft.domain.trim()) {
-      setError("ドメインを入力してください");
+    const siteUrl = toSiteUrl(draft.url);
+    if (!siteUrl) {
+      setError("ホームページの URL を入力してください（例: example.co.jp）");
+      setSaved(null);
       return;
     }
-    const competitors = draftCompetitors(draft);
-    if (editing === "new") {
-      add({
-        name: draft.name,
-        domain: draft.domain,
-        startUrl: draft.startUrl,
-        brandAliases: splitList(draft.brandAliases),
-        competitors,
-      });
-    } else if (editing) {
-      update(editing, {
-        name: draft.name.trim() || draft.domain.trim(),
-        domain: draft.domain,
-        startUrl: draft.startUrl.trim(),
-        brandAliases: splitList(draft.brandAliases),
-        competitors,
-      });
+    const domain = new URL(siteUrl).host;
+    const name = draft.name.trim() || domain;
+    const brandAliases = splitList(draft.brandAliases);
+
+    if (adding || !project) {
+      const created = add({ name, domain, startUrl: siteUrl, brandAliases });
+      setCurrentProjectId(created.id);
+      syncedId.current = created.id;
+      setAdding(false);
+    } else {
+      update(project.id, { name, domain, startUrl: siteUrl, brandAliases });
     }
-    setEditing(null);
+    setDraft({ url: siteUrl, name, brandAliases: brandAliases.join("\n") });
+    setError(null);
+    setSaved(`${displayUrl(siteUrl)} を登録しました。ほかのタブではこのサイトが対象になります。`);
   }
 
-  function onRemove(p: Project) {
-    if (!window.confirm(`プロジェクト「${p.name}」を削除します。よろしいですか？`)) return;
-    remove(p.id);
-    if (editing === p.id) setEditing(null);
+  function onRemove() {
+    if (!project) return;
+    if (!window.confirm(`「${project.name}」の登録を削除します。よろしいですか？`)) return;
+    remove(project.id);
+    syncedId.current = null;
+    setSaved(null);
+    setError(null);
   }
 
-  function setCompetitor(id: string, patch: Partial<CompetitorDraft>) {
-    setDraft((d) => ({ ...d, competitors: d.competitors.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
-  }
+  const registered = Boolean(project) && !adding;
 
   return (
     <Card
-      title="プロジェクト"
-      description="診断・計測の対象にする自社ドメインと競合。データはこのブラウザ（localStorage）に保存され、サーバーには送られません。"
+      id={HOME_URL_ANCHOR}
+      title="ホームページ"
+      description="ここに登録した URL が、サイト診断・精密診断・llms.txt・プロンプト拡張などすべてのタブの対象になります。各タブで URL を入力する必要はありません。データはこのブラウザ（localStorage）に保存され、サーバーには送られません。"
       actions={
-        editing === null && (
-          <Button size="sm" onClick={startNew}>
-            プロジェクトを追加
-          </Button>
+        registered && (
+          <Badge tone="pass" icon={false}>
+            登録済み
+          </Badge>
         )
       }
     >
-      {projects.length > 0 && (
+      {projects.length > 1 && !adding && (
         <div className="mb-4 max-w-md">
-          <Field label="現在のプロジェクト" htmlFor="current-project" hint="各ツールはこのプロジェクトを対象にします">
+          <Field label="いま対象にしているサイト" htmlFor="current-site" hint="複数登録している場合はここで切り替えます">
             <Select
-              id="current-project"
-              value={current?.id ?? ""}
-              onChange={(e) => setCurrentProjectId(e.target.value || null)}
+              id="current-site"
+              value={project?.id ?? ""}
+              onChange={(e) => {
+                setCurrentProjectId(e.target.value || null);
+                setSaved(null);
+                setError(null);
+              }}
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -173,144 +174,227 @@ function ProjectsCard() {
         </div>
       )}
 
-      {projects.length === 0 && editing === null ? (
-        <EmptyState
-          title="プロジェクトがまだありません"
-          description="自社ドメインを登録すると、順位計測や LLMO モニタリングでそのドメイン・ブランド名を自動で使います。"
-          action={<Button onClick={startNew}>最初のプロジェクトを追加</Button>}
-        />
-      ) : (
-        projects.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px] text-ink">
-              <thead>
-                <tr className="border-b border-line text-[12px] font-bold text-muted">
-                  <th className="px-2 py-2 text-left">名前</th>
-                  <th className="px-2 py-2 text-left">ドメイン</th>
-                  <th className="px-2 py-2 text-left">開始 URL</th>
-                  <th className="px-2 py-2 text-right">競合</th>
-                  <th className="px-2 py-2 text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {projects.map((p) => (
-                  <tr key={p.id} className="border-b border-line last:border-0">
-                    <td className="px-2 py-2">
-                      <span className="font-bold">{p.name}</span>
-                      {p.id === (currentProjectId ?? current?.id) && (
-                        <Badge tone="free" className="ml-2">
-                          現在
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-2 py-2 break-all">{p.domain}</td>
-                    <td className="px-2 py-2 break-all text-muted">{p.startUrl}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{p.competitors.length}</td>
-                    <td className="px-2 py-2 text-right whitespace-nowrap">
-                      <Button size="sm" variant="secondary" onClick={() => startEdit(p)} className="mr-1">
-                        編集
-                      </Button>
-                      <Button size="sm" variant="danger" onClick={() => onRemove(p)}>
-                        削除
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
-      )}
+      <form onSubmit={onSubmit} className="grid gap-4 @2xl:grid-cols-2">
+        <Field
+          label="ホームページの URL"
+          htmlFor="home-url-input"
+          required
+          error={error}
+          hint="例: example.co.jp／https://example.co.jp/。下層ページを入れてもトップページとして登録します"
+          className="@2xl:col-span-2"
+        >
+          <Input
+            id="home-url-input"
+            value={draft.url}
+            inputMode="url"
+            autoComplete="url"
+            placeholder="https://example.co.jp/"
+            invalid={Boolean(error)}
+            onChange={(e) => {
+              setDraft({ ...draft, url: e.target.value });
+              setSaved(null);
+            }}
+          />
+        </Field>
+        <Field label="サイト名（任意）" htmlFor="home-url-name" hint="空欄ならドメインを名前にします">
+          <Input
+            id="home-url-name"
+            value={draft.name}
+            placeholder="例: 自社サイト"
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+        </Field>
+        <Field
+          label="ブランドの表記（任意）"
+          htmlFor="home-url-alias"
+          hint="改行またはカンマ区切り。LLM の回答に社名が出たかの判定に使います"
+        >
+          <Textarea
+            id="home-url-alias"
+            value={draft.brandAliases}
+            placeholder={"株式会社サンプル\nサンプル社\nSample Inc."}
+            onChange={(e) => setDraft({ ...draft, brandAliases: e.target.value })}
+          />
+        </Field>
 
-      {editing !== null && (
-        <form onSubmit={onSubmit} className="mt-5 rounded-sm border border-line bg-surface p-4">
-          <h3 className="text-sm font-bold text-ink">{editing === "new" ? "プロジェクトを追加" : "プロジェクトを編集"}</h3>
-          <div className="mt-3 grid gap-4 md:grid-cols-2">
-            <Field label="名前" htmlFor="p-name" hint="空欄ならドメインを名前にします">
-              <Input id="p-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="例: 自社サイト" />
-            </Field>
-            <Field label="ドメイン" htmlFor="p-domain" required error={error}>
-              <Input
-                id="p-domain"
-                value={draft.domain}
-                onChange={(e) => setDraft({ ...draft, domain: e.target.value })}
-                placeholder="example.co.jp"
-                inputMode="url"
-                invalid={Boolean(error)}
-              />
-            </Field>
-            <Field label="開始 URL" htmlFor="p-start" hint="サイト診断のクロール起点。空欄なら https://ドメイン/">
-              <Input id="p-start" value={draft.startUrl} onChange={(e) => setDraft({ ...draft, startUrl: e.target.value })} placeholder="https://example.co.jp/" inputMode="url" />
-            </Field>
-            <Field label="ブランドの表記" htmlFor="p-alias" hint="改行またはカンマ区切り。LLM の回答に社名が出たかの判定に使います">
-              <Textarea id="p-alias" value={draft.brandAliases} onChange={(e) => setDraft({ ...draft, brandAliases: e.target.value })} placeholder={"株式会社サンプル\nサンプル社\nSample Inc."} />
-            </Field>
-          </div>
-
-          <div className="mt-5 flex items-center justify-between">
-            <h4 className="text-[13px] font-bold text-ink">競合</h4>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() =>
-                setDraft((d) => ({
-                  ...d,
-                  competitors: [...d.competitors, { id: newId(), name: "", domains: "", brandAliases: "" }],
-                }))
-              }
-            >
-              競合を追加
-            </Button>
-          </div>
-          {draft.competitors.length === 0 ? (
-            <p className="mt-2 text-[12px] text-muted">競合は後からでも追加できます。</p>
-          ) : (
-            <div className="mt-2 overflow-x-auto">
-              <table className="w-full min-w-[36rem] text-[13px]">
-                <thead>
-                  <tr className="text-[12px] font-bold text-muted">
-                    <th className="px-1 py-1 text-left">名前</th>
-                    <th className="px-1 py-1 text-left">ドメイン（カンマ区切り）</th>
-                    <th className="px-1 py-1 text-left">ブランドの表記（カンマ区切り）</th>
-                    <th className="px-1 py-1" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {draft.competitors.map((c) => (
-                    <tr key={c.id}>
-                      <td className="px-1 py-1">
-                        <Input aria-label="競合の名前" className="h-9 text-sm" value={c.name} onChange={(e) => setCompetitor(c.id, { name: e.target.value })} />
-                      </td>
-                      <td className="px-1 py-1">
-                        <Input aria-label="競合のドメイン" className="h-9 text-sm" value={c.domains} onChange={(e) => setCompetitor(c.id, { domains: e.target.value })} placeholder="rival.jp, www.rival.jp" />
-                      </td>
-                      <td className="px-1 py-1">
-                        <Input aria-label="競合のブランド表記" className="h-9 text-sm" value={c.brandAliases} onChange={(e) => setCompetitor(c.id, { brandAliases: e.target.value })} />
-                      </td>
-                      <td className="px-1 py-1 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setDraft((d) => ({ ...d, competitors: d.competitors.filter((x) => x.id !== c.id) }))}
-                        >
-                          削除
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <div className="mt-5 flex gap-2">
-            <Button type="submit">{editing === "new" ? "追加する" : "保存する"}</Button>
-            <Button variant="secondary" onClick={cancel}>
+        <div className="flex flex-wrap items-center gap-2 @2xl:col-span-2">
+          <Button type="submit">{adding || !project ? "登録する" : "保存する"}</Button>
+          {adding ? (
+            <Button variant="secondary" onClick={cancelAdding}>
               キャンセル
             </Button>
-          </div>
-        </form>
+          ) : (
+            project && (
+              <>
+                <Button variant="secondary" onClick={startAdding}>
+                  別のサイトを追加
+                </Button>
+                <Button variant="danger" onClick={onRemove} className="ml-auto">
+                  この登録を削除
+                </Button>
+              </>
+            )
+          )}
+        </div>
+      </form>
+
+      {saved && (
+        <Callout tone="pass" className="mt-4">
+          {saved}
+        </Callout>
       )}
+    </Card>
+  );
+}
+
+/* ───────────────────────── 競合 ───────────────────────── */
+
+interface CompetitorDraft {
+  id: string;
+  name: string;
+  domains: string;
+  brandAliases: string;
+}
+
+function toCompetitorDrafts(p: Project): CompetitorDraft[] {
+  return p.competitors.map((c) => ({
+    id: c.id,
+    name: c.name,
+    domains: c.domains.join(", "),
+    brandAliases: c.brandAliases.join(", "),
+  }));
+}
+
+function fromCompetitorDrafts(rows: CompetitorDraft[]): Competitor[] {
+  return rows
+    .map((c) => ({
+      id: c.id,
+      name: c.name.trim(),
+      domains: splitList(c.domains).map((d) => toSiteUrl(d)).filter(Boolean).map((u) => new URL(u).host),
+      brandAliases: splitList(c.brandAliases),
+    }))
+    .filter((c) => c.name || c.domains.length > 0);
+}
+
+/**
+ * 競合の登録。**URL の入力欄を残すのはここだけ**（利用者の指示 2026-09-16）。
+ * 自社のホームページは上のカードで登録する。
+ */
+function CompetitorsCard() {
+  const { update } = useProjects();
+  const { project } = useCurrentProject();
+  const [rows, setRows] = useState<CompetitorDraft[]>([]);
+  const [saved, setSaved] = useState(false);
+
+  const syncedId = useRef<string | null>(null);
+  useEffect(() => {
+    const id = project?.id ?? null;
+    if (syncedId.current === id) return;
+    syncedId.current = id;
+    setRows(project ? toCompetitorDrafts(project) : []);
+  }, [project]);
+
+  if (!project) {
+    return (
+      <Card title="競合サイト" description="順位の比較や LLMO の言及判定に使う競合を登録します。">
+        <EmptyState
+          title="先にホームページを登録してください"
+          description="競合は、対象にしているホームページごとに保存します。"
+        />
+      </Card>
+    );
+  }
+
+  function setRow(id: string, patch: Partial<CompetitorDraft>) {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setSaved(false);
+  }
+
+  function onSave() {
+    update(project!.id, { competitors: fromCompetitorDrafts(rows) });
+    setRows(fromCompetitorDrafts(rows).map((c) => ({
+      id: c.id,
+      name: c.name,
+      domains: c.domains.join(", "),
+      brandAliases: c.brandAliases.join(", "),
+    })));
+    setSaved(true);
+  }
+
+  return (
+    <Card
+      title="競合サイト"
+      description={`「${project.name}」と比べる競合。順位の並びや LLMO の言及判定に使います。競合の URL はここで登録しても、各タブでその都度入れても構いません。`}
+      actions={
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            setRows((prev) => [...prev, { id: newId(), name: "", domains: "", brandAliases: "" }]);
+            setSaved(false);
+          }}
+        >
+          競合を追加
+        </Button>
+      }
+    >
+      {rows.length === 0 ? (
+        <EmptyState title="競合はまだ登録されていません" description="あとからでも追加できます。" />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[36rem] text-[13px]">
+            <thead>
+              <tr className="text-[12px] font-bold text-muted">
+                <th className="px-1 py-1 text-left">名前</th>
+                <th className="px-1 py-1 text-left">URL・ドメイン（カンマ区切り）</th>
+                <th className="px-1 py-1 text-left">ブランドの表記（カンマ区切り）</th>
+                <th className="px-1 py-1" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((c) => (
+                <tr key={c.id}>
+                  <td className="px-1 py-1">
+                    <Input aria-label="競合の名前" className="h-9 text-sm" value={c.name} onChange={(e) => setRow(c.id, { name: e.target.value })} />
+                  </td>
+                  <td className="px-1 py-1">
+                    <Input
+                      aria-label="競合の URL"
+                      className="h-9 text-sm"
+                      value={c.domains}
+                      inputMode="url"
+                      placeholder="rival.jp, https://www.rival.jp/"
+                      onChange={(e) => setRow(c.id, { domains: e.target.value })}
+                    />
+                  </td>
+                  <td className="px-1 py-1">
+                    <Input aria-label="競合のブランド表記" className="h-9 text-sm" value={c.brandAliases} onChange={(e) => setRow(c.id, { brandAliases: e.target.value })} />
+                  </td>
+                  <td className="px-1 py-1 text-right">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setRows((prev) => prev.filter((x) => x.id !== c.id));
+                        setSaved(false);
+                      }}
+                    >
+                      削除
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button onClick={onSave} disabled={rows.length === 0 && project.competitors.length === 0}>
+          競合を保存する
+        </Button>
+        {saved && <span className="text-[12px] text-pass">保存しました。</span>}
+      </div>
     </Card>
   );
 }
@@ -356,7 +440,7 @@ function DataCard() {
   }
 
   function onReset() {
-    if (!window.confirm("このブラウザに保存したプロジェクト・競合などのデータをすべて削除します。よろしいですか？")) return;
+    if (!window.confirm("このブラウザに保存したホームページ・競合などのデータをすべて削除します。よろしいですか？")) return;
     resetAll();
     setMessage({ tone: "info", text: "すべてのデータを削除しました。" });
   }
@@ -364,7 +448,7 @@ function DataCard() {
   return (
     <Card
       title="データのエクスポート / インポート"
-      description="ブラウザに保存しているデータ（プロジェクト・競合・今後追加されるキーワードや計測履歴）を JSON で保存・復元します。別のブラウザや PC へ移すときに使います。"
+      description="ブラウザに保存しているデータ（ホームページ・競合・キーワードや計測履歴）を JSON で保存・復元します。別のブラウザや PC へ移すときに使います。"
     >
       <div className="flex flex-wrap gap-2">
         <Button onClick={onExport}>JSON をダウンロード</Button>
