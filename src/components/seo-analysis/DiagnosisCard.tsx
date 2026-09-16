@@ -10,7 +10,7 @@
  */
 import { useState } from "react";
 import { Badge, Card } from "@/components/ui";
-import { CONFIDENCE_LABELS, EFFORT_LABELS, RULE_CATEGORY_LABELS, RULE_SEVERITY_LABELS, type DiagnosisResult, type RuleSeverity, type TriggeredRule } from "@/lib/diagnosis/types";
+import { CONFIDENCE_LABELS, EFFORT_LABELS, RULE_CATEGORY_LABELS, RULE_SEVERITY_LABELS, type DiagnosisResult, type Ga4Summary, type RuleSeverity, type TriggeredRule } from "@/lib/diagnosis/types";
 import { PENDING_RULES } from "@/lib/diagnosis/rules";
 
 const TONE: Record<RuleSeverity, "fail" | "warn" | "neutral"> = {
@@ -41,7 +41,7 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: DiagnosisResult }) {
 
   return (
     <Card
-      title="数字の診断（Search Console の推移）"
+      title="数字の診断（Search Console / GA4）"
       description="集計と判定はプログラムが行っています（AI は使っていません）。発火した項目は「確認できた事実」であって原因ではないため、原因候補と「まだ確認が必要なこと」を必ず併記しています。"
       printCard
       actions={
@@ -51,7 +51,7 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: DiagnosisResult }) {
       }
     >
       {summary && (
-        <div className="mb-4 grid gap-2 rounded-lg border border-line bg-surface-2 p-3 text-[12px] @xl:grid-cols-2">
+        <div className="mb-4 grid gap-2 rounded-lg border border-line bg-surface p-3 text-[12px] @xl:grid-cols-2">
           <div>
             <span className="text-muted">対象: </span>
             {summary.siteUrl}
@@ -76,6 +76,8 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: DiagnosisResult }) {
           </div>
         </div>
       )}
+
+      {diagnosis.ga4 && <Funnel ga4={diagnosis.ga4} />}
 
       {triggered.length === 0 ? (
         <p className="text-[13px] text-muted">発火した診断項目はありません。判定に使えたデータの範囲は下の「判定していないこと」を見てください。</p>
@@ -133,6 +135,66 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: DiagnosisResult }) {
         判定ルールの版 {diagnosis.rulesVersion} ／ 閾値の版 {diagnosis.thresholdsVersion}。同じデータと同じ版なら、同じ項目が発火します。
       </p>
     </Card>
+  );
+}
+
+/**
+ * 訪問後の流れ。ここは「どこで落ちているか」を一目で見せる部分なので、
+ * 計測できていない段階は 0 ではなく「未計測」と書き分ける（0 件と混同させない）。
+ */
+function Funnel({ ga4 }: { ga4: Ga4Summary }) {
+  const steps = [
+    { label: "訪問（セッション）", value: ga4.sessions, rate: null as number | null, rateLabel: "" },
+    { label: "読まれた（エンゲージ）", value: Math.round(ga4.sessions * (ga4.engagementRate ?? 0)), rate: ga4.engagementRate, rateLabel: "エンゲージメント率" },
+    { label: "問い合わせ導線を押した", value: ga4.ctaSessions, rate: ga4.ctaClickRate, rateLabel: "訪問に対して" },
+    { label: "フォームを開いた", value: ga4.formStartSessions, rate: ga4.formStartRate, rateLabel: "押した人のうち" },
+    { label: "送信した", value: ga4.formCompleteSessions, rate: ga4.formCompletionRate, rateLabel: "開いた人のうち" },
+  ];
+  const max = Math.max(1, ga4.sessions);
+  const missing = ga4.mappingLines.length === 0;
+
+  return (
+    <div className="mb-4 rounded-lg border border-line p-3">
+      <h3 className="text-[12px] font-medium">
+        訪問後の流れ（GA4 / {ga4.range.startDate}〜{ga4.range.endDate}）
+      </h3>
+      <p className="mt-0.5 text-[11px] text-muted">すべてセッション単位です（イベントの回数ではありません）。1 人が 3 回押しても 1 と数えます。</p>
+      <ul className="mt-2 space-y-1.5">
+        {steps.map((s, i) => {
+          const unmeasured = i >= 2 && missing;
+          return (
+            <li key={s.label} className="grid grid-cols-[1fr_auto] items-center gap-2 text-[12px]">
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="truncate">{s.label}</span>
+                  {s.rate !== null && !unmeasured && (
+                    <span className="shrink-0 text-[11px] text-muted">
+                      {s.rateLabel} {pct(s.rate, 1)}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-line">
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, (s.value / max) * 100)}%` }} />
+                </div>
+              </div>
+              <span className="tabular-nums">{unmeasured ? "未計測" : s.value.toLocaleString("ja-JP")}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mt-2 text-[11px] text-muted">
+        {ga4.mappingLines.length > 0 ? (
+          <>
+            <span className="font-medium">何をどう数えたか: </span>
+            {ga4.mappingLines.join("／")}
+          </>
+        ) : (
+          "問い合わせ導線・フォームに当たる GA4 イベントが見つかりませんでした。設定画面の「GA4 イベントの割り当て」で指定すると、この流れが出せます。"
+        )}
+        {ga4.unmapped.length > 0 && <div className="mt-1">未分類のイベント: {ga4.unmapped.slice(0, 8).join(" / ")}</div>}
+        {ga4.organicConversionRate !== null && <div className="mt-1">自然検索からの問い合わせ率: {pct(ga4.organicConversionRate, 2)}（自然検索 {ga4.organicSessions.toLocaleString("ja-JP")} セッション）</div>}
+      </div>
+    </div>
   );
 }
 

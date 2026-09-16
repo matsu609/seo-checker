@@ -71,8 +71,8 @@ export const QUALITY_RULES: DiagnosisRule[] = [
       if (g && g.totals.current.impressions < ctx.thresholds.minimumTotalImpressions) {
         evidence.push(`当期の表示回数は ${formatNumber(g.totals.current.impressions)} 回で、判定の目安 ${formatNumber(ctx.thresholds.minimumTotalImpressions)} 回を下回っています`);
       }
-      if (ctx.ga4 && ctx.ga4.all.sessions < ctx.thresholds.minimumSessions) {
-        evidence.push(`GA4 の全セッションは ${formatNumber(ctx.ga4.all.sessions)} で、判定の目安 ${formatNumber(ctx.thresholds.minimumSessions)} を下回っています`);
+      if (ctx.ga4 && ctx.ga4.totals.current.sessions < ctx.thresholds.minimumSessions) {
+        evidence.push(`GA4 の全セッションは ${formatNumber(ctx.ga4.totals.current.sessions)} で、判定の目安 ${formatNumber(ctx.thresholds.minimumSessions)} を下回っています`);
       }
       return evidence.length > 0 ? { evidence, impact: 0.7 } : null;
     },
@@ -228,7 +228,7 @@ export const QUALITY_RULES: DiagnosisRule[] = [
     evaluate: (ctx) => {
       if (!ctx.gsc || !ctx.ga4) return null;
       const a = ctx.gsc.range.current;
-      const b = ctx.ga4.range;
+      const b = ctx.ga4.range.current;
       if (a.startDate === b.startDate && a.endDate === b.endDate) return null;
       return {
         evidence: [`Search Console は ${a.startDate}〜${a.endDate}、GA4 は ${b.startDate}〜${b.endDate}`],
@@ -253,7 +253,7 @@ export const QUALITY_RULES: DiagnosisRule[] = [
       if (!ctx.gsc || !ctx.ga4) return null;
       return {
         evidence: [
-          `Search Console のクリック ${formatNumber(ctx.gsc.totals.current.clicks)} 回と、GA4 の自然検索セッション ${formatNumber(ctx.ga4.organic.sessions)} は別の数え方です`,
+          `Search Console のクリック ${formatNumber(ctx.gsc.totals.current.clicks)} 回と、GA4 の自然検索セッション ${formatNumber(ctx.derived.ga4?.organicSessions.current ?? 0)} は別の数え方です`,
         ],
         impact: 0.2,
       };

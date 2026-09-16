@@ -13,11 +13,22 @@ import { GoogleLinkError } from "./errors";
 /** privateMetadata の中でこのアプリが使うキー */
 export const METADATA_KEY = "googleLink";
 
+/**
+ * 共通イベントへの対応表（docs/dev/diagnosis-rules-spec.md §5）。
+ * 自動判定で当たらなかったイベントを人が割り当てたもの。値は GA4 のイベント名。
+ */
+const EventMappingSchema = z.record(
+  z.enum(["primary_cta", "form_start", "form_complete", "document_download", "phone_action", "email_action", "external_action"]),
+  z.array(z.string().min(1).max(200)).max(20),
+);
+
 const LinkSettingsSchema = z.object({
   /** Search Console のサイト URL（例 "https://example.com/" や "sc-domain:example.com"） */
   searchConsoleSiteUrl: z.string().min(1).max(500).optional(),
   /** GA4 のプロパティ ID（数字のみ） */
   ga4PropertyId: z.string().regex(/^\d{1,20}$/).optional(),
+  /** GA4 のイベント名 → 共通イベントの割り当て（自動判定の上書き） */
+  eventMapping: EventMappingSchema.optional(),
 });
 
 export type LinkSettings = z.infer<typeof LinkSettingsSchema>;
@@ -76,6 +87,23 @@ export async function setLinkSettings(
   const client = await clerkClient();
   const user = await client.users.updateUserMetadata(userId, {
     privateMetadata: { [METADATA_KEY]: patch },
+  });
+  return parseLinkSettings((user.privateMetadata as Record<string, unknown>)?.[METADATA_KEY]);
+}
+
+/**
+ * イベントの対応表だけを保存する。`setLinkSettings` は文字列しか扱わないので別にする。
+ * 空のオブジェクトを渡すと「自動判定にまかせる」状態に戻る。
+ */
+export async function setEventMapping(mapping: Record<string, string[]>): Promise<LinkSettings> {
+  const userId = await requireUserId();
+  const check = EventMappingSchema.safeParse(mapping);
+  if (!check.success) {
+    throw new GoogleLinkError("イベントの割り当ての形式が正しくありません。", "not_selected");
+  }
+  const client = await clerkClient();
+  const user = await client.users.updateUserMetadata(userId, {
+    privateMetadata: { [METADATA_KEY]: { eventMapping: check.data } },
   });
   return parseLinkSettings((user.privateMetadata as Record<string, unknown>)?.[METADATA_KEY]);
 }

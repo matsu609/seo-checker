@@ -39,7 +39,10 @@ const SYSTEM_PROMPT = `あなたは中小企業のウェブサイトを 10 年�
 - Search Console だけでは訪問後の行動・問い合わせ・売上は判断できません。GA4 だけでは表示回数や掲載順位は判断できません。無い側について断定しません。
 - 母数が小さい指標（表示回数やセッションが少ない）は、確度を下げて書きます。
 - アクセスの増加と売上の増加を同じものとして書きません。
-- データが足りなくて判定できなかった項目（「判定できなかったこと」の行）は、cautions に「何を足せば分かるか」として具体的に書きます。`;
+- データが足りなくて判定できなかった項目（「判定できなかったこと」の行）は、cautions に「何を足せば分かるか」として具体的に書きます。
+- 訪問後の流れ（GA4）の数字はすべてセッション単位です。イベントの回数を人数として書きません。キーイベントを受注として書きません。
+- 「未計測」と「0 件」を書き分けます。問い合わせ導線やフォームのイベントが設定されていない場合は「押されていない」ではなく「計測されていない」と書き、先に計測を直すよう促します。
+- 段階（訪問 → 読まれた → ボタンを押した → フォームを開いた → 送信した）のうち、いちばん落ちている 1 か所を特定して、そこだけを直す提案をします。全部を同時に直す提案はしません。`;
 
 function inputSummary(sheet: SeoFactSheet): string[] {
   const i = sheet.input;
@@ -55,7 +58,8 @@ function inputSummary(sheet: SeoFactSheet): string[] {
       sheet.coverage.domainPower ? "ドメインパワー（推定）" : null,
       sheet.coverage.searchConsole ? "Search Console" : null,
       sheet.coverage.ga4 ? "GA4" : null,
-      sheet.coverage.diagnosis ? "数字の診断（GSC の診断ルール）" : null,
+      sheet.coverage.diagnosis ? "数字の診断（Search Console の診断ルール）" : null,
+      sheet.diagnosis?.ga4 ? "訪問後の流れ（GA4 の診断ルール）" : null,
     ]
       .filter(Boolean)
       .join("、")}`,

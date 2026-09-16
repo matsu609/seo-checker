@@ -8,6 +8,7 @@
 import type { AnalysisGoal } from "@/lib/seo-analysis/sheet/types";
 import type { Thresholds } from "./thresholds";
 import type { QueryIntent } from "./normalize";
+import type { CommonEvent, EventMapping } from "./events";
 
 /** 重要度（§15）。サイト診断の 3 段（Severity）とは別の型にする */
 export type RuleSeverity = "critical" | "high" | "medium" | "low";
@@ -156,13 +157,68 @@ export interface GscDataset {
   notes: string[];
 }
 
-/** GA4 は G4 で埋める。いまは連携の有無だけ見る（D 系のルールが参照する） */
+/* ───────────── GA4（§4.2） ───────────── */
+
+/** セッション単位の指標。エンゲージメント率は engaged ÷ sessions で後から出す */
+export interface SessionMetrics {
+  sessions: number;
+  users: number;
+  newUsers: number;
+  engagedSessions: number;
+  keyEvents: number;
+  /** 平均エンゲージメント時間（秒） */
+  engagementSeconds: number;
+}
+
+export interface KeyedSessions extends SessionMetrics {
+  key: string;
+}
+
+/** ページ・スクリーン（表示回数の単位。セッションではない） */
+export interface Ga4PageRow {
+  path: string;
+  title: string;
+  views: number;
+  users: number;
+  engagementSeconds: number;
+}
+
+/** イベント */
+export interface Ga4EventRow {
+  name: string;
+  count: number;
+  users: number;
+  /** そのイベントが起きたセッション数 */
+  sessions: number;
+  /** キーイベントとして数えられた回数（0 ならキーイベント指定なし） */
+  keyEvents: number;
+}
+
+/** チャネル × イベントのセッション数（Organic CVR を出すために使う） */
+export interface Ga4ChannelEventRow {
+  channel: string;
+  event: string;
+  sessions: number;
+}
+
 export interface Ga4Dataset {
   propertyId: string;
-  range: DateRange;
-  organic: { sessions: number; users: number; engagementRate: number; keyEvents: number };
-  all: { sessions: number; keyEvents: number };
-  landing: { page: string; sessions: number; keyEvents: number }[];
+  range: Paired<DateRange>;
+  /** チャネルの合計（= サイト全体） */
+  totals: Paired<SessionMetrics>;
+  channels: Paired<KeyedSessions[]>;
+  /** 参照元 / メディア（当期のみ） */
+  sources: KeyedSessions[];
+  landing: Paired<KeyedSessions[]>;
+  pages: Ga4PageRow[];
+  events: Ga4EventRow[];
+  channelEvents: Ga4ChannelEventRow[];
+  devices: Paired<KeyedSessions[]>;
+  /** 共通イベントへの対応表（自動判定 + 設定画面での上書き） */
+  mapping: EventMapping;
+  /** 対応表に載らなかったイベント名 */
+  unmapped: string[];
+  notes: string[];
 }
 
 /** ルールが見る入力一式 */
@@ -201,6 +257,34 @@ export interface DerivedMetrics {
   homepageClickShare: number | null;
   /** 対象外の国の表示比率 */
   foreignImpressionShare: number | null;
+  /** GA4 の派生値。GA4 が無ければ null */
+  ga4: Ga4Derived | null;
+}
+
+/** GA4 から出す派生値（§7 の計算結果） */
+export interface Ga4Derived {
+  /** 共通イベントごとの、そのイベントが起きたセッション数（当期） */
+  eventSessions: Record<CommonEvent, number>;
+  /** 共通イベントごとのイベント数 */
+  eventCounts: Record<CommonEvent, number>;
+  /** 共通イベントごとに、キーイベント指定があるか */
+  isKeyEvent: Record<CommonEvent, boolean>;
+  /** 全体のエンゲージメント率 */
+  engagementRate: Paired<number | null>;
+  /** CTA クリック率 = CTA セッション ÷ 全セッション */
+  ctaClickRate: number | null;
+  /** フォーム開始率 = フォーム開始 ÷ CTA クリック */
+  formStartRate: number | null;
+  /** フォーム完了率 = フォーム完了 ÷ フォーム開始 */
+  formCompletionRate: number | null;
+  /** 自然検索のセッション（当期 / 前期） */
+  organicSessions: Paired<number>;
+  /** Organic CVR = 自然検索のフォーム完了セッション ÷ 自然検索セッション */
+  organicConversionRate: number | null;
+  /** チャネルごとのセッション比率（当期） */
+  channelShare: { channel: string; sessions: number; share: number }[];
+  /** Direct の比率 */
+  directShare: number | null;
 }
 
 /** 診断の結果（§13 の JSON に相当） */
@@ -215,6 +299,29 @@ export interface DiagnosisResult {
   limitations: string[];
   /** 判定に使った母数（画面に出す） */
   summary: DiagnosisSummary | null;
+  /** 訪問後の流れ（GA4）。連携が無ければ null */
+  ga4: Ga4Summary | null;
+}
+
+/** 報告書と事実シートに出す GA4 の要約 */
+export interface Ga4Summary {
+  propertyId: string;
+  range: DateRange;
+  sessions: number;
+  users: number;
+  engagementRate: number | null;
+  organicSessions: number;
+  ctaSessions: number;
+  formStartSessions: number;
+  formCompleteSessions: number;
+  ctaClickRate: number | null;
+  formStartRate: number | null;
+  formCompletionRate: number | null;
+  organicConversionRate: number | null;
+  /** どのイベントを何として数えたか（必ず開示する） */
+  mappingLines: string[];
+  /** 共通イベントに当てられなかったイベント名 */
+  unmapped: string[];
 }
 
 export interface DiagnosisSummary {
