@@ -99,7 +99,8 @@ src/
 | `PAGESPEED_API_KEY` | PageSpeed Insights（無くても低頻度なら動く） | 任意 |
 | `CRUX_API_KEY` | CrUX API / CrUX History API（実ユーザーの速度。`src/lib/crux/`）。無ければ `PAGESPEED_API_KEY` を使う | 任意 |
 | `AHREFS_API_KEY` | ドメインパワーの DR（Ahrefs の無料公開エンドポイント `/v3/public/domain-rating-free`。API ユニットは消費しない）。**表示に「Domain Rating by Ahrefs」の帰属表示が要る**（`AHREFS_ATTRIBUTION`） | 任意 |
-| `OPENPAGERANK_API_KEY` | ドメインパワーの「外部からのリンクの評価」の代替（Open PageRank 0〜10）。DR が取れていればそちらを優先する。どちらも無ければその 25 点分を分母から外して採点する | 任意 |
+| `AHREFS_API_KEY_ISSUED_AT` | 上のキーを作った日（`YYYY-MM-DD`）。APIv3 キーは 1 年で失効するので、入れるとマスター画面の外部連携に**残り日数**が出る（`src/lib/features/key-expiry.ts` の純関数。日付は秘密ではないので `GET /api/integrations` で画面に返す。キーの値は返さない） | 任意 |
+| `OPENPAGERANK_API_KEY` | ドメインパワーの「外部からのリンクの評価」の代替（Open PageRank 0〜10）。DR が取れていればそちらを優先する。どちらも無ければその 25 点分を分母から外して採点する。**旧 API は 2026-09-30 に終了**するので新規に設定しない（#86） | 任意 |
 | `SEO_ANALYSIS_MONTHLY_LIMIT` | 精密診断の利用者ごとの月の回数（既定 10。`ADMIN_EMAILS` は無制限） | 任意 |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | GA4 Data API（サービスアカウント JSON をそのまま、または base64） | 任意 |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（Places API (New)） | 任意 |

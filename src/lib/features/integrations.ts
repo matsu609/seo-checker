@@ -19,6 +19,8 @@ export const INTEGRATION_KEYS = [
 
 export type IntegrationKey = (typeof INTEGRATION_KEYS)[number];
 
+import type { KeyLifetime } from "./key-expiry";
+
 /** 公式サイトへのリンク（マスター画面からタップで開く） */
 export interface IntegrationLink {
   label: string;
@@ -40,6 +42,8 @@ export interface IntegrationMeta {
   usage: string;
   /** 公式サイト。先頭が「公式・料金」の入口 */
   links: readonly IntegrationLink[];
+  /** キーに寿命がある連携だけ。マスター画面に残り日数を出す */
+  keyLifetime?: KeyLifetime;
 }
 
 /** 料金・上限を確認した日（マスター画面に出す。単価は変わるので、古くなったら見直す） */
@@ -148,6 +152,11 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
       { label: "レート制限", url: "https://docs.ahrefs.com/en/api/docs/limits-consumption" },
       { label: "DR の利用条件", url: "https://ahrefs.com/legal/domain-rating-license" },
     ],
+    keyLifetime: {
+      days: 365,
+      issuedAtEnv: "AHREFS_API_KEY_ISSUED_AT",
+      note: "Ahrefs の APIv3 キーは作成から 1 年で失効します。作り直しは無料（同じ画面で新しいキーを作って差し替えるだけ）。キーを作った日を AHREFS_API_KEY_ISSUED_AT に YYYY-MM-DD で入れると、ここに残り日数が出ます。",
+    },
   },
   openpagerank: {
     key: "openpagerank",

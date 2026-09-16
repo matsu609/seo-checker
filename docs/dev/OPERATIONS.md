@@ -75,7 +75,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r72 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r73 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -247,7 +247,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
-| 87 | **Ahrefs の API キーを作り直す**（#83 で作った日の 1 年後）: キーの有効期限は 1 年。切れると精密診断の「よく使われる無料ツールと同じ指標」の DR が「未取得」になる（報告書は出る）。https://app.ahrefs.com/account/api-keys で新しいキーを作る → Vercel の `AHREFS_API_KEY` を差し替え → Redeploy。**費用はかからない**（`domain-rating-free` は無料の公開エンドポイントで、有料プランも API ユニットも不要）。**期限日は #83 完了時にここに書く → 期限日: 未定（キー未作成）** | 利用者 | #83 の完了待ち |
+| 87 | **Ahrefs の API キーを作り直す**（#83 で作った日の 1 年後）: **期限はマスター画面 https://app.seo-checker.tokyo/admin の「外部連携」→ Ahrefs の行に出る**（残り 30 日で黄色、切れると赤。r73 で実装）。切れたら https://app.ahrefs.com/account/api-keys で新しいキーを作る → Vercel の `AHREFS_API_KEY` を差し替え → `AHREFS_API_KEY_ISSUED_AT` も新しい日付に → Redeploy。**費用はかからない**（`domain-rating-free` は無料の公開エンドポイント） | 利用者 | #83 の完了待ち。期限日は画面が教えてくれるので、このメモに書き込む必要は無くなった |
 | 86 | **Open PageRank をどうするか決める**（2026-09-16 判明）: 旧 API が **2026-09-30 に終了**し、Keywords Everywhere の新 API（`openpagerank.keywordseverywhere.com`、Bearer 認証、無料枠 月 30,000 ドメイン）に移る。選択肢は ① 新 API に移行する ② Open PageRank をやめて Ahrefs の DR 一本にする（DR があれば採点は埋まる）。**推奨は ②**（DR が本命で、OPR は代替。移行の実装と利用者のアカウント作成が要る割に得るものが小さい）。②なら `src/lib/domain-power/openpagerank.ts` と関連の設定・文言を消す | 利用者 → Claude | 判断待ち |
 | 80 | ~~**Open PageRank を有効にする**~~ → **保留**（旧 API が 9/30 終了。#86 の判断待ち）。旧: （ドメインパワーの「外部からのリンクの評価」。無料）: domcop で登録 → API キー → Vercel `OPENPAGERANK_API_KEY`（Secret、Production）→ Redeploy → `/admin` の外部連携で「設定済み」を確認 → 精密診断を再実行してドメインパワーの内訳に「外部からのリンクの評価」が出ること。下の「Open PageRank を有効にする手順」 | 利用者 | 未 |
 | 83 | **Ahrefs の DR を有効にする**（利用者の質問 09-15「無料でドメインパワーを測るサイトと同じ機能にしたい」への回答。**これが本命**）: Ahrefs の無料アカウント → API キー → Vercel `AHREFS_API_KEY`（Secret、Production）→ Redeploy → `/admin` で確認 → 精密診断を再実行して「よく使われる無料ツールと同じ指標」に DR が出ること。下の「Ahrefs の DR を有効にする手順」 | 利用者 | 未 |
@@ -306,6 +306,7 @@ SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計
 | 1 | Ahrefs → 登録 | https://ahrefs.com/signup?plan=awt | 無料アカウント（Ahrefs Webmaster Tools）を作る。有料プランの契約は不要 |
 | 2 | Ahrefs → アカウント設定 → API キー | https://app.ahrefs.com/account/api-keys | APIv3 のキーを作成してコピー（会話には貼らないでください） |
 | 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `AHREFS_API_KEY`、Value にキー、Environment は Production、Sensitive にチェック → Save |
+| 3b | Vercel → 環境変数（同じ画面） | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | もう 1 つ「Add」→ Key **`AHREFS_API_KEY_ISSUED_AT`**、Value は**キーを作った日**（例 `2026-09-17`。`YYYY-MM-DD` の形）、Environment は Production。Sensitive は不要（秘密ではない）。これを入れると `/admin` の外部連携に**失効までの残り日数**が出て、期限が近づくと黄色、切れると赤になる |
 | 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy |
 | 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の Ahrefs が「設定済み」になることを確認 |
 | 6 | 本番 → 精密診断 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」カードの中の「よく使われる無料ツールと同じ指標」に **DR（0〜100）** が出れば完了。他社の測定サイトで同じドメインを調べて、同じ数値になるか見比べられる |
@@ -1422,3 +1423,15 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 参考: Ahrefs の**有料 API**（DR 以外の指標も使う場合）は API v3 が Lite（$129/月）以上に含まれ、無制限は Enterprise（$1,499/月）。**このツールは有料 API を使っていない。**
 
 - この回答はドキュメントの更新のみ（コードは触っていない）。
+
+### 2026-09-16（API キーの有効期限をマスター画面に出す、r73）
+
+- 利用者「（キーの期限は）ツールの管理画面に表示されるようにしたいですね」。メモに期限日を書いても見に行かないと気づけないので、**`/admin` の「外部連携」に残り日数を出す**ようにした。
+- **仕組み**: キーの発行日を環境変数 **`AHREFS_API_KEY_ISSUED_AT`（`YYYY-MM-DD`）** で受け取り、`src/lib/features/key-expiry.ts`（純関数）が寿命（Ahrefs は 365 日）を足して失効日と残り日数を出す。`GET /api/integrations` が**日付だけ**を返す（**キーの値は従来どおり一切返さない**。日付は秘密ではない）。
+- **見え方**: 連携の行に「あと 341 日（2027-09-17 まで）」のバッジ。残り 30 日を切ると**黄色**、切れると**赤で「期限切れ」**。行を開くと「キーの有効期限」の欄に発行日・失効日と、作り直しが無料であることが出る。発行日が未設定なら「発行日が未設定」と出し、**どの環境変数にどう入れればよいか**を画面に書いてある。
+- **なぜ環境変数か**: Ahrefs の API にキーの発行日を教えてくれる無料の口が無いため。運用者が 1 回入れるだけで、あとは画面が数えてくれる。
+- **キーが未設定の連携には出さない**（`getKeyExpiries()` がキー未設定なら飛ばす）。いまは Ahrefs だけが寿命つきだが、`IntegrationMeta.keyLifetime` に足せば他の連携にも同じ仕組みが効く。
+- 併せて `.env.example` に `AHREFS_API_KEY` / `AHREFS_API_KEY_ISSUED_AT` / `OPENPAGERANK_API_KEY`（9/30 終了の注記つき）を追記した（これまで抜けていた）。
+- `GET /api/integrations` の応答は `{ ...boolean, status, keyExpiry }` の形にした。最上位の boolean を残してあるので、古い読み方をする画面があっても壊れない。
+- 検証: lint / tsc / test（**1,834 件**。期限の計算は 9 件 = 日付の形・存在しない日付・当日・境界の 30/31 日・期限切れ・未設定・時刻でずれないこと）/ build 通過。
+- **#87 は「画面が教えてくれる」形になった**ので、期限日をこのメモに書き込む運用はやめる。

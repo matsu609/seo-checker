@@ -5,7 +5,8 @@
  * GET /api/integrations 経由でこの boolean だけを渡す。
  * 連携の一覧・環境変数名・説明は src/lib/features/integrations.ts（クライアントでも読める）。
  */
-import { INTEGRATION_KEYS, type IntegrationKey, type IntegrationStatus } from "./features/integrations";
+import { INTEGRATIONS, INTEGRATION_KEYS, type IntegrationKey, type IntegrationStatus } from "./features/integrations";
+import { keyExpiry, type KeyExpiry } from "./features/key-expiry";
 
 function has(name: string): boolean {
   const v = process.env[name];
@@ -36,4 +37,18 @@ export function getIntegrationStatus(): IntegrationStatus {
 
 export function isIntegrationEnabled(key: IntegrationKey): boolean {
   return CHECKS[key]();
+}
+
+/** キーに寿命がある連携の残り日数。日付だけを返す（キーの値は絶対に返さない） */
+export type IntegrationExpiries = Partial<Record<IntegrationKey, KeyExpiry>>;
+
+export function getKeyExpiries(now = new Date()): IntegrationExpiries {
+  const out: IntegrationExpiries = {};
+  for (const key of INTEGRATION_KEYS) {
+    const lifetime = INTEGRATIONS[key].keyLifetime;
+    // キーそのものが未設定なら期限を出しても意味がない
+    if (!lifetime || !CHECKS[key]()) continue;
+    out[key] = keyExpiry(process.env[lifetime.issuedAtEnv], lifetime, now);
+  }
+  return out;
 }
