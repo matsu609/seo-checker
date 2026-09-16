@@ -191,7 +191,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 26 | contact@seo-checker.tokyo の受信（Cloudflare Email Routing） | 利用者 | 完了（利用者報告「転送設定は済んでいます」） |
 | 27 | Google Auth Platform → ブランディング（アプリ名 SEO Checker、サポートメール matsumatsu452@gmail.com、ホームページ https://seo-checker.tokyo/、プライバシー /privacy、承認済みドメイン seo-checker.tokyo、デベロッパー連絡先 2 件） | 利用者 | **完了（09-11 1:01 画面で保存済みを確認）**。ロゴは審査通過後に |
 | 7 | Clerk: Legal に `/terms` `/privacy` の URL、サインアップ時の同意 ON。アプリ名を `SEO Checker` に。Restrictions で許可リスト／招待制 | 利用者 | **ほぼ完了（2026-09-17）**: Legal の 2 URL と「Require express consent」オンを保存し、開き直して反映を確認（利用者報告）。アプリ名も `SEO Checker`。**残りは Restrictions の Allowlist が有効（ON）になっているかの確認だけ**（識別子を足しただけでは制限が効かないことがある） |
-| 8 | Google Auth Platform → ブランディングに利用規約 / プライバシーの URL（`https://app.seo-checker.tokyo/terms` と `/privacy`。Clerk 側は 09-17 に登録済み） | 利用者 | **未。OAuth 申請（#13）の前に残っている唯一の設定作業** |
+| 8 | Google Auth Platform → ブランディングに利用規約 / プライバシーの URL（`https://app.seo-checker.tokyo/terms` と `/privacy`。Clerk 側は 09-17 に登録済み） | 利用者 | **完了（2026-09-17、利用者報告）**。これで #13（OAuth の本番公開申請）の前提はそろった |
 | 9 | 鍵のローテーション: Clerk Production `sk_live_`（Instance → API keys → Regenerate → Vercel 更新 → Redeploy）、Clerk Development `sk_test_`、Google OAuth クライアントシークレット（シークレットを追加 → Clerk に貼り替え → 古い方を無効化） | 利用者 | 未 |
 | 10 | GSC / GA4 の権限付与（上記「Google 側のデータの持ち主」）→ 設定画面「一覧を取り直す」→ 検索パフォーマンス・生成 AI 流入分析で数値確認 | 利用者 | 未 |
 | 11 | フェーズ 3（承認後）: Business Profile API で 9 項目（r27 ではオーナー申告で埋めている）を API の値に置き換え、インサイト（8 指標・期間比較・CSV・詳細グラフ）を追加 | Claude | 承認待ち |
@@ -255,11 +255,11 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
-| 99 | **Search Console にサイトマップを 2 本送信する**（2026-09-17 の質問）。画面: https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Aseo-checker.tokyo → 「新しいサイトマップの追加」に**フル URL**を入れて送信（ドメイン プロパティなのでホスト名の省略はできない）。①`https://seo-checker.tokyo/sitemap.xml`（紹介サイト。トップ 1 ページ）②`https://app.seo-checker.tokyo/sitemap.xml`（アプリ。規約・プライバシー・特商法の 3 ページだけ。**OAuth 審査でプライバシーポリシーが参照されるので、こちらも出しておく**）。送信後「ステータス = 成功」と「検出された URL」が 1 / 3 になれば完了（反映に数時間〜数日） | 利用者 | **完了（2026-09-17、利用者が 2 本とも送信）**。残りは数時間〜数日後に同じ画面でステータスが「成功」になっているかの確認だけ |
+| 99 | **Search Console にサイトマップを 2 本送信する**（2026-09-17 の質問）。画面: https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Aseo-checker.tokyo → 「新しいサイトマップの追加」に**フル URL**を入れて送信（ドメイン プロパティなのでホスト名の省略はできない）。①`https://seo-checker.tokyo/sitemap.xml`（紹介サイト。トップ 1 ページ）②`https://app.seo-checker.tokyo/sitemap.xml`（アプリ。規約・プライバシー・特商法の 3 ページだけ。**OAuth 審査でプライバシーポリシーが参照されるので、こちらも出しておく**）。送信後「ステータス = 成功」と「検出された URL」が 1 / 3 になれば完了（反映に数時間〜数日） | 利用者 | **紹介サイトは「成功しました」／1 ページ（完了）。アプリ側は「取得できませんでした」／0** → 原因は `robots.txt` が `/sitemap.xml` を塞いでいたこと。**r84 で修正済み**。Vercel のデプロイ完了後に、Search Console の同じ画面で app の行を**削除 → もう一度送信**（Google の自動再試行を待ってもよい）。「成功しました」／3 ページになれば完了 |
 | 91 | **AI 検索モニタリングを動かす**（下の「AI 検索モニタリングを有効にする手順」）: Supabase で 8 テーブルの SQL を実行 → DataForSEO に登録して前払い → Vercel に `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` → Redeploy → `/tools/geo` で自社ブランドとプロンプトを登録 → 翌朝の Cron で数字が入る | 利用者 | 未 |
 | 93 | **AI 検索モニタリングをどのプランに入れるか決める**: いまは**スタンダード**に置いてある（1 アカウント月 ¥2,000 前後の変動費が出るため）。「測る」系なので本来の線引きではライトだが、原価が他のツールと桁違い。ライトに下ろすなら料金表（`src/lib/plans/catalog.ts`）・紹介サイト・サービス資料・`src/lib/features/registry.ts` の `plan` とテストをまとめて直す（Claude 側 30 分）。**このままスタンダードでよければ何もしなくてよい** | 利用者 → Claude | 判断待ち |
 | 92 | AI 検索モニタリングの**生成処理**（仕様書 §7.2 / §7.3）: 週次レポート（軽量モデル + テンプレート）と月次深掘り（高性能モデル 月 1 回）、差分実行（前回とほぼ同じなら再生成しない）。クレジットのレート（週次 30 / 月次 150）と台帳は実装済みなので、`run.ts` の後段に足すだけ | Claude | 未（計測が回ってから） |
-| 90 | **露出した Ahrefs の API キーを作り直す（急ぎ）**: 2026-09-16 に Vercel の環境変数画面のスクリーンショット（値が平文表示）が会話に貼られた。https://app.ahrefs.com/account/api-keys で**そのキーを削除 → 新しいキーを作成** → Vercel の間違った変数 `AHREFS_API_KEY_ISSUED_2026_09_17` を削除 → 正しい名前で `AHREFS_API_KEY`（Sensitive）と `AHREFS_API_KEY_ISSUED_AT` を作る → Redeploy。DR は無料エンドポイントなので、漏れても課金の被害は無いが、他人がこのアカウントのキーとして使える状態は避ける | 利用者 | **完了（2026-09-17、利用者報告）**。露出したキーは無効になった。残りはマスター画面 /admin の「外部連携」で Ahrefs が「設定済み」、期限が 2027-09-17 前後になっているかの確認だけ |
+| 90 | **露出した Ahrefs の API キーを作り直す（急ぎ）**: 2026-09-16 に Vercel の環境変数画面のスクリーンショット（値が平文表示）が会話に貼られた。https://app.ahrefs.com/account/api-keys で**そのキーを削除 → 新しいキーを作成** → Vercel の間違った変数 `AHREFS_API_KEY_ISSUED_2026_09_17` を削除 → 正しい名前で `AHREFS_API_KEY`（Sensitive）と `AHREFS_API_KEY_ISSUED_AT` を作る → Redeploy。DR は無料エンドポイントなので、漏れても課金の被害は無いが、他人がこのアカウントのキーとして使える状態は避ける | 利用者 | **完了（2026-09-17、利用者報告）**。露出したキーは無効になった。**マスター画面 /admin での確認も完了（2026-09-17、利用者報告）**。次回の作り直しは #87（2027-09-17 ごろ） |
 | 89 | **Vercel のビルドが 1 push で 2 回走るのを止める**（2026-09-16 判明）: 作業ブランチと main に同じコミットを push しているため Production と Preview の両方がビルドされる。中身が同じなので Preview は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする（履歴の追いやすさは落ちる）②Vercel → Settings → Git で Preview を作るブランチを絞る。**急ぎではない**（上限には当たっていない） | 利用者 → Claude | 判断待ち |
 | 88 | **Ahrefs の Domain Rating ライセンスに目を通す**: https://ahrefs.com/legal/domain-rating-license 。有料サービスに組み込む以上、条件（帰属表示・再配布と競合の禁止・一括収集の禁止・いつでも取り消し可）を一度ご自身で確認しておく。Claude 側はこの環境から ahrefs.com に接続できず、検索インデックス経由でしか読めていない | 利用者 | 未 |
 | 87 | **Ahrefs の API キーを作り直す**（#83 で作った日の 1 年後）: **期限はマスター画面 https://app.seo-checker.tokyo/admin の「外部連携」→ Ahrefs の行に出る**（残り 30 日で黄色、切れると赤。r73 で実装）。切れたら https://app.ahrefs.com/account/api-keys で新しいキーを作る → Vercel の `AHREFS_API_KEY` を差し替え → `AHREFS_API_KEY_ISSUED_AT` も新しい日付に → Redeploy。**費用はかからない**（`domain-rating-free` は無料の公開エンドポイント） | 利用者 | **次回は 2027-09-17 ごろ**（#90 で 2026-09-17 に作り直したため、#83 の日付ではなくこちらが起点）。期限日は画面が教えてくれるので、このメモに書き込む必要は無い |
@@ -2099,3 +2099,17 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - **#90**: 露出したキーを削除して作り直し済み。これで **#87（1 年ごとの作り直し）の起点は 2026-09-17** になった。期限はマスター画面 `/admin` の「外部連携」→ Ahrefs の行に出る（残り 30 日で黄色、切れると赤。r73）。
 - **次に見ておくとよいのは /admin の「外部連携」**: Ahrefs が「設定済み」で期限が 2027-09-17 前後になっていれば、#90 の Vercel 側（変数名の直しと Redeploy）まで正しく通っている。ここが「未設定」なら Redeploy がまだか、変数名が違う。
 - ドキュメントのみの更新。コードは触っていない。
+
+### 2026-09-17（サイトマップが片方だけ失敗 → robots.txt が原因だった。r84）
+
+- 利用者が Search Console の結果を共有。**紹介サイトは「成功しました」／検出 1 ページ**、**アプリは「取得できませんでした」／0、型も「不明」**（= Googlebot が一度も中身を読めていない）。
+- **原因はアプリの `robots.txt`。**`src/app/robots.ts` は `Allow: /terms` `/privacy` `/legal/tokushoho` と `Disallow: /` を出していた。robots.txt は**より長く一致した行が勝つ**規則なので、`/sitemap.xml` に一致する Allow が 1 本も無く、`Disallow: /`（1 文字）だけが当たって**サイトマップの取得そのものが禁止**されていた。送信しても永久に読まれない状態。
+  - **認証（Clerk）は無関係**だった。`src/proxy.ts` のマッチャが拡張子 `.xml` / `.txt` を除外しているので、ログインへのリダイレクトは起きていない。
+  - 紹介サイト側が成功したのは、`marketing/public/robots.txt` が `Allow: /`（全許可）だから。対照的で分かりやすい。
+- **直したこと（r84）**:
+  - `src/app/robots.ts` … `Allow` に `/sitemap.xml` を追加。生成される robots.txt を `npm run build` の出力で確認済み。
+  - `src/lib/auth/routes.ts` … `/robots.txt` と `/sitemap.xml` を公開パス（`PUBLIC_PAGES`）にも明示。いまは proxy のマッチャが拡張子で除外しているが、**マッチャを書き換えたときに静かに保護対象へ戻ると同じ事故が起きる**ので、公開範囲の定義でも守る（このファイルの冒頭にある「二重に守る」方針どおり）。
+  - `src/app/__tests__/robots-sitemap.test.ts` … **robots.txt の最長一致を再現する小さな関数を書き、「送信したサイトマップを Googlebot が取りに来られる」ことをテストで固定**した。`/`・`/meo`・`/admin`・`/tools/rank`・`/api/analyze` が塞がれたままであることも同時に確認する。Allow / Disallow をいじったときにここで気づける。
+  - `src/lib/auth/__tests__/routes.test.ts` の「公開パスが増えていないか」の一覧も意図的に更新（このテストは増やしたら必ず手で直す約束のもの）。
+- **学び**: **robots.txt で全体を塞いでいるサイトでは、`sitemap.xml` 自体を Allow に入れ忘れやすい。**アプリ本体を検索から隠す方針（09-13 の決定）と、規約類だけインデックスさせたい要求が両立しているせいで見落としていた。
+- 検証は 4 つとも通過（lint / tsc / test 1,948 件 / build）。
