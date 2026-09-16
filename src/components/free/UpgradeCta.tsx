@@ -55,7 +55,7 @@ export function UpgradeCta({ kind, note = null, className = "" }: UpgradeCtaProp
       </div>
       <p className="mt-3 text-[12px] leading-relaxed text-muted">
         初月無料。お申し込み時はカードのご登録だけで、無料期間中に解約すれば料金はかかりません（以降は月額{" "}
-        {main.priceYen.toLocaleString("ja-JP")} 円・税別。AI が改修案・原稿を作らない{light.label}は{" "}
+        {main.priceYen.toLocaleString("ja-JP")} 円・税込。AI が改修案・原稿を作らない{light.label}は{" "}
         {light.priceYen.toLocaleString("ja-JP")} 円）。
         <Link href={PLANS_PATH} className="ml-1 text-accent underline underline-offset-2">
           料金の詳細
