@@ -21,8 +21,8 @@ const priceRows = [...LISTED_PLANS]
     p.priceFrom
       ? // 下限だけを示すプランは、実額の決まり方（個別のお見積り）まで書く。金額を 1 つだけ書くと、
         // その額で申し込めると読めてしまう
-        `${p.label}: ${planPriceLabel(p.id)}（税別。消費税は別途申し受けます）。ご依頼の範囲に応じて個別にお見積りし、お申し込み前に金額をご提示します${p.limitNote ? `／${p.limitNote}` : ""}`
-      : `${p.label}: ${planPriceLabel(p.id)}（税別。消費税は別途申し受けます）${p.limitNote ? `／${p.limitNote}` : ""}`,
+        `${p.label}: ${planPriceLabel(p.id)}（税込）。ご依頼の範囲に応じて個別にお見積りし、お申し込み前に金額をご提示します${p.limitNote ? `／${p.limitNote}` : ""}`
+      : `${p.label}: ${planPriceLabel(p.id)}（税込）${p.limitNote ? `／${p.limitNote}` : ""}`,
   );
 const trial = trialDays();
 

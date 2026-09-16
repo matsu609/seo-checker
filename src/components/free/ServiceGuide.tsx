@@ -110,7 +110,7 @@ export function ServiceGuide({ contactName, contactUrl, issuedOn }: ServiceGuide
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-muted">表示は月額・税別です。</p>
+          <p className="mt-2 text-[11px] text-muted">表示は月額・税込です。</p>
         </section>
 
         {/* ツール一覧 */}

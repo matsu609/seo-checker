@@ -36,7 +36,7 @@ export type PlanCheckout = "stripe" | "contact" | "none";
 export interface Plan {
   id: PlanId;
   label: string;
-  /** 月額（円・税別）。0 は無料。priceFrom が true なら「〜」付きの下限 */
+  /** 月額（円・税込）。0 は無料。priceFrom が true なら「〜」付きの下限 */
   priceYen: number;
   /** 金額が下限で、実額は個別のお見積りになる（表示に「〜」を付ける） */
   priceFrom?: boolean;

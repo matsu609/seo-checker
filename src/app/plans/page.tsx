@@ -81,7 +81,7 @@ export default async function Page({ searchParams }: Props) {
       {!stripe && billing && <BillingTable />}
 
       <p className="mt-6 text-[12px] leading-relaxed text-muted">
-        表示は月額（税別）です。
+        表示は月額（税込）です。
         {!billing && !stripe && "プランの変更をご希望の場合は運用者までご連絡ください。"}
       </p>
     </div>
