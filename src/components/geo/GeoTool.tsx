@@ -1,0 +1,262 @@
+"use client";
+
+/**
+ * AI 検索モニタリングの画面（仕様書 §10 UI 要件）。
+ *
+ * 上からダッシュボード（ブランドシェア・指名検索・クレジット）→ 今すぐ実行 → 設定。
+ * 統計の扱いは lib/geo/stats.ts に寄せてあり、この画面は表示だけを持つ。
+ */
+import { useEffect, useState } from "react";
+import { Badge, Button, Callout, Card, Field, Input, StatCard, Tabs } from "@/components/ui";
+import { CREDIT_ACTION_LABELS, GEO_MODEL_LABELS, type CreditAction, type GeoModel } from "@/lib/geo/types";
+import { pct } from "@/lib/geo/stats";
+import { BrandedCard } from "./BrandedCard";
+import { SetupPanel } from "./SetupPanel";
+import { ShareCard } from "./ShareCard";
+import { fetchDashboard, fetchSetup, runLive, type DashboardResponse, type LiveResult, type SetupResponse } from "./client";
+
+type TabId = "dashboard" | "setup";
+
+export function GeoTool() {
+  const [tab, setTab] = useState<TabId>("dashboard");
+  const [setup, setSetup] = useState<SetupResponse | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [tick, setTick] = useState(0);
+
+  // 読み込みは効果の中で同期に setState しない（再レンダーの連鎖を避ける）
+  useEffect(() => {
+    let alive = true;
+    Promise.all([fetchSetup(), fetchDashboard()])
+      .then(([s, d]) => {
+        if (!alive) return;
+        setSetup(s);
+        setDashboard(d);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!alive) return;
+        setError(err instanceof Error ? err.message : "読み込めませんでした");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tick]);
+
+  const reload = () => setTick((t) => t + 1);
+
+  if (error) {
+    return (
+      <Callout tone="fail" title="読み込めませんでした">
+        {error}
+      </Callout>
+    );
+  }
+  if (loading && !dashboard) return <p className="text-[13px] text-muted">読み込んでいます…</p>;
+
+  return (
+    <div className="space-y-6">
+      <Tabs
+        tabs={[
+          { id: "dashboard", label: "ダッシュボード" },
+          { id: "setup", label: "設定（ブランド・プロンプト）" },
+        ]}
+        value={tab}
+        onChange={setTab}
+        ariaLabel="AI 検索モニタリングの表示切り替え"
+      />
+
+      {tab === "dashboard" && dashboard && setup && <Dashboard data={dashboard} onGoSetup={() => setTab("setup")} />}
+      {tab === "setup" && setup && <SetupPanel setup={setup} onChanged={reload} />}
+    </div>
+  );
+}
+
+function Dashboard({ data, onGoSetup }: { data: DashboardResponse; onGoSetup: () => void }) {
+  const own = data.brands.find((b) => b.type === "own") ?? null;
+  const ownShare = own ? data.overall.find((r) => r.brandId === own.id) : undefined;
+  const resetAt = new Date(data.account.creditResetAt).toLocaleDateString("ja-JP");
+
+  if (!own || data.promptCount === 0) {
+    return (
+      <Callout tone="info" title="まず設定をしてください">
+        <p className="leading-relaxed">
+          自社ブランド（名前・別名・ドメイン）と、計測するプロンプトを登録すると、翌日の定期計測から数字が入ります。
+        </p>
+        <Button className="mt-3" size="sm" onClick={onGoSetup}>
+          設定を開く
+        </Button>
+      </Callout>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid gap-3 @2xl:grid-cols-4">
+        <StatCard
+          label="ブランドシェア（4 週）"
+          value={ownShare ? pct(ownShare.shareMention) : "—"}
+          hint={ownShare ? `観測 ${ownShare.n} 件・95% 信頼区間 ${pct(ownShare.ciLow)}〜${pct(ownShare.ciHigh)}` : "まだ観測がありません"}
+        />
+        <StatCard label="登録プロンプト" value={data.promptCount} unit="本" hint={`うち高精度枠 ${data.precisionCount} 本`} />
+        <StatCard
+          label="クレジット残高"
+          value={data.credits.balance}
+          unit={`/ ${data.credits.balance + data.credits.spent}`}
+          hint={`今月 ${data.credits.spent} 消費・${resetAt} にリセット（繰越なし）`}
+        />
+        <StatCard label="要確認の判定" value={data.needsReview} unit="件" hint="同名の一般名詞などで判定に自信が無いもの" />
+      </div>
+
+      <ShareCard
+        rows={data.overall}
+        brands={data.brands}
+        title="ブランドシェアスコア（4 週ローリング）"
+        description="登録したプロンプト全体で、回答本文に各ブランドの名前が出た割合です。1 週間の上下は誤差に埋もれるため、見出しは 4 週分をまとめた数字にしています。"
+      />
+
+      {Object.entries(data.perModel).map(([model, rows]) => (
+        <ShareCard
+          key={model}
+          rows={rows}
+          brands={data.brands}
+          title={`モデル別: ${GEO_MODEL_LABELS[model as GeoModel] ?? model}`}
+          description="モデルごとに引用の癖が違います。片方だけ落ちたときはモデル更新を疑ってください（下の「モデルの更新」を参照）。"
+        />
+      ))}
+
+      {data.branded && data.branded.n > 0 && <BrandedCard branded={data.branded} />}
+
+      <CreditsCard credits={data.credits} resetAt={resetAt} />
+      <LiveRunCard balance={data.credits.balance} />
+      {data.versions.length > 0 && <VersionsCard versions={data.versions} />}
+    </>
+  );
+}
+
+function CreditsCard({ credits, resetAt }: { credits: DashboardResponse["credits"]; resetAt: string }) {
+  const entries = Object.entries(credits.byAction) as [CreditAction, number][];
+  return (
+    <Card
+      title="クレジットの消費内訳（今月）"
+      description={`1 クレジット = 原価 ¥1 相当。繰越はなく ${resetAt} にリセットされます。使い切っても定期計測は止まりません（「今すぐ実行」だけが止まります）。`}
+    >
+      {entries.length === 0 ? (
+        <p className="text-[13px] text-muted">今月はまだ消費がありません。</p>
+      ) : (
+        <ul className="divide-y divide-line border-y border-line">
+          {entries.map(([action, credits_]) => (
+            <li key={action} className="flex items-center justify-between py-2 text-[13px]">
+              <span className="text-ink">{CREDIT_ACTION_LABELS[action] ?? action}</span>
+              <span className="tabular-nums text-muted">{credits_}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[11px] text-muted">
+        標準構成の見込みは月 {credits.forecast.total} クレジット（残り {credits.forecast.remaining} がオンデマンド枠）です。
+      </p>
+    </Card>
+  );
+}
+
+function LiveRunCard({ balance }: { balance: number }) {
+  const [text, setText] = useState("");
+  const [model, setModel] = useState<GeoModel>("chatgpt");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<LiveResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <Card
+      title="今すぐ実行（オンデマンド）"
+      description="定期計測を待たずにその場で 1 回聞きます。実行が速い代わりに原価が約 3 倍なので、消費は 2 クレジットです。定期計測は常に安い標準キューで動きます。"
+      actions={<Badge tone="neutral" icon={false}>残り {balance} クレジット</Badge>}
+    >
+      {error && <Callout tone="fail" className="mb-3">{error}</Callout>}
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="プロンプト" className="min-w-[18rem] flex-1">
+          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="おすすめの SEO ツールは？" />
+        </Field>
+        <Field label="モデル">
+          <select
+            className="rounded-sm border border-line bg-panel px-3 py-2 text-[13px] text-ink"
+            value={model}
+            onChange={(e) => setModel(e.target.value as GeoModel)}
+          >
+            <option value="chatgpt">{GEO_MODEL_LABELS.chatgpt}</option>
+            <option value="gemini">{GEO_MODEL_LABELS.gemini}</option>
+          </select>
+        </Field>
+        <Button
+          size="sm"
+          loading={busy}
+          disabled={!text.trim() || balance < 2}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              setResult(await runLive(text.trim(), model));
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "実行できませんでした");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          実行する（2 クレジット）
+        </Button>
+      </div>
+
+      {result && (
+        <div className="mt-4 space-y-3 text-[13px]">
+          <div className="flex flex-wrap gap-2">
+            {result.mentioned.map((m) => (
+              <Badge key={m.brandId} tone={m.mentioned ? "pass" : "neutral"} icon={false}>
+                {m.displayName}: {m.mentioned ? `言及あり（確信度 ${Math.round(m.confidence * 100)}%）` : "言及なし"}
+              </Badge>
+            ))}
+          </div>
+          <div className="whitespace-pre-wrap rounded-sm border border-line bg-surface p-3 leading-relaxed text-ink">{result.responseText || "（本文が空でした）"}</div>
+          {result.citations.length > 0 && (
+            <ul className="space-y-1 text-[12px]">
+              {result.citations.map((c) => (
+                <li key={c.url}>
+                  <a href={c.url} target="_blank" rel="noopener noreferrer" className="break-all text-accent underline-offset-2 hover:underline">
+                    {c.unresolved ? "（解決できなかったリンク）" : c.domain}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function VersionsCard({ versions }: { versions: DashboardResponse["versions"] }) {
+  return (
+    <Card
+      title="モデルの更新"
+      description="AI 側のモデルが入れ替わると、引用の傾向が階段状に変わることがあります。観測数を増やしても平滑化できないので、変化の説明としてここに記録します。"
+    >
+      <ul className="divide-y divide-line border-y border-line">
+        {versions.map((v) => (
+          <li key={`${v.model}-${v.detectedAt}`} className="flex flex-wrap items-center gap-2 py-2 text-[13px]">
+            <span className="font-bold text-ink">{GEO_MODEL_LABELS[v.model] ?? v.model}</span>
+            <span className="text-muted">
+              {v.versionFrom ?? "（不明）"} → {v.versionTo}
+            </span>
+            <span className="ml-auto text-[11px] tabular-nums text-muted">{new Date(v.detectedAt).toLocaleDateString("ja-JP")}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}

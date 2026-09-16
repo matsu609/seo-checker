@@ -1,0 +1,214 @@
+/**
+ * AI 検索モニタリング（GEO）の型。docs/dev/geo-monitoring-spec.md の §8 データモデル。
+ *
+ * ChatGPT / Gemini / Google AI Overviews で、自社ブランドがどれだけ
+ * 「引用（citation）」「参照（mention）」されているかを定期計測し、競合と比べる。
+ *
+ * 純粋な型だけを置く（ブラウザでもサーバーでも読む）。
+ */
+
+/** 計測対象のモデル。定期バッチはこの 3 つ（§2.1） */
+export const GEO_MODELS = ["chatgpt", "gemini", "aio"] as const;
+export type GeoModel = (typeof GEO_MODELS)[number];
+
+export const GEO_MODEL_LABELS: Record<GeoModel, string> = {
+  chatgpt: "ChatGPT",
+  gemini: "Gemini",
+  aio: "AI Overviews",
+};
+
+/** 実行モード。定期バッチは必ず standard（§1.2 / §7.4） */
+export type RunMode = "standard" | "live";
+
+/** 計測の種類 */
+export type MeasurementKind = "llm" | "rank" | "aio";
+
+/** ブランドの区分 */
+export type BrandType = "own" | "competitor";
+
+/** 引用されたドメインの分類（§4.3） */
+export type DomainClass = "own" | "competitor" | "third_party";
+
+/** 第三者ドメインの内訳（§4.3。軽量 LLM で判定、失敗は other） */
+export type ThirdPartyKind = "comparison" | "review" | "news" | "other";
+
+export const DOMAIN_CLASS_LABELS: Record<DomainClass, string> = {
+  own: "自社",
+  competitor: "競合",
+  third_party: "第三者",
+};
+
+export const THIRD_PARTY_LABELS: Record<ThirdPartyKind, string> = {
+  comparison: "比較サイト",
+  review: "口コミ",
+  news: "ニュース",
+  other: "その他",
+};
+
+/* ───────────── アカウント ───────────── */
+
+/**
+ * 契約単位。この製品では Clerk の user_id をそのままアカウント ID にする。
+ * `runDayOffset` は実行日の顧客間分散（§2.4）。0〜6。
+ */
+export interface GeoAccount {
+  userId: string;
+  creditBalance: number;
+  creditResetAt: string;
+  runDayOffset: number;
+  /** 高精度プロンプトの上限本数（§6.4） */
+  precisionSlots: number;
+  createdAt: string;
+}
+
+/* ───────────── ブランド ───────────── */
+
+export interface GeoBrand {
+  id: string;
+  type: BrandType;
+  displayName: string;
+  /** 正式名称・カナ・英字・略称・サービス名（§4.1） */
+  aliases: string[];
+  /** サブドメインを含む自社／競合ドメイン */
+  domains: string[];
+  aliasesUpdatedAt: string | null;
+  createdAt: string;
+}
+
+/* ───────────── 計測対象 ───────────── */
+
+export interface GeoKeyword {
+  id: string;
+  text: string;
+  normalizedHash: string;
+  trackRank: boolean;
+  trackAio: boolean;
+  createdAt: string;
+}
+
+export interface GeoPrompt {
+  id: string;
+  text: string;
+  normalizedHash: string;
+  /** ブランド名を含む指名プロンプト（§2.2） */
+  isBranded: boolean;
+  /** 高精度枠（n=10/週）。指名プロンプトには付けさせない */
+  precisionMode: boolean;
+  models: GeoModel[];
+  tags: string[];
+  precisionModeChangedAt: string | null;
+  createdAt: string;
+}
+
+/* ───────────── 計測（顧客間で共有） ───────────── */
+
+/** 回答から抜いた引用リンク 1 件 */
+export interface GeoCitation {
+  /** 解決後の URL（Gemini のリダイレクトは解決してから入れる。§1.3） */
+  url: string;
+  /** 解決に失敗したら元の URL とともに true */
+  unresolved: boolean;
+  domain: string;
+  title: string | null;
+}
+
+/**
+ * 1 回の計測。**アカウントをまたいで共有する**（§7.1）。
+ * 同じ正規化ハッシュ × モデル × ロケールなら 24 時間は使い回す。
+ */
+export interface GeoMeasurement {
+  id: string;
+  kind: MeasurementKind;
+  normalizedHash: string;
+  /** 計測に使った原文（プロンプト or キーワード） */
+  text: string;
+  model: GeoModel;
+  locale: string;
+  executedAt: string;
+  /** 取得できた範囲のモデルバージョン（§5.3） */
+  modelVersion: string | null;
+  /** 回答本文。順位計測のときは空 */
+  responseText: string;
+  citations: GeoCitation[];
+  /** 順位計測のときだけ入る */
+  rank: number | null;
+  mode: RunMode;
+  costUsd: number;
+}
+
+/* ───────────── 観測（アカウントごと） ───────────── */
+
+/** 1 計測 × 1 ブランドの判定結果（§3.1） */
+export interface GeoObservation {
+  id: string;
+  measurementId: string;
+  promptId: string | null;
+  keywordId: string | null;
+  brandId: string;
+  cited: boolean;
+  mentioned: boolean;
+  /** 参照判定の確信度 0〜1（§4.2）。低いものは「要確認」 */
+  mentionConfidence: number;
+  /** 本文中の出現順位（1 始まり）。出てこなければ null */
+  position: number | null;
+  citedDomains: string[];
+  domainClass: DomainClass | null;
+  observedAt: string;
+}
+
+/* ───────────── 集計 ───────────── */
+
+export type AggregateWindow = "week" | "rolling4w";
+
+export interface GeoAggregate {
+  brandId: string;
+  /** "all" か タグ名（§3.4） */
+  promptGroup: string;
+  model: GeoModel | "all";
+  window: AggregateWindow;
+  /** 週の始まり（ISO の日付） */
+  periodStart: string;
+  shareMention: number;
+  shareCitation: number;
+  /** 参照率の Wilson 95% 信頼区間 */
+  ciLow: number;
+  ciHigh: number;
+  n: number;
+}
+
+/** モデル更新の検知（§5.3）。グラフに縦線を引く */
+export interface GeoModelVersionEvent {
+  model: GeoModel;
+  versionFrom: string | null;
+  versionTo: string;
+  detectedAt: string;
+}
+
+/* ───────────── クレジット ───────────── */
+
+export type CreditAction =
+  | "rank"
+  | "aio"
+  | "llm_standard"
+  | "llm_live"
+  | "weekly_report"
+  | "monthly_analysis";
+
+export const CREDIT_ACTION_LABELS: Record<CreditAction, string> = {
+  rank: "順位計測",
+  aio: "AI Overviews 取得",
+  llm_standard: "LLM 計測（標準）",
+  llm_live: "LLM 計測（今すぐ実行）",
+  weekly_report: "週次レポート生成",
+  monthly_analysis: "月次の深掘り分析",
+};
+
+export interface CreditLedgerEntry {
+  id: string;
+  action: CreditAction;
+  credits: number;
+  measurementId: string | null;
+  /** キャッシュを使い回した計測か（§11 の決定の根拠を残す） */
+  cacheHit: boolean;
+  createdAt: string;
+}
