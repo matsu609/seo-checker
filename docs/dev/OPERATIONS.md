@@ -14,6 +14,7 @@
   2. [tool-map.md](./tool-map.md) — どのツールがどの API キーでつながっているか、キーが切れると何が止まるか
   3. [services.md](./services.md) — GitHub / Vercel / Cloudflare / Clerk / Supabase / Google Cloud の全体像
   4. [ARCHITECTURE.md](./ARCHITECTURE.md) — 開発規約とディレクトリ、[README](../../README.md) — 機能の説明
+- 決済の審査対応: **[stripe-checklist-prompt.md](./stripe-checklist-prompt.md)** — Stripe のセキュリティチェックリスト（#84）への回答プロンプトと、回答に使う「サービスの実態」の一覧
 - 仕様書: **自動診断（134 ルール）は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)**、精密診断は [seo-analysis-spec.md](./seo-analysis-spec.md)、口コミ支援は [review-support-design.md](./review-support-design.md)、画面の作りは [design-spec.md](./design-spec.md) / [ui-notes.md](./ui-notes.md)。
 - このファイルには重複させず、**状態と判断**だけを書く。
 
@@ -222,7 +223,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
 | 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。残るは ⑧ 本番モード）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
 | 85 | **Gemini の既定モデルを切り替える**: `gemini-2.5-flash` は 2026-10-16 に提供終了予定（公式の料金ページの注記）。Vercel に `GEMINI_MODEL`（後継の Flash。公式の一覧で ID を確認）を追加 → Redeploy → LLMO の Gemini 列が動くこと。Gemini のキーが未設定のままなら急がない | 利用者 → Claude | 未（10 月中旬まで） |
-| 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **最優先・未着手** |
+| 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **最優先。回答用のプロンプトは [stripe-checklist-prompt.md](./stripe-checklist-prompt.md)（09-16 作成。Claude in Chrome に貼る）。送信は未** |
 | 85 | **古いブランチ 12 本の削除**（作り直す前の履歴の残骸。いまの main と共通の祖先が無く、中身は main に入り直し済み）。Claude からは `git push origin --delete` が 403 で拒否されるため、画面操作が要る。画面: https://github.com/matsu609/seo-checker/branches → 各行のごみ箱アイコン。ブランチ名と復元用の SHA は下の作業ログ（2026-09-16「返答フォーマットの追加と、古いブランチ 12 本の削除」）の表 | 利用者 | 未 |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
 | 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
@@ -400,9 +401,9 @@ Open PageRank を入れなくてもドメインパワーは 8 指標すべてが
 | A-4 | 42 | Vercel を Pro プランに（Hobby は非商用限定。お金をもらった時点で規約違反） | 利用者 | 5 分 |
 | A-5 | — | 本番の通し確認（Claude が手順を出し、利用者が画面で見る）: `/admin` の「動いているコミット」= main の先頭 / 外部連携が Anthropic・Places・Supabase・PageSpeed・SerpApi・Chrome UX すべて「設定済み」/ 精密診断を 1 回実行して報告書と PDF が出る / `/tools/maps` `/tools/reviews` `/tools/listings` で保存できる | 利用者 + Claude | 30 分 |
 | A-6 | — | 最初のお客様の初期設定: Clerk の許可リストに追加 → 登録してもらう → `/admin` でスタンダード相当を個別開放 → お客様の Google アカウントを Google Auth Platform の **テストユーザー** に追加（OAuth が審査前のため。追加しないと GSC / GA4 が接続できない。トークンは 7 日で切れるので週 1 回つなぎ直しが要る旨を伝える） | 利用者 | 顧客ごと 10 分 |
-| B-1 | 84 | Stripe のセキュリティチェックリストに回答を送る（本文は Claude が下書きする。材料は 2026-09-16 の作業ログ）。**送信は明日でよいが、審査に日数がかかるので早いほど良い** | 利用者（下書き Claude） | 30 分 + 審査 |
+| B-1 | 84 | Stripe のセキュリティチェックリストに回答を送る。**[stripe-checklist-prompt.md](./stripe-checklist-prompt.md) を Claude in Chrome に貼って下書き・入力させ、送信ボタンだけ自分で押す**（09-16 作成）。**審査に日数がかかるので早いほど良い** | 利用者 | 30 分 + 審査 |
 | B-2 | — | Stripe の「Multiple capabilities paused」（本人確認・事業情報）を完了 | 利用者 | 15 分 |
-| B-3 | — | Vercel / Clerk / Stripe の 2 段階認証（B-1 の設問でほぼ確実に聞かれる） | 利用者 | 15 分 |
+| B-3 | — | Vercel / Clerk / Stripe の 2 段階認証。**B-1 より先に**（設問で問われたときに正直に「はい」と答えられるようにするため。手順は [stripe-checklist-prompt.md](./stripe-checklist-prompt.md) の「渡す前の準備」） | 利用者 | 15 分 |
 | B-4 | 58-⑧ | Stripe 復旧後: 本番モードで商品・Webhook・ポータル → Vercel の `STRIPE_*` を本番の値に → Redeploy → `/plans` で申し込みが通ることを確認。ここで初めて「申し込む」を開ける | 利用者 | 1 時間 |
 | C-1 | 83 / 90 | Ahrefs の新しいキーを Vercel `AHREFS_API_KEY`（+ `AHREFS_API_KEY_ISSUED_AT=2026-09-16`）に → Redeploy → `/admin` で「設定済み」。無いと報告書のドメインパワーから DR の 25 点分が抜けるだけ | 利用者 | 10 分 |
 | C-2 | 13 | Google OAuth の本番公開申請（審査 2〜6 週間）。お客様が増えたらテストユーザー 100 人の上限と 7 日失効が効いてくる | 利用者 + Claude | 申請は来週でも可 |
@@ -1589,4 +1590,14 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - 公開前に必ず要るのは A-1〜A-4 の 4 つ（`DEFAULT_PLAN=free`、Clerk の登録制限とアプリ名・Legal、鍵のローテーション、Vercel Pro）。合計 1 時間以内。
 - お客様に GSC / GA4 を使ってもらうには、Google Auth Platform のテストユーザーに相手の Google アカウントを追加する必要がある（OAuth が審査前）。7 日でトークンが切れる制約は案内文に入れる。
 - 入力待ちに「2 か月目の請求を Stripe 復旧待ちにするか請求書にするか」を追加。
+- ドキュメントのみの更新。コードは触っていない。
+
+### 2026-09-16（B-1 の回答を Claude in Chrome にやらせるプロンプトを用意）
+
+- 利用者「B-1 やります。Claude in Chrome にやらせるプロンプト考えて」。**[stripe-checklist-prompt.md](./stripe-checklist-prompt.md)** を新規作成した。
+- 設計した安全策: ①最終確定ボタンは人の確認を取ってから押す ②API キーの画面を開かせない・値を要約させない（#90 の再発防止）③チェックリスト以外の設定（商品・価格・Webhook・銀行口座）は読むだけ ④分からない設問は推測で埋めず人に聞く ⑤**MFA が有効かの設問は、利用者が「有効にした」と言うまで「はい」にさせない**。
+- 回答の根拠として「サービスの実態」をプロンプトに埋め込んだ。コードで確認した事実のみ: Stripe Checkout / カスタマーポータルの**ホスト画面のみ**（`src/lib/billing/stripe.ts` の `checkout.sessions.create` / `billingPortal.sessions.create`）→ カード情報はアプリを通らず **SAQ A 相当**。保持するのは `publicMetadata.stripe`（契約状況・金額・次回更新日）と `privateMetadata.stripeCustomerId` だけ（`src/lib/billing/sync.ts`）。Webhook は署名検証つきで失敗は 400（`src/app/api/billing/webhook/route.ts`）。管理画面は Clerk のログイン + 確認済みメールが `ADMIN_EMAILS` に一致の 2 条件（`src/lib/admin/guard.ts`）。
+- **未対応のものは正直に答えさせる**: 第三者の脆弱性診断なし、専任のセキュリティ担当・インシデント手順書なし、ダッシュボードの 2 段階認証は「設定作業中」。偽って「はい」と答えると審査で不利になるため。
+- **B-3（Vercel / Clerk / Stripe の 2 段階認証）を B-1 より先に**やる順番に変更した。先に済ませておけば MFA の設問に「はい」と答えられる。
+- 次にこちらでやること: エージェントが出した「設問と回答の一覧」を利用者が貼ったら、妥当性を確認してこのログに記録する。
 - ドキュメントのみの更新。コードは触っていない。
