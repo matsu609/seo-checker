@@ -113,7 +113,7 @@ src/
 | `FREE_SITE_MAX_PAGES` | クイック診断のサイト全体のページ数（既定 10、上限 50） | 任意 |
 | `ALLOW_PRIVATE_HOSTS` | 開発時のみ | 任意 |
 
-`src/lib/integrations.ts` の `getIntegrationStatus()` が各連携の有無を返し、`GET /api/integrations` で画面に渡す。
+`src/lib/integrations.ts` の `getIntegrationStatus()` が各連携の有無を返し、`GET /api/integrations` で画面に渡す。連携ごとの**料金・上限・このツールでの消費量・公式サイトのリンク**は `src/lib/features/integrations.ts`（`IntegrationMeta.pricing / limits / usage / links`、確認日は `PRICING_CHECKED_AT`）に持ち、マスター画面 `/admin` の外部連携で行を開くと出る。単価が変わったらここを直して `PRICING_CHECKED_AT` を更新する。
 
 ## LLM の方針
 

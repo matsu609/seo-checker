@@ -75,7 +75,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r62 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r67 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -221,6 +221,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho` | Claude | **完了（r41）**。内容（解約は期間末まで利用可・日割り返金なし・運営責任者「松下」）は Claude の仮置き。利用者が確認して直す点があれば伝える |
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
 | 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。残るは ⑧ 本番モード）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
+| 85 | **Gemini の既定モデルを切り替える**: `gemini-2.5-flash` は 2026-10-16 に提供終了予定（公式の料金ページの注記）。Vercel に `GEMINI_MODEL`（後継の Flash。公式の一覧で ID を確認）を追加 → Redeploy → LLMO の Gemini 列が動くこと。Gemini のキーが未設定のままなら急がない | 利用者 → Claude | 未（10 月中旬まで） |
 | 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **最優先・未着手** |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
 | 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
@@ -1269,3 +1270,26 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
     見積り制にした以上、時間や返信目標は案件ごとに決めるほうが筋が通る。
 - 検証: lint / tsc / test（1,730 件）/ build 通過。
 - **利用者の作業は増えていない**。Stripe にプレミアムの商品を作るのは、1 社目を受注してからのままでよい（#84 の手順は r64 のログ）。
+
+### 2026-09-16（マスター画面の外部連携に料金・上限・公式リンク、r67）
+
+- 利用者「マスター画面に API がまとまっているが、料金や上限をドロップダウンで見られるようにして。公式サイトのリンクをタップで開けるように」。
+- **r67**: `/admin` の「外部連携」を表から**行ごとに開閉できる一覧**（`<details>`）に変えた。行をタップすると **料金 / 上限・超えたときの動き / このツールでの消費量** の 3 欄と、**公式サイトのリンク**（料金・レート制限・ダッシュボード・API キーなど。別タブ）が出る。文言は `src/lib/features/integrations.ts` の `pricing` / `limits` / `usage` / `links`。確認日 `PRICING_CHECKED_AT = 2026-09-16` をカードの説明に出し、単価はリンク先で確かめてもらう前提にした。
+- 載せた値（09-16 に確認。単価は変わるので、変わったら `integrations.ts` を直して確認日を更新する）:
+
+| 連携 | 料金 | 上限 |
+|---|---|---|
+| Anthropic | 従量（前払い）。Opus 5 = $5 / $25、Haiku 4.5 = $1 / $5（100 万トークン） | Tier ごとの RPM / TPM。残高 0 で停止 |
+| OpenAI | 従量（プリペイド）。gpt-5 + Web 検索ツールは別建て | Tier ごとの RPM / TPM |
+| Gemini | 2.5 Flash は無料枠あり。有料 $0.30 / $2.50。**2.5 Flash は 2026-10-16 提供終了予定 → `GEMINI_MODEL` の切り替えが要る** | 無料枠 1 分 15 回・1 日 1,500 回程度 |
+| Perplexity | sonar $1 / $1 + 1 リクエスト $5〜12 / 1,000 件の検索料金 | Tier ごとの RPM |
+| SerpApi | 無料 100 回 / 月（250 の表記もあり）、$25 = 1,000、$75 = 5,000、$150 = 15,000 | 月の回数を使い切ると検索がエラー |
+| PageSpeed / CrUX | 無料 | 1 日 25,000 回・100 秒 400 回（買い足し不可） |
+| Ahrefs（DR） | 無料（ユニット消費なし） | 1 分 60 回 |
+| Open PageRank | 無料 | 1 日 1,000 リクエスト・1 回 100 ドメイン |
+| GA4 Data API | 無料 | 1 日 200,000・1 時間 40,000 コアトークン・同時 10 |
+| Places API (New) | SKU ごと無料枠 Essentials 10,000 / Pro 5,000 / Enterprise 1,000（月） | 使い切ると自動課金 → 予算アラート必須 |
+| Supabase | Free $0（DB 500 MB、2 プロジェクト）、Pro $25 / 月 | **1 週間アクセス無しで一時停止**。500 MB 超で書き込み停止 |
+
+- 気づき: **Gemini 2.5 Flash（LLMO の Gemini 列の既定モデル）が 2026-10-16 に提供終了予定**。10 月中旬までに `GEMINI_MODEL` を後継の Flash に切り替える（#85）。
+- 検証: lint / tsc / test（1,817 件）/ build 通過。UI の変更だけで、API・保存形式は変えていない。
