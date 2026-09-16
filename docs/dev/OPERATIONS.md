@@ -224,7 +224,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
 | 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。残るは ⑧ 本番モード）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
 | 85 | **Gemini の既定モデルを切り替える**: `gemini-2.5-flash` は 2026-10-16 に提供終了予定（公式の料金ページの注記）。Vercel に `GEMINI_MODEL`（後継の Flash。公式の一覧で ID を確認）を追加 → Redeploy → LLMO の Gemini 列が動くこと。Gemini のキーが未設定のままなら急がない | 利用者 → Claude | 未（10 月中旬まで） |
-| 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **最優先。回答用のプロンプトは [stripe-checklist-prompt.md](./stripe-checklist-prompt.md)（09-16 作成。Claude in Chrome に貼る）。送信は未** |
+| 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **送信済み・審査待ち（09-16）**。要対応タスクが 0 になり赤帯も消えた。設問と回答は [stripe-checklist-prompt.md](./stripe-checklist-prompt.md) に記録。**「支払い」が有効に戻ったかは要確認**（同ファイル「送信後の状態」） |
 | 85 | **古いブランチ 12 本の削除**（作り直す前の履歴の残骸。いまの main と共通の祖先が無く、中身は main に入り直し済み）。Claude からは `git push origin --delete` が 403 で拒否されるため、画面操作が要る。画面: https://github.com/matsu609/seo-checker/branches → 各行のごみ箱アイコン。ブランチ名と復元用の SHA は下の作業ログ（2026-09-16「返答フォーマットの追加と、古いブランチ 12 本の削除」）の表 | 利用者 | 未 |
 | 49 | **口コミ支援（アンケート QR）** | 利用者 → Claude | **完了（r34）**。利用者の決定（09-11）「Google は AI で調整した口コミを正式には禁止と明言していない」→ たたき台どおり AI 下書き・トーン・キーワード設定を含めて実装。設計時の照合結果は [review-support-design.md](./review-support-design.md) §2 に残してある |
 | 51 | r34〜r35 の SQL を Supabase で実行（`review_forms` / `review_channels` / `review_responses`） | 利用者 | **完了（09-11 17:17、完全版を実行。画面で Success を確認）**。残りは本番 `/tools/reviews` での動作確認 |
@@ -437,7 +437,7 @@ Open PageRank を入れなくてもドメインパワーは 8 指標すべてが
 | A-4 | 42 | Vercel を Pro プランに（Hobby は非商用限定。お金をもらった時点で規約違反） | 利用者 | 5 分 |
 | A-5 | — | 本番の通し確認（Claude が手順を出し、利用者が画面で見る）: `/admin` の「動いているコミット」= main の先頭 / 外部連携が Anthropic・Places・Supabase・PageSpeed・SerpApi・Chrome UX すべて「設定済み」/ 精密診断を 1 回実行して報告書と PDF が出る / `/tools/maps` `/tools/reviews` `/tools/listings` で保存できる | 利用者 + Claude | 30 分 |
 | A-6 | — | 最初のお客様の初期設定: Clerk の許可リストに追加 → 登録してもらう → `/admin` でスタンダード相当を個別開放 → お客様の Google アカウントを Google Auth Platform の **テストユーザー** に追加（OAuth が審査前のため。追加しないと GSC / GA4 が接続できない。トークンは 7 日で切れるので週 1 回つなぎ直しが要る旨を伝える） | 利用者 | 顧客ごと 10 分 |
-| B-1 | 84 | Stripe のセキュリティチェックリストに回答を送る。**[stripe-checklist-prompt.md](./stripe-checklist-prompt.md) を Claude in Chrome に貼って下書き・入力させ、送信ボタンだけ自分で押す**（09-16 作成）。**審査に日数がかかるので早いほど良い** | 利用者 | 30 分 + 審査 |
+| B-1 | 84 | ~~Stripe のセキュリティチェックリストに回答を送る~~ → **09-16 に送信済み。審査待ち。**残りは「支払い」が有効に戻ったかの確認（[stripe-checklist-prompt.md](./stripe-checklist-prompt.md) の「送信後の状態」の 4 項目） | 利用者 | 確認 10 分 + 審査 |
 | B-2 | — | Stripe の「Multiple capabilities paused」（本人確認・事業情報）を完了 | 利用者 | 15 分 |
 | B-3 | — | Vercel / Clerk / Stripe の 2 段階認証。**B-1 より先に**（設問で問われたときに正直に「はい」と答えられるようにするため。手順は [stripe-checklist-prompt.md](./stripe-checklist-prompt.md) の「渡す前の準備」） | 利用者 | 15 分 |
 | B-4 | 58-⑧ | Stripe 復旧後: 本番モードで商品・Webhook・ポータル → Vercel の `STRIPE_*` を本番の値に → Redeploy → `/plans` で申し込みが通ることを確認。ここで初めて「申し込む」を開ける | 利用者 | 1 時間 |
@@ -1790,4 +1790,14 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
   - **多要素認証は Clerk で有効にしてからチェックする。**画面に「開発中なら、決済受付を始める前に実施する対策で回答してよい」と明記があるので、有効化予定として答えてもよいが、**先に有効にするほうが確実**。
   - **「Not applicable: No user login function」は絶対に選ばない**（ログイン機能はある）。
 - **送信前に Clerk のダッシュボードで 2 か所を確認する必要がある**（Multi-factor、Attack protection）。確認できるまでは画面の「後で続けるために保存」で中断する。
+- ドキュメントのみの更新。コードは触っていない。
+
+### 2026-09-16（B-1: セキュリティチェックリストを送信 → 審査待ちに）
+
+- 利用者が Stripe → 設定 → ビジネス → **アカウントのステータス**を共有。**要対応タスクが「完了すべきアクティブなタスクはありません」になり、赤帯（Multiple capabilities paused / A required task is past due）も消えていた**。→ **#84 のチェックリストは送信できた**と判断。Stripe 側の審査に回った。
+- ただし**ステータス欄はまだ 2 つに分かれている**: ⊖「しばらく休憩しよう」に 支払い / Cartes Bancaires / JCB / Link / MB WAY、✓「有効」に 支払い。
+  Cartes Bancaires・MB WAY・Link・JCB は**そもそも有効化していない決済手段**なので並ぶこと自体は異常ではないが、**「支払い」が両方に出ているため、決済が再開したかはこの画面だけでは断定できない**。各行をクリックして理由を読む必要がある。
+- 確認手順の 4 項目（完了タブで送信日を控える / 支払いの行の理由 / 残高で入金の保留 / 決済手段）を [stripe-checklist-prompt.md](./stripe-checklist-prompt.md) の「送信後の状態」に書いた。
+- **「支払い」が有効と確認できるまで #58 の ⑧（本番モード）には進まない。**進めても決済が止まっていれば申し込みが失敗するだけで確認にならないため。
+- **明日のリリース（A-1〜A-6）は予定どおり進められる。**招待制 + 管理画面での個別開放なので、Stripe の審査結果を待たない。
 - ドキュメントのみの更新。コードは触っていない。
