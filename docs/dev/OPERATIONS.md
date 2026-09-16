@@ -9,7 +9,13 @@
 - **秘密の値（`sk_`、`GOCSPX-`、API キー、パスワード）は絶対に書かない。**変数名と「設定済み / 未設定」だけを書く。
 - 利用者への作業依頼は、手順ごとに**サービス名・画面名・URL**を必ず書く（利用者の指示。表: # / サービス・画面 / URL / やること）。よく使う URL は下記「よく使う画面の URL」。
 - 「現在の状態」「残タスク」「入力待ち」は常に最新に書き換える。「判断の経緯」「作業ログ」は追記する。
-- 全体像の説明は [services.md](./services.md)、**ツールと API キーの関係は [tool-map.md](./tool-map.md)**、SEO 分析ツールの要件と実装計画は [seo-analysis-spec.md](./seo-analysis-spec.md)、**GSC / GA4 / CRM の自動診断（約 120 ルール）の仕様は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)**、開発規約は [ARCHITECTURE.md](./ARCHITECTURE.md)、機能説明は [README](../../README.md)。ここには重複させず、状態と判断だけを書く。
+- 読む順番（バックエンドの仕組みを把握したいとき）:
+  1. **[scoring-reference.md](./scoring-reference.md)** — このサービスが出すすべての数字（配点・閾値・計算式・してはいけない解釈）。**まずここ**
+  2. [tool-map.md](./tool-map.md) — どのツールがどの API キーでつながっているか、キーが切れると何が止まるか
+  3. [services.md](./services.md) — GitHub / Vercel / Cloudflare / Clerk / Supabase / Google Cloud の全体像
+  4. [ARCHITECTURE.md](./ARCHITECTURE.md) — 開発規約とディレクトリ、[README](../../README.md) — 機能の説明
+- 仕様書: **自動診断（134 ルール）は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)**、パワーアップ分析は [seo-analysis-spec.md](./seo-analysis-spec.md)、口コミ支援は [review-support-design.md](./review-support-design.md)、画面の作りは [design-spec.md](./design-spec.md) / [ui-notes.md](./ui-notes.md)。
+- このファイルには重複させず、**状態と判断**だけを書く。
 
 ## よく使う画面の URL
 
@@ -1220,3 +1226,28 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 画面は実際にブラウザで描いて確認した（ダミーデータの一時ページを作り、広い画面 1,200px と狭い画面 400px で横スクロールが出ないこと、ファネルの細い段階でもバーが見えること、目安を下回った段階に色が付くことを確認して削除）。
 - **検証**: lint / tsc / test（**1,816 件**。診断のテストは 165 件）/ build 通過。
 - **次**: 残りは G7（人間による承認の工程）と G8（CRM）。どちらも「いま要るか」の判断待ち。
+
+### 2026-09-16（評価方法と指標の資料を整備）
+
+- 利用者の依頼「**この評価方法や指標をどこかに .md ファイルでまとめておいてください。バックエンドの仕組みを把握しておきたくて**」。コードは触っていない（ドキュメントのみ）。
+- **[scoring-reference.md](./scoring-reference.md) を新規作成**（正本）。このサービスが出すすべての数字について、何を測り・どう計算し・何を根拠にし・**それを使って言ってはいけないこと**を 1 か所にまとめた。数値はすべてコードから拾って書いた（推測で書いていない）。
+  - §0 全部に共通する約束（測れなかったものを 0 点にしない／分母 0 は 0% ではなく「—」／率の平均を取らない／前期 0 は「新規発生」／「未計測」と「0 件」を書き分ける、ほか 8 件）と、共通のグレード（A〜E）
+  - §1 クイック診断（5 カテゴリの重み 20/25/20/15/20、項目の重み 1〜3）
+  - §2 サイト診断 48 ルール（`AUDIT_THRESHOLDS` の主要な閾値 10 件）
+  - §3 サイトの構成・信頼（9 判定。プライバシーポリシーの判定が条件で変わることも明記）
+  - §4 ドメインパワー（8 指標の配点と満点条件、段階の刻み、`MIN_MEASURED_MAX = 30` で合計点を出さない条件、グレード境界）
+  - §5 速度（CrUX と PSI の使い分け =「速いか」と「なぜ遅いか」）
+  - §6 検索での見え方（SerpApi）
+  - §7 数字の診断 134 ルール（内訳表、重要度 4 段と確度 3 段のスコア、優先度スコアの式、閾値 18 件、ファネルの目安、主な計算式 9 本、再現性）
+  - §8 MEO（採点基準 v2 の閾値。オーナー申告の分も実数で）
+  - §9 AI の使い方と検証（事実シートだけ渡す／ID の引用／数値の照合と作り直し／回数と費用）
+  - §10 してはいけない解釈（横断。§18 の要点）
+  - §11 どこを見れば確かめられるか（項目 → ファイルの対応表）
+- **[tool-map.md](./tool-map.md) を main に入れて更新した。** このファイルは 2026-09-12 に作ったあと**作業ブランチ `claude/tool-relationships-api-diagram-jdyj3h` に置いたままマージされておらず、OPERATIONS.md からのリンクが切れていた**。ブランチから取り出して main に入れ、その後の変更を反映した。
+  - 追加した鍵: `AHREFS_API_KEY` / `OPENPAGERANK_API_KEY` / `CRUX_API_KEY`、キー不要の RDAP
+  - ツール表を現状に合わせた（パワーアップ分析を追加、サイト診断は統合済みで `hidden`、プランを 3 段階 light / standard / premium に、クイック診断への改名）
+  - 「パワーアップ分析が 1 回で触る外部 API」の内訳表を新設（回数の目安と実費）
+  - Supabase の表に `analysis_runs` を追加、決済を 3 段階に、`STRIPE_PRICE_PREMIUM` が「買えるか」ではなく「読めるか」のためであることを明記
+  - 「キーが切れたら何が止まるか」に Ahrefs / Open PageRank / PageSpeed（CrUX）と、**Google 連携が無いと数字の診断の 126 ルールが判定されない**ことを追加
+- **OPERATIONS.md の冒頭に「読む順番」を置いた。** バックエンドを把握したい人は scoring-reference → tool-map → services → ARCHITECTURE の順。ARCHITECTURE.md の冒頭にも関連リンクを追加。
+- ドキュメント内の相対リンクが全部つながっていることを確認した（リンク切れ 0 件）。

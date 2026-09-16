@@ -1,5 +1,7 @@
 # 開発ガイド（アーキテクチャと規約）
 
+関連: 数字の出し方（配点・閾値・計算式）は [scoring-reference.md](./scoring-reference.md)、ツールと API キーの関係は [tool-map.md](./tool-map.md)、運用状態は [OPERATIONS.md](./OPERATIONS.md)。
+
 このリポジトリは 2 つの顔を持つ。
 
 1. **クイック診断**（`/`）: 元々の SEO Checker。URL を入れると AIO（AI 検索最適化）の状況をルールベースで採点し、FAQ を生成する。**見込み顧客向けのリード獲得ツール**なので、レポートとしての見栄えと信頼感を最優先する。
