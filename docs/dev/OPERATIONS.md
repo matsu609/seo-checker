@@ -247,6 +247,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
+| 90 | **露出した Ahrefs の API キーを作り直す（急ぎ）**: 2026-09-16 に Vercel の環境変数画面のスクリーンショット（値が平文表示）が会話に貼られた。https://app.ahrefs.com/account/api-keys で**そのキーを削除 → 新しいキーを作成** → Vercel の間違った変数 `AHREFS_API_KEY_ISSUED_2026_09_17` を削除 → 正しい名前で `AHREFS_API_KEY`（Sensitive）と `AHREFS_API_KEY_ISSUED_AT` を作る → Redeploy。DR は無料エンドポイントなので、漏れても課金の被害は無いが、他人がこのアカウントのキーとして使える状態は避ける | 利用者 | **未（急ぎ）** |
 | 89 | **Vercel のビルドが 1 push で 2 回走るのを止める**（2026-09-16 判明）: 作業ブランチと main に同じコミットを push しているため Production と Preview の両方がビルドされる。中身が同じなので Preview は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする（履歴の追いやすさは落ちる）②Vercel → Settings → Git で Preview を作るブランチを絞る。**急ぎではない**（上限には当たっていない） | 利用者 → Claude | 判断待ち |
 | 88 | **Ahrefs の Domain Rating ライセンスに目を通す**: https://ahrefs.com/legal/domain-rating-license 。有料サービスに組み込む以上、条件（帰属表示・再配布と競合の禁止・一括収集の禁止・いつでも取り消し可）を一度ご自身で確認しておく。Claude 側はこの環境から ahrefs.com に接続できず、検索インデックス経由でしか読めていない | 利用者 | 未 |
 | 87 | **Ahrefs の API キーを作り直す**（#83 で作った日の 1 年後）: **期限はマスター画面 https://app.seo-checker.tokyo/admin の「外部連携」→ Ahrefs の行に出る**（残り 30 日で黄色、切れると赤。r73 で実装）。切れたら https://app.ahrefs.com/account/api-keys で新しいキーを作る → Vercel の `AHREFS_API_KEY` を差し替え → `AHREFS_API_KEY_ISSUED_AT` も新しい日付に → Redeploy。**費用はかからない**（`domain-rating-free` は無料の公開エンドポイント） | 利用者 | #83 の完了待ち。期限日は画面が教えてくれるので、このメモに書き込む必要は無くなった |
@@ -307,11 +308,20 @@ SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計
 |---|---|---|---|
 | 1 | Ahrefs → 登録 | https://ahrefs.com/signup?plan=awt | 無料アカウントを作る。有料プランの契約は不要。**登録後に出る「プロジェクトをインポートまたは追加する」の画面は右上の「キャンセル」で飛ばしてよい**（サイトの所有確認は Ahrefs Webmaster Tools を使うための手順で、このツールが使う DR の公開エンドポイントには関係しない） |
 | 2 | Ahrefs → アカウント設定 → API キー | https://app.ahrefs.com/account/api-keys | APIv3 のキーを作成してコピー（会話には貼らないでください） |
-| 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `AHREFS_API_KEY`、Value にキー、Environment は Production、Sensitive にチェック → Save |
-| 3b | Vercel → 環境変数（同じ画面） | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | もう 1 つ「Add」→ Key **`AHREFS_API_KEY_ISSUED_AT`**、Value は**キーを作った日**（例 `2026-09-17`。`YYYY-MM-DD` の形）、Environment は Production。Sensitive は不要（秘密ではない）。これを入れると `/admin` の外部連携に**失効までの残り日数**が出て、期限が近づくと黄色、切れると赤になる |
+| 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | **変数を 2 つ、別々に「Add」する**（下の表のとおり。**名前と日付を 1 つの変数にまとめない**） |
 | 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy |
 | 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の Ahrefs が「設定済み」になることを確認 |
 | 6 | 本番 → 精密診断 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」カードの中の「よく使われる無料ツールと同じ指標」に **DR（0〜100）** が出れば完了。他社の測定サイトで同じドメインを調べて、同じ数値になるか見比べられる |
+
+手順 3 で作る変数（**この 2 行を、そのままの名前で**）:
+
+| Key（名前。この文字列をそのまま貼る） | Value（値） | Sensitive |
+|---|---|---|
+| `AHREFS_API_KEY` | Ahrefs で作った API キー（英数字の長い文字列） | **チェックする** |
+| `AHREFS_API_KEY_ISSUED_AT` | キーを作った日。`2026-09-17` のように **YYYY-MM-DD** | 不要 |
+
+よくある間違い（2026-09-16 に実際に起きた）: 名前の欄に `AHREFS_API_KEY_ISSUED_2026_09_17` のように**日付まで含めてしまい、値にキーを入れる**。
+これだと `AHREFS_API_KEY` という名前の変数が存在しないので、マスター画面は「未設定」のまま変わらない。
 
 注意: Ahrefs の条件で、**DR を画面に出すときは「Domain Rating by Ahrefs」の表示と https://ahrefs.com/ への機能するリンクが要る**（隠す・消すのは規約違反。カードに入れてあるので消さないこと）。**API キーの有効期限は 1 年**なので、切れたら 2 の画面で作り直す。**乗り換え先は不要・料金も発生しない**（同じ画面で新しいキーを作るだけ。キーは 1 アカウントに 1,000 個まで作れる）。切れたときは精密診断の報告書に「Ahrefs の API キーが拒否されました（AHREFS_API_KEY を確認してください）」と出て DR が「未取得」になるだけで、報告書そのものは出る。**キーを作った日から 1 年後に #87 で作り直す。**回数制限は Ahrefs API 全体の既定で **1 分 60 回**（超えると HTTP 429。公式ドキュメント「Limits consumption」）。無料エンドポイントは API ユニットを消費しない。1 回の分析では自社 + 競合 2 件 = 最大 3 回しか呼ばず、同じドメインは 24 時間キャッシュするので、月 10 回の分析ではこの制限に触れない。429 が返ったときは「未取得」として報告書を続け、失敗はキャッシュしない（次の分析で再取得する）。日次・月次の上限が別にあるかは公式ページをこの環境から開けず未確認（09-16）。
 
@@ -1510,4 +1520,22 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - r74 の行に「Redeploy of GeWjkxbYd」があり、利用者が手で Redeploy したことも確認できた。
 - **残っているのは #83 の手順 2〜5 だけ**（Ahrefs のキーを作る → Vercel に `AHREFS_API_KEY` と `AHREFS_API_KEY_ISSUED_AT` → Redeploy → `/admin` で確認）。
 - **気づき（#89）: 1 回の push で Vercel のビルドが 2 回走っている。** 作業ブランチと main に同じコミットを push しているため、Production（main）と Preview（`claude/practical-dirac-v1q4q3`）の両方がビルドされる。中身は同じなので Preview 側は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする ②Vercel の Settings → Git で Preview のブランチを絞る、のどちらか。**急ぎではない**（いまのところ上限に当たっていない）。
+- ドキュメントのみの更新。コードは触っていない。
+
+### 2026-09-16（Ahrefs のキー設定でつまずき / キーの露出、要ローテーション）
+
+**利用者の報告**「追加したがサービス画面は変化なしです」（Vercel の環境変数画面と `/admin` の画面を共有）。
+
+**原因: 変数の名前が違う。** Vercel に作られていたのは **`AHREFS_API_KEY_ISSUED_2026_09_17`** という **1 つの変数**で、値に API キーが入っていた。
+こちらの手順表が「`AHREFS_API_KEY` と `AHREFS_API_KEY_ISSUED_AT`」を 1 つのセルに書いていたため、**名前と日付が 1 つの変数に混ざった**。
+アプリは `AHREFS_API_KEY` という名前だけを読むので「未設定」のまま。**アプリの動作は正しい**（r73 の期限表示・r75 の再確認も本番で表示されているのを画面で確認した）。
+
+**もう 1 つ、急ぎ: キーが露出した（#90）。** 共有された画面で、その変数の値（API キーそのもの）が**伏せ字でなく平文で表示されていた**（Sensitive にチェックされておらず、Vercel の「Needs Attention」もそれを指している）。
+画面が会話に貼られた時点で、このキーは**漏れたものとして扱う**。**Ahrefs で削除して新しいキーを作り直す**（無料・数分）。
+このメモにも会話にもキーの値は書かない（既存ルール）。
+
+**直したこと**: #83 の手順 3 を「変数ごとに 1 行の Key / Value / Sensitive の表」に書き換え、「名前に日付を混ぜない」と実例つきで注記した。
+
+**やり直しの手順**は #83 の表のとおりだが、順番は **①古いキーを Ahrefs で削除 → ②新しいキーを作る → ③Vercel の間違った変数を削除 → ④正しい名前で 2 つ作る → ⑤Redeploy**。
+
 - ドキュメントのみの更新。コードは触っていない。
