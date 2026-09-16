@@ -224,7 +224,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | 未 |
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho` | Claude | **完了（r41）**。内容（解約は期間末まで利用可・日割り返金なし・運営責任者「松下」）は Claude の仮置き。利用者が確認して直す点があれば伝える |
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
-| 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。残るは ⑧ 本番モード）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
+| 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。**⑧ 本番モードを作業中: 2026-09-17 01:50 に本番の商品 2 つ「スタンダード ¥50,000 / 月」「ライト ¥38,000 / 月」を作成済み。残りは Price ID の控え → Webhook → ポータル → `sk_live_` → Vercel の環境変数 4 つ → Redeploy → `DEFAULT_PLAN` を `free` に**）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
 | 85 | **Gemini の既定モデルを切り替える**: `gemini-2.5-flash` は 2026-10-16 に提供終了予定（公式の料金ページの注記）。Vercel に `GEMINI_MODEL`（後継の Flash。公式の一覧で ID を確認）を追加 → Redeploy → LLMO の Gemini 列が動くこと。Gemini のキーが未設定のままなら急がない | 利用者 → Claude | 未（10 月中旬まで） |
 | 95 | **料金の税表記と Stripe の価格が食い違っている（最初の課金までに決める）**: 特商法ページ（`src/components/legal/Tokushoho.tsx`）と紹介サイト `marketing/public/index.html` は「**税別**。消費税は別途申し受けます」だが、**Stripe の価格は ¥50,000 / ¥38,000 で税設定なし（税コード「—」）なので、請求されるのはこの金額ちょうど**。消費税は加算されない。決め方は ①**免税事業者として「税込」表記に直す**（コード修正。受取 50,000 円）か ②**税別で通す**（Stripe の価格を税込 55,000 円 / 41,800 円で作り直すか Stripe Tax を有効化。受取 50,000 円 + 税）。インボイス登録の有無で決まる。**初月無料なので最初の課金は約 30 日後**だが、料金表記は営業で先に見せるので早めに | 利用者（判断）→ Claude（文言の修正） | **完了（r78、2026-09-17）**。利用者の決定「料金の価格は税込み」→ 特商法・料金プラン・サービス案内・紹介サイト・llms.txt・README をすべて「税込」に統一。**Stripe の価格（50,000 円 / 38,000 円）はそのままでよい**（税設定なしで請求がこの額ちょうど = 税込表記と一致） |
 | 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **送信済み・審査待ち（09-16）**。要対応タスクが 0 になり赤帯も消えた。設問と回答は [stripe-checklist-prompt.md](./stripe-checklist-prompt.md) に記録。**「支払い」が有効に戻ったかは要確認**（同ファイル「送信後の状態」） |
@@ -437,7 +437,13 @@ Open PageRank を入れなくてもドメインパワーは 8 指標すべてが
 | 5 | Stripe → 開発者 → API キー | https://dashboard.stripe.com/test/apikeys | **シークレットキー（`sk_test_…`）** をコピー（公開可能キー `pk_` は使わない） |
 | 6 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | `STRIPE_SECRET_KEY`（5 の値）、`STRIPE_PRICE_STANDARD`（1 のスタンダードの値。既存の `STRIPE_PRICE_PRO` のままでも動く）、**`STRIPE_PRICE_LIGHT`（1 のライトの値）**、`STRIPE_WEBHOOK_SECRET`（2 の値）を Production に追加 → Deployments で Redeploy |
 | 7 | 本番 → 料金プラン | https://app.seo-checker.tokyo/plans | 「テストモード」の表示と、**プレミアム → スタンダード → ライトの 3 枚が高い順に並び、真ん中に「いちばん選ばれています」が出る**ことを確認 → スタンダードを申し込む → テストカード `4242 4242 4242 4242`（有効期限は未来、CVC 任意）→ 戻ったら「ご契約のプラン: スタンダード」「契約中」→「お支払い方法の変更・プランの変更・請求書・解約」でカードを変えてみる → 解約 → 「期間末で解約予定」になる。ライトでも 1 度通す（`STRIPE_PRICE_LIGHT` の確認） |
-| 8 | Stripe → 本番モードに切替 | https://dashboard.stripe.com/products | 1〜3・5 を**本番モード**でもう一度（商品・Webhook・ポータル・`sk_live_`）→ 6 の 3 つを本番の値に差し替え → Redeploy。あわせて `DEFAULT_PLAN` を `free` に（#39）、自分は管理画面で個別開放 |
+| 8 | Stripe → 本番モードに切替 | https://dashboard.stripe.com/products | 1〜3・5 を**本番モード**でもう一度（商品・Webhook・ポータル・`sk_live_`）→ 6 の 4 つを本番の値に差し替え → Redeploy。あわせて `DEFAULT_PLAN` を `free` に（#39）、自分は管理画面で個別開放。**下の 8a〜8f に分解した** |
+| 8a | Stripe（本番）→ 商品カタログ | https://dashboard.stripe.com/products | **完了（2026-09-17 01:50）**: 「スタンダード ¥50,000 / 月」「ライト ¥38,000 / 月」を作成済み。税コードが「—」なのは**正しい**（09-17 の決定「料金は税込み」。税を足さずこの額ちょうどを請求する）。プレミアムを作らないのも**正しい**（09-15 の決定。月 3 社の枠を確認してから問い合わせで受ける） |
+| 8b | Stripe（本番）→ 商品カタログ → 各商品 | https://dashboard.stripe.com/products | **Price ID を控える**（一覧には出ない）。商品名をクリック → 「料金」の行 → `price_…` をコピー。スタンダードの分が `STRIPE_PRICE_STANDARD`、ライトの分が `STRIPE_PRICE_LIGHT`。**テスト用の `price_1UF73IBQ…` とは別物**なので取り違えない |
+| 8c | Stripe（本番）→ Webhook | https://dashboard.stripe.com/workbench/webhooks | 手順 2 と同じことを本番で。URL `https://app.seo-checker.tokyo/api/billing/webhook`、イベント 4 つ → **署名シークレット `whsec_…`** をコピー（= `STRIPE_WEBHOOK_SECRET`） |
+| 8d | Stripe（本番）→ カスタマーポータル | https://dashboard.stripe.com/settings/billing/portal | 手順 3 と同じことを本番で（お支払い方法の更新・請求書の履歴・期間末での解約・プラン変更で 2 価格） |
+| 8e | Stripe（本番）→ API キー | https://dashboard.stripe.com/apikeys | **シークレットキー `sk_live_…`** をコピー（= `STRIPE_SECRET_KEY`）。**あわせてアカウントが有効化（本人確認）済みかを確認する。**未了だと本番の支払いを受け取れない |
+| 8f | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | `STRIPE_SECRET_KEY`（8e）・`STRIPE_PRICE_STANDARD`（8b）・`STRIPE_PRICE_LIGHT`（8b）・`STRIPE_WEBHOOK_SECRET`（8c）を Production に**本番の値で**登録 → `DEFAULT_PLAN` を `free` に（#39）→ Redeploy → `/plans` で「テストモード」の表示が消えていることを確認 |
 
 自分（運用者）のプランは Stripe に関係なく、Clerk の `publicMetadata.plan` か管理画面の個別開放で開く。Webhook が届かないときは Stripe → Webhook → 該当エンドポイント → 「イベントの試行」で応答（200 / 400 / 500）を見る。400 は署名不一致（`STRIPE_WEBHOOK_SECRET` の貼り間違い）、500 は Clerk の更新失敗（Vercel のログ）。
 
@@ -2114,6 +2120,14 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - **学び**: **robots.txt で全体を塞いでいるサイトでは、`sitemap.xml` 自体を Allow に入れ忘れやすい。**アプリ本体を検索から隠す方針（09-13 の決定）と、規約類だけインデックスさせたい要求が両立しているせいで見落としていた。
 - 検証は 4 つとも通過（lint / tsc / test 1,948 件 / build）。
 
+### 2026-09-17（利用者の質問: Stripe の商品カタログは何もしなくていいのか）
+
+- 利用者が Stripe の**本番モード**の商品カタログを共有（URL に `/test/` が無い = 本番）。「スタンダード ¥50,000 / 月」「ライト ¥38,000 / 月」の 2 件、作成 2026/09/17 01:50。
+- **答え: この画面の中身は正しい。ただし、商品を作っただけでは決済は 1 円も動かない。**
+  - **正しい点 3 つ**: ①2 件だけなのは正しい（プレミアムは Stripe に作らない。09-15 の決定）②税コードが「—」なのは正しい（09-17 の決定「料金は税込み」。税を足さずこの額ちょうどを請求する）③「月当たり」= 継続課金になっている。
+  - **足りない点**: アプリが決済を出すかどうかは `isStripeConfigured()`（`src/lib/billing/stripe.ts`）が決めていて、条件は **`STRIPE_SECRET_KEY` と スタンダードの Price ID と `STRIPE_WEBHOOK_SECRET` の 3 つが Vercel にそろっていること**。本番の値はまだ 1 つも入っていないので、いまの本番 `/plans` は「テストモード」のまま（= サンドボックスのキーで動いている）。
+- **残り 5 手**（#58 の ⑧ を **8b〜8f** に分解して残タスクに書いた）: Price ID を控える → Webhook（`whsec_`）→ カスタマーポータル → `sk_live_` → Vercel に 4 つ入れて Redeploy（+ `DEFAULT_PLAN` を `free` に）。
+- **見落としやすい点**: **Price ID は商品一覧に出ない**（商品を開いて「料金」の行から取る）。**テストの `price_…` と本番の `price_…` は別物**なので、テスト側の値を本番に貼ると申し込みが通らない。**Stripe アカウントの有効化（本人確認）**が済んでいないと本番の入金が止まる。
 ### 2026-09-17（デモ動画の作り方を、実装に合わせた手順に書き直した）
 
 - 利用者「デモ動画を作る流れを、ネクストアクションを詳細に。その通りにやる」。→ [google-oauth-verification.md](./google-oauth-verification.md) の台本を、**フェーズ 0（準備）→ 1（撮影）→ 2（見直し）→ 3（YouTube）→ 4（申請）**の手順に書き直した。
