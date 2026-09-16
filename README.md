@@ -100,8 +100,8 @@ npm run dev                  # http://localhost:3000
 
 | ツール | ID | 内容 | 必要なキー |
 |---|---|---|---|
-| [精密分析](src/lib/seo-analysis) | — | URL だけで、サイト全体のクロール（48 ルール・構成・信頼）・トップの採点・主要 6 ページの PageSpeed と CrUX（実ユーザーの速度と 40 週の推移）・対策キーワードの順位と `site:` 件数・**ドメインパワー（推定）**・Search Console / GA4（連携済みなら）を 1 枚の**事実シート**（1 行 1 事実、ID つき）にまとめ、AI（Claude）がその数字だけを根拠に、結論・現状分析・強みと弱み・優先順位つきの改善案（何をどう変える / なぜ / 期待できること / 手間 / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く。主張には事実 ID が付き、シートに無い数値は注意として出る。ChatGPT のセカンドオピニオン（食い違う点だけ）、PDF、履歴。月 10 回（`SEO_ANALYSIS_MONTHLY_LIMIT`）。サイト診断など各画面にも「AI に分析させる」ボタンがあり、その画面の数字だけで短い分析を出す | Supabase + Anthropic（PageSpeed / SerpApi / OpenAI / Ahrefs DR / Open PageRank は任意） |
-| ~~サイト診断（テクニカル SEO）~~ → **精密分析に統合（r58）**。[src/lib/audit](src/lib/audit) はその中で動き、報告書の「詳細」に出る。`/tools/site-audit` は精密分析へ転送 | A1 | 全ページをクロールし、48 のルールで課題を検出。10 カテゴリの件数、前回との差分、CSV 出力。**サイトの構成**（内部リンクの向きで見た重要度、本文中のリンクとナビの区別、クリック階層、行き止まり・到達不可、汎用アンカーの割合、ページ種別、パンくず・OG・hreflang の網羅、更新日、同じ題名のページ）と**信頼の手がかり**（会社情報・問い合わせ・規約・特商法のページ、Organization の構造化データ、電話・住所・メール、構造化データと本文の電話番号の一致、記事の著者）を同じ画面に表示（[src/lib/seo-analysis](src/lib/seo-analysis)） | 不要（要約のみ任意で AI） |
+| [精密診断](src/lib/seo-analysis) | — | URL だけで、サイト全体のクロール（48 ルール・構成・信頼）・トップの採点・主要 6 ページの PageSpeed と CrUX（実ユーザーの速度と 40 週の推移）・対策キーワードの順位と `site:` 件数・**ドメインパワー（推定）**・Search Console / GA4（連携済みなら）を 1 枚の**事実シート**（1 行 1 事実、ID つき）にまとめ、AI（Claude）がその数字だけを根拠に、結論・現状分析・強みと弱み・優先順位つきの改善案（何をどう変える / なぜ / 期待できること / 手間 / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く。主張には事実 ID が付き、シートに無い数値は注意として出る。ChatGPT のセカンドオピニオン（食い違う点だけ）、PDF、履歴。月 10 回（`SEO_ANALYSIS_MONTHLY_LIMIT`）。サイト診断など各画面にも「AI に分析させる」ボタンがあり、その画面の数字だけで短い分析を出す | Supabase + Anthropic（PageSpeed / SerpApi / OpenAI / Ahrefs DR / Open PageRank は任意） |
+| ~~サイト診断（テクニカル SEO）~~ → **精密診断に統合（r58）**。[src/lib/audit](src/lib/audit) はその中で動き、報告書の「詳細」に出る。`/tools/site-audit` は精密診断へ転送 | A1 | 全ページをクロールし、48 のルールで課題を検出。10 カテゴリの件数、前回との差分、CSV 出力。**サイトの構成**（内部リンクの向きで見た重要度、本文中のリンクとナビの区別、クリック階層、行き止まり・到達不可、汎用アンカーの割合、ページ種別、パンくず・OG・hreflang の網羅、更新日、同じ題名のページ）と**信頼の手がかり**（会社情報・問い合わせ・規約・特商法のページ、Organization の構造化データ、電話・住所・メール、構造化データと本文の電話番号の一致、記事の著者）を同じ画面に表示（[src/lib/seo-analysis](src/lib/seo-analysis)） | 不要（要約のみ任意で AI） |
 | [ページ最適化レポート](src/lib/page-report) | A2 / A3 | 1 URL の AI フレンドリー度を 0〜100 で採点。項目ごとの測定値・理由・改善提案。AI クローラの robots.txt 判定。表示速度と Core Web Vitals | 不要（PSI は任意） |
 | [HP 改修提案（AI 最適化）](src/lib/improvement) | A2 / D2 | URL を入れてボタン一つで、診断結果をもとに**そのまま貼って使える改修案**を before → after で生成。タイトル・説明文・見出し・本文・構造化データ・alt が対象。提案ごとに理由・期待できること・優先度・手間を表示 | Anthropic |
 | [ページ診断](src/lib/page-diagnosis) | A4 | 対策キーワードの上位 10 件と自社ページを比較し、検索意図・不足要素・title / description 案を提案。診断結果を踏まえたチャット | SerpApi または Anthropic |
@@ -144,7 +144,7 @@ npm run dev                  # http://localhost:3000
 |---|---:|---|
 | **クイック診断** | 0 円 | サイトのクイック診断（`/`、1 ページまたは代表 10 ページ）と店舗のクイック診断（`/meo`、店舗 1 件）。ログイン不要。プランではない（`free` = 未契約） |
 | **ライト**（`light`） | 38,000 円 | SEO・AIO・MEO の**診断と計測**のツールすべて。AI が成果物を作るツール（7 つ）は含まない。**初月無料** |
-| **スタンダード**（`standard`・本命） | 50,000 円（定価） | ライトのすべて + **AI が成果物を作る**ツール（精密分析・HP 改修提案・AI ライティング・llms.txt 生成・口コミ支援・AI 返信案・NAP 一括掲載）。**初月無料**（`STRIPE_TRIAL_DAYS`、既定 30 日）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力） |
+| **スタンダード**（`standard`・本命） | 50,000 円（定価） | ライトのすべて + **AI が成果物を作る**ツール（精密診断・HP 改修提案・AI ライティング・llms.txt 生成・口コミ支援・AI 返信案・NAP 一括掲載）。**初月無料**（`STRIPE_TRIAL_DAYS`、既定 30 日）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力） |
 | **プレミアム（伴走）**（`premium`） | 150,000 円〜（お見積り） | スタンダードのすべて + 人の作業（月 1 回の報告ミーティング・レポート代行・優先サポート）。**月 3 社まで**。**金額は下限だけを出し、実額はご依頼の範囲に応じて個別にお見積り**（`priceFrom: true`）。料金画面に「申し込む」を出さず、お見積りの依頼から受ける（受注後に Stripe の支払いリンク・請求書で契約を立て、その価格を `STRIPE_PRICE_PREMIUM` に入れる） |
 
 申し込みの入口は `https://app.seo-checker.tokyo/sign-up` です（新規登録 → `/start` → 未契約なので `/plans` → 申し込み）。紹介サイトの「初月無料ではじめる」もここへ送ります。登録済みの人は `/plans` から申し込み・カードの変更・解約ができます。
@@ -304,9 +304,9 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `AHREFS_API_KEY` | ドメインパワーの DR（0〜100。無料のドメインパワー測定サイトと同じ数値。Ahrefs の無料公開エンドポイント） |
 | `OPENPAGERANK_API_KEY` | 同上の代替（Open PageRank 0〜10。無料。どちらも未設定なら他の指標だけで採点） |
 | `CRUX_API_KEY` | CrUX（実ユーザーの速度）。無ければ `PAGESPEED_API_KEY` を使う（Google Cloud で Chrome UX Report API を有効にする） |
-| `SEO_ANALYSIS_MONTHLY_LIMIT` | 精密分析の月の回数（既定 10。運営者は無制限） |
+| `SEO_ANALYSIS_MONTHLY_LIMIT` | 精密診断の月の回数（既定 10。運営者は無制限） |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（MEO）。Places API (New) 専用に制限したキー。請求先アカウントが必要（無料枠あり） |
-| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗と診断報告書の履歴、精密分析の実行記録（`analysis_runs`）など（Supabase）。テーブルは `docs/dev/OPERATIONS.md` の SQL |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗と診断報告書の履歴、精密診断の実行記録（`analysis_runs`）など（Supabase）。テーブルは `docs/dev/OPERATIONS.md` の SQL |
 | `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きと、店舗が書き換えた質問文の訳のモデル（既定は `LLM_FAST_MODEL` = `claude-haiku-4-5`） |
 | `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定は `LLM_FAST_MODEL`） |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援: アンケート 1 つあたりの 1 日の回答数（既定 500）と、AI 下書きの 1 日の全体上限（既定 2,000。超えたら回答は受け付け、下書きは回答をそのまま並べる） |

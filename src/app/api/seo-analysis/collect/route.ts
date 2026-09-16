@@ -1,5 +1,5 @@
 /**
- * POST /api/seo-analysis/collect — 精密分析の「収集」。
+ * POST /api/seo-analysis/collect — 精密診断の「収集」。
  *
  * クロール → クイック診断 → PSI / CrUX / SerpApi / Google 連携 → 事実シート → 保存。
  * 進捗を NDJSON で流し、最後に run と sheet を返す。AI 分析は /analyze（別リクエスト）。
@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
   const userId = await currentUserId();
   if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
   if (!isSupabaseConfigured()) {
-    return Response.json({ error: "精密分析には SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY の設定が必要です", code: "not_configured" }, { status: 503 });
+    return Response.json({ error: "精密診断には SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY の設定が必要です", code: "not_configured" }, { status: 503 });
   }
   if (!isAnthropicEnabled()) {
-    return Response.json({ error: "精密分析には ANTHROPIC_API_KEY の設定が必要です", code: "not_configured" }, { status: 503 });
+    return Response.json({ error: "精密診断には ANTHROPIC_API_KEY の設定が必要です", code: "not_configured" }, { status: 503 });
   }
 
   let raw: unknown;

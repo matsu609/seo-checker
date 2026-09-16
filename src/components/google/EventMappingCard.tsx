@@ -87,7 +87,7 @@ export function EventMappingCard() {
         setMessage({ tone: "fail", text: json.error ?? "保存できませんでした。" });
         return;
       }
-      setMessage({ tone: "pass", text: "保存しました。次回の精密分析からこの割り当てで数えます。" });
+      setMessage({ tone: "pass", text: "保存しました。次回の精密診断からこの割り当てで数えます。" });
     } catch {
       setMessage({ tone: "fail", text: "保存できませんでした。" });
     } finally {

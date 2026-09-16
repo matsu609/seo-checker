@@ -105,7 +105,12 @@ export interface FeatureGroup {
  * とする。「無料」は名前ではなく値札としてバッジで出す。内部の ID（free / free-meo）は変えない。
  */
 export const FREE_SUITE_LABEL = "クイック診断（SEO・MEO・AIO）";
-/** 有料側の呼び名。画面の文言で「詳細診断」と書かない */
+/**
+ * 有料側の呼び名。画面の文言で「詳細診断」と書かない。
+ * 2026-09-16 の利用者の指示で、有料側の総称と `/tools/seo-analysis` の
+ * ツール名を「精密診断」に統一した（旧称「パワーアップ分析」→「精密分析」→ これ）。
+ * 名前を変えるときはこの定数だけを直す。
+ */
 export const PAID_DIAGNOSIS_LABEL = "精密診断";
 
 export const FREE_FEATURE: Feature = {
@@ -160,8 +165,8 @@ const DIAGNOSIS: readonly Feature[] = [
   {
     id: "seo-analysis",
     path: "/tools/seo-analysis",
-    label: "精密分析（サイト全体の診断 + AI の現状分析と改善案）",
-    shortLabel: "精密分析",
+    label: `${PAID_DIAGNOSIS_LABEL}（サイト全体の診断 + AI の現状分析と改善案）`,
+    shortLabel: PAID_DIAGNOSIS_LABEL,
     description:
       "URL を入れるだけで、サイト全体をクロールして 48 ルールで課題を検出し（旧・サイト診断）、主要ページの速度（実ユーザー / 診断）・検索順位・Google 連携の数字と合わせて 1 枚の事実シートにまとめ、AI がその数字だけを根拠に現状分析と優先順位つきの改善案を書きます。",
     details: [
@@ -199,8 +204,8 @@ const DIAGNOSIS: readonly Feature[] = [
     group: "diagnosis",
     category: "seo",
     plan: "light",
-    // 2026-09-15 精密分析に統合（同じクロールと 48 ルールをその中で実行し、詳細も出す）。
-    // /tools/site-audit は精密分析へ転送。API と履歴の部品は残す
+    // 2026-09-15 精密診断に統合（同じクロールと 48 ルールをその中で実行し、詳細も出す）。
+    // /tools/site-audit は精密診断へ転送。API と履歴の部品は残す
     hidden: true,
   },
   {
@@ -230,7 +235,7 @@ const DIAGNOSIS: readonly Feature[] = [
     label: "ページ診断（キーワード × 競合の上位 10 件と比較）",
     shortLabel: "ページ診断（競合比較）",
     description:
-      "1 つの対策キーワードについて、Google の上位 10 件と自社の 1 ページを比べ、検索意図・不足している要素・title / description 案を提案します。サイト全体を見る精密分析とは違い、「この語で勝つには何が足りないか」を 1 ページ単位で深掘りします。",
+      "1 つの対策キーワードについて、Google の上位 10 件と自社の 1 ページを比べ、検索意図・不足している要素・title / description 案を提案します。サイト全体を見る精密診断とは違い、「この語で勝つには何が足りないか」を 1 ページ単位で深掘りします。",
     details: [
       "キーワードの検索結果上位 10 件を取得（SerpApi、または Claude の Web 検索で代替）",
       "SERP の傾向・検索意図・SERP フィーチャーの整理",

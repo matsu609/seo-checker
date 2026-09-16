@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
   }
 
   // この API はログイン不要（クイック診断）なので、画面が送ってきた maxPages を信用せず
-  // サーバー側で必ず上限をかけ直す。全ページの採点は精密診断（/tools/site-audit）の役目
+  // サーバー側で必ず上限をかけ直す。全ページの採点は精密診断（/tools/seo-analysis）の役目
   const requested = typeof maxPages === "number" ? Math.min(maxPages, freeSiteMaxPages()) : freeSiteMaxPages();
   const pages = resolveMaxPages(requested);
   const key = `${url.trim().toLowerCase()}|${pages}`;
