@@ -38,7 +38,7 @@
 | Cloudflare → Email Routing | https://dash.cloudflare.com/ → seo-checker.tokyo → Email → Email Routing |
 | Cloudflare → 紹介サイトの Worker（ビルド設定） | https://dash.cloudflare.com/ → Compute（Workers） → `seo-checker-hp` → Settings → Build |
 | Google Cloud → OAuth → 対象（テストユーザー） | https://console.cloud.google.com/auth/audience?project=seo-checker-508104 |
-| Ahrefs → API キー（無料アカウント） | https://app.ahrefs.com/account/api/keys |
+| Ahrefs → API キー（無料アカウント） | https://app.ahrefs.com/account/api-keys |
 | Open PageRank（ドメインの外部リンク評価） | https://www.domcop.com/openpagerank/ |
 | Claude Console → クレジット | https://platform.claude.com/settings/billing |
 | Claude Console → API キー | https://platform.claude.com/settings/keys |
@@ -75,7 +75,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r71 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r72 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -247,7 +247,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
-| 80 | **Open PageRank を有効にする**（ドメインパワーの「外部からのリンクの評価」。無料）: domcop で登録 → API キー → Vercel `OPENPAGERANK_API_KEY`（Secret、Production）→ Redeploy → `/admin` の外部連携で「設定済み」を確認 → 精密診断を再実行してドメインパワーの内訳に「外部からのリンクの評価」が出ること。下の「Open PageRank を有効にする手順」 | 利用者 | 未 |
+| 86 | **Open PageRank をどうするか決める**（2026-09-16 判明）: 旧 API が **2026-09-30 に終了**し、Keywords Everywhere の新 API（`openpagerank.keywordseverywhere.com`、Bearer 認証、無料枠 月 30,000 ドメイン）に移る。選択肢は ① 新 API に移行する ② Open PageRank をやめて Ahrefs の DR 一本にする（DR があれば採点は埋まる）。**推奨は ②**（DR が本命で、OPR は代替。移行の実装と利用者のアカウント作成が要る割に得るものが小さい）。②なら `src/lib/domain-power/openpagerank.ts` と関連の設定・文言を消す | 利用者 → Claude | 判断待ち |
+| 80 | ~~**Open PageRank を有効にする**~~ → **保留**（旧 API が 9/30 終了。#86 の判断待ち）。旧: （ドメインパワーの「外部からのリンクの評価」。無料）: domcop で登録 → API キー → Vercel `OPENPAGERANK_API_KEY`（Secret、Production）→ Redeploy → `/admin` の外部連携で「設定済み」を確認 → 精密診断を再実行してドメインパワーの内訳に「外部からのリンクの評価」が出ること。下の「Open PageRank を有効にする手順」 | 利用者 | 未 |
 | 83 | **Ahrefs の DR を有効にする**（利用者の質問 09-15「無料でドメインパワーを測るサイトと同じ機能にしたい」への回答。**これが本命**）: Ahrefs の無料アカウント → API キー → Vercel `AHREFS_API_KEY`（Secret、Production）→ Redeploy → `/admin` で確認 → 精密診断を再実行して「よく使われる無料ツールと同じ指標」に DR が出ること。下の「Ahrefs の DR を有効にする手順」 | 利用者 | 未 |
 | 81 | ドメインパワーの本番確認: 日本の `.jp` / `.co.jp` のサイトで **RDAP（ドメインの登録日）が取れるか**を 1 回見る。取れなければ内訳の「ドメインの年数」が「未取得」になり、配点 15 点分が分母から外れるだけで報告書は出る（対応が要るなら別の取得先を検討） | Claude + 利用者 | 未 |
 | 70 | **MEO の採点基準を厳しくする（v2）**: 営業時間の欠け → 要改善、自社サイト以外の URL → 注意、平均評価 4.5 / 4.2、口コミ件数 50 件、口コミの新しさ 30 / 90 日、オーナー写真 5 枚、低解像度が半数で要改善、口コミ本文 3 割未満で要改善、属性は「はい」だけ数える | Claude | **完了（r51、09-13）**。lint / tsc / test（1,510 件）/ build 通過。本番の登録店舗は次回の一斉更新（月曜 5:00 JST）で新基準に切り替わる |
@@ -301,27 +302,29 @@ SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計
 
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
-| 1 | Ahrefs → 登録 | https://ahrefs.com/user/signup | 無料アカウントを作る（有料プランの契約は不要） |
-| 2 | Ahrefs → アカウント設定 → API キー | https://app.ahrefs.com/account/api/keys | APIv3 のキーを作成してコピー（会話には貼らないでください） |
+| 1 | Ahrefs → 登録 | https://ahrefs.com/signup?plan=awt | 無料アカウント（Ahrefs Webmaster Tools）を作る。有料プランの契約は不要 |
+| 2 | Ahrefs → アカウント設定 → API キー | https://app.ahrefs.com/account/api-keys | APIv3 のキーを作成してコピー（会話には貼らないでください） |
 | 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `AHREFS_API_KEY`、Value にキー、Environment は Production、Sensitive にチェック → Save |
 | 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy |
 | 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の Ahrefs が「設定済み」になることを確認 |
 | 6 | 本番 → 精密診断 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」カードの中の「よく使われる無料ツールと同じ指標」に **DR（0〜100）** が出れば完了。他社の測定サイトで同じドメインを調べて、同じ数値になるか見比べられる |
 
-注意: Ahrefs の条件で、**DR を画面に出すときは「Domain Rating by Ahrefs」の表示とリンクが要る**（カードに入れてある。消さないこと）。回数制限は Ahrefs API 全体の既定で **1 分 60 回**（超えると HTTP 429。公式ドキュメント「Limits consumption」）。無料エンドポイントは API ユニットを消費しない。1 回の分析では自社 + 競合 2 件 = 最大 3 回しか呼ばず、同じドメインは 24 時間キャッシュするので、月 10 回の分析ではこの制限に触れない。429 が返ったときは「未取得」として報告書を続け、失敗はキャッシュしない（次の分析で再取得する）。日次・月次の上限が別にあるかは公式ページをこの環境から開けず未確認（09-16）。
+注意: Ahrefs の条件で、**DR を画面に出すときは「Domain Rating by Ahrefs」の表示と https://ahrefs.com/ への機能するリンクが要る**（隠す・消すのは規約違反。カードに入れてあるので消さないこと）。**API キーの有効期限は 1 年**なので、切れたら 2 の画面で作り直す（切れても DR が「未取得」になるだけで報告書は出る）。回数制限は Ahrefs API 全体の既定で **1 分 60 回**（超えると HTTP 429。公式ドキュメント「Limits consumption」）。無料エンドポイントは API ユニットを消費しない。1 回の分析では自社 + 競合 2 件 = 最大 3 回しか呼ばず、同じドメインは 24 時間キャッシュするので、月 10 回の分析ではこの制限に触れない。429 が返ったときは「未取得」として報告書を続け、失敗はキャッシュしない（次の分析で再取得する）。日次・月次の上限が別にあるかは公式ページをこの環境から開けず未確認（09-16）。
 
-### Open PageRank を有効にする手順（#80。利用者の作業。無料）
+### Open PageRank（#80）は**いったん保留**（2026-09-16 判明）
 
-ドメインパワーの 8 指標のうち、**外部からの被リンクを見ているのはここだけ**（配点 25 点）。未設定でも残り 7 指標で採点するが、その分は分母から外れるので「外部リンクが弱い / 強い」は言えない。
+**旧 API が 2026-09-30 に終了する。**Open PageRank は Keywords Everywhere（同じ運営会社）に移り、
+基盤が `openpagerank.keywordseverywhere.com`、認証が Bearer トークンに変わる（無料枠は月 30,000 ドメイン）。
+このツールの `src/lib/domain-power/openpagerank.ts` はまだ旧エンドポイント（`openpagerank.com/api/v1.0/getPageRank`）
+を呼んでいるので、**いま旧 API のキーを取っても 9/30 で動かなくなる**。
 
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
-| 1 | Open PageRank → 登録 | https://www.domcop.com/openpagerank/ | 「Get your free API key」からメールで登録（無料。クレジットカード不要） |
-| 2 | Open PageRank → ダッシュボード | https://www.domcop.com/openpagerank/auth/signin | ログインして API キーをコピー（会話には貼らない）。無料枠は 1 日 1,000 リクエスト・1 回 100 ドメインまで。このツールは 1 回の分析で 1 リクエスト（自社 + 競合 2 件）しか使わない |
-| 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `OPENPAGERANK_API_KEY`、Value にキー、Environment は Production、Sensitive にチェック → Save |
-| 4 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイの「…」→ Redeploy |
-| 5 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」の Open PageRank が「設定済み」になることを確認 |
-| 6 | 本番 → 精密診断 | https://app.seo-checker.tokyo/tools/seo-analysis | 分析を 1 回実行（今月の回数を 1 つ使う）。「ドメインパワー（推定）」のカードで、内訳の「外部からのリンクの評価」が「未取得」でなく 0〜10 の数値になれば完了。競合 URL を入れると「競合との比較」の表にも出る |
+| — | Open PageRank → 移行のお知らせ | https://www.domcop.com/openpagerank/keywords-everywhere-acquisition | **設定作業は止めて、ここを読むだけ**。移行するかどうかは #86 で判断する |
+
+Open PageRank はドメインパワーの「外部からのリンクの評価」（配点 25 点）の**代替**で、
+**本命は Ahrefs の DR（#83、無料）**。DR が取れていればそちらを優先して採点するので、
+Open PageRank を入れなくてもドメインパワーは 8 指標すべてが埋まる。急ぐ必要はない。
 
 ### Stripe を有効にする手順（#58。すべて利用者の作業。まずテストモードで通し、最後に本番キーへ）
 
@@ -1374,3 +1377,24 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 - 検証: lint / tsc / test（**1,825 件**。llms.txt の評価は 6 件 = あり / なし / HTML を返す 404 ページ / 中身が薄い / 取得失敗 / llms-full.txt だけある）/ build 通過。
 - **利用者の作業は無し**。次回の精密診断から自動で出る。
+
+### 2026-09-16（外部連携のリンク切れを修正 / Open PageRank の旧 API 終了が判明、r72）
+
+- 利用者が #83 の手順 1 のリンクを開いたら **Ahrefs が 404**（画面を共有してもらった）。こちらが URL を推測で書いていたのが原因。**このセッションで追加した外部リンクを全部検証し直した。**
+
+**直したリンク**
+
+| どこ | 誤 | 正 |
+|---|---|---|
+| Ahrefs 登録（#83 手順 1） | `ahrefs.com/user/signup`（404） | `ahrefs.com/signup?plan=awt`（無料の Ahrefs Webmaster Tools） |
+| Ahrefs API キー（よく使う URL・#83 手順 2・マスター画面） | `app.ahrefs.com/account/api/keys` | `app.ahrefs.com/account/api-keys` |
+| Open PageRank ログイン（マスター画面） | `.../auth/signin` | `.../auth/login` |
+
+**判明したこと 2 つ**
+
+1. **Ahrefs の API キーは有効期限が 1 年**。切れると DR が「未取得」になるだけで報告書は出るが、気づきにくいので手順表とマスター画面の「上限」欄に書いた。帰属表示の条件も正確に書き直した（「Domain Rating by Ahrefs」の文字だけでなく **https://ahrefs.com/ への機能するリンク**が必須。隠す・消すのは規約違反）。
+2. **Open PageRank の旧 API が 2026-09-30 に終了する**（あと 2 週間）。運営が Keywords Everywhere に統合され、基盤が `openpagerank.keywordseverywhere.com`、認証が Bearer トークンに変わる（無料枠は月 30,000 ドメイン）。`src/lib/domain-power/openpagerank.ts` はまだ旧エンドポイントを呼んでいる。
+   - **#80（Open PageRank を有効にする）は保留にした**。いま旧 API のキーを取っても 9/30 で動かなくなるため、手順表は「設定作業は止めて移行のお知らせを読むだけ」に差し替え、マスター画面の説明にも「いまは新規に設定しないこと」と出した。
+   - **#86 として判断を残した**: ① 新 API に移行する ② Open PageRank をやめて Ahrefs の DR 一本にする。**推奨は ②**（DR が本命で OPR は代替。DR が取れていればドメインパワーの 8 指標は埋まる。移行の実装と利用者のアカウント作成が要る割に得るものが小さい）。
+- **この環境からは ahrefs.com / domcop.com / openpagerank.keywordseverywhere.com への接続が塞がれている**ので、URL は検索インデックスに載っている実在のページで裏を取った（実際に開いての確認はできていない）。新 API のエンドポイントの形も確認できていないため、移行の実装は #86 で方針が決まってから行う。
+- 検証: lint / tsc / test（1,825 件）/ build 通過。リンクと説明文だけの変更で、コードの動きは変えていない。
