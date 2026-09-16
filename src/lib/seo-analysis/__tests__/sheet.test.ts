@@ -65,7 +65,24 @@ const domain = scoreDomainPower({
 });
 
 describe("事実シート", () => {
-  const sheet = buildFactSheet({ input, audit: audit(), quick: { score: 72, categories: [{ id: "meta", label: "メタ情報", score: 60 }] }, speed, search, domain, google, coverage: { psi: true, crux: true, serp: true, searchConsole: false, ga4: false, domainPower: true }, generatedAt: "2026-09-14T00:00:00.000Z" });
+  const sheet = buildFactSheet({ input, audit: audit(), quick: { score: 72, categories: [{ id: "meta", label: "メタ情報", score: 60 }] }, speed, search, domain,
+    llms: {
+      url: `${ORIGIN}/llms.txt`,
+      present: true,
+      status: 200,
+      length: 220,
+      bytes: 480,
+      title: "サンプル工房",
+      summary: "世田谷区のウェブ制作会社です。",
+      sections: ["主要コンテンツ"],
+      linkCount: 3,
+      describedLinks: 3,
+      checks: [
+        { id: "exists", label: "ファイルの有無", level: "pass", detail: "取得できました" },
+        { id: "links", label: "リンクの記法", level: "pass", detail: "3 件のリンクを検出しました" },
+      ],
+      full: { present: false, length: 0 },
+    }, google, coverage: { psi: true, crux: true, serp: true, searchConsole: false, ga4: false, domainPower: true }, generatedAt: "2026-09-14T00:00:00.000Z" });
 
   it("領域ごとに ID を振り、値と補足を持つ", () => {
     const ids = sheet.facts.map((f) => f.id);
@@ -76,6 +93,7 @@ describe("事実シート", () => {
     expect(ids).toContain("P-01");
     expect(ids).toContain("R-01");
     expect(ids).toContain("D-01");
+    expect(ids).toContain("L-01");
     expect(new Set(ids).size).toBe(ids.length);
     const rule = sheet.facts.find((f) => f.label === "課題: META_DESC_MISSING")!;
     expect(rule.value).toContain("2 件");
@@ -92,6 +110,15 @@ describe("事実シート", () => {
     expect(lines.some((l) => l.includes("クイック診断の総合スコア") && l.includes("72 点"))).toBe(true);
     expect(lines.some((l) => l.includes("URL 単位のデータ不足"))).toBe(true);
     expect(lines.some((l) => l.includes("注記: Search Console は連携していません"))).toBe(true);
+  });
+
+  it("llms.txt の有無を事実にする", () => {
+    const lines = factsToLines(sheet.facts);
+    expect(lines.some((l) => l.includes("llms.txt の有無") && l.includes("あり"))).toBe(true);
+    expect(lines.some((l) => l.includes("llms.txt のリンクの記法"))).toBe(true);
+    expect(lines.some((l) => l.includes("llms-full.txt の有無") && l.includes("なし"))).toBe(true);
+    // 「有無」は 1 行だけ（checks の exists は重ねて出さない）
+    expect(lines.filter((l) => l.includes("llms.txt の有無")).length).toBe(1);
   });
 
   it("ドメインパワーを内訳つきで事実にする", () => {

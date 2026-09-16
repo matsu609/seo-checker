@@ -16,6 +16,7 @@ import { brandTerms } from "@/lib/diagnosis/normalize";
 import { fetchCruxHistory, fetchCruxRecord, fetchCruxWithFallback, isCruxEnabled } from "@/lib/crux";
 import { fetchDomainFacts, scoreDomainPower, type CruxCoverage, type DomainPowerResult } from "@/lib/domain-power";
 import { fetchPsi } from "@/lib/psi/client";
+import { collectLlmsTxt } from "./llms";
 import { collectGoogle } from "./google";
 import { collectSearch } from "./search";
 import { buildFactSheet, pickKeyPages } from "./sheet/build";
@@ -24,7 +25,7 @@ import type { AnalysisInput, SeoFactSheet, SheetSite, SheetSpeed } from "./sheet
 /** PSI / CrUX を掛けるページ数（トップ + 5。利用者の決定 2026-09-13） */
 export const KEY_PAGES = 6;
 
-export type CollectStep = "crawl" | "quick" | "speed" | "search" | "domain" | "google" | "sheet";
+export type CollectStep = "crawl" | "quick" | "speed" | "search" | "domain" | "llms" | "google" | "sheet";
 
 export interface CollectProgress {
   step: CollectStep;
@@ -63,7 +64,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
   // 3〜5. 速度・検索・Google 連携は並行
   const keyPages = pickKeyPages(audit.pages, entryUrl, KEY_PAGES);
   emit("speed", `主要 ${keyPages.length} ページの速度を取得しています`);
-  const [speed, searchOutcome, domainFacts, googleOutcome] = await Promise.all([
+  const [speed, searchOutcome, domainFacts, llms, googleOutcome] = await Promise.all([
     collectSpeed(audit.origin, keyPages, options.signal),
     (async () => {
       emit("search", "検索結果を取得しています");
@@ -80,6 +81,10 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     (async () => {
       emit("domain", "ドメインの登録情報と外部リンクの評価を取得しています");
       return fetchDomainFacts(audit.origin, input.competitors, { signal: options.signal });
+    })(),
+    (async () => {
+      emit("llms", "llms.txt（AI 向けの案内ファイル）を確認しています");
+      return collectLlmsTxt(audit.origin, { signal: options.signal });
     })(),
     (async () => {
       emit("google", "Google 連携のデータを確認しています");
@@ -113,6 +118,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     speed: speed.speed,
     search: searchOutcome.search,
     domain,
+    llms,
     google: googleOutcome.google,
     diagnosis,
     coverage: {

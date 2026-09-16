@@ -61,6 +61,7 @@ src/
     crawl/                    # サイト全体クロール（sitemap 展開 + 内部リンク BFS）。クイック診断と A1 で共有
     audit/                    # A1 テクニカル SEO ルール（extras.ts = 構成・信頼の分析に使う追加項目の抽出）
     seo-analysis/             # サイトの構成・信頼（structure / trust / kinds。A1 に同梱）+ 精密診断
+                              #   llms.ts = llms.txt / llms-full.txt の有無と中身（判定は lib/llms-txt/validate.ts を再利用）
     diagnosis/                # 数字の診断（GSC / GA4 のルール判定）。rules/ = 宣言、engine.ts = 発火判定、events.ts = イベント名の共通化、sources/ = 取り込み、summary.ts = 画面の並べ方
                               #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合・ChatGPT）、
                               #   collect.ts（クロール → PSI / CrUX / SerpApi / Google 連携）、runs.ts（Supabase analysis_runs）、quota.ts

@@ -39,6 +39,7 @@
 | 速度（原因） | Lighthouse のスコア・Opportunities・Diagnostics | PSI（トップ + 主要ページ 5 本まで） | 0 | ○ `src/lib/psi/` |
 | 検索での見え方 | 対策キーワードの順位・SERP の特徴・AI Overviews の引用（既存）、`site:` 検索によるインデックス数の概算、ブランド名検索での自社の出方、上位 10 件との比較（既存のページ診断） | SerpApi | 安価（1 回数円） | ○ `src/lib/rank/`、`page-diagnosis` |
 | **ドメインパワー（新規）** | サイト全体の地力を 0〜100 で推定。内訳は外部からのリンクの評価（**Ahrefs の DR 0〜100**。無ければ Open PageRank 0〜10。25 点）・ドメインの年数（RDAP の登録日。15 点）・インデックス数（`site:`。15 点）・対策キーワードの順位（15 点）・ブランド名検索の順位（10 点）・実ユーザーの規模（CrUX にデータがあるか。10 点）・サイトの規模（5 点）・信頼の手がかり（5 点）。取れなかった指標は分母から外し、配点 30 点分に届かなければ点を出さない。競合 2 件は Open PageRank と年数だけ並べる | Ahrefs の無料公開エンドポイント（要キー・ユニット消費なし）+ Open PageRank（無料・要キー）+ RDAP（無料）+ 既に集めた検索・CrUX・クロールの値 | 0 | ○ `src/lib/domain-power/` |
+| **llms.txt（新規）** | サイトのルートの `llms.txt` / `llms-full.txt` の**有無**と、あるときは中身の作り（# サイト名・> 概要・## セクション・リンクの記法と説明・絶対 URL・サイズ）。判定は生成ツールと同じ `validateLlmsTxt` | 自前で 2 ファイル取得 | 0 | ○ `src/lib/seo-analysis/llms.ts` |
 | キーワード | サジェスト・関連語・意図分類 | Google サジェスト | 0 | ○ `src/lib/keywords/` |
 | 基本・安全 | HTTPS / HSTS / セキュリティヘッダ / HTTP/2 / 圧縮 / mixed content / www と非 www の統一 | HTTP ヘッダ | 0 | △ 一部 |
 | 任意の層 | 検索クエリ・クリック・表示回数・順位（GSC）、自然検索の流入と CV（GA4）、インデックス状態（URL Inspection） | 利用者ごとの Google 連携（既存） | 0 | ○ 連携は既存 |
@@ -55,6 +56,7 @@
   PSI（トップ + 被リンクの多い 5 ページ）/ CrUX Origin + History
   SerpApi（対策キーワード 5 つ + site: + ブランド名）/ サジェスト
   ドメインパワー（Ahrefs の DR + Open PageRank + RDAP の登録日。自社と競合 2 件）
+  llms.txt / llms-full.txt の有無と中身
   （連携済みなら）GSC の上位クエリ・ページ、GA4 の自然検索 × ランディングページ
   ↓
 事実シート（SeoFactSheet、JSON、指標に ID を振る）
@@ -85,6 +87,7 @@ AI 分析（Claude。段階ごとに構造化出力、各主張は指標 ID を�
 | C′ | CrUX / CrUX History（`src/lib/crux/`。URL → Origin → データ不足の 3 段。事実シートと報告書の「速度」カードに Origin の LCP / INP / CLS と 40 週の推移） | **実装済み（2026-09-14）** |
 | D′ | SerpApi の組み込み（`search.ts`。対策キーワード 5 つの順位・上位ドメイン・SERP の特徴・AI Overviews の引用・競合の順位、`site:` 件数、ブランド名検索） | **実装済み（2026-09-14）** |
 | F′ | ドメインパワー（`src/lib/domain-power/`。`ahrefs.ts` = DR 0〜100、`openpagerank.ts` = OPR 0〜10、`rdap.ts` = 登録日、`score.ts` = 8 指標の配点、`collect.ts` = 自社と競合の取得）。報告書の KPI とカード、事実シートの領域 `domain`（ID は `D-01`〜） | **実装済み（2026-09-15）** |
+| G′ | llms.txt の評価（`src/lib/seo-analysis/llms.ts`。有無 + 中身の判定は `lib/llms-txt/validate.ts` を再利用）。報告書の「llms.txt」カード、事実シートの領域 `llms`（ID は `L-01`〜） | **実装済み（2026-09-16）** |
 | E′ | 任意の層（`google.ts`。連携済みなら Search Console の 28 日の合計・前期間・上位クエリ / ページ、GA4 の自然検索の流入・キーイベント・ランディングページ）。URL Inspection は未実装（連携先が分析対象と一致するときだけ使う） | **GSC / GA4 は実装済み（2026-09-14）。URL Inspection は未** |
 
 **設計原則（利用者の指示 2026-09-13）**: 精密診断の報告書だけでなく、**個々の分析結果（サイト診断・検索パフォーマンス・CWV など、各ツールの画面）ごとに AI の分析を見られるようにする**。B′ で作る「事実シート → AI 分析」の仕組みは、画面ごとの部分的な事実シートでも動くように分ける（報告書 = 各画面の分析の合成）。

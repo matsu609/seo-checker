@@ -23,6 +23,7 @@ import {
   type SeoFactSheet,
   type SheetDomain,
   type SheetGoogle,
+  type SheetLlmsTxt,
   type SheetSearch,
   type SheetSite,
   type SheetSpeed,
@@ -42,6 +43,7 @@ export interface BuildSheetInput {
   speed: SheetSpeed;
   search: SheetSearch;
   domain: SheetDomain | null;
+  llms: SheetLlmsTxt | null;
   google: SheetGoogle;
   diagnosis?: DiagnosisResult | null;
   coverage: SeoFactSheet["coverage"];
@@ -58,6 +60,7 @@ export function buildFactSheet(args: BuildSheetInput): SeoFactSheet {
     speed: args.speed,
     search: args.search,
     domain: args.domain,
+    llms: args.llms,
     google: args.google,
     diagnosis: args.diagnosis ?? null,
     coverage: args.coverage,
@@ -106,6 +109,20 @@ function emptyStructure(): NonNullable<AuditResult["structure"]> {
 
 /* ───────────── facts ───────────── */
 
+/** 事実 ID の頭文字。領域を足したらここにも足す（重複させない） */
+const AREA_PREFIX: Record<FactArea, string> = {
+  input: "I",
+  crawl: "C",
+  structure: "S",
+  trust: "T",
+  speed: "P",
+  search: "R",
+  domain: "D",
+  llms: "L",
+  google: "G",
+  diagnosis: "N",
+};
+
 class FactList {
   readonly facts: Fact[] = [];
   private readonly counters = new Map<FactArea, number>();
@@ -114,7 +131,7 @@ class FactList {
     if (this.facts.length >= MAX_FACTS) return;
     const n = (this.counters.get(area) ?? 0) + 1;
     this.counters.set(area, n);
-    const prefix = area === "input" ? "I" : area === "crawl" ? "C" : area === "structure" ? "S" : area === "trust" ? "T" : area === "speed" ? "P" : area === "search" ? "R" : area === "domain" ? "D" : area === "diagnosis" ? "N" : "G";
+    const prefix = AREA_PREFIX[area];
     this.facts.push({ id: `${prefix}-${String(n).padStart(2, "0")}`, area, label, value, ...(extra.note ? { note: extra.note } : {}), ...(extra.url ? { url: extra.url } : {}) });
   }
 }
@@ -137,6 +154,7 @@ export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
   const { input, site, speed, search, google } = sheet;
   const diagnosis = sheet.diagnosis ?? null;
   const domain = sheet.domain ?? null;
+  const llms = sheet.llms ?? null;
 
   // --- 入力 ------------------------------------------------------------------
   f.add("input", "対象サイト", site.origin, { note: `開始 URL ${site.startUrl}` });
@@ -294,6 +312,28 @@ export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
     for (const n of domain.notes) f.add("domain", "注記", n);
   }
 
+  // --- llms.txt ----------------------------------------------------------------
+  if (llms) {
+    f.add("llms", "llms.txt の有無", llms.present ? "あり" : "なし", {
+      note: llms.present
+        ? `${llms.url}（HTTP ${llms.status}）。${llms.length} 文字 / ${Math.round((llms.bytes / 1024) * 10) / 10} KB、リンク ${llms.linkCount} 件（うち説明つき ${llms.describedLinks} 件）`
+        : `${llms.url} を取得できませんでした（HTTP ${llms.status || "接続失敗"}）。AI 検索やチャットが読む案内ファイルで、置くと主要ページと役割を明示できる`,
+      url: llms.url,
+    });
+    if (llms.present) {
+      if (llms.title) f.add("llms", "llms.txt のサイト名（# 見出し）", llms.title);
+      if (llms.summary) f.add("llms", "llms.txt の概要（> 引用）", llms.summary);
+      if (llms.sections.length > 0) f.add("llms", "llms.txt のセクション", `${llms.sections.length} 件`, { note: llms.sections.join(" / ") });
+      for (const c of llms.checks) {
+        if (c.id === "exists") continue; // 有無は上の行で出している
+        f.add("llms", `llms.txt の${c.label}`, c.level === "pass" ? "合格" : c.level === "warn" ? "注意" : "未対応", { note: c.detail });
+      }
+    }
+    f.add("llms", "llms-full.txt の有無", llms.full.present ? "あり" : "なし", {
+      note: llms.full.present ? `${llms.full.length} 文字。本文をまとめた大きい方のファイル` : "本文をまとめた llms-full.txt は置かれていません（llms.txt だけでも成立する）",
+    });
+  }
+
   // --- Google 連携 ------------------------------------------------------------
   if (google.searchConsole) {
     const g = google.searchConsole;
@@ -386,6 +426,7 @@ export function factsFromAudit(audit: AuditResult): Fact[] {
     speed: { psi: [], crux: { origin: null, originFailure: null, history: null, urls: [] }, notes: [] },
     search: { keywords: [], siteCount: null, brand: null, notes: [] },
     domain: null,
+    llms: null,
     google: { searchConsole: null, ga4: null, notes: [] },
     diagnosis: null,
     coverage: { psi: false, crux: false, serp: false, searchConsole: false, ga4: false, domainPower: false, diagnosis: false },

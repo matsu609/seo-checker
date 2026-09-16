@@ -9,6 +9,7 @@
 import type { AuditCrawlStats, AuditCategory, Severity } from "@/lib/audit/types";
 import type { CruxFailure, CruxHistory, CruxRecord } from "@/lib/crux/types";
 import type { DomainPowerResult } from "@/lib/domain-power/types";
+import type { ValidationCheck } from "@/lib/llms-txt/types";
 import type { PsiResult } from "@/lib/psi/types";
 import type { DiagnosisResult } from "@/lib/diagnosis/types";
 import type { SerpFeature } from "@/lib/serp/types";
@@ -46,7 +47,7 @@ export const GOAL_LABELS: Record<AnalysisGoal, string> = {
   other: "その他",
 };
 
-export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "google" | "diagnosis";
+export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "llms" | "google" | "diagnosis";
 
 export const FACT_AREA_LABELS: Record<FactArea, string> = {
   input: "入力",
@@ -56,6 +57,7 @@ export const FACT_AREA_LABELS: Record<FactArea, string> = {
   speed: "速度（実ユーザー・診断）",
   search: "検索での見え方",
   domain: "ドメインパワー",
+  llms: "llms.txt（AI 向けの案内ファイル）",
   google: "Google 連携（Search Console / GA4）",
   diagnosis: "数字の診断（発火した診断ルール）",
 };
@@ -140,6 +142,31 @@ export interface SheetSearch {
 /** ドメインパワーの採点結果（src/lib/domain-power/ が作る） */
 export type SheetDomain = DomainPowerResult;
 
+/**
+ * llms.txt（AI 向けの案内ファイル）の評価。
+ * 判定は生成ツール（/tools/llms-txt）と同じ `validateLlmsTxt` を使う。
+ * 本文（raw）とリンクの一覧は保存が重くなるので落とし、件数だけ持つ。
+ */
+export interface SheetLlmsTxt {
+  url: string;
+  /** ファイルがあるか。これが「有無の評価」そのもの */
+  present: boolean;
+  status: number;
+  /** 文字数 */
+  length: number;
+  bytes: number;
+  title: string | null;
+  summary: string | null;
+  /** ## セクション名（最大 10） */
+  sections: string[];
+  linkCount: number;
+  /** 説明が付いているリンクの数 */
+  describedLinks: number;
+  checks: ValidationCheck[];
+  /** llms-full.txt（本文をまとめた大きい方） */
+  full: { present: boolean; length: number };
+}
+
 export interface SheetGoogle {
   searchConsole: {
     siteUrl: string;
@@ -168,6 +195,8 @@ export interface SeoFactSheet {
   search: SheetSearch;
   /** ドメインパワー（無料で取れる指標からの推定）。古い保存分には無い */
   domain?: SheetDomain | null;
+  /** llms.txt の有無と中身の評価。古い保存分には無い */
+  llms?: SheetLlmsTxt | null;
   google: SheetGoogle;
   /**
    * 数字の診断（GSC / GA4 のルール判定。docs/dev/diagnosis-rules-spec.md）。

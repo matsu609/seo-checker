@@ -389,9 +389,9 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
         <div class="plan">
           <p class="plan-name">ライト</p>
           <p class="plan-price">38,000<small> 円 / 月</small></p>
-          <p class="plan-summary">検索の実測値とサイト・店舗の分析結果を継続して確認できます。AI が作るツールは含みません。</p>
+          <p class="plan-summary">検索の実測値とサイト・店舗の分析結果を継続して確認できます（AI が現状分析と改善案を書く精密診断も含みます）。AI が原稿・改修案そのものを作るツールは含みません。</p>
           <ul>
-            <li>サイト診断・ページ最適化レポート・ページ診断</li>
+            <li>精密診断（サイト全体の診断 + AI の現状分析と改善案）・ページ最適化レポート・ページ診断</li>
             <li>検索パフォーマンス（Search Console の実測値）</li>
             <li>順位計測・AI Overviews 引用・LLMO モニタリング</li>
             <li>生成 AI 流入分析・サイトレポート（GA4）</li>
@@ -410,23 +410,23 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
         <h3>診断</h3>
         <div class="tools">
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">サイト診断</span><span class="badge">スタンダード</span></p>
-            <p>ドメイン配下をクロールし、重複 title・canonical・リダイレクト・リンク切れなど 10 カテゴリの課題を件数化します。前回との差分と CSV 出力に対応。</p>
+            <p class="tool-head"><span class="tool-name">精密診断</span><span class="badge">ライト</span></p>
+            <p>ドメイン配下をクロールし、重複 title・canonical・リダイレクト・リンク切れなど 10 カテゴリの課題を件数化。さらにサイトの構成・信頼の手がかり・表示速度・検索順位・llms.txt の有無まで 1 枚の事実シートにまとめ、AI がその数字だけを根拠に現状分析と改善案を書きます。CSV 出力と履歴に対応。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">ページ最適化レポート</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">ページ最適化レポート</span><span class="badge">ライト</span></p>
             <p>1 URL の AI フレンドリー度を 0〜100 点で評価し、項目ごとの測定値・理由・改善提案を表にまとめます。表示速度と Core Web Vitals も併記。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">ページ診断</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">ページ診断</span><span class="badge">ライト</span></p>
             <p>対策キーワードの検索上位 10 件と自社ページを比較し、検索意図・不足要素・title / description 案を提案します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">AIO 頻出トピック</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">AIO 頻出トピック</span><span class="badge">ライト</span></p>
             <p>AI Overviews の本文からトピックを抽出・正規化し、出現割合と自社ページに不足しているトピックを表示します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">HP 改修提案</span><span class="badge is-pro">プロ</span></p>
+            <p class="tool-head"><span class="tool-name">HP 改修提案</span><span class="badge is-pro">スタンダード</span></p>
             <p>URL を入れてボタンを押すだけで、ページを診断し、そのまま貼って使える改修案を AI が作ります。反映は運用者が行います。</p>
           </div>
         </div>
@@ -436,27 +436,27 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
         <h3>計測</h3>
         <div class="tools">
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">順位計測</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">順位計測</span><span class="badge">ライト</span></p>
             <p>登録キーワードの Google 順位とランディング URL を取得し、AI Overviews に自社・競合が引用されているかを確認します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">検索パフォーマンス</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">検索パフォーマンス</span><span class="badge">ライト</span></p>
             <p>連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を取得します。推定ではなく Google の実測値です。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">LLMO モニタリング</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">LLMO モニタリング</span><span class="badge">ライト</span></p>
             <p>登録プロンプトを Claude / ChatGPT / Gemini / Perplexity に投げ、ブランド言及率・ドメイン引用率と回答原文を記録します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">プロンプト拡張</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">プロンプト拡張</span><span class="badge">ライト</span></p>
             <p>参考プロンプトと対象サイトから、利用者が AI に聞きそうな関連プロンプトをカテゴリ付きで生成します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">生成 AI 流入分析</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">生成 AI 流入分析</span><span class="badge">ライト</span></p>
             <p>GA4 の参照元から生成 AI チャネルを切り出し、セッション・流入ページ・キーイベントを集計します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">サイトレポート</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">サイトレポート</span><span class="badge">ライト</span></p>
             <p>GA4 の KPI（ユーザー数・エンゲージメント・自然検索セッション・CV）の前期比と、登録キーワードの平均順位をひとつにまとめます。</p>
           </div>
         </div>
@@ -466,15 +466,15 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
         <h3>調査・生成</h3>
         <div class="tools">
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">キーワード調査</span><span class="badge">スタンダード</span></p>
+            <p class="tool-head"><span class="tool-name">キーワード調査</span><span class="badge">ライト</span></p>
             <p>種キーワードから Google サジェスト・関連キーワードを展開し、検索意図を分類して一覧にします。CSV 出力と順位計測への登録に対応。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">AI ライティング</span><span class="badge is-pro">プロ</span></p>
+            <p class="tool-head"><span class="tool-name">AI ライティング</span><span class="badge is-pro">スタンダード</span></p>
             <p>キーワードから構成・見出し・本文を生成し、エディターでリライト・校正・ファクトチェック・薬機法 NG 表現のチェックまで行います。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">llms.txt 生成</span><span class="badge is-pro">プロ</span></p>
+            <p class="tool-head"><span class="tool-name">llms.txt 生成</span><span class="badge is-pro">スタンダード</span></p>
             <p>サイト情報を入力するウィザードで、AI クローラ向けの <span class="mono">llms.txt</span> を生成します。</p>
           </div>
         </div>

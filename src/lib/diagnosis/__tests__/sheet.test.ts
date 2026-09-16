@@ -36,6 +36,7 @@ function sheetWith(diagnosis: ReturnType<typeof runDiagnosis> | null) {
     speed,
     search,
     domain: null,
+    llms: null,
     google,
     diagnosis,
     coverage: { psi: false, crux: false, serp: false, searchConsole: diagnosis?.summary !== null, ga4: false, diagnosis: diagnosis?.summary !== null },

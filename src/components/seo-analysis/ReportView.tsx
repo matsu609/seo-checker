@@ -12,6 +12,7 @@ import { AuditPages } from "@/components/site-audit/AuditPages";
 import type { AuditResult } from "@/lib/audit/types";
 import { DiagnosisCard } from "./DiagnosisCard";
 import { DomainPowerCard } from "./DomainPowerCard";
+import { LlmsTxtCard } from "./LlmsTxtCard";
 import { StructureCard } from "./StructureCard";
 import { TrustCard } from "./TrustCard";
 import { Sparkline } from "@/components/charts";
@@ -57,6 +58,7 @@ export function ReportView(props: ReportViewProps) {
   const issueTotal = site.bySeverity.error + site.bySeverity.warning + site.bySeverity.info;
   const rankedKeywords = sheet.search.keywords.filter((k) => k.rank !== null).length;
   const domain = sheet.domain ?? null;
+  const llms = sheet.llms ?? null;
 
   async function toPdf() {
     if (!sheetRef.current) return;
@@ -305,6 +307,8 @@ export function ReportView(props: ReportViewProps) {
         {sheet.diagnosis && <DiagnosisCard diagnosis={sheet.diagnosis} />}
 
         {domain && <DomainPowerCard domain={domain} />}
+
+        {llms && <LlmsTxtCard llms={llms} />}
 
         <SpeedCard sheet={sheet} />
 
