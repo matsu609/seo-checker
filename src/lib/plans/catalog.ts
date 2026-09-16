@@ -9,8 +9,11 @@
  *   free     … 未契約。ツールは使えない。クイック診断（/ と /meo）は、こちらが URL を渡した見込み客だけが使う公開ページ
  *   light    … 「ライト」月額 38,000 円。診断と計測だけ。AI が改修案・原稿を作るツールは付かない（= 意図的に物足りない段）
  *   standard … 「スタンダード」月額 50,000 円。本命。ライトのすべて + AI が改修案・原稿まで作る（= AI がコンサルする段）
- *   premium  … 「プレミアム（伴走）」月額 150,000 円。スタンダードのすべて + 人の作業（月 1 回の報告ミーティング・
- *              レポート代行・優先サポート）。松下の時間が要るので月 3 社まで。申し込みはお問い合わせから（Stripe には出さない）
+ *   premium  … 「プレミアム（伴走）」月額 **150,000 円〜**。スタンダードのすべて + 人の作業（月 1 回の報告ミーティング・
+ *              レポート代行・優先サポート）。松下の時間が要るので月 3 社まで。
+ *              **金額は「〜」付きの下限だけを出し、実額はご要望をうかがってお見積りする**（利用者の決定 2026-09-16）。
+ *              定額に見せると、重い案件を 150,000 円で受けざるを得なくなる。下限だけならアンカーとしては同じに働き、
+ *              実際の受注では中身に合わせて積める。申し込みはお見積りの依頼から（Stripe には出さない）
  *
  * ライトとスタンダードの差は 12,000 円しかない。ライトを選ぶと 1 領域も欠けないかわりに
  * 「AI が作る 7 つのツール」がまるごと落ちる、という線の引き方にしてある。これは
@@ -33,8 +36,10 @@ export type PlanCheckout = "stripe" | "contact" | "none";
 export interface Plan {
   id: PlanId;
   label: string;
-  /** 月額（円・税別）。0 は無料 */
+  /** 月額（円・税別）。0 は無料。priceFrom が true なら「〜」付きの下限 */
   priceYen: number;
+  /** 金額が下限で、実額は個別のお見積りになる（表示に「〜」を付ける） */
+  priceFrom?: boolean;
   summary: string;
   highlights: readonly string[];
   /**
@@ -51,8 +56,10 @@ export interface Plan {
   checkout: PlanCheckout;
   /** 料金表で「いちばん選ばれています」を付ける本命。1 つだけ */
   recommended?: boolean;
-  /** 枠の制限（料金表に小さく出す）。無ければ null */
+  /** 枠の制限・お見積りの断り（料金表に小さく出す）。無ければ null */
   limitNote?: string;
+  /** 申し込みボタンの代わりに出す問い合わせボタンの文言（checkout: "contact" のとき） */
+  contactLabel?: string;
   /** サイドバーの鍵バッジなど、短く出すとき */
   shortLabel: string;
 }
@@ -114,19 +121,22 @@ export const PLANS: readonly Plan[] = [
     id: "premium",
     label: "プレミアム（伴走）",
     priceYen: 150_000,
-    summary: "スタンダードのすべてに加えて、人が伴走します。レポートの作成と改善作業をこちらで引き受ける段階です。",
+    priceFrom: true,
+    summary: "スタンダードのすべてに加えて、人が伴走します。サイトの規模・店舗数・ご依頼の範囲をうかがったうえで、お見積りをお出しします。",
     highlights: [
       "スタンダードのすべて",
-      "月 1 回の報告ミーティング（60 分・オンライン）",
+      "月 1 回の報告ミーティング（オンライン）",
       "月次レポートの作成と、改善作業の代行",
-      "優先サポート（メール・チャットを平日 24 時間以内に返信）",
-      "ご相談のうえ、店舗数・対策キーワード数の上限を個別に設定します",
+      "優先サポート（メール・チャット）",
+      "店舗数・対策キーワード数の上限は、ご要望に合わせて設定します",
+      "料金は 150,000 円からで、ご依頼の範囲によって変わります。まずはご相談ください",
       "松下が手を動かす枠のため、月 3 社までとさせていただきます",
     ],
     clerkPlan: "user:premium",
     listed: true,
     checkout: "contact",
-    limitNote: "月 3 社まで",
+    limitNote: "月 3 社まで・お見積り",
+    contactLabel: "お見積りを依頼する",
     shortLabel: "有料",
   },
 ] as const;
@@ -153,10 +163,11 @@ export function planShortLabel(id: PlanId): string {
   return PLAN_BY_ID[id].shortLabel;
 }
 
-/** 価格の表示（「無料」「月額 50,000 円」） */
+/** 価格の表示（「無料」「月額 50,000 円」「月額 150,000 円〜」） */
 export function planPriceLabel(id: PlanId): string {
-  const yen = PLAN_BY_ID[id].priceYen;
-  return yen === 0 ? "無料" : `月額 ${yen.toLocaleString("ja-JP")} 円`;
+  const plan = PLAN_BY_ID[id];
+  if (plan.priceYen === 0) return "無料";
+  return `月額 ${plan.priceYen.toLocaleString("ja-JP")} 円${plan.priceFrom ? "〜" : ""}`;
 }
 
 /** current が required 以上のプランか */

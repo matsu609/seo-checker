@@ -71,7 +71,8 @@ describe("価格の表示", () => {
     expect(planPriceLabel("free")).toBe("無料");
     expect(planPriceLabel("light")).toBe("月額 38,000 円");
     expect(planPriceLabel("standard")).toBe("月額 50,000 円");
-    expect(planPriceLabel("premium")).toBe("月額 150,000 円");
+    // プレミアムは下限だけを出す（定額に見せない）
+    expect(planPriceLabel("premium")).toBe("月額 150,000 円〜");
   });
 });
 
@@ -132,6 +133,16 @@ describe("売るのは 3 段階（ライト / スタンダード / プレミア�
     expect(STRIPE_PLANS.map((p) => p.id)).toEqual(["light", "standard"]);
     expect(PLAN_BY_ID.premium.checkout).toBe("contact");
     expect(PLAN_BY_ID.free.checkout).toBe("none");
+  });
+
+  // 定額に見せると、重い案件をその額で受けざるを得なくなる。下限 +「〜」+ お見積りの断りをそろえる
+  it("お見積りのプランは下限として出し、買えるプランは定額のまま", () => {
+    expect(PLAN_BY_ID.premium.priceFrom).toBe(true);
+    expect(PLAN_BY_ID.premium.limitNote).toContain("お見積り");
+    expect(PLAN_BY_ID.premium.highlights.some((h) => h.includes("お見積り") || h.includes("ご相談"))).toBe(true);
+    for (const plan of STRIPE_PLANS) {
+      expect(plan.priceFrom, `${plan.id} は定額で売る`).toBeUndefined();
+    }
   });
 
   // 本命は真ん中の 1 つだけ（極端回避性。2 つ強調すると効かない）

@@ -90,12 +90,12 @@ export function PlanTable({ current, purchasable = [] }: PlanTableProps) {
               )}
               {plan.checkout === "contact" && OPERATOR.email && (
                 <ButtonLink
-                  href={`mailto:${OPERATOR.email}?subject=${encodeURIComponent(`${plan.label}のお問い合わせ`)}`}
+                  href={`mailto:${OPERATOR.email}?subject=${encodeURIComponent(`${plan.label}のお見積り依頼`)}`}
                   variant="secondary"
                   size="lg"
                   className="w-full"
                 >
-                  お問い合わせ（空き枠の確認）
+                  {plan.contactLabel ?? "お問い合わせ"}
                 </ButtonLink>
               )}
             </div>

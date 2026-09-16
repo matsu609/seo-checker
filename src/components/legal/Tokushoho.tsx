@@ -7,7 +7,7 @@
  */
 import { trialDays } from "@/lib/billing/trial";
 import { OPERATOR, SERVICE_NAME, operatorLabel } from "@/lib/legal/operator";
-import { LISTED_PLANS } from "@/lib/plans/catalog";
+import { LISTED_PLANS, planPriceLabel } from "@/lib/plans/catalog";
 
 interface Row {
   label: string;
@@ -17,7 +17,13 @@ interface Row {
 // 料金表に出しているプランをそのまま並べる（catalog.ts が唯一の定義。値段を書き写さない）
 const priceRows = [...LISTED_PLANS]
   .sort((a, b) => a.priceYen - b.priceYen)
-  .map((p) => `${p.label}: 月額 ${p.priceYen.toLocaleString("ja-JP")} 円（税別。消費税は別途申し受けます）${p.limitNote ? `／${p.limitNote}` : ""}`);
+  .map((p) =>
+    p.priceFrom
+      ? // 下限だけを示すプランは、実額の決まり方（個別のお見積り）まで書く。金額を 1 つだけ書くと、
+        // その額で申し込めると読めてしまう
+        `${p.label}: ${planPriceLabel(p.id)}（税別。消費税は別途申し受けます）。ご依頼の範囲に応じて個別にお見積りし、お申し込み前に金額をご提示します${p.limitNote ? `／${p.limitNote}` : ""}`
+      : `${p.label}: ${planPriceLabel(p.id)}（税別。消費税は別途申し受けます）${p.limitNote ? `／${p.limitNote}` : ""}`,
+  );
 const trial = trialDays();
 
 export const TOKUSHOHO_ROWS: Row[] = [
