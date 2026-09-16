@@ -359,6 +359,11 @@
       "commit": "48bb24a",
       "date": "2026-09-16",
       "summary": "外部連携のリンク切れを修正、Open PageRank の旧 API 終了を記録"
+    },
+    {
+      "commit": "11da190",
+      "date": "2026-09-16",
+      "summary": "API キーの有効期限をマスター画面に表示"
     }
   ]
 }
