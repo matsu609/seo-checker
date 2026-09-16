@@ -16,6 +16,8 @@ export interface Access {
   overrides: string[];
   /** マスター画面を出してよいか */
   admin: boolean;
+  /** 代理店画面を出してよいか */
+  agency: boolean;
 }
 
 let cache: Access | null = null;
@@ -27,13 +29,19 @@ export async function fetchAccess(force = false): Promise<Access> {
     inflight = fetch("/api/plan", { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const body = (await r.json()) as { plan?: unknown; features?: unknown; admin?: unknown };
+        const body = (await r.json()) as {
+          plan?: unknown;
+          features?: unknown;
+          admin?: unknown;
+          agency?: unknown;
+        };
         return {
           plan: toPlanId(body.plan) ?? "free",
           overrides: Array.isArray(body.features)
             ? body.features.filter((f): f is string => typeof f === "string")
             : [],
           admin: body.admin === true,
+          agency: body.agency === true,
         } satisfies Access;
       })
       .then((access) => {

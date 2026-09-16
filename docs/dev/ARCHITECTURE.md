@@ -34,8 +34,10 @@
 | 生成 | `/tools/listings` | 基本情報掲載（NAP 一括登録） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
 | 生成 | `/tools/llms-txt` | llms.txt 生成 | D6 | なし |
 | 設定 | `/settings` | プロジェクト・競合・Google 連携・GA4 イベントの割り当て（API キーの設定状況は `/admin` に移動） | E1, E2 | なし |
+| 運用 | `/admin` | マスター画面（全登録者の契約状況・機能の個別開放・代理店の追加と担当の割り当て）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
+| 運用 | `/agency` | 代理店画面（担当として割り当てられた登録者だけを表示のみ）。`publicMetadata.role = "agency"` の人だけ。ほかは 404 | — | Clerk |
 | 共通 | `/legal/tokushoho` | 特定商取引法に基づく表記（ログイン不要） | — | なし |
-| 共通 | `/start` | ログイン直後の振り分け（未契約は `/plans`、契約済みはツールへ。画面は出さない） | — | なし |
+| 共通 | `/start` | ログイン直後の振り分け（代理店は `/agency`、未契約は `/plans`、契約済みはツールへ。画面は出さない） | — | なし |
 
 - **PDF に出す折りたたみには `print:block` を使わない。** PDF は `@media print` ではなく DOM の複製（`.pdf-capture`）を画像化して作るので、Tailwind の `print:` 系は PDF にまったく効かない。画面で開かずに PDF を作ると中身が丸ごと抜ける。折りたたみは `hidden print-expand`、画面専用の操作は `no-print` を使う（`globals.css` に定義。`src/app/__tests__/pdf-capture-css.test.ts` で固定）。
 - 外部依存が未設定のときは、ページ内で `SetupNotice`（何を `.env.local` に設定すればよいか）を表示し、設定済みの部分だけ動かす。**ダミーデータで動いているように見せない。**
@@ -86,6 +88,20 @@ src/
 - サーバーに DB は無い。ユーザーの登録情報（プロジェクト、競合、キーワード、プロンプト、計測履歴、診断履歴）は **ブラウザの localStorage** に保存する。`src/lib/store/` の `createStore(name, schema)` を通し、キーは `seo-checker:v1:<name>` で統一、zod で検証し、壊れていれば初期値に戻す。
 - 設定画面から JSON でエクスポート / インポートできるようにする。
 - Route Handler はステートレス。入力を受け取って結果を返すだけ（キャッシュは既存の `globalCache`）。
+- **アカウントの属性は Clerk の `publicMetadata`**（`plan` / `featureOverrides` / `stripe` / `role` / `agencyId`）。ここでも DB は持たない。`publicMetadata` は Backend API からしか書けないので、お客様が自分で書き換えることはできない（クライアントから書ける `unsafeMetadata` は使わない）。更新は**丸ごと置き換え**になるので、必ず既存の値を読んで残すこと（`src/lib/admin/roles.ts` の純関数を通す）。
+
+## 誰が何を見られるか（マスター / 代理店 / 登録者）
+
+| 役割 | 決まり方 | 見えるもの | できること |
+|---|---|---|---|
+| マスター（運用者） | 環境変数 `ADMIN_EMAILS` に書いた**確認済み**のメール | `/admin` で**登録しているすべてのお客様** | 代理店の追加・解除、担当の割り当て、機能の個別開放 |
+| 代理店 | `publicMetadata.role === "agency"` | `/agency` で**自分に割り当てられた登録者だけ** | 表示のみ（プラン変更も機能開放もできない） |
+| 登録者 | 上のどちらでもない | 自分のツール画面だけ | — |
+
+- **マスターだけ環境変数**にしてある。運用者の権限を Clerk の値に置くと、Clerk に入れた誰かが自分を運用者にできてしまう。Vercel の設定を触れる人だけが変えられる場所に置く。
+- 代理店の「担当」は登録者側の `publicMetadata.agencyId`（代理店の Clerk ユーザー ID）。**割り当てはマスターだけ**が行う（`/admin` の顧客一覧）。
+- 代理店画面が引く ID は、必ずログイン中のセッションから取る（`currentAgencyId()`）。リクエストで受け取った ID を信用すると他の代理店の担当が見えてしまう。
+- Clerk の Backend API には publicMetadata で絞る条件が無いので、代理店の一覧と担当分は**読んでから絞る**（`src/lib/admin/clients.ts` の `MAX_SCAN` = 500 人で打ち切り）。数千人規模になったら、担当の関係だけ Supabase に移して絞り込みを DB 側で行う。
 
 ## 外部連携（環境変数）
 

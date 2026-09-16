@@ -171,26 +171,48 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         </div>
       ))}
 
-      {/* 運用者だけに出す。判定はサーバー（/api/plan）で、ここは表示の出し分けだけ */}
-      {access?.admin && (
+      {/*
+        運用者・代理店だけに出す。判定はサーバー（/api/plan）で、ここは表示の出し分けだけ。
+        画面そのものも、運用者でなければ 404 を返す（src/app/admin・src/app/agency）。
+      */}
+      {(access?.admin || access?.agency) && (
         <div>
           <div className="mt-4 mb-1 px-4 text-[11px] text-on-brand-muted">運用</div>
           <ul className="space-y-0.5">
-            <li>
-              <Link
-                href="/admin"
-                onClick={onNavigate}
-                aria-current={pathname.startsWith("/admin") ? "page" : undefined}
-                className={`relative mx-2 flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
-                  pathname.startsWith("/admin")
-                    ? "bg-on-brand/12 font-bold text-on-brand before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[3px] before:rounded-r-sm before:bg-on-brand before:content-['']"
-                    : "text-on-brand/90 hover:bg-on-brand/8"
-                }`}
-              >
-                <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">マスター画面</span>
-              </Link>
-            </li>
+            {access?.admin && (
+              <li>
+                <Link
+                  href="/admin"
+                  onClick={onNavigate}
+                  aria-current={pathname.startsWith("/admin") ? "page" : undefined}
+                  className={`relative mx-2 flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
+                    pathname.startsWith("/admin")
+                      ? "bg-on-brand/12 font-bold text-on-brand before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[3px] before:rounded-r-sm before:bg-on-brand before:content-['']"
+                      : "text-on-brand/90 hover:bg-on-brand/8"
+                  }`}
+                >
+                  <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">マスター画面</span>
+                </Link>
+              </li>
+            )}
+            {access?.agency && (
+              <li>
+                <Link
+                  href="/agency"
+                  onClick={onNavigate}
+                  aria-current={pathname.startsWith("/agency") ? "page" : undefined}
+                  className={`relative mx-2 flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
+                    pathname.startsWith("/agency")
+                      ? "bg-on-brand/12 font-bold text-on-brand before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[3px] before:rounded-r-sm before:bg-on-brand before:content-['']"
+                      : "text-on-brand/90 hover:bg-on-brand/8"
+                  }`}
+                >
+                  <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">代理店画面</span>
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
       )}
