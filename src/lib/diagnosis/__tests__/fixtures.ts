@@ -77,6 +77,7 @@ export interface Ga4Overrides {
   channels?: Partial<{ current: KeyedSessions[]; previous: KeyedSessions[] }>;
   landing?: Partial<{ current: KeyedSessions[]; previous: KeyedSessions[] }>;
   devices?: Partial<{ current: KeyedSessions[]; previous: KeyedSessions[] }>;
+  countries?: KeyedSessions[];
   sources?: KeyedSessions[];
   pages?: Ga4Dataset["pages"];
   events?: Ga4EventRow[];
@@ -131,6 +132,7 @@ export function ga4Dataset(over: Ga4Overrides = {}): Ga4Dataset {
       current: over.devices?.current ?? [sessions("mobile", 500), sessions("desktop", 500)],
       previous: over.devices?.previous ?? [sessions("mobile", 500), sessions("desktop", 500)],
     },
+    countries: over.countries ?? [sessions("Japan", 950), sessions("United States", 50)],
     mapping,
     unmapped: unmappedEvents(names, mapping),
     notes: [],

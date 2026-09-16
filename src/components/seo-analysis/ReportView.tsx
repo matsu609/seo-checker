@@ -70,7 +70,7 @@ export function ReportView(props: ReportViewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 no-print">
         <p className="text-[12px] text-muted">
           収集 {formatDateTime(sheet.generatedAt)} ／ 目的: {GOAL_LABELS[sheet.input.goal]}
           {sheet.input.keywords.length > 0 && ` ／ キーワード: ${sheet.input.keywords.join(" / ")}`}
@@ -241,7 +241,7 @@ export function ReportView(props: ReportViewProps) {
               printCard
               actions={
                 props.secondOpinionState !== "disabled" && props.onSecondOpinion ? (
-                  <Button variant="secondary" size="sm" loading={props.secondOpinionState === "loading"} onClick={props.onSecondOpinion} className="print:hidden">
+                  <Button variant="secondary" size="sm" loading={props.secondOpinionState === "loading"} onClick={props.onSecondOpinion} className="no-print">
                     {secondOpinion ? "取り直す" : "取得する"}
                   </Button>
                 ) : null
@@ -313,7 +313,7 @@ export function ReportView(props: ReportViewProps) {
           description="パワーアップ分析の中で実行したクロールの結果です。48 ルールの課題一覧（CSV 出力可）、カテゴリ別の件数、サイトの構成、信頼の手がかり、診断したページの一覧。"
           actions={
             audit ? (
-              <Button variant="secondary" size="sm" className="print:hidden" onClick={() => setShowDetail((v) => !v)}>
+              <Button variant="secondary" size="sm" className="no-print" onClick={() => setShowDetail((v) => !v)}>
                 {showDetail ? "折りたたむ" : `詳細を表示（課題 ${fmt(audit.issues.length)} 件・${fmt(audit.crawl.analyzed)} ページ）`}
               </Button>
             ) : null
@@ -321,12 +321,12 @@ export function ReportView(props: ReportViewProps) {
         >
           {!audit && <p className="text-[13px] text-muted">この分析にはクロールの全結果が保存されていません（保存の列が無い時期の分析か、収集だけの状態です）。付録の事実シートに集計は残っています。</p>}
           {audit && !showDetail && (
-            <p className="text-[13px] text-muted print:hidden">
+            <p className="text-[13px] text-muted no-print">
               重大 {audit.bySeverity.error} / 警告 {audit.bySeverity.warning} / 情報 {audit.bySeverity.info}。「詳細を表示」で課題ごとの URL と直し方、ページ一覧を開きます。
             </p>
           )}
           {audit && (
-            <div className={`space-y-6 ${showDetail ? "" : "hidden print:block"}`}>
+            <div className={`space-y-6 ${showDetail ? "" : "hidden print-expand"}`}>
               <AuditCategoryTable rows={audit.byCategory} hasPrevious={false} />
               {audit.structure && <StructureCard structure={audit.structure} />}
               {audit.trust && <TrustCard trust={audit.trust} />}

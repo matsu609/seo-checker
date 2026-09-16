@@ -94,7 +94,7 @@ export async function collectGa4Dataset(
     });
 
   try {
-    const [channels, channelsPrev, sources, landing, landingPrev, pages, events, devices, devicesPrev, channelEvents] = await Promise.all([
+    const [channels, channelsPrev, sources, landing, landingPrev, pages, events, devices, devicesPrev, countries, channelEvents] = await Promise.all([
       sessionsBy("sessionDefaultChannelGroup", current, SMALL_LIMIT),
       sessionsBy("sessionDefaultChannelGroup", previous, SMALL_LIMIT),
       sessionsBy("sessionSourceMedium", current, SMALL_LIMIT),
@@ -116,6 +116,7 @@ export async function collectGa4Dataset(
       }),
       sessionsBy("deviceCategory", current, SMALL_LIMIT),
       sessionsBy("deviceCategory", previous, SMALL_LIMIT),
+      sessionsBy("country", current, SMALL_LIMIT),
       client.runReport({
         dateRanges: [current],
         dimensions: [{ name: "sessionDefaultChannelGroup" }, { name: "eventName" }],
@@ -186,6 +187,7 @@ export async function collectGa4Dataset(
         events: eventRows,
         channelEvents: channelEventRows,
         devices: { current: readSessions(devices), previous: readSessions(devicesPrev) },
+        countries: readSessions(countries),
         mapping,
         unmapped,
         notes,

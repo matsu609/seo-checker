@@ -34,6 +34,7 @@
 | 共通 | `/legal/tokushoho` | 特定商取引法に基づく表記（ログイン不要） | — | なし |
 | 共通 | `/start` | ログイン直後の振り分け（未契約は `/plans`、契約済みはツールへ。画面は出さない） | — | なし |
 
+- **PDF に出す折りたたみには `print:block` を使わない。** PDF は `@media print` ではなく DOM の複製（`.pdf-capture`）を画像化して作るので、Tailwind の `print:` 系は PDF にまったく効かない。画面で開かずに PDF を作ると中身が丸ごと抜ける。折りたたみは `hidden print-expand`、画面専用の操作は `no-print` を使う（`globals.css` に定義。`src/app/__tests__/pdf-capture-css.test.ts` で固定）。
 - 外部依存が未設定のときは、ページ内で `SetupNotice`（何を `.env.local` に設定すればよいか）を表示し、設定済みの部分だけ動かす。**ダミーデータで動いているように見せない。**
 - クイック診断（`/` と `/meo`）は本サービスから切り離した集客の入口。専用の公開シェル（`FreeShell`: ロゴ・申し込み・規約だけ）で出し、有料ツールのサイドバーは見せない。結果の下に `UpgradeCta`（無料の限界 → 精密診断で分かること → `/sign-up`）を必ず置く。管理画面のサイドバーでは最下部に「お客様に渡すクイック診断」として置き、見込み客に渡す公開リンクという位置づけにする（利用者の決定 2026-09-13）。`robots.ts` / `sitemap.ts` もクイック診断と規約類だけを開ける。
 
@@ -58,7 +59,7 @@ src/
     crawl/                    # サイト全体クロール（sitemap 展開 + 内部リンク BFS）。クイック診断と A1 で共有
     audit/                    # A1 テクニカル SEO ルール（extras.ts = 構成・信頼の分析に使う追加項目の抽出）
     seo-analysis/             # サイトの構成・信頼（structure / trust / kinds。A1 に同梱）+ パワーアップ分析
-    diagnosis/                # 数字の診断（GSC / GA4 のルール判定）。rules/ = 宣言、engine.ts = 発火判定、events.ts = イベント名の共通化、sources/ = 取り込み
+    diagnosis/                # 数字の診断（GSC / GA4 のルール判定）。rules/ = 宣言、engine.ts = 発火判定、events.ts = イベント名の共通化、sources/ = 取り込み、summary.ts = 画面の並べ方
                               #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合・ChatGPT）、
                               #   collect.ts（クロール → PSI / CrUX / SerpApi / Google 連携）、runs.ts（Supabase analysis_runs）、quota.ts
     crux/                     # CrUX API / CrUX History API（実ユーザーの速度。所有権不要）

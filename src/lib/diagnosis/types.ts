@@ -214,6 +214,8 @@ export interface Ga4Dataset {
   events: Ga4EventRow[];
   channelEvents: Ga4ChannelEventRow[];
   devices: Paired<KeyedSessions[]>;
+  /** 国別（当期のみ。GSC の国別と突き合わせる） */
+  countries: KeyedSessions[];
   /** 共通イベントへの対応表（自動判定 + 設定画面での上書き） */
   mapping: EventMapping;
   /** 対応表に載らなかったイベント名 */
@@ -322,6 +324,8 @@ export interface Ga4Summary {
   mappingLines: string[];
   /** 共通イベントに当てられなかったイベント名 */
   unmapped: string[];
+  /** 段階ごとの「普通はこのくらい」の目安（業種で変わる。絶対的な基準ではない） */
+  reference: { engagement: number; cta: number; formStart: number; formComplete: number };
 }
 
 export interface DiagnosisSummary {

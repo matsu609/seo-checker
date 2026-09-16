@@ -278,6 +278,7 @@ function ga4SummaryOf(ctx: DiagnosisContext): Ga4Summary | null {
     organicConversionRate: d.organicConversionRate,
     mappingLines: describeMapping(g.mapping),
     unmapped: g.unmapped,
+    reference: ctx.thresholds.funnelReference,
   };
 }
 

@@ -39,12 +39,12 @@ export function FactsAppendix({ facts }: { facts: readonly Fact[] }) {
       title="付録: 事実シート"
       description="AI が読んだ数字の一覧です。分析の中の ID（例: S-03）はこの行を指しています。ここに無い数字は AI が作ったものなので、本文には出ない設計です。"
       actions={
-        <button type="button" className="text-[13px] text-accent underline-offset-2 hover:underline print:hidden" onClick={() => setOpen((v) => !v)}>
+        <button type="button" className="text-[13px] text-accent underline-offset-2 hover:underline no-print" onClick={() => setOpen((v) => !v)}>
           {open ? "折りたたむ" : `すべて表示（${facts.length} 行）`}
         </button>
       }
     >
-      <div className={open ? "" : "hidden print:block"}>
+      <div className={open ? "" : "hidden print-expand"}>
         {AREA_ORDER.filter((a) => grouped.has(a)).map((area) => (
           <section key={area} className="mb-5 last:mb-0">
             <h3 className="mb-2 text-sm font-bold text-ink">{FACT_AREA_LABELS[area]}</h3>
@@ -74,7 +74,7 @@ export function FactsAppendix({ facts }: { facts: readonly Fact[] }) {
         ))}
       </div>
       {!open && (
-        <p className="text-[12px] text-muted print:hidden">
+        <p className="text-[12px] text-muted no-print">
           {AREA_ORDER.filter((a) => grouped.has(a)).map((a) => (
             <Badge key={a} tone="neutral" icon={false} className="mr-1.5 mb-1">
               {FACT_AREA_LABELS[a]} {grouped.get(a)!.length}
