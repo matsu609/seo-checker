@@ -75,7 +75,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r73 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r74 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -247,6 +247,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
+| 88 | **Ahrefs の Domain Rating ライセンスに目を通す**: https://ahrefs.com/legal/domain-rating-license 。有料サービスに組み込む以上、条件（帰属表示・再配布と競合の禁止・一括収集の禁止・いつでも取り消し可）を一度ご自身で確認しておく。Claude 側はこの環境から ahrefs.com に接続できず、検索インデックス経由でしか読めていない | 利用者 | 未 |
 | 87 | **Ahrefs の API キーを作り直す**（#83 で作った日の 1 年後）: **期限はマスター画面 https://app.seo-checker.tokyo/admin の「外部連携」→ Ahrefs の行に出る**（残り 30 日で黄色、切れると赤。r73 で実装）。切れたら https://app.ahrefs.com/account/api-keys で新しいキーを作る → Vercel の `AHREFS_API_KEY` を差し替え → `AHREFS_API_KEY_ISSUED_AT` も新しい日付に → Redeploy。**費用はかからない**（`domain-rating-free` は無料の公開エンドポイント） | 利用者 | #83 の完了待ち。期限日は画面が教えてくれるので、このメモに書き込む必要は無くなった |
 | 86 | **Open PageRank をどうするか決める**（2026-09-16 判明）: 旧 API が **2026-09-30 に終了**し、Keywords Everywhere の新 API（`openpagerank.keywordseverywhere.com`、Bearer 認証、無料枠 月 30,000 ドメイン）に移る。選択肢は ① 新 API に移行する ② Open PageRank をやめて Ahrefs の DR 一本にする（DR があれば採点は埋まる）。**推奨は ②**（DR が本命で、OPR は代替。移行の実装と利用者のアカウント作成が要る割に得るものが小さい）。②なら `src/lib/domain-power/openpagerank.ts` と関連の設定・文言を消す | 利用者 → Claude | 判断待ち |
 | 80 | ~~**Open PageRank を有効にする**~~ → **保留**（旧 API が 9/30 終了。#86 の判断待ち）。旧: （ドメインパワーの「外部からのリンクの評価」。無料）: domcop で登録 → API キー → Vercel `OPENPAGERANK_API_KEY`（Secret、Production）→ Redeploy → `/admin` の外部連携で「設定済み」を確認 → 精密診断を再実行してドメインパワーの内訳に「外部からのリンクの評価」が出ること。下の「Open PageRank を有効にする手順」 | 利用者 | 未 |
@@ -303,7 +304,7 @@ SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計
 
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
-| 1 | Ahrefs → 登録 | https://ahrefs.com/signup?plan=awt | 無料アカウント（Ahrefs Webmaster Tools）を作る。有料プランの契約は不要 |
+| 1 | Ahrefs → 登録 | https://ahrefs.com/signup?plan=awt | 無料アカウントを作る。有料プランの契約は不要。**登録後に出る「プロジェクトをインポートまたは追加する」の画面は右上の「キャンセル」で飛ばしてよい**（サイトの所有確認は Ahrefs Webmaster Tools を使うための手順で、このツールが使う DR の公開エンドポイントには関係しない） |
 | 2 | Ahrefs → アカウント設定 → API キー | https://app.ahrefs.com/account/api-keys | APIv3 のキーを作成してコピー（会話には貼らないでください） |
 | 3 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `AHREFS_API_KEY`、Value にキー、Environment は Production、Sensitive にチェック → Save |
 | 3b | Vercel → 環境変数（同じ画面） | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | もう 1 つ「Add」→ Key **`AHREFS_API_KEY_ISSUED_AT`**、Value は**キーを作った日**（例 `2026-09-17`。`YYYY-MM-DD` の形）、Environment は Production。Sensitive は不要（秘密ではない）。これを入れると `/admin` の外部連携に**失効までの残り日数**が出て、期限が近づくと黄色、切れると赤になる |
@@ -1435,3 +1436,45 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - `GET /api/integrations` の応答は `{ ...boolean, status, keyExpiry }` の形にした。最上位の boolean を残してあるので、古い読み方をする画面があっても壊れない。
 - 検証: lint / tsc / test（**1,834 件**。期限の計算は 9 件 = 日付の形・存在しない日付・当日・境界の 30/31 日・期限切れ・未設定・時刻でずれないこと）/ build 通過。
 - **#87 は「画面が教えてくれる」形になった**ので、期限日をこのメモに書き込む運用はやめる。
+
+### 2026-09-16（利用者の確認: Ahrefs の DR を自社サービスに組み込んでよいか、r74）
+
+**質問**（登録画面に「Ahrefs Webmaster Tools は、ご自身が所有するウェブサイトでのみご利用いただけます」と出たのを見て）「これ自社の分析ツールにしか使えないのでは？ サービスの一部として組み込んでもいいの？」
+
+**結論: 別物。DR の公開エンドポイントは、他人のサイトに対しても、自社サービスに組み込んで使ってよい。** ただし守る条件がある。
+
+**1. 2 つを混同しない**
+
+| | Ahrefs Webmaster Tools（AWT） | DR の公開エンドポイント（このツールが使う方） |
+|---|---|---|
+| 何 | 無料の SEO 分析画面（被リンク・順位・サイト監査） | `GET /v3/public/domain-rating-free` |
+| 制限 | **所有権を確認したサイトだけ**。競合調査はできない | **どのドメインでも引ける**。所有確認は不要 |
+| 必要なもの | サイトの所有確認 | 無料アカウントの APIv3 キーだけ |
+
+画面に出た「ご自身が所有するウェブサイトでのみ」は **AWT という製品の制限**で、公開エンドポイントの話ではない。
+登録後の「プロジェクトをインポートまたは追加する」は**キャンセルで飛ばしてよい**（#83 の手順 1 に追記した）。
+
+**2. ライセンスは商用組み込みを明示的に許している**
+
+Domain Rating License（https://ahrefs.com/legal/domain-rating-license ）の許諾はこう書かれている:
+「worldwide, non-exclusive, royalty-free, **revocable** licence to access the DR APIs and **use, display, publish or integrate DR Data into or within your products and services**」。
+**自社の製品・サービスに組み込んで表示・公開してよい**と明記されている。無料。
+
+**3. 守る条件（4 つ）と、このツールの状況**
+
+| 条件 | 守れているか |
+|---|---|
+| 表示のたびに「Domain Rating by Ahrefs」+ **ahrefs.com への機能するリンク**。隠す・消すのは不可 | ○（カードに実装。**r74 で PDF 対策として URL も文字で併記**した。PDF は画面を画像化するのでリンクが押せないため） |
+| DR データを**そのままの形で再配布・販売**しない／**Ahrefs の代替・競合になる製品**にしない | ○ の想定。8 指標のうちの 1 つとして報告書に出しているだけで、DR の配信そのものを売ってはいない。**ただし「競合か」は判断の幅がある**（下の注意） |
+| **一括・組織的に収集**してデータセット・索引・製品を作らない | ○（1 回の分析で最大 3 ドメイン、24 時間キャッシュ） |
+| 無保証・**いつでも取り消される**（revocable） | ○（取り消されても DR が「未取得」になるだけで、残り 7 指標で採点は続く） |
+
+**注意（判断の幅があるところ）**: 「Ahrefs の製品・サービスの代替や競合になるもの」は線引きが書かれていない。
+いまの使い方（**総合的な SEO 診断の中の 1 指標**として出す）は「組み込み」の範囲だと読めるが、
+もし将来「DR を調べる画面」そのものを売りにする形にすると、この条件に触れる可能性がある。
+**DR 単体を主役にした機能・料金プランは作らない**という方針にしておく。
+
+**この回答の確からしさ**: この環境から ahrefs.com に接続できないため、ライセンス本文は検索インデックス経由の引用で確認した。
+**お金を取るサービスに組み込む以上、利用者ご自身で一度 https://ahrefs.com/legal/domain-rating-license を読んでおくことを勧める**（#88）。
+
+- 検証: lint / tsc / test（1,834 件）/ build 通過。r74 の変更は帰属表示に URL の文字を足しただけ。

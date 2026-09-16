@@ -84,10 +84,16 @@ export function DomainPowerCard({ domain }: { domain: DomainPowerResult }) {
                   <span className="text-[22px] font-bold leading-none tabular-nums text-ink">{domain.ahrefsDr.toFixed(0)}</span>
                   <span className="text-[11px] text-muted">/ 100</span>
                 </div>
+                {/*
+                  Ahrefs の利用条件: DR を出すところには必ず「Domain Rating by Ahrefs」と
+                  ahrefs.com への機能するリンクを、隠さず消さずに置く。PDF は画面を画像に
+                  しているためリンクが押せないので、URL も文字で並べる（消さないこと）。
+                */}
                 <div className="mt-1 text-[11px] text-muted">
                   <a href={AHREFS_URL} target="_blank" rel="noopener noreferrer" className="text-accent underline-offset-2 hover:underline">
                     {AHREFS_ATTRIBUTION}
                   </a>
+                  <span className="ml-1 break-all">（{AHREFS_URL}）</span>
                 </div>
               </div>
             )}
