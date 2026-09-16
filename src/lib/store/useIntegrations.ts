@@ -38,22 +38,37 @@ function normalize(data: unknown): IntegrationsPayload {
   return { status: out, keyExpiry };
 }
 
+/** 最後に取得できた時刻（画面に「最終確認」として出す） */
+let checkedAt: number | null = null;
+
+function request(): Promise<IntegrationsPayload> {
+  const p = fetch("/api/integrations", { cache: "no-store" })
+    .then(async (r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return normalize(await r.json());
+    })
+    .then((payload) => {
+      cache = payload;
+      checkedAt = Date.now();
+      return payload;
+    })
+    .finally(() => {
+      if (inflight === p) inflight = null;
+    });
+  return p;
+}
+
+/**
+ * 連携状況を取る。`force` のときは**必ず取り直す**
+ * （進行中の取得を使い回すと「再確認」を押しても古い結果が返るため）。
+ */
 export async function fetchIntegrations(force = false): Promise<IntegrationsPayload> {
-  if (cache && !force) return cache;
-  if (!inflight) {
-    inflight = fetch("/api/integrations", { cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return normalize(await r.json());
-      })
-      .then((payload) => {
-        cache = payload;
-        return payload;
-      })
-      .finally(() => {
-        inflight = null;
-      });
+  if (force) {
+    inflight = request();
+    return inflight;
   }
+  if (cache) return cache;
+  inflight ??= request();
   return inflight;
 }
 
@@ -62,7 +77,12 @@ export interface UseIntegrationsResult {
   status: IntegrationStatus | null;
   /** 寿命のあるキーの失効日と残り日数（取得前・該当なしは空） */
   keyExpiry: IntegrationExpiries;
+  /** 最初の取得が終わるまで true */
   loading: boolean;
+  /** 「再確認」で取り直している間 true（ボタンの表示に使う） */
+  refreshing: boolean;
+  /** 最後に取得できた時刻。まだなら null */
+  checkedAt: number | null;
   error: string | null;
   reload: () => void;
 }
@@ -70,21 +90,28 @@ export interface UseIntegrationsResult {
 /** GET /api/integrations を取得して連携の有無を返す */
 export function useIntegrations(): UseIntegrationsResult {
   const [payload, setPayload] = useState<IntegrationsPayload | null>(cache);
+  const [at, setAt] = useState<number | null>(checkedAt);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let alive = true;
+    // refreshing は「再確認」を押したときに立てる（効果の中で同期に setState しない）
     fetchIntegrations(tick > 0)
       .then((p) => {
         if (!alive) return;
         setPayload(p);
+        setAt(checkedAt);
         setError(null);
       })
       .catch(() => {
         if (!alive) return;
         setPayload({ status: ALL_OFF, keyExpiry: {} });
         setError("連携状況を取得できませんでした");
+      })
+      .finally(() => {
+        if (alive) setRefreshing(false);
       });
     return () => {
       alive = false;
@@ -95,7 +122,12 @@ export function useIntegrations(): UseIntegrationsResult {
     status: payload?.status ?? null,
     keyExpiry: payload?.keyExpiry ?? {},
     loading: payload === null,
+    refreshing,
+    checkedAt: at,
     error,
-    reload: () => setTick((t) => t + 1),
+    reload: () => {
+      setRefreshing(true);
+      setTick((t) => t + 1);
+    },
   };
 }

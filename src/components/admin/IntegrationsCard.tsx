@@ -23,15 +23,21 @@ import { expiryLabel, type KeyExpiry } from "@/lib/features/key-expiry";
 import { useIntegrations } from "@/lib/store/useIntegrations";
 
 export function IntegrationsCard() {
-  const { status, keyExpiry, loading, error, reload } = useIntegrations();
+  const { status, keyExpiry, loading, refreshing, checkedAt, error, reload } = useIntegrations();
   return (
     <Card
       title="外部連携（API キーの設定状況）"
       description={`API キーは Vercel の環境変数（開発時は .env.local）にだけ置きます。ここには設定の有無しか出ません。変更後は Redeploy（開発時は再起動）が必要です。各行をタップすると料金・上限・このツールでの消費量と公式サイトへのリンクが開きます（料金・上限は ${PRICING_CHECKED_AT} に確認した値。単価は変わるので、リンク先で確かめてください）。`}
       actions={
-        <Button size="sm" variant="secondary" onClick={reload} loading={loading}>
-          再確認
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 押しても表示が変わらないと「効いていない」と見えるので、確認できた時刻を出す */}
+          <span className="text-[11px] tabular-nums text-muted">
+            {checkedAt ? `最終確認 ${new Date(checkedAt).toLocaleTimeString("ja-JP")}` : "確認中…"}
+          </span>
+          <Button size="sm" variant="secondary" onClick={reload} loading={loading || refreshing}>
+            再確認
+          </Button>
+        </div>
       }
     >
       {error && (
@@ -44,8 +50,12 @@ export function IntegrationsCard() {
           <IntegrationRow key={key} meta={INTEGRATIONS[key]} on={status === null ? null : (status[key] ?? false)} expiry={keyExpiry[key] ?? null} />
         ))}
       </ul>
-      <p className="mt-3 text-[12px] text-muted">
+      <p className="mt-3 text-[12px] leading-relaxed text-muted">
         変数の一覧と書き方は <code className="font-mono">.env.example</code> を参照してください。
+        <br />
+        <strong className="text-ink">「未設定」のまま変わらないとき</strong>: 環境変数は<strong className="text-ink">デプロイのときに読み込まれます</strong>。
+        Vercel で値を足しただけでは反映されないので、Deployments から <strong className="text-ink">Redeploy</strong> してください
+        （ブラウザの再読み込みや「再確認」では変わりません）。
       </p>
     </Card>
   );
