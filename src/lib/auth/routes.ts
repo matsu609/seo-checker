@@ -31,10 +31,10 @@ const PUBLIC_PAGE_PREFIXES = ["/r/"] as const;
  *
  * `/api/meo/search` と `/api/meo/report` は無料 MEO 診断（実費が出る）。
  * ハンドラ側が IP ごとの回数制限と 1 日の全体上限で守る（src/lib/free/ratelimit.ts）。
- * `/api/cron/maps-refresh` は Vercel の Cron が叩く（ログインは無い）。
+ * `/api/cron/maps-refresh` と `/api/cron/geo-run` は Vercel の Cron が叩く（ログインは無い）。
  * ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
  */
-const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/cron/maps-refresh", "/api/billing/webhook"]);
+const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/cron/maps-refresh", "/api/cron/geo-run", "/api/billing/webhook"]);
 
 /**
  * ログイン不要で叩ける API の前方一致。`/api/r/<slug>/...` は来店客のアンケート

@@ -21,6 +21,7 @@
 | 診断 | `/tools/page-diagnosis` | ページ診断（キーワード × ページ） | A4 | SERP or Anthropic web 検索 |
 | 診断 | `/tools/aio-topics` | AIO 頻出トピック | A5 | SERP + Anthropic |
 | 計測 | `/tools/rank` | 順位計測・AI Overviews 引用 | B1, B2, B3 | SERP |
+| 計測 | `/tools/geo` | AI 検索モニタリング（引用・参照の定点観測） | — | DataForSEO + Supabase（Anthropic は任意） |
 | 計測 | `/tools/llmo` | LLMO モニタリング・LLM リサーチ | B4, B8 | Anthropic（他社は任意） |
 | 計測 | `/tools/prompt-expansion` | プロンプト拡張 | B7 | Anthropic |
 | 計測 | `/tools/ai-traffic` | 生成 AI 流入分析 | B6 | GA4 |
@@ -65,6 +66,8 @@ src/
     diagnosis/                # 数字の診断（GSC / GA4 のルール判定）。rules/ = 宣言、engine.ts = 発火判定、events.ts = イベント名の共通化、sources/ = 取り込み、summary.ts = 画面の並べ方
                               #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合・ChatGPT）、
                               #   collect.ts（クロール → PSI / CrUX / SerpApi / Google 連携）、runs.ts（Supabase analysis_runs）、quota.ts
+    geo/                      # AI 検索モニタリング（docs/dev/geo-monitoring-spec.md）。pricing / credits / schedule /
+                              #   stats / normalize / extract / aggregate は純関数、dataforseo・store・service・run が I/O
     crux/                     # CrUX API / CrUX History API（実ユーザーの速度。所有権不要）
     domain-power/             # ドメインパワー（無料の 8 指標からの推定。ahrefs.ts = DR 0〜100（無料の公開エンドポイント。
                               #   他社の測定サイトと同じ数値）、openpagerank.ts = OPR 0〜10、rdap.ts = 登録日、
@@ -110,6 +113,8 @@ src/
 | `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きと質問文の訳のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援の回数制限（アンケートごとの 1 日の回答数 500 / AI 下書きの 1 日の全体上限 2,000） | 任意 |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | AI 検索モニタリング（`src/lib/geo/`）。ChatGPT / Gemini / AI Overviews の定期計測 | この機能に必須 |
+| `GEO_USD_JPY` / `GEO_PRICE_*` / `GEO_LOCALE` / `GEO_CHARGE_ON_CACHE_HIT` | 同上の為替・単価・ロケール・キャッシュ時の課金。**単価はコードに直書きせず、ここだけで変える** | 任意 |
 | `CRON_SECRET` | Vercel Cron（`vercel.json`）が `/api/cron/maps-refresh` を叩くときの Bearer。`src/lib/auth/cron.ts` で検証。未設定なら Cron は何もしない | MEO の一斉更新に必須 |
 | `SITE_MAX_PAGES` | サイト診断（精密診断）のクロール上限（既定 300、上限 1000） | 任意 |
 | `FREE_SITE_MAX_PAGES` | クイック診断のサイト全体のページ数（既定 10、上限 50） | 任意 |

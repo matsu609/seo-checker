@@ -137,6 +137,7 @@ describe("公開パスの一覧", () => {
       "/api/meo/search",
       "/api/meo/report",
       "/api/cron/maps-refresh",
+      "/api/cron/geo-run",
       "/api/billing/webhook",
     ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);

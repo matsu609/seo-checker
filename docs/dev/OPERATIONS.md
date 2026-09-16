@@ -39,6 +39,7 @@
 | Cloudflare → 紹介サイトの Worker（ビルド設定） | https://dash.cloudflare.com/ → Compute（Workers） → `seo-checker-hp` → Settings → Build |
 | Google Cloud → OAuth → 対象（テストユーザー） | https://console.cloud.google.com/auth/audience?project=seo-checker-508104 |
 | Ahrefs → API キー（無料アカウント） | https://app.ahrefs.com/account/api-keys |
+| DataForSEO → ダッシュボード（残高） | https://app.dataforseo.com/api-dashboard |
 | Open PageRank（ドメインの外部リンク評価） | https://www.domcop.com/openpagerank/ |
 | Claude Console → クレジット | https://platform.claude.com/settings/billing |
 | Claude Console → API キー | https://platform.claude.com/settings/keys |
@@ -75,7 +76,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r75 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r76 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -247,6 +248,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 67 | **クイック診断を本サービスから切り離す**: 専用の公開シェル（サイドバー無し）・結果の下の導線・`robots.txt` / `sitemap.xml`・契約後の「はじめかた」3 ステップ・設定画面の Google 連携の補足 | Claude | **完了（r49、09-13）**。lint / tsc / test（1,504 件）/ build 通過、本番ビルドで表示確認 |
 | 68 | **呼び名を「クイック診断 / 精密診断」に統一し、無料の深さを絞る**: 画面・PDF・紹介サイト・llms.txt・README・設計ドキュメントの文言を変更。サイト全体の診断を最大 300 ページ → 代表 10 ページ（`FREE_SITE_MAX_PAGES`）にし、残りページ数を出して精密診断へつなぐ | Claude | **完了（r50、09-13）**。lint / tsc / test（1,509 件）/ build / E2E スモーク（18 ページのダミーサイトが 10 ページで打ち切り）通過 |
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
+| 91 | **AI 検索モニタリングを動かす**（下の「AI 検索モニタリングを有効にする手順」）: Supabase で 8 テーブルの SQL を実行 → DataForSEO に登録して前払い → Vercel に `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` → Redeploy → `/tools/geo` で自社ブランドとプロンプトを登録 → 翌朝の Cron で数字が入る | 利用者 | 未 |
+| 92 | AI 検索モニタリングの**生成処理**（仕様書 §7.2 / §7.3）: 週次レポート（軽量モデル + テンプレート）と月次深掘り（高性能モデル 月 1 回）、差分実行（前回とほぼ同じなら再生成しない）。クレジットのレート（週次 30 / 月次 150）と台帳は実装済みなので、`run.ts` の後段に足すだけ | Claude | 未（計測が回ってから） |
 | 90 | **露出した Ahrefs の API キーを作り直す（急ぎ）**: 2026-09-16 に Vercel の環境変数画面のスクリーンショット（値が平文表示）が会話に貼られた。https://app.ahrefs.com/account/api-keys で**そのキーを削除 → 新しいキーを作成** → Vercel の間違った変数 `AHREFS_API_KEY_ISSUED_2026_09_17` を削除 → 正しい名前で `AHREFS_API_KEY`（Sensitive）と `AHREFS_API_KEY_ISSUED_AT` を作る → Redeploy。DR は無料エンドポイントなので、漏れても課金の被害は無いが、他人がこのアカウントのキーとして使える状態は避ける | 利用者 | **未（急ぎ）** |
 | 89 | **Vercel のビルドが 1 push で 2 回走るのを止める**（2026-09-16 判明）: 作業ブランチと main に同じコミットを push しているため Production と Preview の両方がビルドされる。中身が同じなので Preview は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする（履歴の追いやすさは落ちる）②Vercel → Settings → Git で Preview を作るブランチを絞る。**急ぎではない**（上限には当たっていない） | 利用者 → Claude | 判断待ち |
 | 88 | **Ahrefs の Domain Rating ライセンスに目を通す**: https://ahrefs.com/legal/domain-rating-license 。有料サービスに組み込む以上、条件（帰属表示・再配布と競合の禁止・一括収集の禁止・いつでも取り消し可）を一度ご自身で確認しておく。Claude 側はこの環境から ahrefs.com に接続できず、検索インデックス経由でしか読めていない | 利用者 | 未 |
@@ -299,6 +302,25 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 6 | 本番 → 精密診断 | https://app.seo-checker.tokyo/tools/seo-analysis | 対策キーワードを入れて「分析する」。KPI の「対策キーワードの順位」に「n / m 語が 100 位以内」と出れば完了（このときも今月の回数を 1 つ使う） |
 
 SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計測・AI Overviews 引用・ページ診断の上位 10 件・AIO 頻出トピック。無料枠を超えないよう、SerpApi のダッシュボード（https://serpapi.com/dashboard ）で残り回数を見る。
+
+### AI 検索モニタリングを有効にする手順（#91。利用者の作業）
+
+仕様書は [geo-monitoring-spec.md](./geo-monitoring-spec.md)。**1 アカウント月 ¥3,000 以内**の原価で回す設計。
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | 上の「AI 検索モニタリングのテーブル」の SQL を全部貼って Run → Success。Table Editor に `geo_` で始まる 8 つのテーブルが出れば完了 |
+| 2 | DataForSEO → 登録 | https://app.dataforseo.com/register | アカウントを作る（前払い。最低入金額は画面で確認。まずは $50 程度で足りる） |
+| 3 | DataForSEO → API アクセス | https://app.dataforseo.com/api-access | **API 用のログイン（メール）とパスワード**を確認・コピー。ログイン画面のパスワードとは別に発行される |
+| 4 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | 「Add」→ Key `DATAFORSEO_LOGIN`、Value に 3 のログイン、Production、**Sensitive にチェック** |
+| 5 | Vercel → 環境変数（同じ画面） | 同上 | もう 1 つ「Add」→ Key `DATAFORSEO_PASSWORD`、Value に 3 のパスワード、Production、**Sensitive にチェック** |
+| 6 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | Redeploy |
+| 7 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 外部連携の「DataForSEO」が「設定済み」になることを確認 |
+| 8 | 本番 → AI 検索モニタリング | https://app.seo-checker.tokyo/tools/geo | 「設定」タブで**自社ブランド（名前・別名・ドメイン）**を登録 → プロンプトを登録（まずは 5 本ほど）。競合も入れると比較できる |
+| 9 | 翌朝 | https://app.seo-checker.tokyo/tools/geo | Cron（毎日 5:00 JST）が当日分を計測するので、翌朝ダッシュボードに数字が入る。すぐ見たいときは「今すぐ実行」（2 クレジット） |
+
+注意: **反復は週内の別の日に分散**します（通常は月・水・金、高精度は月〜金）。登録した翌日に全部の数字が揃うわけではなく、
+4 週ほどで見出しの数値（4 週ローリング）が安定します。**1 回の結果や 1 週間の上下では判断しない**設計です。
 
 ### Ahrefs の DR を有効にする手順（#83。利用者の作業。無料）
 
@@ -412,6 +434,123 @@ Open PageRank を入れなくてもドメインパワーは 8 指標すべてが
 **明日やらなくてよいもの**: #86（Open PageRank の判断）、#85（Gemini の切替。10 月中旬まで）、#89（ビルド 2 回）、#32（SNS の URL）、#15〜#22・#33・#34 の機能追加。
 
 **Claude 側の準備（利用者の GO があれば着手）**: ① B-1 の回答文の下書き ② A-5 の通し確認のチェックリスト ③ A-6 でお客様に渡す「はじめかた」の案内文（Google 連携の 7 日失効の注意を含む）。
+
+### AI 検索モニタリングのテーブル（Supabase SQL Editor で実行。#91）
+
+`/tools/geo` が使う。仕様書は [geo-monitoring-spec.md](./geo-monitoring-spec.md)。
+**`geo_measurements` だけは user_id を持たない**（顧客間で結果を使い回して原価を下げる設計。§7.1）。
+それ以外は必ず user_id で絞る。RLS は有効のまま、アプリはサーバーの service_role だけで読み書きする。
+
+```sql
+-- 1. アカウント（クレジットと実行曜日のオフセット）
+create table if not exists geo_accounts (
+  user_id text primary key,
+  credit_balance numeric not null default 2000,
+  credit_reset_at timestamptz not null,
+  run_day_offset int not null default 0,
+  precision_slots int not null default 5,
+  created_at timestamptz not null default now()
+);
+
+-- 2. ブランド（自社・競合とエイリアス）
+create table if not exists geo_brands (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  brand_type text not null check (brand_type in ('own','competitor')),
+  display_name text not null,
+  aliases text[] not null default '{}',
+  domains text[] not null default '{}',
+  aliases_updated_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists geo_brands_user on geo_brands (user_id, brand_type);
+
+-- 3. 検索キーワード（順位・AI Overviews）
+create table if not exists geo_keywords (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  text text not null,
+  normalized_hash text not null,
+  track_rank boolean not null default true,
+  track_aio boolean not null default true,
+  created_at timestamptz not null default now()
+);
+create index if not exists geo_keywords_user on geo_keywords (user_id);
+
+-- 4. プロンプト（LLM 計測）
+create table if not exists geo_prompts (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  text text not null,
+  normalized_hash text not null,
+  is_branded boolean not null default false,
+  precision_mode boolean not null default false,
+  models text[] not null default '{}',
+  tags text[] not null default '{}',
+  precision_mode_changed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists geo_prompts_user on geo_prompts (user_id);
+
+-- 5. 計測（★顧客間で共有。user_id を持たない）
+create table if not exists geo_measurements (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null,
+  normalized_hash text not null,
+  text text not null,
+  model text not null,
+  locale text not null,
+  executed_at timestamptz not null,
+  model_version text,
+  response_text text not null default '',
+  citations jsonb not null default '[]',
+  rank int,
+  mode text not null default 'standard',
+  cost_usd numeric not null default 0
+);
+-- キャッシュ照会（ハッシュ × モデル × ロケール × 24 時間）が速いように
+create index if not exists geo_measurements_cache
+  on geo_measurements (normalized_hash, model, locale, executed_at desc);
+
+-- 6. 観測（アカウントごと。計測から導く）
+create table if not exists geo_observations (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  measurement_id uuid not null references geo_measurements (id) on delete cascade,
+  prompt_id uuid,
+  keyword_id uuid,
+  brand_id uuid not null,
+  cited boolean not null default false,
+  mentioned boolean not null default false,
+  mention_confidence numeric not null default 0,
+  position int,
+  cited_domains text[] not null default '{}',
+  domain_class text,
+  observed_at timestamptz not null default now()
+);
+create index if not exists geo_observations_user on geo_observations (user_id, observed_at desc);
+
+-- 7. クレジット台帳
+create table if not exists geo_credit_ledger (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  action text not null,
+  credits numeric not null,
+  measurement_id uuid,
+  cache_hit boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists geo_ledger_user on geo_credit_ledger (user_id, created_at desc);
+
+-- 8. モデル更新の記録（グラフのマーカー）
+create table if not exists geo_model_versions (
+  id uuid primary key default gen_random_uuid(),
+  model text not null,
+  version_from text,
+  version_to text not null,
+  detected_at timestamptz not null default now()
+);
+```
 
 ### 入力待ち（利用者からの回答が要るもの）
 
@@ -1590,3 +1729,20 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - お客様に GSC / GA4 を使ってもらうには、Google Auth Platform のテストユーザーに相手の Google アカウントを追加する必要がある（OAuth が審査前）。7 日でトークンが切れる制約は案内文に入れる。
 - 入力待ちに「2 か月目の請求を Stripe 復旧待ちにするか請求書にするか」を追加。
 - ドキュメントのみの更新。コードは触っていない。
+
+### 2026-09-16（AI 検索モニタリング（GEO）を仕様書どおりに実装、r76）
+
+- 利用者から「AI検索モニタリングツール 仕様書」（Draft v1）を受領。**正本を [geo-monitoring-spec.md](./geo-monitoring-spec.md) に取り込み**、§12 に実装メモを足した。依頼は「忠実に再現」「API の登録を済ませれば利用できるように作りきる」。
+- **作ったもの**: `/tools/geo`（スタンダード）。`src/lib/geo/` に 12 ファイル、API 3 本 + Cron 1 本、画面 5 ファイル。テスト 69 件。
+- **設計の芯**（仕様書の意図をコードの形にした部分）:
+  - **単価と為替はコードに直書きしない**（`pricing.ts` + `GEO_PRICE_*` / `GEO_USD_JPY`）。DataForSEO の値上げや為替変動をデプロイだけで吸収する。
+  - **定期実行から Live を呼ぶ経路を作らない**（§7.4）。標準キューと Live はパスごと分け、バッチは `mode: "standard"` を直に渡す。設定で切り替える口が無い。テストで「バッチは必ず standard」を固定した。
+  - **反復は週内の別の日に分散**（§2.3）。通常は月・水・金、高精度は月〜金 ×2。顧客ごとに曜日をずらす（§2.4）。Cron は**毎日**回して当日分だけ実行する。
+  - **顧客間キャッシュ**（§7.1）。正規化 → SHA-256 → 24 時間以内なら使い回す。同業の顧客が増えるほど 1 社あたりの原価が下がる。
+  - **言えないことを言わない**（§5）。Wilson 区間をバンドで出し、観測 30 件未満はパーセントを出さず「よく言及される / たまに / ほとんど無い」の段階表示。**「有意差」という語は UI に無い**。n=3 同士の完全分離でも「差は読み取れません」と答えることをテストで固定した。
+  - **参照判定は文字列 → 軽量 LLM の 2 段**（§4.2）。候補が無ければ LLM を呼ばない（費用ゼロ）。低確信は「要確認」で画面に出し、**自動で捨てない**。
+- **§11 の未決事項は仮決めして全部設定で変えられるようにした**（詳細は仕様書 §12.2）。キャッシュ時のクレジットは **消費する**、超過課金は **行わない**、ロケールは **日本固定**。
+- **まだ無いもの**: §7.2 / §7.3 の生成処理（週次レポート・月次深掘り・差分実行）。クレジットのレートと台帳は入れてあるので後から足せる（#92）。折れ線グラフ本体も未実装（モデル更新イベントの記録と一覧は実装済み）。
+- **料金プランの置き場所**: 「測る」系だがスタンダードに置いた。1 アカウント月 ¥2,000 前後の変動費が出るため。ライトに下ろすなら料金表（`plans/catalog.ts`・紹介サイト・サービス資料）も直す必要がある（テストのコメントにも書いた）。
+- 検証: lint / tsc / test（**1,909 件**。うち GEO は 69 件）/ build 通過。`/tools/geo` がビルドに出ることを確認。
+- **利用者の作業は #91**（Supabase の SQL → DataForSEO 登録 → Vercel に 2 つの環境変数 → Redeploy → ブランドとプロンプトの登録）。

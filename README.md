@@ -112,6 +112,7 @@ npm run dev                  # http://localhost:3000
 | ツール | ID | 内容 | 必要なキー |
 |---|---|---|---|
 | [順位計測・AI Overviews 引用](src/lib/rank) | B1-B3 | 登録キーワードの順位・変化・ランディング URL、その場で測るリアルタイム計測、AI Overviews の引用を 5 区分（自社のみ / 競合のみ / 両方 / なし / AIO 表示なし）で集計 | SerpApi |
+| [AI 検索モニタリング](src/lib/geo) | — | ChatGPT / Gemini / Google AI Overviews で、自社ブランドが**引用**（ソース欄に自社ドメイン）・**参照**（本文に名前）される割合を毎週はかり、競合と並べる。反復は週内の別の日に分散（通常 週 3 回 / 高精度 週 10 回）し、見出しは 4 週ローリング + 95% 信頼区間のバンドで出す（1 週間の上下では判断しない）。指名検索は自社引用率・引用元構成比・競合同時言及率を主指標にする。同じプロンプトの結果は 24 時間すべての利用者で共有して原価を下げる。クレジット制（月 2,000。使い切っても定期計測は止まらない）。仕様は [geo-monitoring-spec.md](docs/dev/geo-monitoring-spec.md) | DataForSEO + Supabase（Anthropic は任意） |
 | [LLMO モニタリング・LLM リサーチ](src/lib/llmo) | B4 / B8 | 登録プロンプトを複数の LLM に投げ、ブランド言及率・ドメイン引用率・回答原文・引用元を記録。LLM が内部で発行した検索クエリ（ファンアウト）も保存 | Anthropic（OpenAI / Gemini / Perplexity は任意） |
 | [プロンプト拡張](src/lib/llmo) | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
 | [検索パフォーマンス](src/lib/google/search-console) | — | 連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を期間比較つきで取得。日別の推移と、クリックの多いクエリ・ページの一覧。推定ではなく Google の実測値 | Google 連携（利用者ごと） |
@@ -301,6 +302,7 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO モニタリングの対象を増やす |
 | `SERPAPI_KEY` | 順位計測、AI Overviews の引用チェック、ページ診断の上位 10 件 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | AI 検索モニタリング（ChatGPT / Gemini / AI Overviews の定期計測） |
 | `AHREFS_API_KEY` | ドメインパワーの DR（0〜100。無料のドメインパワー測定サイトと同じ数値。Ahrefs の無料公開エンドポイント） |
 | `OPENPAGERANK_API_KEY` | 同上の代替（Open PageRank 0〜10。無料。どちらも未設定なら他の指標だけで採点） |
 | `CRUX_API_KEY` | CrUX（実ユーザーの速度）。無ければ `PAGESPEED_API_KEY` を使う（Google Cloud で Chrome UX Report API を有効にする） |

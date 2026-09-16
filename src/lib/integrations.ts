@@ -19,6 +19,8 @@ const CHECKS: Record<IntegrationKey, () => boolean> = {
   gemini: () => has("GEMINI_API_KEY"),
   perplexity: () => has("PERPLEXITY_API_KEY"),
   serpapi: () => has("SERPAPI_KEY"),
+  // DataForSEO は login と password の両方が要る
+  dataforseo: () => has("DATAFORSEO_LOGIN") && has("DATAFORSEO_PASSWORD"),
   pagespeed: () => has("PAGESPEED_API_KEY"),
   ahrefs: () => has("AHREFS_API_KEY"),
   openpagerank: () => has("OPENPAGERANK_API_KEY"),
