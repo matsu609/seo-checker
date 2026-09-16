@@ -331,6 +331,25 @@ export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
         },
       );
     }
+    const g4 = diagnosis.ga4;
+    if (g4) {
+      f.add(
+        "diagnosis",
+        "訪問後の流れ（GA4）",
+        [
+          `セッション ${g4.sessions.toLocaleString("ja-JP")}`,
+          `エンゲージメント率 ${g4.engagementRate === null ? "—" : pct(g4.engagementRate)}`,
+          `問い合わせ導線のクリック ${g4.ctaSessions.toLocaleString("ja-JP")} セッション`,
+          `フォーム開始 ${g4.formStartSessions.toLocaleString("ja-JP")}`,
+          `フォーム完了 ${g4.formCompleteSessions.toLocaleString("ja-JP")}`,
+        ].join(" / "),
+        {
+          note: `いずれもセッション単位（イベント数ではありません）。CTA クリック率 ${g4.ctaClickRate === null ? "—" : pct(g4.ctaClickRate)}／フォーム開始率 ${g4.formStartRate === null ? "—" : pct(g4.formStartRate)}／フォーム完了率 ${g4.formCompletionRate === null ? "—" : pct(g4.formCompletionRate)}／自然検索の問い合わせ率 ${g4.organicConversionRate === null ? "—" : pct(g4.organicConversionRate)}`,
+        },
+      );
+      for (const line of g4.mappingLines) f.add("diagnosis", "イベントの数え方", line);
+      if (g4.unmapped.length > 0) f.add("diagnosis", "共通イベントに当てられなかったイベント", g4.unmapped.slice(0, 10).join(" / "));
+    }
     for (const t of diagnosis.triggered.slice(0, 30)) {
       f.add("diagnosis", `診断 ${t.id} ${t.name}（重要度 ${RULE_SEVERITY_LABELS[t.severity]} / 確度 ${CONFIDENCE_LABELS[t.confidence].split("（")[0]}）`, t.evidence.join(" / "), {
         note: `事実: ${t.fact}。原因候補: ${t.possibleCauses.join(" / ")}。確認が必要: ${t.requiredChecks.join(" / ")}。書いてはいけないこと: ${t.prohibitedConclusions.join(" / ") || "なし"}`,

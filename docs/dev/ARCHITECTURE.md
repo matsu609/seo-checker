@@ -1,5 +1,7 @@
 # 開発ガイド（アーキテクチャと規約）
 
+関連: 数字の出し方（配点・閾値・計算式）は [scoring-reference.md](./scoring-reference.md)、ツールと API キーの関係は [tool-map.md](./tool-map.md)、運用状態は [OPERATIONS.md](./OPERATIONS.md)。
+
 このリポジトリは 2 つの顔を持つ。
 
 1. **クイック診断**（`/`）: 元々の SEO Checker。URL を入れると AIO（AI 検索最適化）の状況をルールベースで採点し、FAQ を生成する。**見込み顧客向けのリード獲得ツール**なので、レポートとしての見栄えと信頼感を最優先する。
@@ -30,10 +32,11 @@
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
 | 生成 | `/tools/listings` | 基本情報掲載（NAP 一括登録） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
 | 生成 | `/tools/llms-txt` | llms.txt 生成 | D6 | なし |
-| 設定 | `/settings` | プロジェクト・競合・Google 連携（API キーの設定状況は `/admin` に移動） | E1, E2 | なし |
+| 設定 | `/settings` | プロジェクト・競合・Google 連携・GA4 イベントの割り当て（API キーの設定状況は `/admin` に移動） | E1, E2 | なし |
 | 共通 | `/legal/tokushoho` | 特定商取引法に基づく表記（ログイン不要） | — | なし |
 | 共通 | `/start` | ログイン直後の振り分け（未契約は `/plans`、契約済みはツールへ。画面は出さない） | — | なし |
 
+- **PDF に出す折りたたみには `print:block` を使わない。** PDF は `@media print` ではなく DOM の複製（`.pdf-capture`）を画像化して作るので、Tailwind の `print:` 系は PDF にまったく効かない。画面で開かずに PDF を作ると中身が丸ごと抜ける。折りたたみは `hidden print-expand`、画面専用の操作は `no-print` を使う（`globals.css` に定義。`src/app/__tests__/pdf-capture-css.test.ts` で固定）。
 - 外部依存が未設定のときは、ページ内で `SetupNotice`（何を `.env.local` に設定すればよいか）を表示し、設定済みの部分だけ動かす。**ダミーデータで動いているように見せない。**
 - クイック診断（`/` と `/meo`）は本サービスから切り離した集客の入口。専用の公開シェル（`FreeShell`: ロゴ・申し込み・規約だけ）で出し、有料ツールのサイドバーは見せない。結果の下に `UpgradeCta`（無料の限界 → 精密診断で分かること → `/sign-up`）を必ず置く。管理画面のサイドバーでは最下部に「お客様に渡すクイック診断」として置き、見込み客に渡す公開リンクという位置づけにする（利用者の決定 2026-09-13）。`robots.ts` / `sitemap.ts` もクイック診断と規約類だけを開ける。
 
@@ -58,7 +61,7 @@ src/
     crawl/                    # サイト全体クロール（sitemap 展開 + 内部リンク BFS）。クイック診断と A1 で共有
     audit/                    # A1 テクニカル SEO ルール（extras.ts = 構成・信頼の分析に使う追加項目の抽出）
     seo-analysis/             # サイトの構成・信頼（structure / trust / kinds。A1 に同梱）+ パワーアップ分析
-    diagnosis/                # 数字の診断（GSC / GA4 のルール判定）。rules/ = 宣言、engine.ts = 発火判定。どちらも純関数
+    diagnosis/                # 数字の診断（GSC / GA4 のルール判定）。rules/ = 宣言、engine.ts = 発火判定、events.ts = イベント名の共通化、sources/ = 取り込み、summary.ts = 画面の並べ方
                               #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合・ChatGPT）、
                               #   collect.ts（クロール → PSI / CrUX / SerpApi / Google 連携）、runs.ts（Supabase analysis_runs）、quota.ts
     crux/                     # CrUX API / CrUX History API（実ユーザーの速度。所有権不要）

@@ -101,6 +101,17 @@ body {
 .pdf-capture .print-only {
   display: block !important;
 }
+/*
+   画面では折りたたんでいる部分を、PDF と印刷では開いた状態で出す。
+
+   PDF は @media print ではなく DOM の複製を画像化して作るので、Tailwind の
+   print: 系（= @media print）は PDF にはまったく効かない。折りたたみに
+   `hidden print:block` を使うと、**画面で開かずに PDF を作ったとき中身が
+   丸ごと抜ける**。折りたたみには hidden と一緒にこのクラスを付ける。
+*/
+.pdf-capture .print-expand {
+  display: block !important;
+}
 /* 画面では横スクロール・高さ制限で隠れている部分も、PDF には全部出す */
 .pdf-capture .overflow-x-auto {
   overflow: visible !important;
@@ -175,6 +186,10 @@ body {
     display: none !important;
   }
   .print-only {
+    display: block !important;
+  }
+  /* 画面で折りたたんでいる部分も、紙には出す（.pdf-capture と対になる） */
+  .print-expand {
     display: block !important;
   }
 

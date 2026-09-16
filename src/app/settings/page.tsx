@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { EventMappingCard } from "@/components/google/EventMappingCard";
 import { GoogleLinkSection } from "@/components/google/GoogleLinkSection";
 import { Card } from "@/components/ui/Card";
 import { isAuthEnabled } from "@/lib/auth/config";
@@ -19,9 +20,13 @@ export default async function Page() {
   // 例外になる。サーバー側で判定して、そのときはカードごと出さない。
   // Google の API が遅くても設定画面の他が待たされないよう Suspense で包む。
   const googleSection = isAuthEnabled() ? (
-    <Suspense fallback={<Card title="Google 連携" description="読み込んでいます…" />}>
-      <GoogleLinkSection />
-    </Suspense>
+    <>
+      <Suspense fallback={<Card title="Google 連携" description="読み込んでいます…" />}>
+        <GoogleLinkSection />
+      </Suspense>
+      {/* GA4 を 1 回叩くので、押したときだけ読み込む（設定画面の初期表示は遅くしない） */}
+      <EventMappingCard />
+    </>
   ) : null;
 
   return <SettingsView googleSection={googleSection} />;

@@ -2,8 +2,9 @@
  * 診断ルールの一覧（docs/dev/diagnosis-rules-spec.md §9）。
  *
  * ここは宣言を並べるだけ。発火判定は engine.ts。
- * 段階 G3（2026-09-15）で実装したのは、データ品質と Search Console のルール。
- * GA4（A / L / E / K / M）・GSC × GA4（X）・CRM（B）は G4 以降。
+ * 段階 G3（2026-09-15）でデータ品質と Search Console、
+ * 段階 G4（2026-09-16）で GA4（A / L / E / K / M）、
+ * 段階 G5（2026-09-16）で GSC × GA4（X）を実装した。CRM（B）は G8。
  */
 import type { DiagnosisRule } from "../types";
 import { QUALITY_RULES, QUALITY_PENDING } from "./quality";
@@ -12,6 +13,12 @@ import { QUERY_RULES } from "./query";
 import { PAGE_RULES, PAGE_PENDING } from "./page";
 import { SEGMENT_RULES, SEGMENT_PENDING } from "./segment";
 import { URL_RULES, APPEARANCE_RULES } from "./url";
+import { TRAFFIC_RULES } from "./traffic";
+import { LANDING_RULES, LANDING_PENDING } from "./landing";
+import { ENGAGEMENT_RULES, ENGAGEMENT_PENDING } from "./engagement";
+import { CTA_RULES, CTA_PENDING } from "./cta";
+import { MEASUREMENT_RULES, MEASUREMENT_PENDING } from "./measurement";
+import { CROSS_RULES, CROSS_PENDING, CROSS_SKIPPED } from "./cross";
 
 export const ALL_RULES: DiagnosisRule[] = [
   ...QUALITY_RULES,
@@ -21,6 +28,12 @@ export const ALL_RULES: DiagnosisRule[] = [
   ...SEGMENT_RULES,
   ...URL_RULES,
   ...APPEARANCE_RULES,
+  ...TRAFFIC_RULES,
+  ...LANDING_RULES,
+  ...ENGAGEMENT_RULES,
+  ...CTA_RULES,
+  ...MEASUREMENT_RULES,
+  ...CROSS_RULES,
 ];
 
 /** 追加データが揃えば判定できるルール。画面で「判定していない項目」として出す */
@@ -35,14 +48,12 @@ export const PENDING_RULES: PendingRule[] = [
   ...TIMESERIES_PENDING,
   ...PAGE_PENDING,
   ...SEGMENT_PENDING,
-  // GA4 の取り込み（段階 G4）で実装するルール群
-  { id: "A01〜A10", name: "集客（チャネル・参照元）", needs: "GA4 のトラフィック獲得" },
-  { id: "L01〜L10", name: "ランディングページ", needs: "GA4 のランディングページ" },
-  { id: "E01〜E10", name: "エンゲージメント", needs: "GA4 のページ・スクリーン" },
-  { id: "K01〜K12", name: "CTA・フォーム", needs: "GA4 のイベント（共通イベントへの対応表）" },
-  { id: "M01〜M10", name: "計測の不具合", needs: "GA4 のイベント・参照元" },
-  { id: "X01〜X20", name: "Search Console × GA4", needs: "両方の連携" },
-  { id: "B01〜B10", name: "CRM・営業", needs: "問い合わせ・商談・受注の件数" },
+  ...LANDING_PENDING,
+  ...ENGAGEMENT_PENDING,
+  ...CTA_PENDING,
+  ...MEASUREMENT_PENDING,
+  ...CROSS_PENDING,
+  { id: "B01〜B10", name: "CRM・営業（商談化・受注への貢献）", needs: "問い合わせ・有効リード・商談・受注の件数（段階 G8）" },
 ];
 
-export { QUALITY_RULES, TIMESERIES_RULES, QUERY_RULES, PAGE_RULES, SEGMENT_RULES, URL_RULES, APPEARANCE_RULES };
+export { QUALITY_RULES, TIMESERIES_RULES, QUERY_RULES, PAGE_RULES, SEGMENT_RULES, URL_RULES, APPEARANCE_RULES, TRAFFIC_RULES, LANDING_RULES, ENGAGEMENT_RULES, CTA_RULES, MEASUREMENT_RULES, CROSS_RULES, CROSS_SKIPPED };

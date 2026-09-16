@@ -50,6 +50,25 @@ export interface Thresholds {
   highHomepageClickShare: number;
   /** 対象外の国の表示比率がこれ以上なら多い（G03） */
   highForeignImpressionShare: number;
+
+  /**
+   * 訪問後の流れで「普通はこのくらい」の目安。
+   *
+   * 段階ごとに水準がまったく違う（訪問のうち問い合わせボタンを押すのは数 % が普通、
+   * フォームを開いた人のうち送信するのは半分くらいが普通）ので、素の率を段階どうしで
+   * 比べても意味がない。**目安に対してどれだけ足りないか**で「いちばん落ちている段階」を
+   * 決めるために使う。絶対的な基準ではなく、業種で変わる。
+   */
+  funnelReference: {
+    /** エンゲージメント率（訪問のうち、読まれた割合） */
+    engagement: number;
+    /** 訪問のうち、問い合わせ導線を押した割合 */
+    cta: number;
+    /** 押した人のうち、フォームを開いた割合 */
+    formStart: number;
+    /** 開いた人のうち、送信した割合 */
+    formComplete: number;
+  };
 }
 
 /** 仕様書 §8 の初期値 */
@@ -77,6 +96,8 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   abnormalDailyMultiplier: 3.0,
   highHomepageClickShare: 0.6,
   highForeignImpressionShare: 0.2,
+
+  funnelReference: { engagement: 0.55, cta: 0.03, formStart: 0.5, formComplete: 0.4 },
 };
 
 /**
@@ -94,12 +115,15 @@ const PRESETS: Partial<Record<AnalysisGoal, Partial<Thresholds>>> = {
     minimumSessions: 50,
     highBrandClickShare: 0.7,
     highHomepageClickShare: 0.7,
+    // BtoB は検討期間が長く、1 回の訪問で問い合わせまで進みにくい
+    funnelReference: { engagement: 0.55, cta: 0.02, formStart: 0.5, formComplete: 0.4 },
   },
   // EC。商品ページに分散するのが正常なので、トップ集中の基準を厳しく
   ec: {
     highHomepageClickShare: 0.4,
     highBrandClickShare: 0.5,
     lowEngagementRate: 0.45,
+    funnelReference: { engagement: 0.6, cta: 0.05, formStart: 0.6, formComplete: 0.5 },
   },
   // 採用。母数が小さく、季節（採用時期）で大きく動く
   recruit: {

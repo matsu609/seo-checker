@@ -45,3 +45,32 @@ describe("PDF 複製のフォント設定", () => {
     expect(body).not.toMatch(/font-kerning/);
   });
 });
+
+/**
+ * PDF は @media print ではなく DOM の複製（.pdf-capture）を画像化して作る。
+ * そのため Tailwind の print: 系は PDF に効かない。折りたたみに print:block を
+ * 使うと、画面で開かずに PDF を作ったとき中身が丸ごと抜ける。
+ * 代わりに .print-expand を使う、という約束をここで固定する。
+ */
+describe("折りたたみを PDF に出す仕組み", () => {
+  it(".pdf-capture の中で .print-expand が開く", () => {
+    expect(ruleBody(".pdf-capture .print-expand")).toMatch(/display:\s*block\s*!important/);
+  });
+
+  it("印刷（@media print）でも .print-expand が開く", () => {
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const print = stripped.slice(stripped.indexOf("@media print"));
+    expect(print).toMatch(/\.print-expand\s*\{[^}]*display:\s*block\s*!important/);
+  });
+
+  it("報告書の部品が print: 系の折りたたみを使っていない（PDF で消えるため）", async () => {
+    const dir = new URL("../../components/seo-analysis/", import.meta.url);
+    const { readdirSync } = await import("node:fs");
+    const offenders: string[] = [];
+    for (const file of readdirSync(dir).filter((f) => f.endsWith(".tsx"))) {
+      const text = readFileSync(new URL(file, dir), "utf8");
+      if (/print:(block|hidden)/.test(text)) offenders.push(file);
+    }
+    expect(offenders).toEqual([]);
+  });
+});

@@ -5,9 +5,13 @@
  * 流入を事実シートに足す。連携が無い・失敗した場合は notes に書いて空を返す
  * （報告書は連携なしでも完成する。docs/dev/seo-analysis-spec.md §0）。
  */
+import type { EventMapping } from "@/lib/diagnosis/events";
+import { collectGa4Dataset } from "@/lib/diagnosis/sources/ga4";
 import { collectGscDataset, DIAGNOSIS_DAYS } from "@/lib/diagnosis/sources/gsc";
-import type { GscDataset } from "@/lib/diagnosis/types";
-import { headerIndex, metricNumber, dimensionValue, rangeForDays, type Ga4Client } from "@/lib/ga4";
+import { ORGANIC_CHANNEL } from "@/lib/diagnosis/engine";
+import type { Ga4Dataset, GscDataset } from "@/lib/diagnosis/types";
+import { shareOf } from "@/lib/diagnosis/metrics";
+import type { Ga4Client } from "@/lib/ga4";
 import { resolveGa4Client } from "@/lib/google/ga4";
 import { createSearchConsoleClient } from "@/lib/google/search-console/client";
 import type { SearchConsoleClient } from "@/lib/google/search-console/types";
@@ -38,9 +42,11 @@ export function siteMatchesOrigin(siteUrl: string, origin: string): boolean {
 }
 
 export interface CollectGoogleDeps {
-  getSettings?: () => Promise<{ searchConsoleSiteUrl?: string; ga4PropertyId?: string }>;
+  getSettings?: () => Promise<{ searchConsoleSiteUrl?: string; ga4PropertyId?: string; eventMapping?: Partial<EventMapping> }>;
   searchConsole?: () => SearchConsoleClient;
   ga4?: () => Promise<{ client: Ga4Client } | null>;
+  /** 設定画面で人が直したイベントの対応表 */
+  eventMapping?: Partial<EventMapping>;
   now?: Date;
 }
 
@@ -48,15 +54,15 @@ export interface CollectGoogleOutcome {
   google: SheetGoogle;
   /** 診断（GSC ルール）が使う生データ。連携が無ければ null */
   gscDataset: GscDataset | null;
-  /** 診断が使う GA4 のデータ（いまは事実シートと同じ形） */
-  ga4Dataset: SheetGoogle["ga4"];
+  /** 診断（GA4 ルール）が使う生データ。連携が無ければ null */
+  ga4Dataset: Ga4Dataset | null;
   searchConsole: boolean;
   ga4: boolean;
 }
 
 export async function collectGoogle(origin: string, deps: CollectGoogleDeps = {}): Promise<CollectGoogleOutcome> {
   const notes: string[] = [];
-  let settings: { searchConsoleSiteUrl?: string; ga4PropertyId?: string } = {};
+  let settings: { searchConsoleSiteUrl?: string; ga4PropertyId?: string; eventMapping?: Partial<EventMapping> } = {};
   try {
     settings = await (deps.getSettings ?? getLinkSettings)();
   } catch {
@@ -88,60 +94,36 @@ export async function collectGoogle(origin: string, deps: CollectGoogleDeps = {}
   }
 
   let ga4: SheetGoogle["ga4"] = null;
+  let ga4Dataset: Ga4Dataset | null = null;
   try {
     const resolved = await (deps.ga4 ?? resolveGa4Client)();
     if (!resolved) {
-      notes.push("GA4 は連携していません（連携すると自然検索の流入とキーイベントが加わります）");
+      notes.push("GA4 は連携していません（連携すると訪問後の行動・CTA・フォームの診断が加わります）");
     } else {
-      const range = rangeForDays(DAYS, deps.now);
-      const [channels, landing] = await Promise.all([
-        resolved.client.runReport({
-          dateRanges: [range],
-          dimensions: [{ name: "sessionDefaultChannelGroup" }],
-          metrics: [{ name: "sessions" }, { name: "totalUsers" }, { name: "engagementRate" }, { name: "keyEvents" }],
-          limit: 50,
-        }),
-        resolved.client.runReport({
-          dateRanges: [range],
-          dimensions: [{ name: "landingPage" }],
-          metrics: [{ name: "sessions" }, { name: "keyEvents" }],
-          dimensionFilter: { filter: { fieldName: "sessionDefaultChannelGroup", stringFilter: { matchType: "EXACT", value: "Organic Search" } } },
-          orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-          limit: TOP_ROWS,
-        }),
-      ]);
-      const sAt = headerIndex(channels.metricHeaders, "sessions");
-      const uAt = headerIndex(channels.metricHeaders, "totalUsers");
-      const eAt = headerIndex(channels.metricHeaders, "engagementRate");
-      const kAt = headerIndex(channels.metricHeaders, "keyEvents");
-      const organic = { sessions: 0, users: 0, engagementRate: 0, keyEvents: 0 };
-      const all = { sessions: 0, keyEvents: 0 };
-      for (const row of channels.rows) {
-        const sessions = metricNumber(row, sAt);
-        const keyEvents = metricNumber(row, kAt);
-        all.sessions += sessions;
-        all.keyEvents += keyEvents;
-        if (dimensionValue(row, 0) === "Organic Search") {
-          organic.sessions += sessions;
-          organic.users += metricNumber(row, uAt);
-          organic.engagementRate = metricNumber(row, eAt);
-          organic.keyEvents += keyEvents;
-        }
+      // 診断（GA4 ルール）と事実シートで同じ取得結果を使う
+      const outcome = await collectGa4Dataset(resolved.client, { days: DAYS, now: deps.now, mappingOverrides: deps.eventMapping ?? settings.eventMapping });
+      ga4Dataset = outcome.dataset;
+      for (const n of outcome.notes) notes.push(n);
+      if (ga4Dataset) {
+        const organic = ga4Dataset.channels.current.find((c) => c.key === ORGANIC_CHANNEL);
+        ga4 = {
+          propertyId: ga4Dataset.propertyId,
+          range: ga4Dataset.range.current,
+          organic: {
+            sessions: organic?.sessions ?? 0,
+            users: organic?.users ?? 0,
+            engagementRate: organic ? (shareOf(organic.engagedSessions, organic.sessions) ?? 0) : 0,
+            keyEvents: organic?.keyEvents ?? 0,
+          },
+          all: { sessions: ga4Dataset.totals.current.sessions, keyEvents: ga4Dataset.totals.current.keyEvents },
+          landing: ga4Dataset.landing.current.slice(0, TOP_ROWS).map((l) => ({ page: l.key, sessions: l.sessions, keyEvents: l.keyEvents })),
+        };
+        notes.push("GA4 のプロパティは設定画面で選んだものです（分析対象のサイトと一致しているかは確かめられません）");
       }
-      const lsAt = headerIndex(landing.metricHeaders, "sessions");
-      const lkAt = headerIndex(landing.metricHeaders, "keyEvents");
-      ga4 = {
-        propertyId: resolved.client.propertyId,
-        range,
-        organic,
-        all,
-        landing: landing.rows.map((row) => ({ page: dimensionValue(row, 0), sessions: metricNumber(row, lsAt), keyEvents: metricNumber(row, lkAt) })),
-      };
-      notes.push("GA4 のプロパティは設定画面で選んだものです（分析対象のサイトと一致しているかは確かめられません）");
     }
   } catch (err) {
     notes.push(`GA4 のデータを取得できませんでした（${err instanceof Error ? err.message : "エラー"}）`);
   }
 
-  return { google: { searchConsole, ga4, notes }, gscDataset, ga4Dataset: ga4, searchConsole: searchConsole !== null, ga4: ga4 !== null };
+  return { google: { searchConsole, ga4, notes }, gscDataset, ga4Dataset, searchConsole: searchConsole !== null, ga4: ga4 !== null };
 }
