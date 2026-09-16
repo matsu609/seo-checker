@@ -1269,3 +1269,38 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
     見積り制にした以上、時間や返信目標は案件ごとに決めるほうが筋が通る。
 - 検証: lint / tsc / test（1,730 件）/ build 通過。
 - **利用者の作業は増えていない**。Stripe にプレミアムの商品を作るのは、1 社目を受注してからのままでよい（#84 の手順は r64 のログ）。
+
+
+### 2026-09-16（返答フォーマットの追加と、古いブランチ 12 本の削除）
+
+- 利用者の指示 ①「**今回の作業がどう合流したかの図を毎回会話の後に表示されるようにメインに merge して**」→ `CLAUDE.md` に
+  「**返答フォーマット: 合流の図（必須）**」を追加した。コミットを作った返答では、最後に (1) いまどこにいるか (2) 今回の作業がどう合流したか
+  (3) リリース番号の一覧、を図と表で出す。**値は必ず実際の git から取り、SHA・ブランチ名を推測で書かない**ことをルールに明記。
+  - 未マージの作業ブランチ `claude/claude-response-format-t9moa7`（2026-09-06）に、同じ趣旨の古いルール案が眠っていた。
+    削除する前に中身を読み、「必ず git の実状から取る / 捏造しない / 取れないものは不明と書く」という良い部分を新しいルールに引き継いだ。
+- 利用者の指示 ②「**古いブランチ 12 本をすべて削除できるなら削除して**」→ 削除した。
+  - 12 本とも**いまの main と共通の祖先が無い**（`git merge-base` が空）。リポジトリの履歴を作り直す前のもので、
+    そもそも今の main にマージできない。中身は作り直したあとの main に入り直しているか、役目を終えている。
+  - 削除前に、主な成果物が今の main にあることを確認した: `docs/dev/tool-map.md`、`src/lib/pdf/download.ts`、
+    `src/app/admin/page.tsx`、`src/components/free/ServiceGuide.tsx`、noindex の判定（`src/lib/page-report/`）、
+    口コミアンケートの多言語（`src/lib/reviews/translate.ts`）。
+  - **復元するための記録**（GitHub の Branches 画面で消したブランチは一定期間 Restore でき、SHA が分かれば
+    `git push origin <SHA>:refs/heads/<名前>` でも戻せる）:
+
+| ブランチ | 先頭 SHA | 最終コミット日 | 最終コミット |
+|---|---|---|---|
+| `claude/aio-diagnosis-multilingual-jh9apk` | `f98e5a8` | 2026-09-13 | 運用メモを更新: ブランチのコミットを追記 |
+| `claude/claude-response-format-t9moa7` | `50b33ed` | 2026-09-06 | CLAUDE.md に返答フォーマットのルールを追加 |
+| `claude/deploy-hp-content-i82npa` | `172cf8d` | 2026-09-10 | Merge remote-tracking branch 'origin/main' |
+| `claude/deploy-merge-main-evgrco` | `3149ae2` | 2026-09-06 | Add SEO Checker (AIO diagnostics + FAQ generation) Next.js app |
+| `claude/happy-mendel-xul1eh` | `57b0c08` | 2026-09-12 | 運用メモを更新: 無料診断の切り出しと zip の作り方 |
+| `claude/merge-to-main-j2rew5` | `e6a0366` | 2026-09-09 | 料金プラン・改善提案・管理画面とサービス資料を追加 |
+| `claude/merge-to-main-zs5iea` | `7408aee` | 2026-09-08 | ログイン（Clerk）と利用者ごとの Google 連携、検索パフォーマンス画面を追加 |
+| `claude/pdf-save-feature-jz2o4o` | `e8f8d2b` | 2026-09-06 | 印刷ダイアログを開かずに PDF をダウンロードするボタンを追加 |
+| `claude/search-noindex-breadcrumb-bb0b70` | `e18f3a1` | 2026-09-12 | サイト診断: 検索に載せないページを採点対象外（参考）にする |
+| `claude/tool-relationships-api-diagram-jdyj3h` | `bd9ee3b` | 2026-09-12 | ツールと API キーの関係図を追加（docs/dev/tool-map.md） |
+| `claude/update-9jqj64` | `d61c774` | 2026-09-07 | アップロード版一式に更新（AIO/LLMO ツール群とドキュメントを追加） |
+| `claude/wolf-g-content-score-diff-dj9cye` | `34472b6` | 2026-09-06 | サイト単位の診断を追加し、ページ間で不当に差が出る採点を修正 |
+
+- **残したブランチ**: `main` と、いま動いているセッションの作業ブランチだけ。作業ブランチは main にマージ済みでも、
+  そのセッションが続いている間は消さない（消すとそのセッションの push 先が無くなる）。
