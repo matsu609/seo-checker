@@ -319,6 +319,11 @@
       "commit": "e0514b4",
       "date": "2026-09-15",
       "summary": "プレミアムの契約を Stripe から正しく読めるようにする（STRIPE_PRICE_PREMIUM）"
+    },
+    {
+      "commit": "00eb9bb",
+      "date": "2026-09-16",
+      "summary": "GA4 の診断ルール 47 件とイベント名の共通化を追加（診断は合計 126 ルール）"
     }
   ]
 }
