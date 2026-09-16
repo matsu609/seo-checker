@@ -129,7 +129,17 @@ describe("保護パス", () => {
 
 describe("公開パスの一覧", () => {
   it("増えていないか（増やすときは意図的に更新する）", () => {
-    expect(PUBLIC_PATHS.pages).toEqual(["/", "/meo", "/terms", "/privacy", "/legal/tokushoho"]);
+    // /robots.txt と /sitemap.xml はクローラ向けの生成ファイル（2026-09-17 に追加。
+    // Googlebot がサイトマップを取りに来られるようにするため）
+    expect(PUBLIC_PATHS.pages).toEqual([
+      "/",
+      "/meo",
+      "/terms",
+      "/privacy",
+      "/legal/tokushoho",
+      "/robots.txt",
+      "/sitemap.xml",
+    ]);
     expect(PUBLIC_PATHS.apis).toEqual([
       "/api/analyze",
       "/api/site",
