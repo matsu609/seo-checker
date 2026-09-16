@@ -75,7 +75,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r67 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r68 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -1271,10 +1271,10 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - 検証: lint / tsc / test（1,730 件）/ build 通過。
 - **利用者の作業は増えていない**。Stripe にプレミアムの商品を作るのは、1 社目を受注してからのままでよい（#84 の手順は r64 のログ）。
 
-### 2026-09-16（マスター画面の外部連携に料金・上限・公式リンク、r67）
+### 2026-09-16（マスター画面の外部連携に料金・上限・公式リンク、r68）
 
 - 利用者「マスター画面に API がまとまっているが、料金や上限をドロップダウンで見られるようにして。公式サイトのリンクをタップで開けるように」。
-- **r67**: `/admin` の「外部連携」を表から**行ごとに開閉できる一覧**（`<details>`）に変えた。行をタップすると **料金 / 上限・超えたときの動き / このツールでの消費量** の 3 欄と、**公式サイトのリンク**（料金・レート制限・ダッシュボード・API キーなど。別タブ）が出る。文言は `src/lib/features/integrations.ts` の `pricing` / `limits` / `usage` / `links`。確認日 `PRICING_CHECKED_AT = 2026-09-16` をカードの説明に出し、単価はリンク先で確かめてもらう前提にした。
+- **r68**: `/admin` の「外部連携」を表から**行ごとに開閉できる一覧**（`<details>`）に変えた。行をタップすると **料金 / 上限・超えたときの動き / このツールでの消費量** の 3 欄と、**公式サイトのリンク**（料金・レート制限・ダッシュボード・API キーなど。別タブ）が出る。文言は `src/lib/features/integrations.ts` の `pricing` / `limits` / `usage` / `links`。確認日 `PRICING_CHECKED_AT = 2026-09-16` をカードの説明に出し、単価はリンク先で確かめてもらう前提にした。
 - 載せた値（09-16 に確認。単価は変わるので、変わったら `integrations.ts` を直して確認日を更新する）:
 
 | 連携 | 料金 | 上限 |
