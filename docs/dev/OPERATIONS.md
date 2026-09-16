@@ -1808,3 +1808,11 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - **この画面では決済再開の確定はできない。**確定は [stripe-checklist-prompt.md](./stripe-checklist-prompt.md) の「送信後の状態」の 2（アカウントのステータスの「支払い」の行）と 4（決済手段）で見る。
 - **今日（09-17）のリリース作業は A-1〜A-4 が先。**Stripe の審査結果を待つ必要はない（招待制 + 管理画面での個別開放で公開するため）。
 - ドキュメントのみの更新。コードは触っていない。
+
+### 2026-09-17（Stripe の「Billing の概要」は使わないことを確認）
+
+- 利用者が 1:36 に Stripe → 請求する → **Billing の概要**（`/billing/setup`）を共有。**この画面は不要**と回答。Billing の紹介ページで、「始める」を押さないと使えないものは無い。
+- このサービスは自前のコードから Stripe Checkout を呼ぶので、**Stripe 側で要るのは 商品カタログ / Webhook / カスタマーポータル / `sk_live_` の 4 つだけ**。
+- **初月無料（30 日）と割引コードの受け付けはコード側で指定済み**なので Stripe の画面では設定しない（`src/lib/billing/trial.ts` の `DEFAULT_TRIAL_DAYS = 30`、`src/lib/billing/stripe.ts` の `trial_period_days` / `allow_promotion_codes: true`）。日数を変えるなら環境変数 `STRIPE_TRIAL_DAYS`。
+- **前回の「⑧ には進まない」を修正**: 商品・Webhook・ポータル・キーの作成は決済が停止中でもできる。審査待ちなのは**実際に課金が通るかだけ**。お客様に `/plans` の「申し込む」を使わせるのは確認が取れてから。
+- ドキュメントのみの更新。コードは触っていない。
