@@ -93,7 +93,7 @@
 | サイドバーの構成（r94 → r95、09-17） | **「AIO 対策」を親のくくりにし、その中に 3 本の柱を開閉式で並べる（r95）。親の直下 = AI 検索モニタリング / 柱 SEO = 精密診断・ページ診断・HP 改修提案（AIO から移動）・順位計測・検索の推定・キーワード調査・AI ライティング / 柱 MEO = Google マップ・口コミ支援・口コミへの返信 / 柱 サイテーション = サイテーション（新規）・基本情報掲載・llms.txt** | 利用者の指示「本当に必要な機能に絞る」「AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称」。サイドバーから外した 3 つ: ページ最適化レポート（→ HP 改修提案へ転送）・AIO 頻出トピック（→ AI 検索モニタリングへ転送）・プロンプト拡張（AI 検索モニタリングの設定からリンク）。定義・API・プランのゲートは残る（`hidden: true`） |
 | LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity） | **提供終了（r92、09-17。利用者の決定「AI 検索モニタリングに一本化」）** | `/tools/llmo` → `/tools/geo` へ転送、`/api/llmo/run` と `/api/seo-analysis/second-opinion` は 410。**残る契約は Anthropic・DataForSEO・SerpApi・Google（マップ・PageSpeed）・Supabase・Clerk・Stripe**。コードは r93 で削除済み |
 | DataForSEO | **接続済み・動作確認済み（09-17）** | `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Production に登録。検索パフォーマンス（推定）が実データを返した = Labs `ranked_keywords` のエンドポイントは合っていた（`DATAFORSEO_LABS_RANKED_PATH` の差し替えは不要）。残高はお試し $1 → 動作確認後に $50 入金 |
-| Places API（Google マップ） | **コードは完成、キー未設定** | 請求先アカウントの紐づけとキー作成が利用者側で未了 |
+| Places API（Google マップ） | **コードは完成、キーは設定済み（09-10）。本番で報告書が出ることの通し確認は未（#2）** | 公開情報だけを使うので Google への申請やオーナー権限は不要。オーナー権限が要る項目（投稿・返信率・説明文など 9 項目）はオーナー申告か Business Profile API（#54、審査申請済み）で埋める |
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
@@ -2678,3 +2678,14 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - `Sidebar.tsx`: 3 タブを廃止。見出し「AIO 対策」+ 説明 → AI 検索モニタリング → 罫線でぶら下げた 3 本の柱（開閉式。見出しに機能数、開いた柱に説明 1 行）→ 設定。ツール 1 件の描画を `FeatureLink` にまとめた。
 - 保存する値（`sidebarTab`）は `seo / meo / citation`。古い `aio` は検証で落ちて既定（seo）に戻るだけ。
 - 検証: lint / tsc / test 1,522 件 / build 通過。本番ビルドで柱の開閉と画面移動を確認。
+
+### 2026-09-17（利用者の質問: Google マップの詳細取得は権限なしで全部見られるのか）
+
+**質問**「Google マップの詳細情報を取得する仕組みが正しく動いているか確認したい。申請や編集権限なしで、ビジネス プロフィールのある店舗・会社の過去のデータまで全部見られるのか」。
+
+**回答の要点**（コード `src/lib/maps/client.ts` と `score.ts` から）
+- **申請も編集権限も不要**なのは Places API (New) の範囲 = Google マップに公開されている情報（店名・住所・電話・サイト・営業時間・評価・口コミ件数・**口コミは最新 5 件だけ**・写真は最大 10 枚のメタ情報・カテゴリ・属性・営業ステータス・価格帯・Google の要約）。運営者の API キー（`GOOGLE_PLACES_API_KEY`）だけで、誰の店舗でも取れる。
+- **取れないもの**（オーナー権限 = Business Profile API。#54 で審査申請済み）: 説明文・開業日・メニュー・投稿（最新情報）・写真の投稿日とオーナー投稿かどうか・ロゴ / カバー・口コミの全件・返信と返信率・インサイト（表示回数・経路検索）。ツールではこれらを「未取得」として分母から外すか、オーナー申告（9 項目）で埋める。
+- **過去のデータは Google からは取れない**。Places API は「いま」のスナップショットだけ。ツールの履歴は登録した日から毎週月曜 5:00 に取り直して積み上げる（`refresh.ts`）。登録前にさかのぼることはできない。
+- 動作確認は #2 の通し確認（`/admin` の外部連携で Places 設定済み → `/tools/maps` で店名検索 → 報告書）で行う。未取得の項目が「未取得」と出るのは正常。
+- ドキュメントのみの更新。
