@@ -29,7 +29,7 @@
 | 計測 | `/tools/search-performance` | （提供終了 2026-09-17。検索パフォーマンス（推定）へ転送のみ。API は 410） | — | — |
 | 計測 | `/tools/ai-traffic` | （提供終了 2026-09-17。アクセス解析へ転送のみ。API は 410） | B6 | — |
 | 計測 | `/tools/site-report` | （提供終了 2026-09-17。アクセス解析へ転送のみ。API は 410） | E8 | — |
-| 計測 | `/tools/maps` | Google マップ・店舗情報（MEO） | — | Places API (New) |
+| 計測 | `/tools/maps` | Google マップ・店舗情報（MEO）。「Google での見られ方」カード（表示回数・電話・ルート・流入キーワード）は Business Profile Performance API（オーナー権限、`business.manage`）で、接続した店舗だけ | — | Places API (New)。インサイトは Google 連携（任意） |
 | 計測 | `/tools/reviews` | 口コミ支援（アンケート QR） | — | Supabase（AI 下書きは Anthropic 任意） |
 | 生成 | `/tools/replies` | 口コミへの返信（AI 返信案） | — | Google 連携（Business Profile API、`business.manage`）。返信案は Anthropic 任意 |
 | 調査 | `/tools/keywords` | キーワード調査 | C1 | なし（意図分類は Anthropic 任意） |

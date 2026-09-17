@@ -85,7 +85,7 @@ flowchart LR
 | HP 改修提案（SEO タブ） | `/tools/improvement` | standard | 必須 | ● | − | − | − | − | − | − | − |
 | 順位計測・AIO 引用 | `/tools/rank` | light | 必須 | − | ● | − | − | − | − | − | − |
 | 検索パフォーマンス（推定） | `/tools/search-estimate` | light | 必須 | − | − | − | − | − | − | − ※8 | − |
-| Google マップ（MEO） | `/tools/maps` | light | 必須 | ○ ※1 | − | − | − | ● | ● | − | − |
+| Google マップ（MEO） | `/tools/maps` | light | 必須 | ○ ※1 | − | − | − | ● | ● | − | ○ BP ※5（Google での見られ方 = Performance API。接続した店舗だけ） |
 | 口コミ支援（QR） | `/tools/reviews` | standard | 必須 ※2 | ○ | − | − | − | ○ | ● | − | − |
 | プロンプト拡張（サイドバーには出さず、AI 検索モニタリングの設定からリンク） | `/tools/prompt-expansion` | light | 必須 | ● | − | − | − | − | − | − | − |
 | キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |

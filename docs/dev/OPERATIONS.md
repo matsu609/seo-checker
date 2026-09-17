@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r96 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r97 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -186,9 +186,10 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
 | 111 | **サイドバーの整理の続き**: r94 で 3 つ外した。さらに減らす候補は ① ページ診断（競合比較。精密診断と役割が近い）② 順位計測（SerpApi）と検索パフォーマンス（推定）（DataForSEO）の一本化 ③ AIO 頻出トピック・ページ最適化レポートの API と `src/lib/aio-topics/` の削除（1〜2 か月後、転送ページと一緒に）。利用者の判断待ち（下の入力待ち） | 利用者（判断）→ Claude | 未 |
 | 112 | ~~タブの並び~~ | — | **不要（r95 で 3 タブをやめ、AIO 対策の中に SEO / MEO / サイテーションを入れ子にした）** |
-| 113 | **オーナー権限を自然にもらう導線**（2026-09-17 利用者「サービスとしてオーナー権限が要る。どうやって自然にもらうか」）: ① MEO の報告書で「未取得」の項目の横に「Google と接続すると自動で入ります」の導線（接続ボタンは今は口コミへの返信の画面にしか無い）。② 店舗登録直後のオンボーディングで「接続で増えるもの」を before / after で見せる。③ Performance API（表示回数・経路検索・電話タップ・サイトクリック、過去 18 か月）の取り込みと採点への反映（`business-profile.ts` は口コミの取得・返信だけ。1〜2 日）。前提: #5（API の承認）と #13（OAuth の本番公開審査） | 利用者（判断）→ Claude | 未 |
+| 113 | **オーナー権限を自然にもらう導線と Performance API**: ① MEO の報告書の下に「Google での見られ方」カード（接続前は「接続すると表示」の枠 + 接続ボタン）→ **完了（r97）** ② 店舗登録直後のオンボーディングで「接続で増えるもの」を見せる → 未 ③ Performance API の取り込み（表示回数・マップ / 検索表示・電話・サイト・ルート・メッセージ・予約の 18 か月、流入キーワードの当月 / 前月 / 伸びた・落ちた TOP3）→ **完了（r97、`src/lib/google/performance.ts`、`/api/maps/performance`）。動くのは Business Profile API の承認（#5）後** | 利用者（#5 の承認待ち・Cloud での有効化）→ Claude（②） | ①③ 完了。②未 |
 | 114 | **口コミ返信をツール内で完結させるための「API 以外」の作業**: ① プライバシーポリシー第 5 条に「この権限で行う 3 つの操作」「自動投稿しない」「口コミは保存しない」「解除でトークン削除」を追記 → **完了（r96）** ② 用途説明文（日 / 英）とデモ動画の台本 → **完了（[google-oauth-verification.md](./google-oauth-verification.md) §2・§3）** ③ Clerk のアプリ名 `My Application` → `SEO Checker`（#7）、ブランディングに規約 / ポリシーの URL（#8） ④ 承認後: Google My Business API（v4）の有効化 → `/tools/replies` で接続 → 自分のプロフィールで投稿まで通す → 撮影 → OAuth 審査申請 ⑤ 任意: 新着口コミの通知（Notifications API + Pub/Sub）と Performance API（#113） | 利用者（③④・撮影・申請） | ①② 完了。③④ 未 |
 | 115 | **MEO の月次レポート（競合ツールの帳票の再現。2026-09-17 利用者が PDF を共有）**: 審査なし（Places API + 毎週の保存）で作れる部分を先に作る = 新規口コミ数・平均評価（前月比）／ 口コミの成長（月別件数 + 累計平均評価。登録日以降）／ 星別分布（当月。最新 5 件から）／ キーワード順位変動（月初 / 月末。毎週の順位から）／ 口コミの傾向。オーナー権限が要る欄（表示回数・マップ / 検索表示・電話 / サイト / ルート・流入キーワード・返信数と返信率・投稿数）は「接続すると表示」の枠にして、#113 / #114 のあと Performance API と v4 で埋める。PDF 出力は既存の仕組み。目安 3 日 | 利用者（判断）→ Claude | 未 |
+| 116 | **Performance API を承認当日に動かすための利用者の作業**（2026-09-17 利用者「今すぐできることはすべてやりたい」）: 下の「Business Profile Performance API を使えるようにする手順（#116）」の表。承認前にできるのは Cloud での API 有効化（4 本）・スコープの確認・Clerk のアプリ名・ブランディング URL・ケースの状況確認 | 利用者 | 未 |
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports`~~ → ~~Vercel に環境変数 2 つ~~ → ~~`meo_stores`~~（09-10 17:03 作成、Table Editor で 2 テーブル確認）→ 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: 動作確認のみ |
@@ -299,6 +300,21 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 76 | **クイック診断の入口を塞ぐ**（サイドバーから削除・ログイン済みは `/start` へ・紹介サイトと robots から除外）とタブ順を SEO → MEO → AIO に | Claude | **完了（r54、09-13）** |
 | 77 | 紹介サイトの「クイック診断 0 円」の料金カードを消したので、**無料の診断を営業でどう使うか**（誰に、どの場面で URL を渡すか）を決める。渡す URL は `https://app.seo-checker.tokyo/` と `/meo` | 利用者 | 未 |
 | 82 | **GSC / GA4 / CRM の自動診断 + コンサル回答生成**: 仕様は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)。利用者の決定（09-15）= 入口は既存の Google 連携のみ・CSV は作らない／精密診断と同義。**G1〜G6 完了（r61 / r65 / r66）= 134 ルール**（GSC 79 + GA4 47 + 突き合わせ 8）。§11 の 20 件は重複・共起を除いて 8 件に絞った（利用者の指示「件数より体験の質」）。残り: G7（人間による承認）／ G8（CRM） | Claude | **G1〜G6 完了（r66）。残りは G7・G8 で、どちらも利用者の判断待ち** |
+
+### Business Profile Performance API を使えるようにする手順（#116。承認前にできること → 承認後）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Google Cloud → API ライブラリ | https://console.cloud.google.com/apis/library?project=seo-checker-508104 | 次の 4 本を検索して「有効にする」（承認前でも有効化はできる。クォータが 0 なだけ）: **Business Profile Performance API**、**Google My Business API**（v4。口コミ）、My Business Account Management API（済）、My Business Business Information API（済） |
+| 2 | Google Cloud → 有効な API とサービス | https://console.cloud.google.com/apis/dashboard?project=seo-checker-508104 | 4 本が一覧に出ていることを確認。「割り当て」が 0 のままなら承認待ち（正常） |
+| 3 | Google Cloud → OAuth → データアクセス | https://console.cloud.google.com/auth/scopes?project=seo-checker-508104 | スコープに `https://www.googleapis.com/auth/business.manage` があること（無ければ「スコープを追加または削除」で追加）。他のスコープ（webmasters / analytics）が残っていれば外す |
+| 4 | Google Cloud → OAuth → 対象（テストユーザー） | https://console.cloud.google.com/auth/audience?project=seo-checker-508104 | ご自身の Google アカウント（店舗のオーナー / 管理者のもの）がテストユーザーに入っていること。審査前はこのアカウントだけ接続できる |
+| 5 | Google ビジネス プロフィール | https://business.google.com/ | 承認後の動作確認に使う店舗を決める。**確認済み**で、ご自身のアカウントが**オーナーか管理者**であること。無ければ知人の店舗に管理者として招待してもらう |
+| 6 | Business Profile API のケース（申請時のメール） | Google からのメール（件名にケース ID `0-4126000041187`） | 09-11 申請で目安 7〜10 営業日 = 9/24 ごろ。返信が無ければ同じスレッドで進捗を問い合わせる（「Business Profile API access request follow-up」）。質問が来ていたら即日返信 |
+| 7 | Clerk ダッシュボード | https://dashboard.clerk.com/ | アプリ名を `SEO Checker` に（#7）。OAuth 審査の動画に映る |
+| 8 | Google Cloud → OAuth → ブランディング | https://console.cloud.google.com/auth/branding?project=seo-checker-508104 | 利用規約 / プライバシーの URL を登録（#8） |
+| 9 | （承認後）本番 → Google マップ（MEO） | https://app.seo-checker.tokyo/tools/maps | 自社店舗を選ぶ → 「5. Google での見られ方」の「Google アカウントを接続する」→ Google の確認画面で許可 → 表示回数・電話・ルート・流入キーワードが出る。「接続したアカウントがこの店舗を管理していません」と出たら、店舗の管理者のアカウントで接続し直す |
+| 10 | （承認後）本番 → 口コミへの返信 | https://app.seo-checker.tokyo/tools/replies | 同じ接続で口コミ全件と返信が出る。ここまで通ったら OAuth 審査の動画を撮る（[google-oauth-verification.md](./google-oauth-verification.md) §3） |
 
 ### 口コミ返信を有効にする手順（#54。すべて利用者の作業）
 
@@ -2739,3 +2755,14 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - オーナー権限の経路でも **Business Profile API の利用申請（段階 A）は避けられない**。OAuth の本番公開審査（段階 B）は、運営者のアカウントを店舗の管理者に招待してもらう方法（方法 B）なら「テスト状態のまま」でも技術的には動くが、トークンが 7 日で切れて毎週の自動更新が止まるので、実運用は B まで通すべき。
 - 提案: 再現できる部分で月次レポートを先に作り、オーナー権限の欄は「接続すると表示」にしておく（#115）。承認後に Performance API（#113）と v4（#114）で埋めれば、PDF と同じ帳票になる。
 - ドキュメントのみの更新。
+
+### 2026-09-17（Business Profile Performance API を承認当日に動く状態に、r97）
+
+**利用者の指示**「Performance API を早急に使えるようにしたい。今すぐできることはすべてやりたい」。
+
+**やったこと（r97）**
+- `src/lib/google/performance.ts`: Performance API のクライアント。日次指標 9 本（`fetchMultiDailyMetricsTimeSeries`。マップ / 検索 × PC / モバイルの表示回数・電話・サイト・ルート・メッセージ・予約）を 18 か月ぶん、検索キーワード（`searchkeywords/impressions/monthly`）を当月と前月。純関数で月次に集計（前月比・伸びた / 落ちた TOP3。Google が「～15」と丸めた語は近似として除外）。場所の名前は `locations/{id}`（口コミ API の `accounts/…/locations/…` から変換）。
+- `/api/maps/performance?placeId=&month=`: 接続 → スコープ → 接続アカウントがその Place ID を管理しているか（`listAllLocations` の `metadata.placeId` と突き合わせ）→ 取得。未接続 / 権限無し / 未管理は `enabled: false` と理由。承認前の 403 は理由の文を返して接続ボタンは出さない。6 時間キャッシュ。
+- MEO 画面に「5. Google での見られ方」カード（`PerformanceCard.tsx`）: 接続前は「接続すると表示」の枠 + 接続ボタン（口コミ返信と同じ `ConnectBusinessButton`）。接続後は 6 指標の前月比・ユーザーアクション・月別 12 か月の表・流入キーワード（当月 / 前月 / 増減、TOP3）。対象月は 18 か月から選べる（既定は先月 = Google の集計遅れ対策）。競合との比較は 6 番に。
+- テスト 19 件（URL・解析・集計・エラー）。lint / tsc / test 1,533 件 / build 通過。
+- **利用者の作業は #116 の表**（承認前: Cloud で 4 本の API を有効化・スコープ・テストユーザー・Clerk の名前・ブランディング・ケースの督促。承認後: MEO 画面で接続 → 数字が出る）。
