@@ -22,7 +22,7 @@
 | 診断 | `/tools/aio-topics` | AIO 頻出トピック | A5 | SERP + Anthropic |
 | 計測 | `/tools/rank` | 順位計測・AI Overviews 引用 | B1, B2, B3 | SERP |
 | 計測 | `/tools/geo` | AI 検索モニタリング（引用・参照の定点観測） | — | DataForSEO + Supabase（Anthropic は任意） |
-| 計測 | `/tools/llmo` | LLMO モニタリング・LLM リサーチ | B4, B8 | Anthropic（他社は任意） |
+| 計測 | `/tools/llmo` | （提供終了 2026-09-17。AI 検索モニタリングへ転送のみ。API は 410） | B4, B8 | — |
 | 計測 | `/tools/prompt-expansion` | プロンプト拡張 | B7 | Anthropic |
 | 計測 | `/tools/search-estimate` | 検索パフォーマンス（推定。Search Console の連携なしで数字を出す） | — | DataForSEO |
 | 計測 | `/tools/analytics` | （取り下げ 2026-09-17。自前の計測タグはお客様側の作業が要るので提供しない。推定へ転送のみ。API と `/t.js` は 410） | — | — |
@@ -122,11 +122,11 @@ src/
 
 | 変数 | 用途 | 必須 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | FAQ 生成、LLM サマリー、LLMO（Claude）、プロンプト拡張、ライティング | 任意 |
+| `ANTHROPIC_API_KEY` | FAQ 生成、LLM サマリー、プロンプト拡張、ライティング、精密診断 | 任意 |
 | `LLM_MODEL` | 分析・生成に使うモデル（既定 `claude-opus-5`） | 任意 |
 | `LLM_FAST_MODEL` | 分類・判定など大量処理（既定 `claude-haiku-4-5`） | 任意 |
 | `FAQ_MODEL` | 既存。FAQ 生成（既定 `claude-haiku-4-5`） | 任意 |
-| `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO で ChatGPT / Gemini / Perplexity を対象にする | 任意 |
+| ~~`OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY`~~ | 使わない（2026-09-17 に廃止。AI の計測は DataForSEO 経由） | — |
 | `SERPAPI_KEY` | 順位計測・AI Overviews・ページ診断の Top10（SerpApi） | 任意 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（無くても低頻度なら動く） | 任意 |
 | `CRUX_API_KEY` | CrUX API / CrUX History API（実ユーザーの速度。`src/lib/crux/`）。無ければ `PAGESPEED_API_KEY` を使う | 任意 |
@@ -155,10 +155,10 @@ src/
 
 - Anthropic は既存の `@anthropic-ai/sdk` を使う。`src/lib/llm/anthropic.ts` にクライアント生成・モデル定数・共通エラー変換を置き、各機能はそこから呼ぶ。
 - 構造化出力は既存 FAQ と同じ `client.messages.parse({ output_config: { format: zodOutputFormat(schema) } })`。
-- Web 検索が必要な処理（LLMO の Claude 回答、ファクトチェック、ページ診断の代替 Top10）はサーバーツール `{ type: "web_search_20260209", name: "web_search" }` を `tools` に渡す。回答中の `server_tool_use` ブロック（`input.query`）がファンアウトクエリ、`web_search_tool_result` と `citations` が引用元。
+- Web 検索が必要な処理（ファクトチェック、ページ診断の代替 Top10）はサーバーツール `{ type: "web_search_20260209", name: "web_search" }` を `tools` に渡す。回答中の `server_tool_use` ブロック（`input.query`）がファンアウトクエリ、`web_search_tool_result` と `citations` が引用元。
 - 長文生成（記事）はストリーミング（`client.messages.stream`）で受け、Route Handler から `text/event-stream` または NDJSON で流す。
 - モデル ID は `claude-opus-5` / `claude-haiku-4-5` のように日付サフィックス無しで書く。
-- 他社 LLM（OpenAI Responses API + web_search、Gemini + Google 検索グラウンディング、Perplexity Sonar）は SDK を追加せず `fetch` で薄く実装する。キーが無ければその列は「未設定」。
+- 他社 LLM（OpenAI / Gemini / Perplexity）を直接呼ぶ機能は 2026-09-17 に廃止した。AI の回答は DataForSEO の LLM Responses 経由（`src/lib/geo/`）で取る。`src/lib/llmo/providers/` は削除待ち（#105）。
 
 ## セキュリティ
 

@@ -28,7 +28,7 @@
 ① サーバーのキー（全ユーザー共通）
    Vercel の環境変数 ──→ 外部 API
    運営者が契約し、実費も運営者が払う。ブラウザには渡らない。
-   Anthropic / OpenAI / Gemini / Perplexity / SerpApi / PageSpeed / Places / DataForSEO / Supabase
+   Anthropic / SerpApi / PageSpeed / Places / DataForSEO / Supabase（OpenAI / Gemini / Perplexity は 2026-09-17 に廃止）
 
 ② 利用者ごとの許可（OAuth。鍵は Clerk が預かる）
    お客様が「接続」を押す ──→ Clerk が短命トークンを保管 ──→ アプリが借りて読む
@@ -50,9 +50,6 @@ RDAP（ドメインの登録日）だけはキーが要らない。
 ```mermaid
 flowchart LR
   ANTHROPIC["ANTHROPIC_API_KEY"] --> A["Anthropic (Claude)<br/>本文生成・要約・Web 検索"]
-  OPENAI["OPENAI_API_KEY"] --> O["OpenAI (ChatGPT)<br/>api.openai.com/v1/responses"]
-  GEMINI["GEMINI_API_KEY"] --> G["Google Gemini<br/>generativelanguage.googleapis.com"]
-  PPLX["PERPLEXITY_API_KEY"] --> P["Perplexity<br/>api.perplexity.ai"]
   SERP["SERPAPI_KEY"] --> S["SerpApi<br/>serpapi.com/search.json"]
   AHREFS["AHREFS_API_KEY"] --> AH["Ahrefs<br/>ドメインの Domain Rating"]
   OPR["OPENPAGERANK_API_KEY"] --> OP["Open PageRank<br/>openpagerank.com（無料・1 日 1,000 回）"]
@@ -90,7 +87,6 @@ flowchart LR
 | 検索パフォーマンス（推定） | `/tools/search-estimate` | light | 必須 | − | − | − | − | − | − | − ※8 | − |
 | Google マップ（MEO） | `/tools/maps` | light | 必須 | ○ ※1 | − | − | − | ● | ● | − | − |
 | 口コミ支援（QR） | `/tools/reviews` | standard | 必須 ※2 | ○ | − | − | − | ○ | ● | − | − |
-| LLMO モニタリング | `/tools/llmo` | light | 必須 | ● | − | − | − | − | − | ○ | − |
 | プロンプト拡張 | `/tools/prompt-expansion` | light | 必須 | ● | − | − | − | − | − | − | − |
 | キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |
 | AI ライティング | `/tools/writing` | standard | 必須 | ● | ○ ※4 | − | − | − | − | − | − |
@@ -106,7 +102,7 @@ flowchart LR
 - ※3 （廃止）GA4 は**利用者が設定画面で選んだプロパティ（②のトークン）が優先**され、無ければ環境変数のサービスアカウント（①）に落ちる（`src/lib/google/ga4.ts`）。どちらも無ければ使えない。
 - ※4 サイトレポートの順位はブラウザの `rankSnapshots`（順位計測ツールが作る）から読む。この画面の API 自体は SerpApi を叩かないので、**SerpApi が必要なのは「順位計測で履歴を作るため」**という間接的な依存。AI ライティングは SerpApi があれば上位 10 件を分析して構成案に反映する。
 - ※5 Google ビジネス プロフィール（`business.manage`）を接続すると口コミの全件取得と投稿がこの画面で完結する。未接続でも Places の公開口コミ（最新 5 件）から返信案を作れる。
-- ※6 セカンドオピニオン（`OPENAI_API_KEY`）。無ければ Claude だけで報告書は完成する。
+- ※6 （廃止 2026-09-17）セカンドオピニオン（`OPENAI_API_KEY`）は提供終了。Claude だけで報告書は完成する。
 - ※8 検索パフォーマンス（推定）は DataForSEO Labs（`DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`。表に列が無いので注記）。
 - ※7 **Google 連携は使わない（2026-09-17）。報告書は URL だけで完成する**（URL だけで動くのがこのツールの前提）。連携すると「数字の診断」が 134 ルールまで増える → [scoring-reference.md](./scoring-reference.md) §7。
 - ページ診断は SerpApi が無いとき **Claude の Web 検索で上位ページを推定**する（実測の順位ではない旨が画面に出る）。
@@ -179,13 +175,11 @@ flowchart LR
   KWT["キーワード調査"] -->|"addKeywords()"| KW
   KW --> RANK["順位計測"]
   RANK -->|"順位の履歴"| SR["サイトレポート"]
-  PEX["プロンプト拡張"] -->|"addPrompts()"| PR
-  PR --> LLMO["LLMO モニタリング"]
+  PEX["プロンプト拡張"] -->|"PUT /api/geo/setup"| GEO["AI 検索モニタリング"]
   AIO["AIO 頻出トピック"] --> TP
   TP -->|"不足トピックをコピー"| PD["ページ診断"]
   TP -->|"不足トピックをコピー"| WR["AI ライティング"]
   PRJ --> RANK
-  PRJ --> LLMO
   PRJ --> SR
   PRJ --> AIO
   FREEMEO["無料 MEO 診断 /meo"] -.->|"有料版へ案内"| MAPS["Google マップ（MEO）"]
@@ -256,7 +250,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 
 | キー | 止まるもの | 動き続けるもの |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | AIO 頻出トピック・HP 改修提案・プロンプト拡張・AI ライティング・LLMO（Claude が必須） | 無料診断（FAQ だけ消える）・サイト診断（サマリーだけ消える）・キーワード調査（意図分類だけ消える）・maps（総評がルール生成に戻る） |
+| `ANTHROPIC_API_KEY` | AIO 頻出トピック・HP 改修提案・プロンプト拡張・AI ライティング・精密診断（Claude が必須） | 無料診断（FAQ だけ消える）・サイト診断（サマリーだけ消える）・キーワード調査（意図分類だけ消える）・maps（総評がルール生成に戻る） |
 | `SERPAPI_KEY` | 順位計測・AIO 頻出トピック（→ 履歴が止まるのでサイトレポートの順位も伸びない） | ページ診断は Claude の Web 検索による推定に切り替わる。AI ライティングは上位分析なしで構成案を作る |
 | `GOOGLE_PLACES_API_KEY` | 無料 MEO 診断・Google マップ（MEO）・毎週の一斉更新 | listings / replies は登録済みデータの閲覧のみ |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Google マップ（MEO）・口コミ支援・基本情報掲載・一斉更新 | それ以外すべて |
@@ -264,7 +258,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | `PAGESPEED_API_KEY` | 実ユーザーの速度（CrUX）と、ドメインパワーの「実ユーザーの規模」（配点 10）。PSI 自体は未設定でも低頻度なら取れる | ページ最適化レポート（速度以外の項目はそのまま）・精密診断（速度の節が空になるだけ） |
 | `AHREFS_API_KEY` | ドメインパワーの「外部からのリンクの評価」が Open PageRank に落ちる | それ以外すべて |
 | `OPENPAGERANK_API_KEY` | 上記も無ければ配点 25 点分が分母から外れる（合計点は残り 75 点分で出る） | それ以外すべて |
-| `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO の対象モデルが Claude だけになる | LLMO 本体 |
+| ~~`OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY`~~ | 使わない（2026-09-17 廃止） | — |
 | `CRON_SECRET` | 毎週の一斉更新（503 で自分から止まる） | 手動の登録・診断 |
 | `CLERK_SECRET_KEY` / `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | ログインと、ログインが要る全ツール | 無料診断 2 本・規約・アンケート `/r/<slug>` |
 | `STRIPE_*` | 購入と契約状態の同期 | `publicMetadata.plan` と `DEFAULT_PLAN` による手割り当て |
@@ -306,7 +300,6 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | AIO 頻出トピック | SerpApi + Claude |
 | HP 改修提案 | Claude |
 | 順位計測・AI Overviews 引用 | SerpApi |
-| LLMO モニタリング | Claude |
 | プロンプト拡張 | Claude |
 | キーワード調査 | 公開のサジェスト |
 | AI ライティング | Claude |

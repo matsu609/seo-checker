@@ -5,7 +5,7 @@
  *
  * 参考プロンプト + 対象サイト URL から、AI に打たれそうなプロンプトを
  * カテゴリ別に生成する。ANTHROPIC_API_KEY が無い環境では生成ボタンだけを止め、
- * 過去の生成結果の閲覧・コピー・LLMO への登録はそのまま使える。
+ * 過去の生成結果の閲覧・コピー・AI 検索モニタリングへの登録はそのまま使える。
  */
 import { useId, useMemo, useState } from "react";
 import { CategoryAccordion } from "./CategoryAccordion";
@@ -34,7 +34,6 @@ import {
   MAX_SEED_PROMPTS,
   type ExpansionResult,
 } from "@/lib/llmo/expansion/types";
-import { addPrompts } from "@/lib/llmo/store";
 import { useCurrentProject, useStore } from "@/lib/store/hooks";
 import { SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
 import { useIntegrations } from "@/lib/store/useIntegrations";
@@ -54,6 +53,7 @@ export function PromptExpansionTool() {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
   const generate = useToolRun<ExpansionResult>();
 
   const anthropicEnabled = status?.anthropic === true;
@@ -123,18 +123,42 @@ export function PromptExpansionTool() {
     });
   }
 
-  function registerToLlmo() {
-    if (!result) return;
+  /**
+   * 選んだプロンプトを AI 検索モニタリング（/tools/geo）に登録する。
+   * 2026-09-17 に LLMO モニタリングを引退させ、AI の計測を AI 検索モニタリングに一本化した。
+   * 登録先は Supabase（PUT /api/geo/setup）。モデルは通常計測の既定（ChatGPT / Gemini）。
+   */
+  async function registerToGeo() {
+    if (!result || registering) return;
+    const items = result.categories.flatMap((category) =>
+      category.prompts.map((p) => p.text).filter((t) => selected.has(t)).map((text) => ({ text, tags: [category.name] })),
+    );
+    if (items.length === 0) return;
+    setRegistering(true);
     let added = 0;
-    for (const category of result.categories) {
-      const texts = category.prompts.map((p) => p.text).filter((t) => selected.has(t));
-      if (texts.length === 0) continue;
-      added += addPrompts(texts, { projectId, category: category.name }).length;
+    let firstError: string | null = null;
+    for (const item of items) {
+      try {
+        const res = await fetch("/api/geo/setup", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ kind: "prompt", text: item.text, isBranded: false, precisionMode: false, models: ["chatgpt", "gemini"], tags: item.tags.slice(0, 10) }),
+        });
+        if (res.ok) {
+          added += 1;
+        } else if (!firstError) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          firstError = body.error ?? `登録に失敗しました（HTTP ${res.status}）`;
+        }
+      } catch {
+        firstError ??= "登録に失敗しました（通信エラー）";
+      }
     }
+    setRegistering(false);
     setNotice(
       added > 0
-        ? `${added} 本を LLMO モニタリングのプロンプトとして登録しました。`
-        : "登録できる新しいプロンプトがありませんでした（すでに登録済みです）。",
+        ? `${added} 本を AI 検索モニタリングのプロンプトとして登録しました。${firstError ? `（${items.length - added} 本は失敗: ${firstError}）` : "計測は翌朝から始まります。"}`
+        : (firstError ?? "登録できるプロンプトがありませんでした。"),
     );
   }
 
@@ -275,7 +299,7 @@ export function PromptExpansionTool() {
                 value={new Date(result.generatedAt).toLocaleDateString("ja-JP")}
                 hint={result.model}
               />
-              <StatCard label="選択中" value={selected.size} unit="本" hint="LLMO へ登録する対象" />
+              <StatCard label="選択中" value={selected.size} unit="本" hint="AI 検索モニタリングへ登録する対象" />
             </div>
             <div className="mt-4 rounded-sm border border-line bg-surface p-3 text-[12px] leading-relaxed text-muted">
               <p>
@@ -315,8 +339,8 @@ export function PromptExpansionTool() {
               >
                 {copiedLabel === "all:labeled" ? "コピーしました" : "カテゴリ名を入れてコピー（全件）"}
               </Button>
-              <Button size="sm" onClick={registerToLlmo} disabled={selected.size === 0}>
-                LLMO モニタリングに登録（{selected.size}）
+              <Button size="sm" onClick={() => void registerToGeo()} disabled={selected.size === 0 || registering} loading={registering}>
+                AI 検索モニタリングに登録（{selected.size}）
               </Button>
               {!project && <Badge tone="neutral">ホームページ未登録のまま登録できます</Badge>}
             </div>

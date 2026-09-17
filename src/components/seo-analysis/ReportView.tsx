@@ -2,7 +2,7 @@
 
 /**
  * 精密診断の報告書。
- * 上から: KPI → 結論と現状分析 → 改善案 → 強み・弱み → コンサルの視点 → セカンドオピニオン → 速度 → 付録。
+ * 上から: KPI → 結論と現状分析 → 改善案 → 強み・弱み → コンサルの視点 → 速度 → 付録。
  * すべての主張に事実 ID のチップが付く。
  */
 import { useMemo, useRef, useState } from "react";
@@ -46,7 +46,7 @@ export interface ReportViewProps {
 }
 
 export function ReportView(props: ReportViewProps) {
-  const { sheet, audit, analysis, secondOpinion } = props;
+  const { sheet, audit, analysis } = props;
   const [showDetail, setShowDetail] = useState(false);
   const factMap = useMemo(() => new Map(sheet.facts.map((f) => [f.id, f] as [string, Fact])), [sheet.facts]);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -237,70 +237,7 @@ export function ReportView(props: ReportViewProps) {
               )}
             </Card>
 
-            <Card
-              title="セカンドオピニオン（ChatGPT）"
-              description="同じ事実シートと Claude の改善案を ChatGPT に渡し、食い違う点と追加の指摘だけを出しています。"
-              printCard
-              actions={
-                props.secondOpinionState !== "disabled" && props.onSecondOpinion ? (
-                  <Button variant="secondary" size="sm" loading={props.secondOpinionState === "loading"} onClick={props.onSecondOpinion} className="no-print">
-                    {secondOpinion ? "取り直す" : "取得する"}
-                  </Button>
-                ) : null
-              }
-            >
-              {props.secondOpinionState === "disabled" && (
-                <p className="text-[13px] text-muted">
-                  サーバーに <code className="font-mono">OPENAI_API_KEY</code> が無いため、セカンドオピニオンは出せません（Claude の分析だけで完成しています）。
-                </p>
-              )}
-              {props.errors.secondOpinion && (
-                <Callout tone="warn" className="mb-3">
-                  {props.errors.secondOpinion}
-                </Callout>
-              )}
-              {props.secondOpinionState === "loading" && !secondOpinion && <p className="text-[13px] text-muted">ChatGPT が読んでいます（1〜2 分）。</p>}
-              {secondOpinion && (
-                <div className="space-y-4 text-[13px] leading-relaxed">
-                  {secondOpinion.opinion.disagreements.length > 0 ? (
-                    <div>
-                      <h3 className="mb-2 text-sm font-bold text-ink">食い違う点</h3>
-                      <ul className="space-y-3">
-                        {secondOpinion.opinion.disagreements.map((d, i) => (
-                          <li key={i} className="border-l-2 border-warn pl-3">
-                            <span className="font-bold text-ink">{d.topic}</span>
-                            <span className="mt-1 block text-muted">Claude: {d.claude}</span>
-                            <span className="block text-ink">
-                              ChatGPT: {d.chatgpt} <FactChips ids={d.factIds} facts={factMap} className="ml-1 align-middle" />
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="text-muted">結論・優先順位に食い違いはありませんでした。</p>
-                  )}
-                  {secondOpinion.opinion.additions.length > 0 && (
-                    <div>
-                      <h3 className="mb-2 text-sm font-bold text-ink">Claude が触れていない指摘</h3>
-                      <ul className="space-y-1.5">
-                        {secondOpinion.opinion.additions.map((x, i) => (
-                          <li key={i} className="border-l-2 border-line pl-3 text-ink">
-                            {x.text} <FactChips ids={x.factIds} facts={factMap} className="ml-1 align-middle" />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {secondOpinion.opinion.agreements.length > 0 && (
-                    <p className="text-[12px] text-muted">同意した点: {secondOpinion.opinion.agreements.join(" ／ ")}</p>
-                  )}
-                  <p className="text-[11px] text-muted">
-                    生成: {secondOpinion.model} ／ {formatDateTime(secondOpinion.generatedAt)}
-                  </p>
-                </div>
-              )}
-            </Card>
+            {/* セカンドオピニオン（ChatGPT）は 2026-09-17 に廃止（他社 LLM の契約をやめ、Claude だけで完成させる） */}
           </>
         )}
 

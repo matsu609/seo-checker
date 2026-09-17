@@ -15,9 +15,6 @@ function has(name: string): boolean {
 
 const CHECKS: Record<IntegrationKey, () => boolean> = {
   anthropic: () => has("ANTHROPIC_API_KEY"),
-  openai: () => has("OPENAI_API_KEY"),
-  gemini: () => has("GEMINI_API_KEY"),
-  perplexity: () => has("PERPLEXITY_API_KEY"),
   serpapi: () => has("SERPAPI_KEY"),
   // DataForSEO は login と password の両方が要る
   dataforseo: () => has("DATAFORSEO_LOGIN") && has("DATAFORSEO_PASSWORD"),

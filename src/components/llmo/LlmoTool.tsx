@@ -31,7 +31,7 @@ export function LlmoTool() {
   const entities = useMemo(() => entitiesOfProject(project), [project]);
   const missingSignals = useMemo(() => entitiesWithoutSignals(entities), [entities]);
   const anthropicEnabled = status?.anthropic === true;
-  const configuredProviders = PROVIDERS_META_LIST.filter((m) => status?.[m.integration] === true);
+  const configuredProviders = PROVIDERS_META_LIST.filter((m) => (status as Record<string, boolean | undefined> | null)?.[m.integration] === true);
   const canRun = anthropicEnabled || configuredProviders.length > 0;
 
   const projectRuns = useMemo(
@@ -53,9 +53,9 @@ export function LlmoTool() {
             横スクロールが出るため、本文の先頭に置いて折り返させる */}
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           {PROVIDERS_META_LIST.map((m) => (
-            <Badge key={m.id} tone={status?.[m.integration] ? "pass" : "neutral"} icon={false} title={m.envVar}>
+            <Badge key={m.id} tone={(status as Record<string, boolean | undefined> | null)?.[m.integration] ? "pass" : "neutral"} icon={false} title={m.envVar}>
               {m.label}
-              {status?.[m.integration] ? " 設定済み" : " 未設定"}
+              {(status as Record<string, boolean | undefined> | null)?.[m.integration] ? " 設定済み" : " 未設定"}
             </Badge>
           ))}
         </div>

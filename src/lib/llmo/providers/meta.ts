@@ -6,6 +6,12 @@
  */
 import type { IntegrationKey } from "@/lib/features/integrations";
 
+/**
+ * 2026-09-17 に OpenAI / Gemini / Perplexity の連携を廃止した（LLMO モニタリングは提供終了）。
+ * このファイルは削除待ち（docs/dev/OPERATIONS.md #105）。型だけ旧キーを許して残す。
+ */
+type RetiredIntegrationKey = "openai" | "gemini" | "perplexity";
+
 export const PROVIDER_IDS = ["claude", "openai", "gemini", "perplexity"] as const;
 
 export type ProviderId = (typeof PROVIDER_IDS)[number];
@@ -15,7 +21,7 @@ export interface ProviderMeta {
   /** 画面に出す名前 */
   label: string;
   /** 対応する外部連携（GET /api/integrations の boolean と対応） */
-  integration: IntegrationKey;
+  integration: IntegrationKey | RetiredIntegrationKey;
   /** 未設定のときに案内する環境変数名 */
   envVar: string;
   /**

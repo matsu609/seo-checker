@@ -1,20 +1,10 @@
-import type { Metadata } from "next";
-import { LlmoTool } from "@/components/llmo/LlmoTool";
-import { PlanGate } from "@/components/plans/PlanGate";
-import { PageHeader } from "@/components/ui";
-import { requireFeature } from "@/lib/features/registry";
+import { redirect } from "next/navigation";
 
-const feature = requireFeature("llmo");
-
-export const metadata: Metadata = { title: feature.label, description: feature.description };
-
+/**
+ * LLMO モニタリング・LLM リサーチは提供を終了した（利用者の決定 2026-09-17: AI の計測を
+ * DataForSEO 経由の「AI 検索モニタリング」に一本化し、OpenAI / Gemini / Perplexity の契約をやめる）。
+ * 古いリンクとブックマークのために転送だけ残す。
+ */
 export default function Page() {
-  return (
-    <div className="mx-auto w-full max-w-6xl @container">
-      <PageHeader feature={feature} />
-      <PlanGate featureId="llmo">
-        <LlmoTool />
-      </PlanGate>
-    </div>
-  );
+  redirect("/tools/geo");
 }

@@ -172,13 +172,13 @@ const DIAGNOSIS: readonly Feature[] = [
     details: [
       "クロール（48 ルール・サイトの構成・信頼。課題一覧・カテゴリ別件数・ページ一覧・CSV は報告書の「詳細」に）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + ドメインパワー + llms.txt の有無と中身",
       "AI（Claude）が事実 ID を引用しながら、現状分析・強みと弱み・改善案（優先度 / 手間 / 期待できること / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く",
-      "ChatGPT のセカンドオピニオン（食い違う点だけ）、事実シートの付録、PDF、履歴。月 10 回まで",
+      "事実シートの付録、PDF、履歴。月 10 回まで",
     ],
     featureIds: [],
     icon: "dashboard",
     status: "beta",
     requires: ["supabase", "anthropic"],
-    optional: ["pagespeed", "serpapi", "openai"],
+    optional: ["pagespeed", "serpapi"],
     group: "diagnosis",
     category: "seo",
     plan: "standard",
@@ -402,28 +402,9 @@ const MEASURE: readonly Feature[] = [
     optional: ["anthropic"],
     group: "measure",
     category: "aio",
+    // 「測る」系だが、1 アカウント月 ¥2,000 前後の変動費（DataForSEO）が出るためスタンダード（plans.test.ts）。
+    // 2026-09-17 に LLMO モニタリング（ライト）を引退させ、AI の計測をここに一本化した。ライトには AI の計測が無い
     plan: "standard",
-  },
-  {
-    id: "llmo",
-    path: "/tools/llmo",
-    label: "LLMO モニタリング・LLM リサーチ",
-    shortLabel: "LLMO モニタリング",
-    description:
-      "登録プロンプトを複数の LLM に投げ、ブランド言及率・ドメイン引用率と回答原文を記録します。単発の LLM リサーチにも対応。",
-    details: [
-      "プロンプト × モデル（Claude / ChatGPT / Gemini / Perplexity）の言及・引用の ○× 行列",
-      "回答原文・引用元 URL・LLM が内部で発行した検索クエリ（ファンアウト）",
-      "ブランド言及率・引用率の履歴と CSV 出力",
-    ],
-    featureIds: ["B4", "B8"],
-    icon: "robot",
-    status: "beta",
-    requires: ["anthropic"],
-    optional: ["openai", "gemini", "perplexity"],
-    group: "measure",
-    category: "aio",
-    plan: "light",
   },
   {
     id: "prompt-expansion",
@@ -435,7 +416,7 @@ const MEASURE: readonly Feature[] = [
     details: [
       "課題解決 / 比較・選定 / 手順 などのカテゴリ別に 50 本程度を生成",
       "文字数付きの一覧とコピー",
-      "LLMO モニタリングへの一括登録",
+      "AI 検索モニタリングへの一括登録",
     ],
     featureIds: ["B7"],
     icon: "prompt",

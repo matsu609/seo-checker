@@ -39,11 +39,13 @@ describe("タブの定義", () => {
     }
   });
 
-  it("MEO タブは Google マップ、AIO タブに LLMO、SEO タブにサイト診断", () => {
+  it("MEO タブは Google マップ、AIO タブに AI 検索モニタリング、SEO タブにサイト診断", () => {
     const ids = (c: "seo" | "aio" | "meo") => groupsForSidebar(c).tools.flatMap((g) => g.features.map((f) => f.id));
     expect(ids("meo")).toContain("maps");
     expect(ids("meo")).not.toContain("seo-analysis");
-    expect(ids("aio")).toContain("llmo");
+    expect(ids("aio")).toContain("geo");
+    // LLMO モニタリングは AI 検索モニタリングに一本化して引退（利用者の決定 2026-09-17）
+    expect(ids("aio")).not.toContain("llmo");
     expect(ids("aio")).toContain("page-report");
     expect(ids("seo")).toContain("seo-analysis");
     expect(ids("seo")).toContain("rank");
@@ -55,7 +57,7 @@ describe("タブの定義", () => {
   it("パスからタブを引く。共通の画面と無料診断は null", () => {
     expect(categoryForPath("/tools/maps")).toBe("meo");
     expect(categoryForPath("/tools/maps/")).toBe("meo");
-    expect(categoryForPath("/tools/llmo")).toBe("aio");
+    expect(categoryForPath("/tools/geo")).toBe("aio");
     expect(categoryForPath("/tools/site-audit")).toBe("seo");
     expect(categoryForPath("/settings")).toBeNull();
     expect(categoryForPath("/")).toBeNull();

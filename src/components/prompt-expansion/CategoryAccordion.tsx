@@ -2,7 +2,7 @@
 
 /**
  * カテゴリごとのアコーディオン。件数・定義・1 本ずつの文字数を出し、
- * チェックしたものを LLMO モニタリングに登録できるようにする。
+ * チェックしたものを AI 検索モニタリングに登録できるようにする。
  */
 import { Badge, Button } from "@/components/ui";
 import type { ExpandedCategory } from "@/lib/llmo/expansion/types";

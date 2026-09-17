@@ -1,4 +1,4 @@
-# SEO Checker — 無料 SEO・MEO・AIO 診断 + SEO/LLMO ツール
+# SEO Checker — 無料 SEO・MEO・AIO 診断 + SEO/AIO/MEO ツール
 
 URL を入れるだけで検索エンジンと AI 検索（AIO）に読まれる土台を採点する**クイック診断（サイト・無料）**、店名を入れるだけで Google マップの店舗情報を採点する**クイック診断（店舗・MEO・無料）**、そして SEO / AIO / MEO の運用に使う**ツール群**をひとつにまとめた Next.js アプリです。
 
@@ -113,7 +113,6 @@ npm run dev                  # http://localhost:3000
 |---|---|---|---|
 | [順位計測・AI Overviews 引用](src/lib/rank) | B1-B3 | 登録キーワードの順位・変化・ランディング URL、その場で測るリアルタイム計測、AI Overviews の引用を 5 区分（自社のみ / 競合のみ / 両方 / なし / AIO 表示なし）で集計 | SerpApi |
 | [AI 検索モニタリング](src/lib/geo) | — | ChatGPT / Gemini / Google AI Overviews で、自社ブランドが**引用**（ソース欄に自社ドメイン）・**参照**（本文に名前）される割合を毎週はかり、競合と並べる。反復は週内の別の日に分散（通常 週 3 回 / 高精度 週 10 回）し、見出しは 4 週ローリング + 95% 信頼区間のバンドで出す（1 週間の上下では判断しない）。指名検索は自社引用率・引用元構成比・競合同時言及率を主指標にする。同じプロンプトの結果は 24 時間すべての利用者で共有して原価を下げる。クレジット制（月 2,000。使い切っても定期計測は止まらない）。仕様は [geo-monitoring-spec.md](docs/dev/geo-monitoring-spec.md) | DataForSEO + Supabase（Anthropic は任意） |
-| [LLMO モニタリング・LLM リサーチ](src/lib/llmo) | B4 / B8 | 登録プロンプトを複数の LLM に投げ、ブランド言及率・ドメイン引用率・回答原文・引用元を記録。LLM が内部で発行した検索クエリ（ファンアウト）も保存 | Anthropic（OpenAI / Gemini / Perplexity は任意） |
 | [プロンプト拡張](src/lib/llmo) | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
 | [検索パフォーマンス（推定）](src/lib/search-estimate) | — | Search Console を使わずに、ドメインを入れるだけで、順位を持っているキーワードを DataForSEO Labs から集め、順位別 CTR を掛けて表示回数・クリック数・平均順位を推定。契約初日から数字が出る（実測ではないことを画面で明示） | DataForSEO |
 | [Google マップ・店舗情報（MEO）](src/lib/maps) | — | 店名・地域で検索して自社 1 件と競合を最大 5 件選ぶ。自社のビジネス プロフィールを基本情報 / 投稿 / 写真 / レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF 出力）を作成。総評は `ANTHROPIC_API_KEY` があれば AI が執筆。オーナー権限が要る項目は「未取得」として採点から外し、Business Profile 連携後に埋まる。自社の店舗と競合を登録すると、登録直後に 1 回、その後は毎週月曜 5:00 に一斉更新して履歴に保存（手動の取り直しは不可）。最新診断結果と前回との差分、競合との比較表 | Places API (New) + Supabase（総評は Anthropic 任意。一斉更新は `CRON_SECRET`） |
@@ -329,11 +328,11 @@ Google Cloud・Clerk・アプリの分担は [docs/dev/services.md](docs/dev/ser
 | 変数 | 用途 |
 |---|---|
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` | ログイン（両方そろったときだけ有効。未設定なら認証しない） |
-| `ANTHROPIC_API_KEY` | FAQ 生成、各種サマリー、LLMO（Claude）、プロンプト拡張、AI ライティング |
+| `ANTHROPIC_API_KEY` | FAQ 生成、各種サマリー、プロンプト拡張、AI ライティング、精密診断の AI 分析 |
 | `LLM_MODEL` | 分析・生成のモデル（既定 `claude-opus-5`） |
 | `LLM_FAST_MODEL` | 分類など大量処理のモデル（既定 `claude-haiku-4-5`） |
 | `FAQ_MODEL` | FAQ 生成のモデル（既定 `claude-haiku-4-5`） |
-| `OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` | LLMO モニタリングの対象を増やす |
+| ~~`OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY`~~ | 使わない（LLMO モニタリングとセカンドオピニオンは 2026-09-17 に提供終了。AI の計測は DataForSEO 経由の AI 検索モニタリングに一本化） |
 | `SERPAPI_KEY` | 順位計測、AI Overviews の引用チェック、ページ診断の上位 10 件 |
 | `PAGESPEED_API_KEY` | PageSpeed Insights（未設定でも低頻度なら動作） |
 | `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | AI 検索モニタリング（ChatGPT / Gemini / AI Overviews の定期計測） |

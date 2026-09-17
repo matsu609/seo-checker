@@ -26,7 +26,7 @@ export function ModelPicker({ value, onChange, status, disabled = false }: Model
       <legend className="px-1 text-[13px] font-bold text-ink">対象モデル</legend>
       <ul className="grid gap-2 sm:grid-cols-2">
         {PROVIDERS_META_LIST.map((meta) => {
-          const configured = status?.[meta.integration] === true;
+          const configured = (status as Record<string, boolean | undefined> | null)?.[meta.integration] === true;
           return (
             <li key={meta.id} className="flex items-start gap-2">
               <input
