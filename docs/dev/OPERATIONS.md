@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r90 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r91 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -2556,4 +2556,21 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 **検証**: lint / tsc / **test 1,969 件** / build 通過。
 
 **利用者にお願いしたいこと**: 死んだコードを消してよいか（#105）の一言だけ。Supabase の SQL は実行しないでください。
+
+### 2026-09-17（利用者の質問: 検索パフォーマンス（推定）は AI の検索結果? GSC / GA が無いと厳しい? → 説明文を修正、r91）
+
+**利用者の質問**（本番の `/tools/search-estimate` の画面を共有）「これは AI による検索結果をまとめたページ? ここは SEO のページなので SEO の検索結果をまとめた機能が欲しい。GSC / GA が無いと厳しい?」
+
+**回答**
+- **AI ではなく Google の通常検索（SEO）が対象。**誤解の原因は、未設定の案内に出る DataForSEO の説明文が「AI 検索モニタリング。ChatGPT / Gemini …」（GEO ツール向けの文）だったこと。同じ鍵を 2 つのツールで使っているのに、説明が片方しか書いていなかった。
+- **GSC / GA が無くても、SEO の「どのキーワードで何位か・およその表示回数とクリック数」は出せる**（DataForSEO Labs の ranked keywords × 順位別 CTR）。**出せないのは「実際に検索された語」と「実際のクリック数」**（GSC の一次データ）。この線は gsc-ga4-substitute-design.md のとおり。
+- **画面が「要設定」で止まっているのは `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` が Vercel に無いから**（#91 の作業 4〜5 が未了）。入れれば動く。
+
+**やったこと（r91）**
+- `integrations.ts` の DataForSEO の説明を「Google の通常検索（SEO）の推定 + AI 検索モニタリング」に。
+- 推定の画面の注意書きから「Search Console の実測値をご覧ください」（r89 で不使用にしたのに残っていた）を消し、「対象は Google の通常検索。AI での引用は LLMO / AI 検索モニタリングで」と明記。
+- 未設定の案内（`SetupNotice`）を「運用者側の設定でお客様の作業は無い。本番は Vercel の環境変数」に（本番に `.env.local` と出ていた問題。09-17 の作業ログで指摘済み）。
+- 検証: lint / tsc / test 1,969 件 / build 通過。
+
+**利用者にお願いしたいこと**: #91 の 4〜5（DataForSEO のログインとパスワードを Vercel に登録 → Redeploy）。これで推定の画面が動く。
 
