@@ -82,7 +82,7 @@ describe("事実シート", () => {
         { id: "links", label: "リンクの記法", level: "pass", detail: "3 件のリンクを検出しました" },
       ],
       full: { present: false, length: 0 },
-    }, google, coverage: { psi: true, crux: true, serp: true, searchConsole: false, ga4: false, domainPower: true }, generatedAt: "2026-09-14T00:00:00.000Z" });
+    }, google, coverage: { psi: true, crux: true, serp: true, domainPower: true }, generatedAt: "2026-09-14T00:00:00.000Z" });
 
   it("領域ごとに ID を振り、値と補足を持つ", () => {
     const ids = sheet.facts.map((f) => f.id);

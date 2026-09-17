@@ -5,7 +5,6 @@ import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { isAnthropicEnabled } from "@/lib/llm/anthropic";
-import { isSecondOpinionEnabled } from "@/lib/seo-analysis/ai/second-opinion";
 import { quotaFor } from "@/lib/seo-analysis/quota";
 import { listRuns } from "@/lib/seo-analysis/runs";
 
@@ -20,13 +19,13 @@ export async function GET() {
   const enabled = isSupabaseConfigured() && isAnthropicEnabled();
   if (!enabled) {
     return Response.json(
-      { enabled: false, runs: [], quota: null, secondOpinion: isSecondOpinionEnabled() },
+      { enabled: false, runs: [], quota: null },
       { headers: { "cache-control": "no-store" } },
     );
   }
   try {
     const [runs, quota] = await Promise.all([listRuns(userId), quotaFor(userId)]);
-    return Response.json({ enabled: true, runs, quota, secondOpinion: isSecondOpinionEnabled() }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ enabled: true, runs, quota }, { headers: { "cache-control": "no-store" } });
   } catch (err) {
     return dbErrorResponse(err);
   }

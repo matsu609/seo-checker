@@ -64,17 +64,6 @@ export const CommentSchema = z.object({
 
 export type Comment = z.infer<typeof CommentSchema>;
 
-export const SecondOpinionSchema = z.object({
-  /** 同意する点 */
-  agreements: z.array(z.string()),
-  /** 食い違う点 */
-  disagreements: z.array(z.object({ topic: z.string(), claude: z.string(), chatgpt: z.string(), factIds: FactIds })),
-  /** Claude が触れていない追加の指摘 */
-  additions: z.array(z.object({ text: z.string(), factIds: FactIds })),
-});
-
-export type SecondOpinion = z.infer<typeof SecondOpinionSchema>;
-
 /* ───────────── 受け取ったあとの切り詰め（保存する量を縛る） ───────────── */
 
 export const LIMITS = {
@@ -136,19 +125,6 @@ export function tidyComment(c: Comment): Comment {
   };
 }
 
-export function tidySecondOpinion(o: SecondOpinion): SecondOpinion {
-  return {
-    agreements: strs(o.agreements, LIMITS.agreements, LIMITS.short),
-    disagreements: list(o.disagreements, LIMITS.disagreements).map((d) => ({
-      topic: cut(d.topic, 120),
-      claude: cut(d.claude, LIMITS.short),
-      chatgpt: cut(d.chatgpt, LIMITS.long),
-      factIds: ids(d.factIds),
-    })),
-    additions: list(o.additions, LIMITS.additions).map((a) => ({ text: cut(a.text, LIMITS.short), factIds: ids(a.factIds) })),
-  };
-}
-
 /** 検証つきの分析結果（保存する形） */
 export interface AnalysisRecord {
   analysis: Analysis;
@@ -161,8 +137,3 @@ export interface AnalysisRecord {
   unknownFactIds: string[];
 }
 
-export interface SecondOpinionRecord {
-  opinion: SecondOpinion;
-  model: string;
-  generatedAt: string;
-}

@@ -1,66 +1,36 @@
 /**
  * Google 連携で必要な OAuth スコープ。純粋関数だけを置く（テスト可能にするため）。
  *
- * スコープは接続時にアプリ側から要求する（GoogleLinkPanel の additionalScopes）ので、
- * Clerk のダッシュボードで足す必要はない。ただし Clerk の Google 連携を
- * 「独自のクレデンシャル」に切り替えてあることが前提。
- * ここは「実際に付与されたスコープで足りているか」を判定するだけ。
+ * 2026-09-17 の利用者の決定で Search Console / GA4 を使わなくなったため、
+ * 残るのは口コミ返信の Google ビジネス プロフィールだけ。接続は口コミ返信の画面から要求する
+ * （ConnectBusinessButton の additionalScopes）。Clerk のダッシュボードで足す必要はない。
  */
-
-/** Search Console の読み取り */
-export const SEARCH_CONSOLE_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
-/** GA4（Data API / Admin API の読み取り） */
-export const ANALYTICS_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 
 /**
  * Google ビジネス プロフィール（口コミの取得と返信の投稿）。書き込みを含む広いスコープで、
- * これより狭いものは無い。設定画面の通常の接続では要求せず、口コミ返信の画面から
- * 「権限を追加」したときだけ要求する（REQUIRED_SCOPES には入れない）。
+ * これより狭いものは無い。
  */
 export const BUSINESS_PROFILE_SCOPE = "https://www.googleapis.com/auth/business.manage";
 
-/**
- * 接続時に必ず要求するスコープ。
- *
- * 2026-09-17 の利用者の決定で Search Console / GA4 を使わなくなったため空。
- * 定数（SEARCH_CONSOLE_SCOPE / ANALYTICS_SCOPE）は、以前の接続で付与されたスコープを
- * 読めるように残してあるだけで、新しく要求することはない。
- */
+/** 接続時に必ず要求するスコープ。無い（サービスごとに画面から要求する） */
 export const REQUIRED_SCOPES: readonly string[] = [];
 
-export type GoogleService = "search-console" | "analytics" | "business-profile";
+export type GoogleService = "business-profile";
 
 export const SCOPE_BY_SERVICE: Record<GoogleService, string> = {
-  "search-console": SEARCH_CONSOLE_SCOPE,
-  analytics: ANALYTICS_SCOPE,
   "business-profile": BUSINESS_PROFILE_SCOPE,
 };
 
 export const SERVICE_LABELS: Record<GoogleService, string> = {
-  "search-console": "Search Console",
-  analytics: "Google アナリティクス（GA4）",
   "business-profile": "Google ビジネス プロフィール",
-};
-
-/**
- * 読み取り専用スコープに対して、書き込みも含む広いスコープを持っていれば足りる。
- * Google は `.readonly` を付けない形も返すため、その対応表。
- */
-const BROADER: Record<string, string[]> = {
-  [SEARCH_CONSOLE_SCOPE]: ["https://www.googleapis.com/auth/webmasters"],
-  [ANALYTICS_SCOPE]: [
-    "https://www.googleapis.com/auth/analytics",
-    "https://www.googleapis.com/auth/analytics.edit",
-  ],
 };
 
 /** 付与されたスコープの一覧が、求めるスコープを満たしているか */
 export function hasScope(granted: readonly string[], required: string): boolean {
-  if (granted.includes(required)) return true;
-  return (BROADER[required] ?? []).some((s) => granted.includes(s));
+  return granted.includes(required);
 }
 
-/** 足りていないスコープ（すべて満たしていれば空配列） */
+/** 足りていないスコープ（必須は無いので常に空配列） */
 export function missingScopes(granted: readonly string[]): string[] {
   return REQUIRED_SCOPES.filter((s) => !hasScope(granted, s));
 }

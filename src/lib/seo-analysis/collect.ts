@@ -11,8 +11,6 @@ import { fetchText } from "@/lib/analyzer/fetch";
 import { runAudit, type AuditProgress } from "@/lib/audit/run";
 import type { AuditResult } from "@/lib/audit/types";
 import { canonicalizeUrl } from "@/lib/crawl/url";
-import { runDiagnosis } from "@/lib/diagnosis/engine";
-import { brandTerms } from "@/lib/diagnosis/normalize";
 import { fetchCruxHistory, fetchCruxRecord, fetchCruxWithFallback, isCruxEnabled } from "@/lib/crux";
 import { fetchDomainFacts, scoreDomainPower, type CruxCoverage, type DomainPowerResult } from "@/lib/domain-power";
 import { fetchPsi } from "@/lib/psi/client";
@@ -100,15 +98,6 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     cruxCoverage: speed.cruxCoverage,
   });
 
-  // 6. 数字の診断（GSC のルール判定）。連携が無くてもデータ品質ルールは動く
-  const diagnosis = runDiagnosis({
-    origin: audit.origin,
-    goal: input.goal,
-    brandTerms: brandTerms(audit.origin, input.brand, homeRow?.title ?? null),
-    gsc: googleOutcome.gscDataset,
-    ga4: googleOutcome.ga4Dataset,
-  });
-
   emit("sheet", "事実シートを組み立てています");
   const sheet = buildFactSheet({
     input,
@@ -119,15 +108,11 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     domain,
     llms,
     google: googleOutcome.google,
-    diagnosis,
     coverage: {
       psi: speed.psi,
       crux: speed.crux,
       serp: searchOutcome.enabled,
-      searchConsole: googleOutcome.searchConsole,
-      ga4: googleOutcome.ga4,
       domainPower: domain.score !== null,
-      diagnosis: googleOutcome.gscDataset !== null,
     },
   });
   return { sheet, audit };

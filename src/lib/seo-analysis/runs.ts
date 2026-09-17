@@ -9,7 +9,7 @@ import { z } from "zod";
 import type { AuditResult } from "@/lib/audit/types";
 import { DbError, supabaseRest } from "@/lib/db/supabase";
 import { DEFAULT_MONTHLY_LIMIT, MAX_ANALYSES_PER_RUN } from "./limits";
-import type { AnalysisRecord, SecondOpinionRecord } from "./ai/schema";
+import type { AnalysisRecord } from "./ai/schema";
 import type { AnalysisInput, SeoFactSheet } from "./sheet/types";
 
 const TABLE = "analysis_runs";
@@ -36,7 +36,6 @@ export interface RunDetail extends RunSummary {
   /** サイト診断の全結果（課題一覧・ページ一覧）。列が無い古い行は null */
   audit: AuditResult | null;
   analysis: AnalysisRecord | null;
-  secondOpinion: SecondOpinionRecord | null;
 }
 
 const SummaryRow = z.object({
@@ -54,7 +53,6 @@ const DetailRow = SummaryRow.extend({
   input: z.unknown(),
   sheet: z.unknown(),
   analysis: z.unknown().nullable(),
-  second_opinion: z.unknown().nullable(),
   audit: z.unknown().nullable().optional(),
 });
 
@@ -115,7 +113,6 @@ export async function createRun(args: CreateRunInput): Promise<RunSummary> {
     input: args.input,
     sheet: args.sheet,
     analysis: null,
-    second_opinion: null,
     analysis_count: 0,
     headline: null,
   };
@@ -157,7 +154,6 @@ export async function getRun(userId: string, id: string): Promise<RunDetail | nu
     input: row.input as AnalysisInput,
     sheet: row.sheet as SeoFactSheet,
     analysis: (row.analysis as AnalysisRecord | null) ?? null,
-    secondOpinion: (row.second_opinion as SecondOpinionRecord | null) ?? null,
     audit: (row.audit as AuditResult | null | undefined) ?? null,
   };
 }
@@ -176,13 +172,6 @@ export async function saveAnalysis(userId: string, id: string, record: AnalysisR
   });
 }
 
-export async function saveSecondOpinion(userId: string, id: string, record: SecondOpinionRecord): Promise<void> {
-  await supabaseRest<unknown>(`${TABLE}?user_id=${eq(userId)}&id=${eq(id)}`, {
-    method: "PATCH",
-    body: { second_opinion: record, updated_at: new Date().toISOString() },
-    prefer: "return=minimal",
-  });
-}
 
 export async function deleteRun(userId: string, id: string): Promise<void> {
   await supabaseRest<unknown>(`${TABLE}?user_id=${eq(userId)}&id=${eq(id)}`, { method: "DELETE", prefer: "return=minimal" });

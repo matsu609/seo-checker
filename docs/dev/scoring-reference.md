@@ -5,7 +5,7 @@
 
 - 定義の**正本はコード**です。この文書とコードがずれていたらコードが正しいので、気づいたらここを直してください。
 - 状態（いま何が設定済みか）は [OPERATIONS.md](./OPERATIONS.md)、開発規約は [ARCHITECTURE.md](./ARCHITECTURE.md)、どのツールがどの API キーを使うかは [tool-map.md](./tool-map.md) にあります。
-- 自動診断（134 ルール）の仕様そのものは [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)、精密診断の要件は [seo-analysis-spec.md](./seo-analysis-spec.md) にあります。
+- ~~自動診断（134 ルール）~~ は 2026-09-17 に廃止（Search Console / GA4 を使わない決定。コードも削除）。仕様書 [diagnosis-rules-spec.md](./diagnosis-rules-spec.md) は経緯として残す。精密診断の要件は [seo-analysis-spec.md](./seo-analysis-spec.md) にあります。
 
 ---
 
@@ -183,7 +183,9 @@
 
 ---
 
-## 7. 数字の診断（Search Console / GA4 の 134 ルール）
+## 7. 数字の診断（Search Console / GA4 の 134 ルール）— **廃止（2026-09-17）**
+
+> Search Console / GA4 を使わない決定（利用者、2026-09-17）により、この節の機能とコード（`src/lib/diagnosis/`）は削除した。以下は経緯として残す記述で、現行の数字ではない。
 
 **何を測るか**: 実際の数字の動きから、露出 → クリック → 閲覧 → 問い合わせのどこで詰まっているか。
 **コード**: `src/lib/diagnosis/`（`rules/` = 宣言、`engine.ts` = 発火判定、`thresholds.ts` = 閾値、`summary.ts` = 画面の並べ方）

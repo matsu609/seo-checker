@@ -68,8 +68,7 @@ src/
     audit/                    # A1 テクニカル SEO ルール（extras.ts = 構成・信頼の分析に使う追加項目の抽出）
     seo-analysis/             # サイトの構成・信頼（structure / trust / kinds。A1 に同梱）+ 精密診断
                               #   llms.ts = llms.txt / llms-full.txt の有無と中身（判定は lib/llms-txt/validate.ts を再利用）
-    diagnosis/                # 数字の診断（GSC / GA4 のルール判定。2026-09-17 以降は連携が無いので発火しない。削除待ち）。rules/ = 宣言、engine.ts = 発火判定、events.ts = イベント名の共通化、sources/ = 取り込み、summary.ts = 画面の並べ方
-                              #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合・ChatGPT）、
+                              #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合）、
                               #   collect.ts（クロール → PSI / CrUX / SerpApi / Google 連携）、runs.ts（Supabase analysis_runs）、quota.ts
     geo/                      # AI 検索モニタリング（docs/dev/geo-monitoring-spec.md）。pricing / credits / schedule /
                               #   stats / normalize / extract / aggregate は純関数、dataforseo・store・service・run が I/O
@@ -79,8 +78,8 @@ src/
                               #   残りは検索・CrUX・クロールの数値を使い回す。採点は score.ts の純関数）
     page-report/              # A2/A3
     serp/                     # SERP プロバイダ抽象（SerpApi 実装、未設定時は null）
-    llm/                      # Anthropic クライアント、モデル定数、構造化出力ヘルパ、他社 LLM の薄いクライアント
-    llmo/ rank/ keywords/ writing/ llms-txt/ ga4/ ...
+    llm/                      # Anthropic クライアント、モデル定数、構造化出力ヘルパ
+    llmo/（プロンプト拡張だけ）rank/ keywords/ writing/ llms-txt/ geo/ search-estimate/ ...
     store/                    # ブラウザ側の永続化（localStorage + zod）。プロジェクト・キーワード・履歴
     integrations.ts           # 環境変数の有無を boolean で返す（キーの値は絶対に返さない）
     features/registry.ts      # サイドバー定義

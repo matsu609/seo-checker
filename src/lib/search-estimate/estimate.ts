@@ -8,7 +8,7 @@
  * 0 として扱うと数字が黙って小さくなり、実態より悪く見えるため
  * （findability.ts と同じ方針）。
  */
-import { ctrForRank } from "@/lib/site-report/findability";
+import { ctrForRank } from "./findability";
 import type { EstimatedRow, RankedKeyword, SearchEstimate } from "./types";
 
 /** 1 キーワード分の推定 */

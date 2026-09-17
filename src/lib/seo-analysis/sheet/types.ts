@@ -11,7 +11,6 @@ import type { CruxFailure, CruxHistory, CruxRecord } from "@/lib/crux/types";
 import type { DomainPowerResult } from "@/lib/domain-power/types";
 import type { ValidationCheck } from "@/lib/llms-txt/types";
 import type { PsiResult } from "@/lib/psi/types";
-import type { DiagnosisResult } from "@/lib/diagnosis/types";
 import type { SerpFeature } from "@/lib/serp/types";
 import type { SiteStructure, TrustSignals } from "../types";
 
@@ -47,7 +46,7 @@ export const GOAL_LABELS: Record<AnalysisGoal, string> = {
   other: "その他",
 };
 
-export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "llms" | "google" | "diagnosis";
+export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "llms" | "google";
 
 export const FACT_AREA_LABELS: Record<FactArea, string> = {
   input: "入力",
@@ -58,8 +57,7 @@ export const FACT_AREA_LABELS: Record<FactArea, string> = {
   search: "検索での見え方",
   domain: "ドメインパワー",
   llms: "llms.txt（AI 向けの案内ファイル）",
-  google: "Google 連携（Search Console / GA4）",
-  diagnosis: "数字の診断（発火した診断ルール）",
+  google: "Google 連携（使わない。案内のみ）",
 };
 
 /** AI が引用する 1 行の事実 */
@@ -199,11 +197,9 @@ export interface SeoFactSheet {
   llms?: SheetLlmsTxt | null;
   google: SheetGoogle;
   /**
-   * 数字の診断（GSC / GA4 のルール判定。docs/dev/diagnosis-rules-spec.md）。
-   * 連携が無ければデータ品質ルールだけが入る。古い保存分には無い
+   * どの取得が動いたか（キー未設定などで飛ばしたものは false）。
+   * 古い保存分には searchConsole / ga4 / diagnosis のキーもあるが、2026-09-17 以降は読まない
    */
-  diagnosis?: DiagnosisResult | null;
-  /** どの取得が動いたか（キー未設定などで飛ばしたものは false） */
-  coverage: { psi: boolean; crux: boolean; serp: boolean; searchConsole: boolean; ga4: boolean; domainPower?: boolean; diagnosis?: boolean };
+  coverage: { psi: boolean; crux: boolean; serp: boolean; domainPower?: boolean };
   facts: Fact[];
 }

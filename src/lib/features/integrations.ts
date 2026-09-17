@@ -10,7 +10,6 @@ export const INTEGRATION_KEYS = [
   "pagespeed",
   "ahrefs",
   "openpagerank",
-  "ga4",
   "places",
   "supabase",
 ] as const;
@@ -141,20 +140,6 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
       { label: "API ドキュメント", url: "https://www.domcop.com/openpagerank/documentation" },
       { label: "ログイン（旧・API キー）", url: "https://www.domcop.com/openpagerank/auth/login" },
       { label: "移行のお知らせ（2026-09-30 終了）", url: "https://www.domcop.com/openpagerank/keywords-everywhere-acquisition" },
-    ],
-  },
-  ga4: {
-    key: "ga4",
-    label: "Google Analytics 4",
-    envVars: ["GA4_PROPERTY_ID", "GOOGLE_SERVICE_ACCOUNT_JSON"],
-    description: "生成 AI 流入分析・サイトレポート（GA4 Data API）",
-    pricing: "無料（GA4 Data API。GA 360 の契約は不要）",
-    limits: "プロパティごとの「コアトークン」で数える。標準プロパティは 1 日 200,000・1 時間 40,000・同時 10 リクエスト。超えると 429（翌日・翌時間に戻る）",
-    usage: "生成 AI 流入分析・サイトレポートを 1 回開く = 数リクエスト。精密診断（連携済みなら）= 2〜3 リクエスト",
-    links: [
-      { label: "割り当て（公式）", url: "https://developers.google.com/analytics/devguides/reporting/data/v1/quotas" },
-      { label: "割り当て（Google Cloud）", url: "https://console.cloud.google.com/apis/api/analyticsdata.googleapis.com/quotas" },
-      { label: "Google アナリティクス", url: "https://analytics.google.com/" },
     ],
   },
   places: {

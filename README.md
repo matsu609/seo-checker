@@ -312,8 +312,7 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 **Google Search Console と Google アナリティクス（GA4）は使いません**（利用者の決定 2026-09-17）。
 お客様側の登録・所有確認・権限付与という導入負担をなくすため、検索の状況は「検索パフォーマンス（推定）」（DataForSEO）で出します。
 サイト内の行動（訪問者・CV）は外部からは取れず、自前の計測タグも「お客様がタグを貼る」作業が要るので提供しません（同日の決定）。
-以前の `/tools/search-performance` `/tools/site-report` `/tools/ai-traffic` `/tools/analytics` は推定へ転送し、API は 410 を返します
-（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/lib/site-report/` の一部・`src/lib/analytics/` は削除待ちのコード）。
+以前の `/tools/search-performance` `/tools/site-report` `/tools/ai-traffic` `/tools/llmo` は代替の画面へ転送します（転送だけ残し、API と実装は 2026-09-17 に削除済み）。
 
 Google アカウントの連携を求めるのは **口コミへの返信**（`business.manage`）だけで、口コミ返信の画面から個別に権限を追加します。
 アクセストークンは Clerk が保持・更新し（`getUserOauthAccessToken`）、アプリはトークンを保存しません。
@@ -413,7 +412,7 @@ src/
     analyzer/                 # クイック診断の判定ルール（fetch.ts の assertPublicHost + fetchText が唯一の取得経路）
     crawl/                    # 全ページクロール（sitemap 展開 + 内部リンク BFS）
     report/                   # レポートの導出（グレード・講評・優先改善）
-    audit/ page-report/ rank/ llmo/ keywords/ writing/ ga4/ ...   # 各ツールのロジック
+    audit/ page-report/ rank/ geo/ search-estimate/ keywords/ writing/ ...   # 各ツールのロジック
     ui/                       # 色トークンの単一定義（palette.ts / grade.ts）
     features/registry.ts      # サイドバーと機能の定義
     store/                    # localStorage への保存（zod で検証）

@@ -21,8 +21,6 @@ const CHECKS: Record<IntegrationKey, () => boolean> = {
   pagespeed: () => has("PAGESPEED_API_KEY"),
   ahrefs: () => has("AHREFS_API_KEY"),
   openpagerank: () => has("OPENPAGERANK_API_KEY"),
-  // GA4 はプロパティ ID とサービスアカウント JSON の両方が必要
-  ga4: () => has("GA4_PROPERTY_ID") && has("GOOGLE_SERVICE_ACCOUNT_JSON"),
   places: () => has("GOOGLE_PLACES_API_KEY"),
   supabase: () => has("SUPABASE_URL") && has("SUPABASE_SERVICE_ROLE_KEY"),
 };

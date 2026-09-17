@@ -68,7 +68,7 @@ export async function getGoogleTokenFor(service: GoogleService): Promise<string>
   const { token, scopes } = await getGoogleToken();
   if (!canUse(scopes, service)) {
     throw new GoogleLinkError(
-      `${SERVICE_LABELS[service]} を読む権限が許可されていません。設定画面で Google アカウントを接続し直し、権限の確認画面で許可してください。`,
+      `${SERVICE_LABELS[service]} の権限が許可されていません。口コミ返信の画面の「Google に口コミ返信の権限を追加する」から接続し直し、権限の確認画面で許可してください。`,
       "insufficient_scope",
     );
   }

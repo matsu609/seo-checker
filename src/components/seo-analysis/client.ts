@@ -5,7 +5,7 @@
  */
 import type { AuditProgress, AuditResult } from "@/lib/audit/types";
 import { readNdjson } from "@/lib/crawl/client";
-import type { AnalysisRecord, Comment, SecondOpinionRecord } from "@/lib/seo-analysis/ai/schema";
+import type { AnalysisRecord, Comment } from "@/lib/seo-analysis/ai/schema";
 import type { CollectStep } from "@/lib/seo-analysis/collect";
 import type { RunDetail, RunSummary } from "@/lib/seo-analysis/runs";
 import type { AnalysisInput, Fact, SeoFactSheet } from "@/lib/seo-analysis/sheet/types";
@@ -83,24 +83,10 @@ export async function requestAnalyze(runId: string, signal?: AbortSignal): Promi
 }
 
 /** 無効（503）なら null */
-export async function requestSecondOpinion(runId: string, signal?: AbortSignal): Promise<SecondOpinionRecord | null> {
-  const res = await fetch("/api/seo-analysis/second-opinion", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ runId }),
-    signal,
-  });
-  if (res.status === 503) return null;
-  if (!res.ok) throw await errorOf(res, "セカンドオピニオンの生成に失敗しました");
-  const data = (await res.json()) as { secondOpinion: SecondOpinionRecord };
-  return data.secondOpinion;
-}
-
 export interface RunsResponse {
   enabled: boolean;
   runs: RunSummary[];
   quota: Quota | null;
-  secondOpinion: boolean;
 }
 
 export async function fetchRuns(): Promise<RunsResponse> {

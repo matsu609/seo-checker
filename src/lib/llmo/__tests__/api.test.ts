@@ -1,13 +1,12 @@
 /**
- * /api/prompt-expansion の入口（ネットワークには出ない）と、提供終了した /api/llmo/run が 410 を返すこと。
+ * /api/prompt-expansion の入口（ネットワークには出ない）。
  * 連携が無い環境で 503 と必要な環境変数名を返すこと、入力検証が効くことを確かめる。
  */
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { POST as llmoPost } from "@/app/api/llmo/run/route";
 import { POST as expansionPost } from "@/app/api/prompt-expansion/route";
 
-const KEYS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "PERPLEXITY_API_KEY"] as const;
+const KEYS = ["ANTHROPIC_API_KEY"] as const;
 const original = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
 
 function request(path: string, body: unknown, raw?: string): NextRequest {
@@ -28,17 +27,6 @@ afterEach(() => {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
   }
-});
-
-describe("POST /api/llmo/run（提供終了）", () => {
-  // AI の計測は AI 検索モニタリング（DataForSEO）に一本化した（利用者の決定 2026-09-17）
-  it("410 で、代わりの画面を案内する", async () => {
-    const res = await llmoPost();
-    expect(res.status).toBe(410);
-    const body = (await res.json()) as { error: string; code: string };
-    expect(body.code).toBe("gone");
-    expect(body.error).toContain("/tools/geo");
-  });
 });
 
 describe("POST /api/prompt-expansion", () => {

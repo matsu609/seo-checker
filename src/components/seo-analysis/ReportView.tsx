@@ -10,7 +10,6 @@ import { AuditCategoryTable } from "@/components/site-audit/AuditCategoryTable";
 import { AuditIssues, type IssueRow } from "@/components/site-audit/AuditIssues";
 import { AuditPages } from "@/components/site-audit/AuditPages";
 import type { AuditResult } from "@/lib/audit/types";
-import { DiagnosisCard } from "./DiagnosisCard";
 import { DomainPowerCard } from "./DomainPowerCard";
 import { LlmsTxtCard } from "./LlmsTxtCard";
 import { StructureCard } from "./StructureCard";
@@ -21,7 +20,7 @@ import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId } from "@/lib
 import { formatCrux } from "@/lib/crux/parse";
 import { GRADE_LABELS } from "@/lib/domain-power/types";
 import { downloadPdf } from "@/lib/pdf/download";
-import type { AnalysisRecord, SecondOpinionRecord } from "@/lib/seo-analysis/ai/schema";
+import type { AnalysisRecord } from "@/lib/seo-analysis/ai/schema";
 import { GOAL_LABELS, type Fact, type SeoFactSheet } from "@/lib/seo-analysis/sheet/types";
 import { fmt, formatDateTime, hostOf } from "@/lib/report";
 import { FactChips, FactsAppendix } from "./FactsAppendix";
@@ -34,13 +33,10 @@ export interface ReportViewProps {
   /** サイト診断の全結果（課題一覧・ページ一覧）。古い保存分は null */
   audit: AuditResult | null;
   analysis: AnalysisRecord | null;
-  secondOpinion: SecondOpinionRecord | null;
   /** AI 分析が動いている（結果待ち） */
   analyzing: boolean;
-  secondOpinionState: "idle" | "loading" | "disabled" | "done" | "error";
-  errors: { analysis: string | null; secondOpinion: string | null };
+  errors: { analysis: string | null };
   onReanalyze?: () => void;
-  onSecondOpinion?: () => void;
   analysisCount: number;
   maxAnalyses: number;
 }
@@ -237,12 +233,8 @@ export function ReportView(props: ReportViewProps) {
               )}
             </Card>
 
-            {/* セカンドオピニオン（ChatGPT）は 2026-09-17 に廃止（他社 LLM の契約をやめ、Claude だけで完成させる） */}
           </>
         )}
-
-        {/* 数字の診断は Search Console / GA4 のデータが要る。使わない方針（2026-09-17）なので、データが無ければ出さない */}
-        {sheet.diagnosis && sheet.coverage.diagnosis && <DiagnosisCard diagnosis={sheet.diagnosis} />}
 
         {domain && <DomainPowerCard domain={domain} />}
 

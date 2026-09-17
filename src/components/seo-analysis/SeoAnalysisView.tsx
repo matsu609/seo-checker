@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Callout, Card, EmptyState, Field, Input, Select, Textarea } from "@/components/ui";
 import type { AuditResult } from "@/lib/audit/types";
-import type { AnalysisRecord, SecondOpinionRecord } from "@/lib/seo-analysis/ai/schema";
+import type { AnalysisRecord } from "@/lib/seo-analysis/ai/schema";
 import { MAX_COMPETITORS, MAX_KEYWORDS, PAGE_LIMITS } from "@/lib/seo-analysis/input";
 import { MAX_ANALYSES_PER_RUN } from "@/lib/seo-analysis/limits";
 import type { RunSummary } from "@/lib/seo-analysis/runs";
@@ -26,7 +26,6 @@ import {
   fetchRuns,
   requestAnalyze,
   requestCollect,
-  requestSecondOpinion,
   SeoAnalysisError,
   type CollectProgressEvent,
   type RunsResponse,
@@ -50,7 +49,6 @@ interface Loaded {
   sheet: SeoFactSheet;
   audit: AuditResult | null;
   analysis: AnalysisRecord | null;
-  secondOpinion: SecondOpinionRecord | null;
   analysisCount: number;
 }
 
@@ -65,8 +63,6 @@ export function SeoAnalysisView() {
   const [progress, setProgress] = useState<CollectProgressEvent | null>(null);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [soState, setSoState] = useState<"idle" | "loading" | "disabled" | "done" | "error">("idle");
-  const [soError, setSoError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   const reloadMeta = useCallback(async () => {
@@ -96,30 +92,6 @@ export function SeoAnalysisView() {
     };
   }, []);
 
-  const runSecondOpinion = useCallback(
-    async (runId: string) => {
-      if (meta && !meta.secondOpinion) {
-        setSoState("disabled");
-        return;
-      }
-      setSoState("loading");
-      setSoError(null);
-      try {
-        const so = await requestSecondOpinion(runId);
-        if (!so) {
-          setSoState("disabled");
-          return;
-        }
-        setLoaded((prev) => (prev && prev.runId === runId ? { ...prev, secondOpinion: so } : prev));
-        setSoState("done");
-      } catch (err) {
-        setSoError(err instanceof Error ? err.message : "セカンドオピニオンの生成に失敗しました");
-        setSoState("error");
-      }
-    },
-    [meta],
-  );
-
   const runAnalysis = useCallback(
     async (runId: string) => {
       setPhase("analyzing");
@@ -129,13 +101,12 @@ export function SeoAnalysisView() {
         setLoaded((prev) => (prev && prev.runId === runId ? { ...prev, analysis, analysisCount } : prev));
         setPhase("done");
         void reloadMeta();
-        void runSecondOpinion(runId);
       } catch (err) {
         setAnalysisError(err instanceof Error ? err.message : "AI 分析に失敗しました");
         setPhase("done");
       }
     },
-    [reloadMeta, runSecondOpinion],
+    [reloadMeta],
   );
 
   const start = useCallback(async () => {
@@ -163,12 +134,10 @@ export function SeoAnalysisView() {
     setProgress(null);
     setLoaded(null);
     setAnalysisError(null);
-    setSoState("idle");
-    setSoError(null);
     try {
       const { run, sheet, audit } = await requestCollect(input, { signal: ac.signal, onProgress: setProgress });
       if (ac.signal.aborted) return;
-      setLoaded({ runId: run.id, sheet, audit, analysis: null, secondOpinion: null, analysisCount: 0 });
+      setLoaded({ runId: run.id, sheet, audit, analysis: null, analysisCount: 0 });
       await runAnalysis(run.id);
     } catch (err) {
       if (ac.signal.aborted) return;
@@ -191,11 +160,9 @@ export function SeoAnalysisView() {
     async (id: string) => {
       setError(null);
       setAnalysisError(null);
-      setSoError(null);
       try {
         const run = await fetchRun(id);
-        setLoaded({ runId: run.id, sheet: run.sheet, audit: run.audit, analysis: run.analysis, secondOpinion: run.secondOpinion, analysisCount: run.analysisCount });
-        setSoState(run.secondOpinion ? "done" : meta && !meta.secondOpinion ? "disabled" : "idle");
+        setLoaded({ runId: run.id, sheet: run.sheet, audit: run.audit, analysis: run.analysis, analysisCount: run.analysisCount });
         setPhase("done");
         if (!run.analysis && run.analysisCount < MAX_ANALYSES_PER_RUN) await runAnalysis(run.id);
       } catch (err) {
@@ -203,7 +170,7 @@ export function SeoAnalysisView() {
         setPhase("error");
       }
     },
-    [meta, runAnalysis],
+    [runAnalysis],
   );
 
   const remove = useCallback(
@@ -341,12 +308,9 @@ export function SeoAnalysisView() {
           sheet={loaded.sheet}
           audit={loaded.audit}
           analysis={loaded.analysis}
-          secondOpinion={loaded.secondOpinion}
           analyzing={phase === "analyzing"}
-          secondOpinionState={soState}
-          errors={{ analysis: analysisError, secondOpinion: soError }}
+          errors={{ analysis: analysisError }}
           onReanalyze={() => void runAnalysis(loaded.runId)}
-          onSecondOpinion={() => void runSecondOpinion(loaded.runId)}
           analysisCount={loaded.analysisCount}
           maxAnalyses={MAX_ANALYSES_PER_RUN}
         />
