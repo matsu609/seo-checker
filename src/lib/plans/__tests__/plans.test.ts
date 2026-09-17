@@ -103,36 +103,33 @@ describe("機能とプランの対応", () => {
     const light = features.filter((f) => f.plan === "light").map((f) => f.id);
     expect(light).toContain("site-audit");
     expect(light).toContain("rank");
-    // Search Console の実測はプレミアム。ライトには連携の要らない推定版を置く（利用者の指示 2026-09-17）
+    // Search Console / GA4 は使わない（利用者の決定 2026-09-17）。ライトには連携の要らない代替を置く
     expect(light).toContain("search-estimate");
+    expect(light).toContain("analytics");
     expect(light).not.toContain("search-performance");
     expect(light.length).toBeGreaterThanOrEqual(9);
   });
 
   /**
-   * プレミアムは人の作業を足す段。ツールのゲートには原則使わない。
-   * 例外は「お客様側の設定が要るもの」だけ（利用者の指示 2026-09-17）。
-   * GA4 の 2 つは計測タグの設置が要るので既定では出さない。Search Console の実測は
-   * 所有確認が要るので、設定を代行するプレミアムに置き、ライトには推定版を出す。
+   * プレミアムは人の作業を足す段。ツールのゲートには使わない（利用者の決定 2026-09-17）。
+   * 以前プレミアムに置いていた Search Console / GA4 の 3 ツールは提供を終了した
+   * （Google の無料ツールは使わない）。registry から消えていることをここで固定する。
    */
-  it("プレミアム限定のツールはお客様側の設定が要るものだけ", () => {
-    const premium = features.filter((f) => f.plan === "premium");
-    expect(premium.map((f) => f.id).sort()).toEqual(["ai-traffic", "search-performance", "site-report"]);
-  });
-
-  it("GA4 を使う 2 つは既定では出さない（タグが無いと空の画面になるため）", () => {
-    const ga4Tools = features.filter((f) => f.id === "ai-traffic" || f.id === "site-report");
-    expect(ga4Tools).toHaveLength(2);
-    expect(ga4Tools.every((f) => f.hidden)).toBe(true);
-  });
-
-  // GSC / GA4 の詳細機能はほとんどのお客様が使わないので、サイドバーには一切出さない（利用者の指示 2026-09-17）。
-  // プレミアム限定のツール = お客様側の設定が要るもの = hidden、が常に一致する
-  it("プレミアム限定のツールはすべてサイドバーに出さない", () => {
-    const premium = features.filter((f) => f.plan === "premium");
-    expect(premium.length).toBeGreaterThan(0);
-    expect(premium.every((f) => f.hidden)).toBe(true);
+  it("プレミアム限定のツールは無い（Search Console / GA4 のツールは提供終了）", () => {
+    expect(features.filter((f) => f.plan === "premium")).toEqual([]);
+    const ids = features.map((f) => f.id);
+    expect(ids).not.toContain("search-performance");
+    expect(ids).not.toContain("site-report");
+    expect(ids).not.toContain("ai-traffic");
     expect(groupsForSidebar().tools.flatMap((g) => g.features.map((f) => f.plan))).not.toContain("premium");
+  });
+
+  // Google を使わない代わりに、お客様側の設定が要らない 2 つをライトに置く
+  it("GA4 の代替（自前の計測タグ）はライトで、Google の連携を必要としない", () => {
+    const analytics = features.find((f) => f.id === "analytics");
+    expect(analytics?.plan).toBe("light");
+    expect(analytics?.hidden).toBeUndefined();
+    expect(analytics?.requires).toEqual(["supabase"]);
   });
 
   // 連携なしで数字が出る代替をライトに置く。ここが無いと「契約初日に何も出ない」になる

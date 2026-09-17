@@ -1,10 +1,4 @@
 import type { Metadata } from "next";
-import { connection } from "next/server";
-import { Suspense } from "react";
-import { EventMappingCard } from "@/components/google/EventMappingCard";
-import { GoogleLinkSection } from "@/components/google/GoogleLinkSection";
-import { Card } from "@/components/ui/Card";
-import { isAuthEnabled } from "@/lib/auth/config";
 import { requireFeature } from "@/lib/features/registry";
 import { SettingsView } from "./SettingsView";
 
@@ -12,22 +6,12 @@ const feature = requireFeature("settings");
 
 export const metadata: Metadata = { title: feature.label, description: feature.description };
 
-export default async function Page() {
-  // ログイン中のユーザーごとに Google 連携の状態が変わるので、ビルド時に固めない
-  await connection();
-
-  // Clerk が未設定なら ClerkProvider が無く、Google 連携の部品が使う useUser() が
-  // 例外になる。サーバー側で判定して、そのときはカードごと出さない。
-  // Google の API が遅くても設定画面の他が待たされないよう Suspense で包む。
-  const googleSection = isAuthEnabled() ? (
-    <>
-      <Suspense fallback={<Card title="Google 連携" description="読み込んでいます…" />}>
-        <GoogleLinkSection />
-      </Suspense>
-      {/* GA4 を 1 回叩くので、押したときだけ読み込む（設定画面の初期表示は遅くしない） */}
-      <EventMappingCard />
-    </>
-  ) : null;
-
-  return <SettingsView googleSection={googleSection} />;
+/**
+ * Google 連携（Search Console / GA4）のカードは 2026-09-17 に外した（利用者の決定:
+ * Google の無料ツールは使わず、検索は「検索パフォーマンス（推定）」、サイト内の行動は
+ * 自前の「計測タグ」で取る）。口コミ返信に要る Google ビジネス プロフィールの権限は、
+ * 口コミ返信の画面から個別に追加する。
+ */
+export default function Page() {
+  return <SettingsView />;
 }

@@ -18,8 +18,10 @@ describe("はじめかたの手順", () => {
     expect(ONBOARDING_STEPS[0].body).toContain("打ち直す必要はありません");
   });
 
-  it("2 番目の手順は Google 連携（設定画面）", () => {
-    expect(ONBOARDING_STEPS[1].href).toBe("/settings");
-    expect(ONBOARDING_STEPS[1].body).toContain("読む許可は別に必要");
+  // Google 連携（Search Console / GA4）は使わない（利用者の決定 2026-09-17）。代わりに自前の計測タグ
+  it("2 番目の手順は計測タグの設置（アクセス解析）で、Google の設定を求めない", () => {
+    expect(ONBOARDING_STEPS[1].href).toBe("/tools/analytics");
+    expect(ONBOARDING_STEPS[1].body).toContain("Google アナリティクスの設定は不要");
+    expect(ONBOARDING_STEPS[1].body).not.toContain("Search Console");
   });
 });

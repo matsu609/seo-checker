@@ -19,8 +19,14 @@ export const ANALYTICS_SCOPE = "https://www.googleapis.com/auth/analytics.readon
  */
 export const BUSINESS_PROFILE_SCOPE = "https://www.googleapis.com/auth/business.manage";
 
-/** 設定画面の接続で必ず要求する（読み取り専用の 2 つ） */
-export const REQUIRED_SCOPES = [SEARCH_CONSOLE_SCOPE, ANALYTICS_SCOPE] as const;
+/**
+ * 接続時に必ず要求するスコープ。
+ *
+ * 2026-09-17 の利用者の決定で Search Console / GA4 を使わなくなったため空。
+ * 定数（SEARCH_CONSOLE_SCOPE / ANALYTICS_SCOPE）は、以前の接続で付与されたスコープを
+ * 読めるように残してあるだけで、新しく要求することはない。
+ */
+export const REQUIRED_SCOPES: readonly string[] = [];
 
 export type GoogleService = "search-console" | "analytics" | "business-profile";
 

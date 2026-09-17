@@ -1,47 +1,18 @@
 /**
- * POST /api/google/link
- * 見る対象の Search Console サイトと GA4 プロパティを保存する。
- * 保存先は Clerk の privateMetadata（src/lib/google/settings.ts）。
+ * /api/google/link（Search Console サイト・GA4 プロパティの選択）
+ *
+ * 提供を終了した（利用者の決定 2026-09-17: Google Search Console / GA4 は使わない）。
+ * 古いクライアントが叩いても実費が出ないよう、410 Gone だけを返す。
+ * 代わりの機能: アクセス解析（/tools/analytics）
  */
-import { z } from "zod";
-import { requireAuth } from "@/lib/auth/guard";
-import { googleErrorResponse } from "@/lib/google/errors";
-import { setLinkSettings } from "@/lib/google/settings";
-
 export const runtime = "nodejs";
 
-const BodySchema = z.object({
-  // null は「選択を解除する」
-  searchConsoleSiteUrl: z.string().min(1).max(500).nullable().optional(),
-  ga4PropertyId: z.string().regex(/^\d{1,20}$/, "GA4 のプロパティ ID は数字で指定してください").nullable().optional(),
-});
+const GONE = { error: "この機能は提供を終了しました。アクセス解析（/tools/analytics）をご利用ください", code: "gone" };
 
-export async function POST(request: Request) {
-  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth();
-  if (denied) return denied;
+export async function GET() {
+  return Response.json(GONE, { status: 410 });
+}
 
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return Response.json({ error: "リクエスト形式が不正です" }, { status: 400 });
-  }
-  const parsed = BodySchema.safeParse(raw);
-  if (!parsed.success) {
-    return Response.json(
-      { error: parsed.error.issues[0]?.message ?? "入力が正しくありません" },
-      { status: 400 },
-    );
-  }
-  if (Object.keys(parsed.data).length === 0) {
-    return Response.json({ error: "変更する項目がありません" }, { status: 400 });
-  }
-
-  try {
-    const settings = await setLinkSettings(parsed.data);
-    return Response.json({ settings }, { headers: { "cache-control": "no-store" } });
-  } catch (err) {
-    return googleErrorResponse(err);
-  }
+export async function POST() {
+  return Response.json(GONE, { status: 410 });
 }

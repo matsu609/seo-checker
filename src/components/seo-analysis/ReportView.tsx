@@ -304,7 +304,8 @@ export function ReportView(props: ReportViewProps) {
           </>
         )}
 
-        {sheet.diagnosis && <DiagnosisCard diagnosis={sheet.diagnosis} />}
+        {/* 数字の診断は Search Console / GA4 のデータが要る。使わない方針（2026-09-17）なので、データが無ければ出さない */}
+        {sheet.diagnosis && sheet.coverage.diagnosis && <DiagnosisCard diagnosis={sheet.diagnosis} />}
 
         {domain && <DomainPowerCard domain={domain} />}
 

@@ -115,12 +115,11 @@ npm run dev                  # http://localhost:3000
 | [AI 検索モニタリング](src/lib/geo) | — | ChatGPT / Gemini / Google AI Overviews で、自社ブランドが**引用**（ソース欄に自社ドメイン）・**参照**（本文に名前）される割合を毎週はかり、競合と並べる。反復は週内の別の日に分散（通常 週 3 回 / 高精度 週 10 回）し、見出しは 4 週ローリング + 95% 信頼区間のバンドで出す（1 週間の上下では判断しない）。指名検索は自社引用率・引用元構成比・競合同時言及率を主指標にする。同じプロンプトの結果は 24 時間すべての利用者で共有して原価を下げる。クレジット制（月 2,000。使い切っても定期計測は止まらない）。仕様は [geo-monitoring-spec.md](docs/dev/geo-monitoring-spec.md) | DataForSEO + Supabase（Anthropic は任意） |
 | [LLMO モニタリング・LLM リサーチ](src/lib/llmo) | B4 / B8 | 登録プロンプトを複数の LLM に投げ、ブランド言及率・ドメイン引用率・回答原文・引用元を記録。LLM が内部で発行した検索クエリ（ファンアウト）も保存 | Anthropic（OpenAI / Gemini / Perplexity は任意） |
 | [プロンプト拡張](src/lib/llmo) | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
-| [検索パフォーマンス](src/lib/google/search-console) | — | 連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を期間比較つきで取得。日別の推移と、クリックの多いクエリ・ページの一覧。推定ではなく Google の実測値 | Google 連携（利用者ごと） |
+| [検索パフォーマンス（推定）](src/lib/search-estimate) | — | Search Console を使わずに、ドメインを入れるだけで、順位を持っているキーワードを DataForSEO Labs から集め、順位別 CTR を掛けて表示回数・クリック数・平均順位を推定。契約初日から数字が出る（実測ではないことを画面で明示） | DataForSEO |
+| [アクセス解析（計測タグ）](src/lib/analytics) | — | 発行した 1 行のタグ（`/t.js`）をお客様のサイトに貼るだけで、訪問者・セッション・PV の前期比、流入元（検索 / 生成 AI / SNS / 広告 / 直接）、ページ別、電話・メール・外部リンクのタップとフォーム送信（CV）。Cookie を使わず IP を保存しない。GA4 の代替（利用者の決定 2026-09-17） | Supabase |
 | [Google マップ・店舗情報（MEO）](src/lib/maps) | — | 店名・地域で検索して自社 1 件と競合を最大 5 件選ぶ。自社のビジネス プロフィールを基本情報 / 投稿 / 写真 / レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF 出力）を作成。総評は `ANTHROPIC_API_KEY` があれば AI が執筆。オーナー権限が要る項目は「未取得」として採点から外し、Business Profile 連携後に埋まる。自社の店舗と競合を登録すると、登録直後に 1 回、その後は毎週月曜 5:00 に一斉更新して履歴に保存（手動の取り直しは不可）。最新診断結果と前回との差分、競合との比較表 | Places API (New) + Supabase（総評は Anthropic 任意。一斉更新は `CRON_SECRET`） |
 | [口コミ支援（アンケート QR）](src/lib/reviews) | — | 店内の QR コード（1 つのアンケートを複数店舗で共有し、店舗ごと・テーブル別・スタッフ別に発行。店舗を紐づけた QR は来店客の画面と Google の投稿先がその店舗になる。MEO の登録店舗にまとめて発行も可）から来店客がログイン不要のアンケート（`/r/<slug>`）に答える。回答をもとに AI が口コミの下書きを作り（トーンと含めたい語は店舗が設定）、来店客が自由に編集して「Google マップに投稿する」から自分の意思で投稿する。投稿ボタンは評価に関係なく全員に同じ。低評価のときは「お店に直接伝える」を並べて出す（隠さない）。回答・下書き・投稿時の本文は店舗がすべて閲覧でき、低評価と直接連絡は先頭に並ぶ。対応状態とメモ、経路別・週別の集計、投稿ボタンの押下率（Google 側の実投稿数は取れないため近似）、CSV。来店客の画面は端末の言語（日本語・英語・中国語 簡体 / 繁体・韓国語）に合わせて自動で切り替わり、右上で変更もできる（テンプレートの質問は用意した訳、店舗が書き換えた質問は AI が訳して保存。AI 下書きもその言語。回答の言語は店舗側に表示） | Supabase（下書きと質問の訳は Anthropic 任意。無ければ回答をそのまま並べ、訳は日本語のまま） |
 | [口コミへの返信（AI 返信案）](src/lib/google/business-profile.ts) | — | Google ビジネス プロフィールを接続（`business.manage`）すると、口コミの全件取得と返信の投稿・更新・削除が画面で完結。AI が返信案を作る（トーン・店舗からの補足・署名。低評価はお詫び → 改善 → 個別連絡の型）。接続前は MEO の保存済み報告書の口コミ（最新 5 件）で返信案を作り、コピーして Google の管理画面へ | Google 連携（利用者ごと。Business Profile API の利用申請と API 有効化が必要）。返信案は Anthropic |
-| [生成 AI 流入分析](src/lib/ai-traffic) | B6 | GA4 の参照元から生成 AI の流入を切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベント | GA4（利用者ごとの Google 連携でも可） |
-| [サイトレポート](src/lib/site-report) | E8 | GA4 の KPI の前期比、チャネル別流入と登録キーワードの平均順位・ファインダビリティスコア、自社・競合の最新順位表 | GA4（利用者ごとの Google 連携でも可）+ SerpApi |
 
 ### 調査・生成
 
@@ -310,29 +309,16 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 
 ---
 
-## Google 連携（Search Console / GA4）
+## Google 連携（ビジネス プロフィールのみ）
 
-**利用者ごと**に Google アカウントを接続し、見る対象を選びます。管理者が全員分をまとめて設定するのではなく、ログインした人が自分の設定画面から接続します。
+**Google Search Console と Google アナリティクス（GA4）は使いません**（利用者の決定 2026-09-17）。
+お客様側の登録・所有確認・権限付与という導入負担をなくすため、検索の状況は「検索パフォーマンス（推定）」（DataForSEO）で、
+サイト内の行動は自前の「アクセス解析（計測タグ）」で取ります。以前の `/tools/search-performance` `/tools/site-report` `/tools/ai-traffic` は
+それぞれの代替へ転送し、API は 410 を返します（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/lib/site-report/` の一部は削除待ちのコード）。
 
-> Google Cloud・Clerk・アプリの 3 者がどう分担しているかは [docs/dev/services.md](docs/dev/services.md) に図でまとめています。
-
-利用者向けの手順（別の Google アカウントで運用中のサイト・プロパティに閲覧権限を付ける方法、未登録のときの登録手順）は、設定画面の Google 連携カード内の「**設定手順書**」に載せています（`src/components/google/GoogleSetupManual.tsx`）。実際には制作会社や会社の共有アカウントで運用しているケースが多く、その場合は登録ではなく権限付与だけで済みます。
-
-| 使うもの | どこで選ぶ | 何に使うか |
-|---|---|---|
-| Search Console のサイト | 設定 → Google 連携 | 検索パフォーマンス画面 |
-| GA4 のプロパティ | 設定 → Google 連携 | 生成 AI 流入分析、サイトレポート |
-
-**データベースは要りません。** アクセストークンは Clerk が保持・更新し（`getUserOauthAccessToken`）、選んだサイト / プロパティは Clerk の `privateMetadata` に入ります（`src/lib/google/settings.ts`）。要求するのは読み取り専用スコープ（`webmasters.readonly` / `analytics.readonly`）だけで、接続時にアプリ側から要求するので Clerk のダッシュボードでスコープを足す必要はありません。
-
-GA4 は**ユーザーの選択が優先**され、選ばれていなければ従来どおり環境変数のサービスアカウント（全体共通）に落ちます（`src/lib/google/ga4.ts`）。Google 連携を使わない運用のままでも壊れません。
-
-準備（1 回だけ、`.env.example` にも同じ手順があります）:
-
-1. Google Cloud で OAuth 2.0 クライアント ID（ウェブ）を作る
-2. Search Console API・Google Analytics Admin API・Google Analytics Data API を有効にする
-3. Clerk の SSO Connections → Google を独自クレデンシャルに切り替え、1 の値を入れる
-4. Google 側の「承認済みのリダイレクト URI」に Clerk が示す URI を追加する
+Google アカウントの連携を求めるのは **口コミへの返信**（`business.manage`）だけで、口コミ返信の画面から個別に権限を追加します。
+アクセストークンは Clerk が保持・更新し（`getUserOauthAccessToken`）、アプリはトークンを保存しません。
+Google Cloud・Clerk・アプリの分担は [docs/dev/services.md](docs/dev/services.md)、審査は [docs/dev/google-oauth-verification.md](docs/dev/google-oauth-verification.md)。
 
 ---
 
@@ -361,7 +347,8 @@ GA4 は**ユーザーの選択が優先**され、選ばれていなければ従
 | `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定は `LLM_FAST_MODEL`） |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援: アンケート 1 つあたりの 1 日の回答数（既定 500）と、AI 下書きの 1 日の全体上限（既定 2,000。超えたら回答は受け付け、下書きは回答をそのまま並べる） |
 | `CRON_SECRET` | 毎週月曜 5:00 の一斉更新（`vercel.json` の Cron → `/api/cron/maps-refresh`）。未設定なら一斉更新は動かない |
-| `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析、サイトレポート（利用者が GA4 を連携していないときのフォールバック） |
+| `TRACKING_SECRET` | 任意。アクセス解析（計測タグ）の訪問者ハッシュの鍵。無ければ `SUPABASE_SERVICE_ROLE_KEY` から派生させる |
+| ~~`GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON`~~ | 使わない（GA4 の機能は 2026-09-17 に提供終了）。設定されていても何も起きない |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・スタンダードとライトの Price ID・Webhook の署名シークレット。鍵・スタンダードの Price・Webhook がそろうと `/plans` に申し込みとお支払いの管理が出る（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名） |
 | `STRIPE_PRICE_PREMIUM` | 任意。プレミアム（伴走）の Price ID。料金画面には出ないが、支払いリンク・請求書で立てた契約をプレミアムとして記録するために使う |

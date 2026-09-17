@@ -25,9 +25,10 @@
 | 計測 | `/tools/llmo` | LLMO モニタリング・LLM リサーチ | B4, B8 | Anthropic（他社は任意） |
 | 計測 | `/tools/prompt-expansion` | プロンプト拡張 | B7 | Anthropic |
 | 計測 | `/tools/search-estimate` | 検索パフォーマンス（推定。Search Console の連携なしで数字を出す） | — | DataForSEO |
-| 計測 | `/tools/search-performance` | 検索パフォーマンス（Search Console の実測。プレミアム。`hidden: true`: サイドバーには出さず、連携を代行したお客様に URL を渡す） | — | Google 連携（GSC） |
-| 計測 | `/tools/ai-traffic` | 生成 AI 流入分析（プレミアム。`hidden: true`） | B6 | GA4 |
-| 計測 | `/tools/site-report` | サイトレポート（プレミアム。`hidden: true`） | E8 | GA4 + SERP |
+| 計測 | `/tools/analytics` | アクセス解析（自前の計測タグ `/t.js` → `POST /api/t`。GA4 の代替。訪問者・流入元・CV） | — | Supabase |
+| 計測 | `/tools/search-performance` | （提供終了 2026-09-17。検索パフォーマンス（推定）へ転送のみ。API は 410） | — | — |
+| 計測 | `/tools/ai-traffic` | （提供終了 2026-09-17。アクセス解析へ転送のみ。API は 410） | B6 | — |
+| 計測 | `/tools/site-report` | （提供終了 2026-09-17。アクセス解析へ転送のみ。API は 410） | E8 | — |
 | 計測 | `/tools/maps` | Google マップ・店舗情報（MEO） | — | Places API (New) |
 | 計測 | `/tools/reviews` | 口コミ支援（アンケート QR） | — | Supabase（AI 下書きは Anthropic 任意） |
 | 生成 | `/tools/replies` | 口コミへの返信（AI 返信案） | — | Google 連携（Business Profile API、`business.manage`）。返信案は Anthropic 任意 |
@@ -35,7 +36,7 @@
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
 | 生成 | `/tools/listings` | 基本情報掲載（NAP 一括登録） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
 | 生成 | `/tools/llms-txt` | llms.txt 生成 | D6 | なし |
-| 設定 | `/settings` | **ホームページ（自社サイト）の URL**・競合・Google 連携・GA4 イベントの割り当て（API キーの設定状況は `/admin` に移動） | E1, E2 | なし |
+| 設定 | `/settings` | **ホームページ（自社サイト）の URL**・競合・データの書き出し / 読み込み（Google 連携のカードは 2026-09-17 に廃止。API キーの設定状況は `/admin`） | E1, E2 | なし |
 | 運用 | `/admin` | マスター画面（全登録者の契約状況・機能の個別開放・代理店の追加と担当の割り当て）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
 | 運用 | `/agency` | 代理店画面（担当として割り当てられた登録者だけを表示のみ）。`publicMetadata.role = "agency"` の人だけ。ほかは 404 | — | Clerk |
 | 共通 | `/legal/tokushoho` | 特定商取引法に基づく表記（ログイン不要） | — | なし |
@@ -67,7 +68,7 @@ src/
     audit/                    # A1 テクニカル SEO ルール（extras.ts = 構成・信頼の分析に使う追加項目の抽出）
     seo-analysis/             # サイトの構成・信頼（structure / trust / kinds。A1 に同梱）+ 精密診断
                               #   llms.ts = llms.txt / llms-full.txt の有無と中身（判定は lib/llms-txt/validate.ts を再利用）
-    diagnosis/                # 数字の診断（GSC / GA4 のルール判定）。rules/ = 宣言、engine.ts = 発火判定、events.ts = イベント名の共通化、sources/ = 取り込み、summary.ts = 画面の並べ方
+    diagnosis/                # 数字の診断（GSC / GA4 のルール判定。2026-09-17 以降は連携が無いので発火しない。削除待ち）。rules/ = 宣言、engine.ts = 発火判定、events.ts = イベント名の共通化、sources/ = 取り込み、summary.ts = 画面の並べ方
                               #   sheet/（事実シートの型と組み立て。純関数）、ai/（Claude の分析・数値の照合・ChatGPT）、
                               #   collect.ts（クロール → PSI / CrUX / SerpApi / Google 連携）、runs.ts（Supabase analysis_runs）、quota.ts
     geo/                      # AI 検索モニタリング（docs/dev/geo-monitoring-spec.md）。pricing / credits / schedule /

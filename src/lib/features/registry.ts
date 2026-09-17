@@ -171,7 +171,7 @@ const DIAGNOSIS: readonly Feature[] = [
     description:
       "URL を入れるだけで、サイト全体をクロールして 48 ルールで課題を検出し（旧・サイト診断）、主要ページの速度（実ユーザー / 診断）・検索順位・Google 連携の数字と合わせて 1 枚の事実シートにまとめ、AI がその数字だけを根拠に現状分析と優先順位つきの改善案を書きます。",
     details: [
-      "クロール（48 ルール・サイトの構成・信頼。課題一覧・カテゴリ別件数・ページ一覧・CSV は報告書の「詳細」に）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + ドメインパワー + llms.txt の有無と中身 + Search Console / GA4（連携済みなら）",
+      "クロール（48 ルール・サイトの構成・信頼。課題一覧・カテゴリ別件数・ページ一覧・CSV は報告書の「詳細」に）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + ドメインパワー + llms.txt の有無と中身",
       "AI（Claude）が事実 ID を引用しながら、現状分析・強みと弱み・改善案（優先度 / 手間 / 期待できること / 書き換え案）・「普通のコンサルが言うこと」と「本当に言うべきこと」を書く",
       "ChatGPT のセカンドオピニオン（食い違う点だけ）、事実シートの付録、PDF、履歴。月 10 回まで",
     ],
@@ -336,30 +336,26 @@ const MEASURE: readonly Feature[] = [
     plan: "light",
   },
   {
-    id: "search-performance",
-    path: "/tools/search-performance",
-    label: "検索パフォーマンス（Search Console）",
-    shortLabel: "検索パフォーマンス",
+    id: "analytics",
+    path: "/tools/analytics",
+    label: "アクセス解析（計測タグ）",
+    shortLabel: "アクセス解析",
     description:
-      "連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を取得します。推定ではなく Google の実測値です（連携の設定を代行するプレミアムの機能です）。",
+      "発行した 1 行の計測タグをホームページに貼るだけで、訪問者数・流入元（検索 / 生成 AI / SNS / 広告 / 直接）・よく見られたページ・電話やメールのタップ・フォーム送信が見られます。Google アナリティクスの設定は不要です。",
     details: [
-      "期間の合計と前期間との比較（クリック・表示回数・CTR・平均掲載順位）",
-      "日別の推移と、クリックの多いクエリ・ページの一覧",
-      "対象サイトは設定画面で Google アカウントを接続して選びます（ユーザーごと）",
+      "訪問者・セッション・ページビュー・平均滞在時間と、前の期間との比較（7 / 28 / 90 日）",
+      "流入元の内訳（検索エンジン・ChatGPT / Gemini / Perplexity などの生成 AI・SNS・広告・直接）と参照元サイト",
+      "ページ別の閲覧数と、電話・メール・外部予約サイトのタップ、フォーム送信（CV）",
+      "Cookie を使わず、IP アドレスも保存しません（同意バナーが要らない設計）",
     ],
     featureIds: [],
-    icon: "target",
+    icon: "dashboard",
     status: "beta",
-    // 環境変数ではなく、利用者ごとの Google 連携が必要。
-    // 未連携のときは画面側で接続を案内する
-    requires: [],
-    // Search Console の所有確認と連携はほとんどのお客様が使わないため、サイドバーには出さない
-    // （利用者の指示 2026-09-17）。ライトには連携の要らない「検索パフォーマンス（推定）」を置く。
-    // ページと API は残し、プレミアムで連携を代行したお客様に URL を渡す
-    hidden: true,
+    // 保存先は Supabase。お客様側の作業はタグを 1 行貼るだけ（Google の設定は要らない）
+    requires: ["supabase"],
     group: "measure",
     category: "seo",
-    plan: "premium",
+    plan: "light",
   },
   {
     id: "maps",
@@ -471,52 +467,6 @@ const MEASURE: readonly Feature[] = [
     group: "measure",
     category: "aio",
     plan: "light",
-  },
-  {
-    id: "ai-traffic",
-    path: "/tools/ai-traffic",
-    label: "生成 AI 流入分析",
-    shortLabel: "生成 AI 流入",
-    description:
-      "GA4 の参照元から生成 AI チャネル（ChatGPT / Gemini / Perplexity など）を切り出し、セッション・流入ページ・キーイベントを集計します。",
-    details: [
-      "サービス別のセッション・ユーザー・PV の積み上げ",
-      "AI 検索率（対総セッション / 対自然検索）",
-      "ページ × 流入元 × キーイベントの表（参照元辞書は追加可能）",
-    ],
-    featureIds: ["B6"],
-    icon: "traffic",
-    status: "beta",
-    // GA4 の計測タグがお客様のサイトに要るため、既定では出さない（利用者の指示 2026-09-17）。
-    // 使うお客様にだけ個別開放するか、プレミアムでご相談のうえ有効にする
-    hidden: true,
-    requires: ["ga4"],
-    group: "measure",
-    category: "aio",
-    plan: "premium",
-  },
-  {
-    id: "site-report",
-    path: "/tools/site-report",
-    label: "サイトレポート",
-    shortLabel: "サイトレポート",
-    description:
-      "GA4 の KPI（ユーザー数・エンゲージメント・自然検索セッション・CV）の前期比と、登録キーワードの平均順位をひとつのレポートにまとめます。",
-    details: [
-      "KPI カード（前期比）とチャネル別流入",
-      "登録キーワードの平均順位・ファインダビリティスコアの複合グラフ",
-      "自社・競合の最新順位表",
-    ],
-    featureIds: ["E8"],
-    icon: "dashboard",
-    status: "beta",
-    // GA4 の計測タグがお客様のサイトに要るため、既定では出さない（利用者の指示 2026-09-17）。
-    // 使うお客様にだけ個別開放するか、プレミアムでご相談のうえ有効にする
-    hidden: true,
-    requires: ["ga4", "serpapi"],
-    group: "measure",
-    category: "seo",
-    plan: "premium",
   },
 ];
 
@@ -658,11 +608,10 @@ const SETTINGS: readonly Feature[] = [
     label: "ホームページ・競合・Google 連携",
     shortLabel: "設定",
     description:
-      "ホームページ（自社サイト）の URL と競合の登録、Google アカウントの連携（Search Console / GA4）、データのエクスポート / インポート。ここで登録した URL を全タブが使うので、各タブで URL を入力する必要はありません。",
+      "ホームページ（自社サイト）の URL と競合の登録、データのエクスポート / インポート。ここで登録した URL を全タブが使うので、各タブで URL を入力する必要はありません。",
     details: [
       "ホームページの URL（サイト名・ブランド表記も任意で）の登録・変更・削除",
       "競合（名前・URL・ブランド表記）の登録",
-      "Google アカウントの連携（Search Console のサイト・GA4 のプロパティの選択）",
       "ブラウザに保存したデータの JSON エクスポート / インポート",
     ],
     featureIds: ["E1", "E2"],

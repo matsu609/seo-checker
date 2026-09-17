@@ -1,20 +1,9 @@
-import type { Metadata } from "next";
-import { AiTrafficView } from "@/components/ai-traffic/AiTrafficView";
-import { PlanGate } from "@/components/plans/PlanGate";
-import { PageHeader } from "@/components/ui";
-import { requireFeature } from "@/lib/features/registry";
+import { redirect } from "next/navigation";
 
-const feature = requireFeature("ai-traffic");
-
-export const metadata: Metadata = { title: feature.label, description: feature.description };
-
+/**
+ * GA4 を使う画面は提供を終了した（利用者の決定 2026-09-17: Google Search Console / GA4 は使わない）。
+ * 代わりに、自前の計測タグで取る「アクセス解析」へ転送する。古いリンクとブックマークのためだけに残す。
+ */
 export default function Page() {
-  return (
-    <div className="mx-auto w-full max-w-6xl @container">
-      <PageHeader feature={feature} />
-      <PlanGate featureId="ai-traffic">
-        <AiTrafficView />
-      </PlanGate>
-    </div>
-  );
+  redirect("/tools/analytics");
 }

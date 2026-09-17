@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SEO Checker｜Google 検索・AI・Google マップの診断ツール</title>
-<meta name="description" content="Google 検索（SEO）・生成 AI（AIO）・Google マップ（MEO）。3 つの「見つけてもらう場所」をひとつのツールで診断します。URL を入れるだけのクイック診断、Search Console・GA4 の実測値、店舗のビジネス プロフィールの採点まで。初月無料。ライト 38,000 円／スタンダード 50,000 円／プレミアム（伴走）150,000 円〜（月額・税込、お見積り）。">
+<meta name="description" content="Google 検索（SEO）・生成 AI（AIO）・Google マップ（MEO）。3 つの「見つけてもらう場所」をひとつのツールで診断します。URL を入れるだけのクイック診断、Google 連携の要らない検索パフォーマンス（推定）と 1 行の計測タグで取るアクセス解析、店舗のビジネス プロフィールの採点まで。初月無料。ライト 38,000 円／スタンダード 50,000 円／プレミアム（伴走）150,000 円〜（月額・税込、お見積り）。">
 <link rel="canonical" href="https://seo-checker.tokyo/">
 <link rel="sitemap" type="application/xml" href="https://seo-checker.tokyo/sitemap.xml">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://seo-checker.tokyo/">
 <meta property="og:title" content="SEO Checker｜Google 検索・AI・Google マップの診断ツール">
-<meta property="og:description" content="URL を入れるだけで AI 検索への対応状況を 100 点満点で採点。Search Console・GA4 の実測値、Google マップの店舗診断、改修案の生成まで。">
+<meta property="og:description" content="URL を入れるだけで AI 検索への対応状況を 100 点満点で採点。Google 連携なしの検索パフォーマンスとアクセス解析、Google マップの店舗診断、改修案の生成まで。">
 <!-- タブのアイコン。アプリ本体（app.seo-checker.tokyo）と同じ src/app/icon.svg から
      scripts/generate-icons.mjs で書き出したもの。ここだけ手で差し替えると片方が古くなる -->
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -472,7 +472,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
       "inLanguage": "ja",
-      "description": "サイトの SEO・AIO 診断、Search Console・GA4 の実測値、Google マップの店舗診断（MEO）をひとつの画面で提供する SaaS",
+      "description": "サイトの SEO・AIO 診断、Google 連携の要らない検索パフォーマンス（推定）とアクセス解析（計測タグ）、Google マップの店舗診断（MEO）をひとつの画面で提供する SaaS",
       "publisher": {
         "@id": "https://seo-checker.tokyo/#organization"
       },
@@ -564,10 +564,10 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         },
         {
           "@type": "Question",
-          "name": "Search Console や GA4 の権限はどこまで必要ですか",
+          "name": "Search Console や Google アナリティクスの設定は必要ですか",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "読み取り専用の権限だけです。接続はお客様の Google アカウントで行い、設定画面からいつでも解除できます。"
+            "text": "不要です。本サービスは Google Search Console と Google アナリティクスを使いません。検索の状況はドメインを入れるだけで推定し、サイト内の行動は発行した 1 行の計測タグを貼るだけで取れます。"
           }
         },
         {
@@ -624,7 +624,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
     <p class="eyebrow">SERVICE GUIDE ／ 2026.09</p>
     <h1>Google 検索・生成 AI・Google マップ。<br>3 つの<span class="mark">「見つけてもらう場所」</span>を、ひとつのツールで。</h1>
     <p class="lede">
-      URL か店名を入れるだけのクイック診断から、Search Console・Google アナリティクスの実測値、
+      URL か店名を入れるだけのクイック診断から、Google の設定が要らない検索パフォーマンスとアクセス解析、
       店舗のビジネス プロフィールの採点まで。専門知識がなくても、何を直せばよいかが分かる報告書を PDF で出せます。
       AI が答えを組み立てて返す検索が広がるいま、サイトが AI に正しく読まれ、答えの根拠として引用される状態かどうかも診断します。
     </p>
@@ -746,7 +746,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           <h3>SEO（Google 検索）</h3>
           <p>
             サイトの技術的な問題、ページごとの改善点、キーワードの順位を診断・計測します。
-            Search Console を連携すると、クリック数・表示回数・掲載順位を Google の実測値で表示します。
+            Search Console を設定しなくても、ドメインを入れるだけで表示回数・クリック数・掲載順位を推定します。
           </p>
         </div>
         <div class="reason">
@@ -754,7 +754,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           <p>
             ChatGPT や Google の AI Overviews に自社が引用・言及されているかを確認し、
             AI に選ばれるためのページ改善と llms.txt の作成を支援します。
-            Google アナリティクスを連携すると、生成 AI からの流入を分析します。
+            1 行の計測タグを貼るだけで、ChatGPT や Gemini など生成 AI からの流入も分かります。
           </p>
         </div>
         <div class="reason">
@@ -778,10 +778,10 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           </p>
         </div>
         <div class="reason">
-          <h3>推定ではなく実測値を並べる</h3>
+          <h3>Google の設定なしで、初日から数字を出す</h3>
           <p>
-            Search Console と GA4 を接続し、クリック数・表示回数・掲載順位・流入をそのまま表示します。
-            AI 経由の流入も参照元から切り出して集計します。
+            Search Console や Google アナリティクスの登録・所有確認・権限付与は要りません。
+            検索の状況はドメインから推定し、訪問者・流入元・電話やメールのタップは発行した 1 行のタグで実測します。AI 経由の流入も参照元から切り出して集計します。
           </p>
         </div>
         <div class="reason">
@@ -831,10 +831,6 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <p>登録キーワードの Google 順位とランディング URL を取得し、その場で測るリアルタイム計測にも対応。AI Overviews の引用は 自社のみ / 競合のみ / 両方 / なし / AIO 表示なし の 5 区分で集計します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">検索パフォーマンス</span><span class="badge">プレミアム</span></p>
-            <p>連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を取得します。Google の実測値です。</p>
-          </div>
-          <div class="tool">
             <p class="tool-head"><span class="tool-name">検索パフォーマンス（推定）</span></p>
             <p>Google 連携なしで、ドメインを入れるだけ。そのサイトが順位を持っているキーワードを自動で集め、順位ごとのクリック率から表示回数・クリック数・平均順位を推定します。契約したその日から数字が出ます。</p>
           </div>
@@ -847,12 +843,8 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <p>参考プロンプトと対象サイトから、利用者が AI に聞きそうな関連プロンプトをカテゴリ付きで生成します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">生成 AI 流入分析</span><span class="badge">プレミアム</span></p>
-            <p>GA4 の参照元から生成 AI チャネルを切り出し、AI 検索率（対総セッション / 対自然検索）、サービス別内訳、ページ × 流入元 × キーイベントを集計します。</p>
-          </div>
-          <div class="tool">
-            <p class="tool-head"><span class="tool-name">サイトレポート</span><span class="badge">プレミアム</span></p>
-            <p>GA4 の KPI（ユーザー数・エンゲージメント・自然検索セッション・CV）の前期比、チャネル別流入、登録キーワードの平均順位とファインダビリティスコア、自社・競合の最新順位表をひとつにまとめます。</p>
+            <p class="tool-head"><span class="tool-name">アクセス解析（計測タグ）</span></p>
+            <p>発行した 1 行のタグをホームページに貼るだけ。訪問者・セッション・ページビューの前期比、流入元（検索 / 生成 AI / SNS / 広告 / 直接）の内訳、よく見られたページ、電話・メール・外部予約のタップとフォーム送信（CV）が見られます。Google アナリティクスの設定は不要。Cookie を使わず IP も保存しません。</p>
           </div>
         </div>
       </div>
@@ -928,7 +920,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <tr><th>精密診断の範囲</th><td>約 45 のルール・10 カテゴリ。既定 300 ページ、最大 1,000 ページまでクロール</td></tr>
             <tr><th>MEO 診断の採点項目</th><td>4 カテゴリ・21 項目（基本情報 ／ 投稿 ／ 写真 ／ レビュー）。競合は自社 1 店舗あたり 5 件まで登録可</td></tr>
             <tr><th>数字の更新</th><td>Google マップの数字は毎週月曜 5:00（日本時間）に自動で取り直し、履歴として保存</td></tr>
-            <tr><th>連携する外部サービス</th><td>Google Search Console（読み取り専用）、Google アナリティクス 4（読み取り専用）、Google Places API、PageSpeed Insights</td></tr>
+            <tr><th>連携する外部サービス</th><td>Google Places API、PageSpeed Insights、DataForSEO（検索パフォーマンスの推定）。Google Search Console・Google アナリティクスは使いません（アクセス解析は自前の計測タグ）</td></tr>
             <tr><th>対応する生成 AI</th><td>LLMO モニタリングで Claude ／ ChatGPT ／ Gemini ／ Perplexity の 4 サービスを計測</td></tr>
             <tr><th>料金</th><td>精密診断は 3 プラン（月額・税込）: ライト 38,000 円（診断・計測）／<strong>スタンダード 50,000 円</strong>（+ AI が改修案・原稿を作成）／プレミアム 150,000 円〜（+ 人の伴走。月 3 社まで・個別にお見積り）。ライト・スタンダードは<strong>初月無料</strong>（カード登録のみ、無料期間中の解約は無料）。割引コードをお持ちの場合は申し込み画面で入力。カード決済、解約はお客様側の画面で可能</td></tr>
             <tr><th>出力</th><td>診断報告書はブラウザで閲覧、PDF ダウンロード、印刷に対応。一覧は CSV 出力に対応</td></tr>
@@ -952,11 +944,11 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           <p class="plan-price">38,000<small> 円 / 月</small></p>
           <p class="plan-summary">現状を正しく知るための段階。SEO・AIO・MEO の診断と計測がすべて使えます（AI が現状分析と改善案を書く精密診断も含みます）。</p>
           <ul>
-            <li>SEO: 精密診断（サイト全体の診断 + AI の現状分析と改善案）・ページ診断・順位計測・検索パフォーマンス（推定。Google 連携なしで初日から数字が出ます）・キーワード調査</li>
+            <li>SEO: 精密診断（サイト全体の診断 + AI の現状分析と改善案）・ページ診断・順位計測・検索パフォーマンス（推定。Google 連携なしで初日から数字が出ます）・アクセス解析（1 行の計測タグ）・キーワード調査</li>
             <li>AIO: ページ最適化レポート・AIO 頻出トピック・LLMO モニタリング・プロンプト拡張</li>
             <li>MEO: 店舗診断、毎週の自動更新と履歴、競合 5 店舗との比較</li>
             <li class="is-out">AI が原稿・改修案そのものを作るツール（7 つ）は含みません</li>
-            <li class="is-out">Search Console・GA4 の初期設定はご自身で（代行はプレミアム）</li>
+            <li>Search Console・Google アナリティクスの設定は不要（本サービスは使いません）</li>
           </ul>
           <a class="btn btn-outline" href="https://app.seo-checker.tokyo/sign-up">初月無料ではじめる</a>
         </div>        <div class="plan is-lead">
@@ -986,9 +978,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <li>月次レポートの作成と、改善作業の代行</li>
             <li>優先サポート（メール・チャット）</li>
             <li>店舗数・対策キーワード数の上限は、ご要望に合わせて設定</li>
-            <li>Search Console・Google アナリティクスの初期設定の代行（ドメイン登録・所有確認、計測タグ設置のご案内、連携の設定）</li>
-            <li>Search Console の実測値（検索パフォーマンス）。ライトは連携の要らない推定値</li>
-            <li>GA4 を使う分析（サイトレポート・生成 AI 流入分析）。計測タグの設置が前提のため、ご相談のうえ有効にします</li>
+            <li>計測タグの設置の代行（ホームページの管理会社との調整を含みます）</li>
           </ul>
           <a class="btn btn-outline" href="mailto:contact@seo-checker.tokyo?subject=%E3%83%97%E3%83%AC%E3%83%9F%E3%82%A2%E3%83%A0%EF%BC%88%E4%BC%B4%E8%B5%B0%EF%BC%89%E3%81%AE%E3%81%8A%E8%A6%8B%E7%A9%8D%E3%82%8A%E4%BE%9D%E9%A0%BC">お見積りを依頼する</a>
         </div>
@@ -1013,8 +1003,8 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           <p>カード決済でお申し込みいただくと、そのままツールが開きます。プランの変更・解約もお客様側で行えます。</p>
         </li>
         <li>
-          <span class="step-name">Search Console と GA4 を接続する</span>
-          <p>設定画面からお客様の Google アカウントを接続し、対象サイトとプロパティを選びます。要求するのは読み取り専用の権限だけです。</p>
+          <span class="step-name">計測タグをホームページに貼る</span>
+          <p>アクセス解析の画面で発行される 1 行のタグを、ホームページの全ページに貼ります。Google アナリティクスの設定は不要です。検索の状況は、タグが無くても契約初日から推定値で見られます。</p>
         </li>
         <li>
           <span class="step-name">毎月、確認して直す</span>
@@ -1033,7 +1023,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <li>どのページの、どこを直すべきか</li>
             <li>直した後の具体的な文面</li>
             <li>そのページに置ける想定 FAQ の下書きと JSON-LD</li>
-            <li>Search Console と GA4 の実測値の推移</li>
+            <li>訪問者・流入元（検索 / 生成 AI / SNS）・電話やメールのタップの推移（計測タグ）</li>
           </ul>
         </div>
         <div>
@@ -1046,8 +1036,8 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         </div>
       </div>
       <p class="note" style="margin-top: 1rem;">
-        スコアは技術チェック表の達成率です。成果の確認には Search Console の表示回数、
-        問い合わせの転換、Core Web Vitals をご利用ください。
+        スコアは技術チェック表の達成率です。成果の確認には検索パフォーマンス（推定）の表示回数、
+        アクセス解析の問い合わせ（電話・メール・フォーム）の転換、Core Web Vitals をご利用ください。
       </p>
     </section>
 
@@ -1083,9 +1073,9 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           </p>
         </details>
         <details>
-          <summary>Search Console や GA4 の権限はどこまで必要ですか</summary>
+          <summary>Search Console や Google アナリティクスの設定は必要ですか</summary>
           <p class="answer">
-            読み取り専用の権限だけです。接続はお客様の Google アカウントで行い、設定画面からいつでも解除できます。
+            不要です。本サービスは Google Search Console と Google アナリティクスを使いません。検索の状況はドメインを入れるだけで推定し、サイト内の行動（訪問者・流入元・電話やメールのタップ）は発行した 1 行の計測タグを貼るだけで取れます。タグは Cookie を使わず、IP アドレスも保存しません。
           </p>
         </details>
         <details>
@@ -1115,15 +1105,15 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
     <section id="google">
       <h2>Google アカウント連携について</h2>
       <p>
-        SEO Checker は、利用者の許可を得て次の Google サービスのデータを<strong>読み取り専用</strong>で利用します。
+        SEO Checker は Google Search Console と Google アナリティクスを<strong>使いません</strong>（2026 年 9 月に提供を終了しました）。
+        Google アカウントの連携を求めるのは、次の 1 つだけです。
       </p>
       <ul class="list">
-        <li><strong>Google Search Console</strong>: 利用者が所有するサイトのクリック数・表示回数・CTR・掲載順位を、「検索パフォーマンス」画面に表示するため。</li>
-        <li><strong>Google アナリティクス（GA4）</strong>: 利用者が所有するプロパティのユーザー数・セッション・流入元を、「生成 AI 流入分析」「サイトレポート」画面に表示するため。</li>
+        <li><strong>Google ビジネス プロフィール</strong>: 口コミへの返信を「口コミ返信」画面から投稿するため。口コミ返信を使うお客様が、その画面から個別に権限を追加します（Google の審査が終わり次第ご利用いただけます）。</li>
       </ul>
       <p>
         取得したデータは、利用者本人の画面に表示する目的にだけ使い、運営者のサーバーには保存しません（応答を速くするための短時間のキャッシュを除く）。
-        第三者への提供、広告目的の利用、AI モデルの学習への利用は行いません。連携は設定画面からいつでも解除できます。
+        第三者への提供、広告目的の利用、AI モデルの学習への利用は行いません。連携は Google アカウントの「サードパーティ製のアプリとサービス」からいつでも解除できます。
       </p>
       <p class="note">
         詳しくは <a href="https://app.seo-checker.tokyo/privacy" target="_blank" rel="noopener">プライバシーポリシー</a> と
@@ -1164,7 +1154,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
     </p>
     <p>
       本資料の内容は 2026 年 9 月時点のものです。掲載順位や成果を保証するものではありません。
-      料金は月額・税込です。外部サービス（Google Search Console / GA4 / Google マップなど）の仕様変更により、
+      料金は月額・税込です。外部サービス（Google マップ・PageSpeed Insights・DataForSEO など）の仕様変更により、
       取得できる項目が変わる場合があります。
     </p>
     <p>© SEO 研究所</p>

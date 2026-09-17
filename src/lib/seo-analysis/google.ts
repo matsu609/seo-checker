@@ -60,6 +60,26 @@ export interface CollectGoogleOutcome {
   ga4: boolean;
 }
 
+/**
+ * Google 連携を使わないときの空の結果（利用者の決定 2026-09-17: Search Console / GA4 は使わない）。
+ * collect.ts はこちらを使う。collectGoogle は以前の連携データを読む実装として残してあるだけ。
+ */
+export function unusedGoogleOutcome(): CollectGoogleOutcome {
+  return {
+    google: {
+      searchConsole: null,
+      ga4: null,
+      notes: [
+        "本サービスは Google Search Console / Google アナリティクスを使いません。検索の状況は「検索パフォーマンス（推定）」、サイト内の行動（訪問者・流入元・電話やメールのタップ）は「アクセス解析（計測タグ）」でご覧ください",
+      ],
+    },
+    gscDataset: null,
+    ga4Dataset: null,
+    searchConsole: false,
+    ga4: false,
+  };
+}
+
 export async function collectGoogle(origin: string, deps: CollectGoogleDeps = {}): Promise<CollectGoogleOutcome> {
   const notes: string[] = [];
   let settings: { searchConsoleSiteUrl?: string; ga4PropertyId?: string; eventMapping?: Partial<EventMapping> } = {};

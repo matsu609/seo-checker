@@ -37,11 +37,11 @@ type Phase = "idle" | "collecting" | "analyzing" | "done" | "error";
 const STEP_LABELS: Record<string, string> = {
   crawl: "1/4 クロール",
   quick: "2/4 トップページの採点",
-  speed: "3/4 速度・検索・ドメイン・llms.txt・Google 連携",
-  search: "3/4 速度・検索・ドメイン・llms.txt・Google 連携",
-  domain: "3/4 速度・検索・ドメイン・llms.txt・Google 連携",
-  llms: "3/4 速度・検索・ドメイン・llms.txt・Google 連携",
-  google: "3/4 速度・検索・ドメイン・llms.txt・Google 連携",
+  speed: "3/4 速度・検索・ドメイン・llms.txt",
+  search: "3/4 速度・検索・ドメイン・llms.txt",
+  domain: "3/4 速度・検索・ドメイン・llms.txt",
+  llms: "3/4 速度・検索・ドメイン・llms.txt",
+  google: "3/4 速度・検索・ドメイン・llms.txt",
   sheet: "4/4 事実シート",
 };
 

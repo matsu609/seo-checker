@@ -17,7 +17,7 @@ import { fetchCruxHistory, fetchCruxRecord, fetchCruxWithFallback, isCruxEnabled
 import { fetchDomainFacts, scoreDomainPower, type CruxCoverage, type DomainPowerResult } from "@/lib/domain-power";
 import { fetchPsi } from "@/lib/psi/client";
 import { collectLlmsTxt } from "./llms";
-import { collectGoogle } from "./google";
+import { unusedGoogleOutcome } from "./google";
 import { collectSearch } from "./search";
 import { buildFactSheet, pickKeyPages } from "./sheet/build";
 import type { AnalysisInput, SeoFactSheet, SheetSite, SheetSpeed } from "./sheet/types";
@@ -86,10 +86,9 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
       emit("llms", "llms.txt（AI 向けの案内ファイル）を確認しています");
       return collectLlmsTxt(audit.origin, { signal: options.signal });
     })(),
-    (async () => {
-      emit("google", "Google 連携のデータを確認しています");
-      return collectGoogle(audit.origin);
-    })(),
+    // Google 連携（Search Console / GA4）は使わない（利用者の決定 2026-09-17）。
+    // 事実シートの「Google 連携」の層は空のまま、案内文だけを載せる
+    (async () => unusedGoogleOutcome())(),
   ]);
 
   const domain = buildDomainPower({

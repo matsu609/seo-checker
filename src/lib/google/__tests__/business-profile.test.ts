@@ -32,7 +32,7 @@ describe("スコープ", () => {
   it("business.manage は口コミ返信にだけ要り、設定画面の必須には入らない", () => {
     expect(canUse([BUSINESS_PROFILE_SCOPE], "business-profile")).toBe(true);
     expect(canUse(["email"], "business-profile")).toBe(false);
-    expect(missingScopes([BUSINESS_PROFILE_SCOPE])).toHaveLength(2);
+    expect(missingScopes([BUSINESS_PROFILE_SCOPE])).toHaveLength(0);
   });
 });
 

@@ -1,5 +1,10 @@
 # Google OAuth 本番公開審査（#13）— 落ちる理由と、こちらの現在地
 
+> **2026-09-17 の方針変更（利用者の決定）**: Google Search Console と GA4 は**使わない**ことになった（r89）。
+> `webmasters.readonly` と `analytics.readonly` はもう要求しない。**この審査の対象は口コミ返信の `business.manage` だけ**になり、
+> 申請文・デモ動画も「口コミ返信」だけで作り直す必要がある。以下の GSC / GA4 に関する記述は経緯として残してあるが、現行ではない。
+
+
 GA4 の `analytics.readonly` と Search Console の `webmasters.readonly` は Google の**機密スコープ（sensitive）**。
 テスト状態のままだと ①テストユーザー 100 人まで ②**トークンが 7 日で失効**、の 2 つが外れないので、本番公開の審査を通す必要がある。
 

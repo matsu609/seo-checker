@@ -33,9 +33,10 @@ describe("スコープ", () => {
     expect(hasScope(["https://www.googleapis.com/auth/analytics.edit"], ANALYTICS_SCOPE)).toBe(true);
   });
 
-  it("無関係なスコープでは足りない", () => {
-    expect(missingScopes(["email", "profile"])).toEqual([SEARCH_CONSOLE_SCOPE, ANALYTICS_SCOPE]);
-    expect(missingScopes([])).toHaveLength(2);
+  // Search Console / GA4 は使わない（利用者の決定 2026-09-17）ので、接続時に必須のスコープは無い
+  it("接続時に必須のスコープは無い（Search Console / GA4 を要求しない）", () => {
+    expect(missingScopes(["email", "profile"])).toEqual([]);
+    expect(missingScopes([])).toEqual([]);
   });
 });
 

@@ -28,12 +28,12 @@
 ① サーバーのキー（全ユーザー共通）
    Vercel の環境変数 ──→ 外部 API
    運営者が契約し、実費も運営者が払う。ブラウザには渡らない。
-   Anthropic / OpenAI / Gemini / Perplexity / SerpApi / PageSpeed / Places / GA4(サービスアカウント) / Supabase
+   Anthropic / OpenAI / Gemini / Perplexity / SerpApi / PageSpeed / Places / DataForSEO / Supabase
 
 ② 利用者ごとの許可（OAuth。鍵は Clerk が預かる）
    お客様が「接続」を押す ──→ Clerk が短命トークンを保管 ──→ アプリが借りて読む
    見えるのは「そのお客様のデータ」。アプリはトークンを保存しない。
-   Search Console / GA4(利用者の選択) / Google ビジネス プロフィール
+   Google ビジネス プロフィールだけ（Search Console / GA4 は 2026-09-17 に廃止。利用者の決定）
 
 ③ ブラウザの中のデータ（キー不要）
    localStorage（seo-checker:v1:*）──→ 別のツールがそのまま読む
@@ -80,20 +80,19 @@ flowchart LR
 |---|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | クイック診断（サイト） | `/` | 無料 | 不要 | ○ | − | − | − | − | − | − | − |
 | クイック診断（店舗） | `/meo` | 無料 | 不要 | − | − | − | − | ● | − | − | − |
-| **精密診断** | `/tools/seo-analysis` | standard | 必須 | ● | ○ | ○ | − | − | ● | ○ ※6 | ○ GSC / GA4 ※7 |
+| **精密診断** | `/tools/seo-analysis` | standard | 必須 | ● | ○ | ○ | − | − | ● | ○ ※6 | − ※7 |
 | サイト診断 | `/tools/site-audit` | light | 必須 | − | − | − | − | − | − | − | − |
 | ページ最適化レポート | `/tools/page-report` | light | 必須 | − | − | ○ | − | − | − | − | − |
 | ページ診断（競合比較） | `/tools/page-diagnosis` | light | 必須 | ◍ | ◍ | − | − | − | − | − | − |
 | AIO 頻出トピック | `/tools/aio-topics` | light | 必須 | ● | ● | − | − | − | − | − | − |
 | HP 改修提案 | `/tools/improvement` | standard | 必須 | ● | − | − | − | − | − | − | − |
 | 順位計測・AIO 引用 | `/tools/rank` | light | 必須 | − | ● | − | − | − | − | − | − |
-| 検索パフォーマンス | `/tools/search-performance` | light | 必須 | − | − | − | − | − | − | − | ● GSC |
+| 検索パフォーマンス（推定） | `/tools/search-estimate` | light | 必須 | − | − | − | − | − | − | − ※8 | − |
+| アクセス解析（計測タグ） | `/tools/analytics` | light | 必須 | − | − | − | − | − | ● | − | − |
 | Google マップ（MEO） | `/tools/maps` | light | 必須 | ○ ※1 | − | − | − | ● | ● | − | − |
 | 口コミ支援（QR） | `/tools/reviews` | standard | 必須 ※2 | ○ | − | − | − | ○ | ● | − | − |
 | LLMO モニタリング | `/tools/llmo` | light | 必須 | ● | − | − | − | − | − | ○ | − |
 | プロンプト拡張 | `/tools/prompt-expansion` | light | 必須 | ● | − | − | − | − | − | − | − |
-| 生成 AI 流入分析 | `/tools/ai-traffic` | light | 必須 | − | − | − | ● ※3 | − | − | − | ○ GA4 |
-| サイトレポート | `/tools/site-report` | light | 必須 | − | ● ※4 | − | ● ※3 | − | − | − | ○ GA4 |
 | キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |
 | AI ライティング | `/tools/writing` | standard | 必須 | ● | ○ ※4 | − | − | − | − | − | − |
 | 口コミへの返信 | `/tools/replies` | standard | 必須 | ○ | − | − | − | ○ | ○ | − | ◍ BP ※5 |
@@ -105,11 +104,12 @@ flowchart LR
 
 - ※1 総評は `ANTHROPIC_API_KEY` があれば AI が執筆し、無ければルール生成の文章になる。registry の `optional` には未記載（[OPERATIONS.md](./OPERATIONS.md) の残タスク #60）。
 - ※2 店舗側の管理画面はログイン必須。来店客が QR から開くアンケート `/r/<slug>` と `POST /api/r/<slug>/*` だけは公開（IP ごとの回数制限つき）。
-- ※3 GA4 は**利用者が設定画面で選んだプロパティ（②のトークン）が優先**され、無ければ環境変数のサービスアカウント（①）に落ちる（`src/lib/google/ga4.ts`）。どちらも無ければ使えない。
+- ※3 （廃止）GA4 は**利用者が設定画面で選んだプロパティ（②のトークン）が優先**され、無ければ環境変数のサービスアカウント（①）に落ちる（`src/lib/google/ga4.ts`）。どちらも無ければ使えない。
 - ※4 サイトレポートの順位はブラウザの `rankSnapshots`（順位計測ツールが作る）から読む。この画面の API 自体は SerpApi を叩かないので、**SerpApi が必要なのは「順位計測で履歴を作るため」**という間接的な依存。AI ライティングは SerpApi があれば上位 10 件を分析して構成案に反映する。
 - ※5 Google ビジネス プロフィール（`business.manage`）を接続すると口コミの全件取得と投稿がこの画面で完結する。未接続でも Places の公開口コミ（最新 5 件）から返信案を作れる。
 - ※6 セカンドオピニオン（`OPENAI_API_KEY`）。無ければ Claude だけで報告書は完成する。
-- ※7 **連携していなくても報告書は完成する**（URL だけで動くのがこのツールの前提）。連携すると「数字の診断」が 134 ルールまで増える → [scoring-reference.md](./scoring-reference.md) §7。
+- ※8 検索パフォーマンス（推定）は DataForSEO Labs（`DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`。表に列が無いので注記）。
+- ※7 **Google 連携は使わない（2026-09-17）。報告書は URL だけで完成する**（URL だけで動くのがこのツールの前提）。連携すると「数字の診断」が 134 ルールまで増える → [scoring-reference.md](./scoring-reference.md) §7。
 - ページ診断は SerpApi が無いとき **Claude の Web 検索で上位ページを推定**する（実測の順位ではない旨が画面に出る）。
 - サイト診断（`/tools/site-audit`）は**精密診断に統合済み**で、サイドバーには出ない（registry の `hidden: true`）。URL は `/tools/seo-analysis` へ転送する。
 
