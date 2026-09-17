@@ -429,6 +429,11 @@
       "commit": "1f3d232",
       "date": "2026-09-17",
       "summary": "Search Console・GA4 の初期設定の代行をプレミアムの内容に加える"
+    },
+    {
+      "commit": "f64df47",
+      "date": "2026-09-17",
+      "summary": "検索パフォーマンス（推定）を追加し、Search Console の実測をプレミアムに移す"
     }
   ]
 }
