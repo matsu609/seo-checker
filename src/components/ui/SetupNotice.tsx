@@ -41,8 +41,8 @@ export function SetupNotice({ missing, anyOf = false, title, className = "" }: S
         ))}
       </ul>
       <p className="mt-3 text-muted">
-        プロジェクト直下の <code className="font-mono text-[12px]">.env.local</code> に次の行を追加し、開発サーバーを再起動してください。
-        キーはサーバーだけが読み、ブラウザには渡りません。
+        これは運用者側の設定で、お客様側の作業はありません。運用者がサーバーの環境変数（本番は Vercel の Environment Variables、開発中は{" "}
+        <code className="font-mono text-[12px]">.env.local</code>）に次の値を入れて再デプロイすると使えるようになります。キーはサーバーだけが読み、ブラウザには渡りません。
       </p>
       <pre className="mt-2 overflow-x-auto rounded-sm border border-line bg-panel p-3 font-mono text-[12px] leading-relaxed text-ink">
         {envLines.map((v) => `${v}=`).join("\n")}

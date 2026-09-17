@@ -125,9 +125,9 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   dataforseo: {
     key: "dataforseo",
-    label: "DataForSEO（AI 検索モニタリング）",
+    label: "DataForSEO（検索パフォーマンス（推定）・AI 検索モニタリング）",
     envVars: ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"],
-    description: "AI 検索モニタリング。ChatGPT / Gemini の回答と Google AI Overviews を定期計測し、ブランドの引用・参照を数える",
+    description: "Google の通常検索（SEO）の推定: ドメインが順位を持っているキーワード・順位・月間検索数を取り、表示回数とクリック数を推定する（検索パフォーマンス（推定））。AI 検索モニタリング（ChatGPT / Gemini / AI Overviews の定期計測）も同じ鍵で動く",
     pricing: "従量（前払い）。検索順位 $0.002 / KW、AI Overviews $0.0026 / KW、LLM 計測は標準キュー $0.0012 / 回・Live $0.004 / 回。単価は GEO_PRICE_* で上書きでき、為替は GEO_USD_JPY（既定 160 円）",
     limits: "残高が尽きると計測が止まる（DataForSEO のダッシュボードで残高を見る）。このツール側でも 1 アカウント月 2,000 クレジットのソフトキャップがあり、上限に達してもオンデマンド実行だけを止めて定期実行は続ける",
     usage: "標準構成 1 アカウント月あたり: 順位 800 + AIO 200 + LLM 1,500 回 ≒ $3.9（約 ¥630）。同じキーワード・プロンプトは 24 時間、全アカウントで結果を使い回すので、顧客が増えるほど 1 社あたりは下がる",
