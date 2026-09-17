@@ -4,24 +4,43 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  AIO_CATEGORY,
   categoryForPath,
   DEFAULT_FEATURE_CATEGORY,
   FEATURE_CATEGORIES,
   findCategory,
   groupsForSidebar,
+  isPillar,
+  sidebarTree,
   TOOL_FEATURES,
   toolGroupsForDisplay,
+  type FeatureCategoryId,
 } from "../registry";
 
-const ids = (c?: "seo" | "aio" | "meo") => groupsForSidebar(c).tools.flatMap((g) => g.features.map((f) => f.id));
+const ids = (c?: FeatureCategoryId) => groupsForSidebar(c).tools.flatMap((g) => g.features.map((f) => f.id));
 
-describe("タブの定義", () => {
-  it("SEO → MEO → AIO の順に 3 つ（利用者の指定 2026-09-13）。既定は先頭のタブ", () => {
-    expect(FEATURE_CATEGORIES.map((c) => c.id)).toEqual(["seo", "meo", "aio"]);
+describe("AIO 対策（親）の中の 3 本の柱", () => {
+  it("柱は SEO → MEO → サイテーションの順（並びは利用者の指定 2026-09-13）。既定で開くのは先頭", () => {
+    expect(FEATURE_CATEGORIES.map((c) => c.id)).toEqual(["seo", "meo", "citation"]);
     expect(DEFAULT_FEATURE_CATEGORY).toBe("seo");
     expect(findCategory("meo").label).toBe("MEO");
-    // AIO 対策 = SEO + MEO + サイテーション（NAP 登録）の総称、と分かる説明
-    expect(findCategory("aio").description).toMatch(/SEO・MEO・サイテーション/);
+    expect(findCategory("aio")).toBe(AIO_CATEGORY);
+    // AIO 対策 = SEO + MEO + サイテーション の総称、と分かる説明（利用者の指示 2026-09-17）
+    expect(AIO_CATEGORY.description).toMatch(/SEO・MEO・サイテーション/);
+  });
+
+  it("サイドバーの木: 親の直下に AI 検索モニタリング、柱の中に各ツール、共通に料金・設定", () => {
+    const tree = sidebarTree();
+    expect(tree.umbrella.map((f) => f.id)).toEqual(["geo"]);
+    expect(tree.pillars.map((p) => [p.category.id, p.features.map((f) => f.id)])).toEqual([
+      ["seo", ["seo-analysis", "page-diagnosis", "improvement", "rank", "search-estimate", "keywords", "writing"]],
+      ["meo", ["maps", "reviews", "replies"]],
+      ["citation", ["citations", "listings", "llms-txt"]],
+    ]);
+    expect(tree.common.map((f) => f.id)).toEqual(["plans", "settings"]);
+    // 木に出るのは hidden でないツールの全部（漏れも重複も無い）
+    const inTree = [...tree.umbrella, ...tree.pillars.flatMap((p) => p.features), ...tree.common].map((f) => f.id).sort();
+    expect(inTree).toEqual(TOOL_FEATURES.filter((f) => !f.hidden).map((f) => f.id).sort());
   });
 
   it("設定・料金以外のツールは必ずどれかのタブに属する", () => {
@@ -29,37 +48,22 @@ describe("タブの定義", () => {
       if (f.group === "settings") {
         expect(f.category, f.id).toBeUndefined();
       } else {
-        expect(["seo", "aio", "meo"], f.id).toContain(f.category);
+        expect(["aio", "seo", "meo", "citation"], f.id).toContain(f.category);
       }
     }
   });
 
-  it("どのタブも空でなく、共通の機能（設定）はすべてのタブに出る", () => {
-    for (const c of FEATURE_CATEGORIES) {
+  it("groupsForSidebar: 分類ごとの絞り込み（共通の機能は必ず付く）", () => {
+    for (const c of [...FEATURE_CATEGORIES, AIO_CATEGORY]) {
       const { tools } = groupsForSidebar(c.id);
       const list = tools.flatMap((g) => g.features.map((f) => f.id));
       expect(list.length, c.id).toBeGreaterThan(2);
       expect(list).toContain("settings");
       expect(list).toContain("plans");
-      // 他のタブの機能は混ざらない
       for (const g of tools) for (const f of g.features) expect(f.category ?? c.id, f.id).toBe(c.id);
     }
-  });
-
-  it("AIO タブ = 基礎対策（サイテーション・NAP 登録・llms.txt）+ AI 検索モニタリング", () => {
-    expect(ids("aio")).toEqual(["citations", "listings", "llms-txt", "geo", "plans", "settings"]);
-    // 基礎対策は AIO タブの先頭のグループ
-    expect(groupsForSidebar("aio").tools[0]?.id).toBe("foundation");
-  });
-
-  it("SEO タブ = お客様のホームページの最適化（HP 改修提案は AIO から移動。利用者の指示 2026-09-17）", () => {
-    expect(ids("seo")).toEqual(["seo-analysis", "page-diagnosis", "improvement", "rank", "search-estimate", "keywords", "writing", "plans", "settings"]);
-    expect(ids("aio")).not.toContain("improvement");
-  });
-
-  it("MEO タブ = Google マップ・口コミ", () => {
-    expect(ids("meo")).toEqual(["maps", "reviews", "replies", "plans", "settings"]);
-    expect(ids("meo")).not.toContain("seo-analysis");
+    expect(ids("seo")).not.toContain("citations");
+    expect(ids("citation")).not.toContain("improvement");
   });
 
   it("サイドバーから外した機能（ページは転送か、親ツールからリンク）はどのタブにも出ない", () => {
@@ -79,7 +83,11 @@ describe("タブの定義", () => {
     expect(categoryForPath("/tools/maps")).toBe("meo");
     expect(categoryForPath("/tools/maps/")).toBe("meo");
     expect(categoryForPath("/tools/geo")).toBe("aio");
-    expect(categoryForPath("/tools/citations")).toBe("aio");
+    expect(categoryForPath("/tools/citations")).toBe("citation");
+    expect(categoryForPath("/tools/listings")).toBe("citation");
+    expect(isPillar(categoryForPath("/tools/citations"))).toBe(true);
+    expect(isPillar(categoryForPath("/tools/geo"))).toBe(false);
+    expect(isPillar(null)).toBe(false);
     expect(categoryForPath("/tools/improvement")).toBe("seo");
     expect(categoryForPath("/tools/site-audit")).toBe("seo");
     expect(categoryForPath("/settings")).toBeNull();

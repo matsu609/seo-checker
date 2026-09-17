@@ -9,7 +9,7 @@
 
 ## ルーティングとサイドバー
 
-サイドバーの定義は `src/lib/features/registry.ts` に一元化する（ラベル・パス・アイコン・グループ・機能 ID・状態）。ページ側はこの定義を参照して見出しを出す。サイドバーは **SEO / MEO / AIO のタブ**（`category`）で切り替え、タブの中をグループ（基礎対策 / 診断 / 計測 / 調査 / 生成）で並べる。設定・料金は `category` を持たず全タブに出る。**押したタブを最優先**し（画面のタブが常に勝って切り替わらない不具合を r94 で修正）、別の画面へ移動したらその画面のタブ、共通画面では最後に押したタブ（localStorage `sidebarTab`）。位置づけ（利用者の指示 2026-09-17）: このサービスは **AIO 対策の可視化ツール**（AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称）で、SEO に少し力を入れている。AIO タブ = 基礎対策（サイテーション・基本情報掲載・llms.txt）+ AI 検索モニタリング、SEO タブ = お客様のホームページの最適化、MEO タブ = Google マップ・口コミ。サイドバーから外した機能は `hidden: true`（ページは転送、定義とプランのゲートは残す）。
+サイドバーの定義は `src/lib/features/registry.ts` に一元化する（ラベル・パス・アイコン・グループ・機能 ID・状態）。ページ側はこの定義を参照して見出しを出す。サイドバーは **「AIO 対策」を親のくくりにし、その中に SEO / MEO / サイテーションの 3 本の柱**（`category`。`sidebarTree()`）を開閉式で並べる（利用者の指示 2026-09-17「AI の中に SEO・MEO・サイテーションがあると分かる構成に」。r95）。AI 検索モニタリング（`category: "aio"`）は柱ではなく親の直下、設定・料金は `category` を持たず常に出る。開いている柱は 1 本で、**押した柱を最優先**し（画面の分類が常に勝って切り替わらない不具合を r94 で修正）、別の画面へ移動したらその画面の柱、柱に属さない画面では最後に押した柱（localStorage `sidebarTab`）。位置づけ: このサービスは **AIO 対策の可視化ツール**（AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称）で、SEO に少し力を入れている。SEO = お客様のホームページの最適化、MEO = Google マップ・口コミ、サイテーション = 基礎情報の掲載（掲載チェック・基本情報掲載・llms.txt）。サイドバーから外した機能は `hidden: true`（ページは転送、定義とプランのゲートは残す）。
 
 | グループ | パス | ラベル | 機能 ID | 外部依存 |
 |---|---|---|---|---|
@@ -34,9 +34,9 @@
 | 生成 | `/tools/replies` | 口コミへの返信（AI 返信案） | — | Google 連携（Business Profile API、`business.manage`）。返信案は Anthropic 任意 |
 | 調査 | `/tools/keywords` | キーワード調査 | C1 | なし（意図分類は Anthropic 任意） |
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
-| 基礎対策 | `/tools/citations` | サイテーション（店名・電話・住所で Google を検索し、ウェブ上の掲載・言及と NAP の食い違いを一覧に。AIO タブ） | — | DataForSEO |
-| 基礎対策 | `/tools/listings` | 基本情報掲載（NAP 一括登録。AIO タブ） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
-| 基礎対策 | `/tools/llms-txt` | llms.txt 生成（AIO タブ） | D6 | なし |
+| 基礎対策 | `/tools/citations` | サイテーション（店名・電話・住所で Google を検索し、ウェブ上の掲載・言及と NAP の食い違いを一覧に。サイテーションの柱） | — | DataForSEO |
+| 基礎対策 | `/tools/listings` | 基本情報掲載（NAP 一括登録。サイテーションの柱） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
+| 基礎対策 | `/tools/llms-txt` | llms.txt 生成（サイテーションの柱） | D6 | なし |
 | 設定 | `/settings` | **ホームページ（自社サイト）の URL**・競合・データの書き出し / 読み込み（Google 連携のカードは 2026-09-17 に廃止。API キーの設定状況は `/admin`） | E1, E2 | なし |
 | 運用 | `/admin` | マスター画面（全登録者の契約状況・機能の個別開放・代理店の追加と担当の割り当て）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
 | 運用 | `/agency` | 代理店画面（担当として割り当てられた登録者だけを表示のみ）。`publicMetadata.role = "agency"` の人だけ。ほかは 404 | — | Clerk |

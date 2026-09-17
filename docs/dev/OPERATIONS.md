@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r94 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r95 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -90,7 +90,7 @@
 | Google Cloud `seo-checker-508104` | OAuth 構成済み（テスト状態） | 下記「Google Cloud の設定」。**r89 以降、要求するスコープは口コミ返信の `business.manage` だけ**（GSC / GA4 は廃止） |
 | Google 連携（GSC / GA4） | **提供終了（r89、09-17。利用者の決定「Google Search Console と GA4 は使わない」）** | 画面は代替へ転送、API は 410。代替: 検索パフォーマンス（推定）（r87）だけ。サイト内の行動（訪問者・CV）は外部から取れず、自前タグも r90 で取り下げ。コード（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/lib/site-report/` の大半・`src/components/{search-performance,site-report,ai-traffic,google}/`）は**削除待ち**（下の残タスク #105） |
 | アクセス解析（自前の計測タグ） | **取り下げ（r90、09-17。利用者の決定「ツールで完結しないので面倒。やらない」）** | r89 で作った直後に取り下げ。画面は推定へ転送、API と `/t.js` は 410。コードは r93 で削除済み。Supabase の SQL は**実行不要** |
-| サイドバーの構成（r94、09-17） | **タブの切り替え不具合を修正。AIO タブ = 基礎対策（**サイテーション（新規）**・基本情報掲載・llms.txt）+ AI 検索モニタリング / SEO タブ = 精密診断・ページ診断・**HP 改修提案（AIO から移動）**・順位計測・検索の推定・キーワード調査・AI ライティング / MEO タブ = Google マップ・口コミ支援・口コミへの返信** | 利用者の指示「本当に必要な機能に絞る」「AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称」。サイドバーから外した 3 つ: ページ最適化レポート（→ HP 改修提案へ転送）・AIO 頻出トピック（→ AI 検索モニタリングへ転送）・プロンプト拡張（AI 検索モニタリングの設定からリンク）。定義・API・プランのゲートは残る（`hidden: true`） |
+| サイドバーの構成（r94 → r95、09-17） | **「AIO 対策」を親のくくりにし、その中に 3 本の柱を開閉式で並べる（r95）。親の直下 = AI 検索モニタリング / 柱 SEO = 精密診断・ページ診断・HP 改修提案（AIO から移動）・順位計測・検索の推定・キーワード調査・AI ライティング / 柱 MEO = Google マップ・口コミ支援・口コミへの返信 / 柱 サイテーション = サイテーション（新規）・基本情報掲載・llms.txt** | 利用者の指示「本当に必要な機能に絞る」「AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称」。サイドバーから外した 3 つ: ページ最適化レポート（→ HP 改修提案へ転送）・AIO 頻出トピック（→ AI 検索モニタリングへ転送）・プロンプト拡張（AI 検索モニタリングの設定からリンク）。定義・API・プランのゲートは残る（`hidden: true`） |
 | LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity） | **提供終了（r92、09-17。利用者の決定「AI 検索モニタリングに一本化」）** | `/tools/llmo` → `/tools/geo` へ転送、`/api/llmo/run` と `/api/seo-analysis/second-opinion` は 410。**残る契約は Anthropic・DataForSEO・SerpApi・Google（マップ・PageSpeed）・Supabase・Clerk・Stripe**。コードは r93 で削除済み |
 | DataForSEO | **接続済み・動作確認済み（09-17）** | `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Production に登録。検索パフォーマンス（推定）が実データを返した = Labs `ranked_keywords` のエンドポイントは合っていた（`DATAFORSEO_LABS_RANKED_PATH` の差し替えは不要）。残高はお試し $1 → 動作確認後に $50 入金 |
 | Places API（Google マップ） | **コードは完成、キー未設定** | 請求先アカウントの紐づけとキー作成が利用者側で未了 |
@@ -185,7 +185,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 |---|---|---|---|
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
 | 111 | **サイドバーの整理の続き**: r94 で 3 つ外した。さらに減らす候補は ① ページ診断（競合比較。精密診断と役割が近い）② 順位計測（SerpApi）と検索パフォーマンス（推定）（DataForSEO）の一本化 ③ AIO 頻出トピック・ページ最適化レポートの API と `src/lib/aio-topics/` の削除（1〜2 か月後、転送ページと一緒に）。利用者の判断待ち（下の入力待ち） | 利用者（判断）→ Claude | 未 |
-| 112 | **タブの並び**: 09-13 の指定（SEO → MEO → AIO）のまま。「AIO が全体」の位置づけに合わせて AIO を先頭・既定にするなら一言（`FEATURE_CATEGORIES` の並びと `registry.test.ts` の 2 か所） | 利用者（判断） | 未 |
+| 112 | ~~タブの並び~~ | — | **不要（r95 で 3 タブをやめ、AIO 対策の中に SEO / MEO / サイテーションを入れ子にした）** |
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports`~~ → ~~Vercel に環境変数 2 つ~~ → ~~`meo_stores`~~（09-10 17:03 作成、Table Editor で 2 テーブル確認）→ 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: 動作確認のみ |
@@ -662,7 +662,6 @@ create table if not exists geo_model_versions (
 ### 入力待ち（利用者からの回答が要るもの）
 
 - **サイドバーの整理（#111）**: r94 で外した 3 つ（ページ最適化レポート・AIO 頻出トピック・プロンプト拡張）はこれでよいか。さらに減らすか（ページ診断 / 順位計測と検索の推定の一本化）。
-- **タブの並び（#112）**: SEO → MEO → AIO のまま（09-13 の指定）か、AIO を先頭にするか。
 - **明日の公開の形（09-16 提案）**: Stripe が止まっているあいだ、最初のお客様の初月（無料）は管理画面の個別開放で使ってもらい、2 か月目の請求は ①Stripe 復旧を待って Checkout で ②請求書（銀行振込）で、のどちらにするか。②なら請求書の発行方法（Stripe の請求書機能は決済停止中は使えない可能性が高いので、手書き / 会計ソフト）
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
@@ -926,6 +925,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | 日付 | 判断 | 理由 |
 |---|---|---|
+| 09-17 | **サイドバーは 3 つの並列タブではなく、「AIO 対策」（親）の中に SEO / MEO / サイテーション（柱）が入る入れ子にする**（r95） | 利用者の指示「独立しちゃっているので、くくり的には AI の中に MEO・SEO・サイテーションがあると分かる構成に」。柱は開閉式（開くのは 1 本。r94 の「押した柱が最優先」はそのまま）。AI 検索モニタリングは柱ではなく AIO 対策全体の成果をはかるものなので親の直下。柱の並びは 09-13 の指定（SEO → MEO → 基礎情報）のまま |
 | 09-17 | **このサービスは「AIO 対策の可視化ツール」で、SEO に競合より少し力を入れている。AIO 対策 = SEO 対策 + MEO 対策 + 海外を含む基本情報サイトへの NAP 登録（サイテーション）の総称**（r94） | 利用者の指示。サイドバーの位置づけを AIO タブ = 土台（サイテーション・NAP 登録・llms.txt）+ AI 検索の計測、SEO タブ = お客様のホームページの最適化、MEO タブ = Google マップ・口コミ、に直し、タブの下に 1 行の説明を出す。HP 改修提案は「ホームページを直す機能」なので SEO タブへ |
 | 09-17 | **サイドバーを「本当に必要な機能」に絞る。外した 3 つ: ページ最適化レポート・AIO 頻出トピック・プロンプト拡張**（r94） | 利用者の指示「いらない機能が多い」。外す基準 = ①同じ答えを別のツールが出す（1 ページの採点はクイック診断、直し方は HP 改修提案）②必要な鍵が多く単独では使いにくい（AIO 頻出トピック = SerpApi + Anthropic）③別のツールの下ごしらえ（プロンプト拡張 → AI 検索モニタリングの設定からリンク）。消したのは画面の部品だけで、定義・API・プランのゲートは `hidden: true` で残す（戻すのは 1 行） |
 | 09-17 | **サイテーションは DataForSEO の Google 検索（Live）で作り、ライトに置く**（r94） | SerpApi は未設定、DataForSEO は接続済みで同じ鍵が使える。読む・測る系なのでライト（1 回 = 検索 3 回 ≒ $0.006、24 時間キャッシュ）。地図アプリ（Google / Apple / Bing など）は通常の検索結果に出ないので「主要媒体の掲載状況」には数えず、検索に出る媒体（Yahoo!ロコ・Foursquare・Facebook・Yelp など 8 つ）だけを数える |
@@ -2668,3 +2668,13 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 検証: lint / tsc / **test 1,524 件**（サイテーション 15 件を追加、削除した画面のテストは無し） / build 通過。
 
 **利用者にお願いしたいこと**: #110（サイテーションの本番確認）と、#111 / #112 の判断（入力待ち）。
+
+### 2026-09-17（サイドバーを「AIO 対策の中に SEO / MEO / サイテーション」の入れ子に、r95）
+
+**利用者の指示**「AI の中に SEO や MEO、サイテーションが入るようにしてほしい。現状は独立しているので、くくり的には AI の中にあると分かる構成に」。
+
+**やったこと（r95）**
+- `registry.ts`: 親 `AIO_CATEGORY`（AIO 対策）と柱 `FEATURE_CATEGORIES`（seo / meo / citation）に分け、`sidebarTree()` で「親の直下（AI 検索モニタリング）／ 柱ごとの機能 ／ 共通（料金・設定）」を返す。サイテーション・基本情報掲載・llms.txt は `category: "citation"`。
+- `Sidebar.tsx`: 3 タブを廃止。見出し「AIO 対策」+ 説明 → AI 検索モニタリング → 罫線でぶら下げた 3 本の柱（開閉式。見出しに機能数、開いた柱に説明 1 行）→ 設定。ツール 1 件の描画を `FeatureLink` にまとめた。
+- 保存する値（`sidebarTab`）は `seo / meo / citation`。古い `aio` は検証で落ちて既定（seo）に戻るだけ。
+- 検証: lint / tsc / test 1,522 件 / build 通過。本番ビルドで柱の開閉と画面移動を確認。

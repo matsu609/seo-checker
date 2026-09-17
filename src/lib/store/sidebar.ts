@@ -1,16 +1,16 @@
 /**
- * サイドバーのタブ（AIO / SEO / MEO）の選択。ブラウザに保存する。
+ * サイドバーで開いている柱（AIO 対策の中の SEO / MEO / サイテーション）。ブラウザに保存する。
  *
- * ここが唯一の「いま開いているタブ」。タブを押せば必ずここが変わり、
- * どれかのタブに属する画面へ移動したときはサイドバーがここを画面のタブに合わせる
- * （Sidebar.tsx）。設定や無料診断など共通の画面では最後に選んだタブのまま。
+ * ここが唯一の「いま開いている柱」。見出しを押せば必ずここが変わり、
+ * どれかの柱に属する画面へ移動したときはサイドバーがここを画面の柱に合わせる
+ * （Sidebar.tsx）。設定や AI 検索モニタリングなど柱に属さない画面では最後に開いた柱のまま。
  */
 import { z } from "zod";
 import { DEFAULT_FEATURE_CATEGORY } from "@/lib/features/registry";
 import { createStore } from "./createStore";
 
 export const SidebarTabSchema = z.object({
-  tab: z.enum(["seo", "aio", "meo"]),
+  tab: z.enum(["seo", "meo", "citation"]),
 });
 
 export type SidebarTab = z.infer<typeof SidebarTabSchema>;

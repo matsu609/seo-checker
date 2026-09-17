@@ -4,20 +4,20 @@ import Link from "next/link";
 import { forwardRef, useState } from "react";
 import { INTEGRATIONS, type IntegrationStatus } from "@/lib/features/integrations";
 import {
+  AIO_CATEGORY,
   categoryForPath,
-  FEATURE_CATEGORIES,
-  findCategory,
-  groupsForSidebar,
   isFeatureActive,
+  isPillar,
+  sidebarTree,
   type Feature,
-  type FeatureCategoryId,
+  type FeaturePillarId,
 } from "@/lib/features/registry";
 import { planShortLabel, upgradeTarget } from "@/lib/plans/catalog";
 import { useStore } from "@/lib/store/hooks";
 import { sidebarTabStore } from "@/lib/store/sidebar";
 import { useIntegrations } from "@/lib/store/useIntegrations";
-import { canUseFeature, useAccess } from "@/lib/store/usePlan";
-import { CloseIcon, FeatureIconSvg, LogoMark } from "./icons";
+import { canUseFeature, useAccess, type Access } from "@/lib/store/usePlan";
+import { ChevronIcon, CloseIcon, FeatureIconSvg, LogoMark } from "./icons";
 
 export interface SidebarProps {
   pathname: string;
@@ -42,9 +42,72 @@ function missingLabel(feature: Feature, status: IntegrationStatus | null): strin
   return keys.map((k) => INTEGRATIONS[k].envVars.join(" + ")).join(", ");
 }
 
+const ITEM_CLASS = "relative mx-2 flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60";
+const ACTIVE_CLASS =
+  "bg-on-brand/12 font-bold text-on-brand before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[3px] before:rounded-r-sm before:bg-on-brand before:content-['']";
+const IDLE_CLASS = "text-on-brand/90 hover:bg-on-brand/8";
+
+interface FeatureLinkProps {
+  feature: Feature;
+  pathname: string;
+  status: IntegrationStatus | null;
+  access: Access | null;
+  onNavigate?: () => void;
+  /** 柱の中の項目は少し右に寄せる */
+  nested?: boolean;
+}
+
+/** ツール 1 件。鍵（プラン不足）→ 要設定 → 機能 ID の順で右端のバッジを決める */
+function FeatureLink({ feature: f, pathname, status, access, onNavigate, nested = false }: FeatureLinkProps) {
+  const active = isFeatureActive(f, pathname);
+  // プランが分かるまでは鍵を出さない（読み込み中に使えないよう見せない）。
+  // 運用者が個別開放した機能も開いた扱いにする
+  const locked = !canUseFeature(access, f.id, f.plan);
+  const setup = !locked && needsSetup(f, status);
+  return (
+    <li>
+      <Link
+        href={f.path}
+        onClick={onNavigate}
+        aria-current={active ? "page" : undefined}
+        title={f.label}
+        className={`${ITEM_CLASS} ${nested ? "ml-2" : ""} ${active ? ACTIVE_CLASS : IDLE_CLASS}`}
+      >
+        <FeatureIconSvg icon={f.icon} className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{f.shortLabel}</span>
+        {locked ? (
+          <span
+            title={`「${upgradeTarget(f.plan).label}」プランでご利用いただけます`}
+            className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted"
+          >
+            {planShortLabel(f.plan)}
+          </span>
+        ) : setup ? (
+          <span title={`未設定: ${missingLabel(f, status)}`} className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted">
+            要設定
+          </span>
+        ) : (
+          f.featureIds.length > 0 && (
+            <span className="inline-flex items-center gap-1" aria-label={`機能 ID ${f.featureIds.join(", ")}`}>
+              <span className="rounded-sm border border-on-brand/30 px-1 font-mono text-[10px] leading-4 text-on-brand-muted">{f.featureIds[0]}</span>
+              {f.featureIds.length > 1 && (
+                <span className="rounded-sm border border-on-brand/30 px-1 font-mono text-[10px] leading-4 text-on-brand-muted">+{f.featureIds.length - 1}</span>
+              )}
+            </span>
+          )
+        )}
+      </Link>
+    </li>
+  );
+}
+
 /**
  * 藍のサイドバー本体。デスクトップの <aside> とモバイルのドロワーで共用する。
  * 定義は registry のみ。ここでは描画だけ。
+ *
+ * 構造は「AIO 対策（親）の中に SEO / MEO / サイテーションの 3 本の柱がある」をそのまま出す
+ * （利用者の指示 2026-09-17）。柱は開閉式で、開いているのは 1 本。AI 検索モニタリングは
+ * 柱ではなく AIO 対策全体の成果をはかるものなので、親の直下に置く。
  *
  * クイック診断（/ と /meo）はここに出さない（利用者の決定 2026-09-13）。
  * 料金を払っている画面に無料の診断が並んでいると、支払っている意味が薄れて見えるため。
@@ -56,25 +119,21 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
 ) {
   const [saved, setSaved] = useStore(sidebarTabStore);
   /**
-   * 押したタブは必ず反映する。
-   *
-   * 以前は「開いている画面のタブ ?? 保存したタブ」で表示していたため、どれかのタブに属する
-   * 画面（順位計測など）を開いたままタブを押しても、画面のタブが常に勝って切り替わらなかった
-   * （利用者の報告 2026-09-17「反応が悪い・切り替わらないことが多い」）。
-   * いまは「この画面で押したタブ」を最優先にし、別の画面へ移動したらその画面のタブ、
-   * 共通の画面（設定など）では最後に押したタブを出す。
+   * 開いている柱は「この画面で押した柱」を最優先にし、別の画面へ移動したらその画面の柱、
+   * 柱に属さない画面（設定・AI 検索モニタリング）では最後に押した柱を開く。
+   * （以前は画面の分類が常に勝って、押しても切り替わらなかった。利用者の報告 2026-09-17）
    */
-  const [picked, setPicked] = useState<{ pathname: string; tab: FeatureCategoryId } | null>(null);
+  const [picked, setPicked] = useState<{ pathname: string; tab: FeaturePillarId } | null>(null);
   const pathCategory = categoryForPath(pathname);
-  const tab: FeatureCategoryId = picked && picked.pathname === pathname ? picked.tab : (pathCategory ?? saved.tab);
-  const selectedCategory = findCategory(tab);
-  function pickTab(next: FeatureCategoryId) {
+  const open: FeaturePillarId = picked && picked.pathname === pathname ? picked.tab : isPillar(pathCategory) ? pathCategory : saved.tab;
+  function toggle(next: FeaturePillarId) {
     setPicked({ pathname, tab: next });
     setSaved({ tab: next });
   }
-  const { tools } = groupsForSidebar(tab);
+  const tree = sidebarTree();
   const { status } = useIntegrations();
   const access = useAccess();
+  const linkProps = { pathname, status, access, onNavigate };
 
   return (
     <nav aria-label="メインナビゲーション" className="flex min-h-full flex-col text-on-brand">
@@ -95,98 +154,69 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         )}
       </div>
 
-      {/* ツール */}
-      <div className="mt-6 flex items-center gap-2 px-4">
-        <span className="text-[11px] font-bold text-on-brand-muted">ツール</span>
-        <span className="rounded-full border border-on-brand-muted px-1.5 text-[10px] font-bold leading-4 text-on-brand-muted">
-          β
-        </span>
+      {/* 親のくくり: AIO 対策 */}
+      <div className="mt-5 px-4">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-bold text-on-brand">{AIO_CATEGORY.label}</span>
+          <span className="rounded-full border border-on-brand-muted px-1.5 text-[10px] font-bold leading-4 text-on-brand-muted">β</span>
+        </div>
+        <p className="mt-1 text-[11px] leading-relaxed text-on-brand-muted">{AIO_CATEGORY.description}</p>
       </div>
 
-      {/* SEO / AIO / MEO のタブ。定義は registry の FEATURE_CATEGORIES */}
-      <div role="tablist" aria-label="ツールの分類" className="mx-3 mt-2 grid grid-cols-3 gap-1 rounded-md border border-on-brand/25 p-1">
-        {FEATURE_CATEGORIES.map((c) => {
-          const selected = c.id === tab;
+      {/* 親の直下: AI 検索モニタリング */}
+      {tree.umbrella.length > 0 && (
+        <ul className="mt-3 space-y-0.5">
+          {tree.umbrella.map((f) => (
+            <FeatureLink key={f.id} feature={f} {...linkProps} />
+          ))}
+        </ul>
+      )}
+
+      {/* 柱: SEO / MEO / サイテーション（開閉式、開いているのは 1 本） */}
+      <div className="mt-2 ml-4 border-l border-on-brand/20">
+        {tree.pillars.map(({ category, features }) => {
+          const isOpen = category.id === open;
+          const containsCurrent = features.some((f) => isFeatureActive(f, pathname));
           return (
-            <button
-              key={c.id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              title={c.description}
-              onClick={() => pickTab(c.id)}
-              className={`h-8 rounded-sm text-[12px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
-                selected ? "bg-on-brand text-brand" : "text-on-brand/90 hover:bg-on-brand/10"
-              }`}
-            >
-              {c.label}
-            </button>
+            <div key={category.id}>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={`sidebar-pillar-${category.id}`}
+                title={category.description}
+                onClick={() => toggle(category.id)}
+                className={`flex h-9 w-full items-center gap-1.5 px-3 text-left text-[12px] font-bold outline-none hover:bg-on-brand/8 focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
+                  isOpen || containsCurrent ? "text-on-brand" : "text-on-brand/80"
+                }`}
+              >
+                <ChevronIcon open={isOpen} className="h-3.5 w-3.5 shrink-0 text-on-brand-muted" />
+                <span className="min-w-0 flex-1 truncate">{category.label}</span>
+                <span className="font-mono text-[10px] font-normal text-on-brand-muted">{features.length}</span>
+              </button>
+              {isOpen && (
+                <div id={`sidebar-pillar-${category.id}`}>
+                  <p className="mb-1 pr-3 pl-8 text-[11px] leading-relaxed text-on-brand-muted">{category.description}</p>
+                  <ul className="mb-2 space-y-0.5">
+                    {features.map((f) => (
+                      <FeatureLink key={f.id} feature={f} {...linkProps} nested />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
-      {/* 選んだタブの位置づけ（AIO が全体、SEO はホームページ、MEO は Google マップ） */}
-      <p className="mx-4 mt-2 text-[11px] leading-relaxed text-on-brand-muted">{selectedCategory.description}</p>
 
-      {tools.map((group) => (
-        <div key={group.id}>
-          <div className="mt-4 mb-1 px-4 text-[11px] text-on-brand-muted">{group.label}</div>
-          <ul className="space-y-0.5">
-            {group.features.map((f) => {
-              const active = isFeatureActive(f, pathname);
-              // プランが分かるまでは鍵を出さない（読み込み中に使えないよう見せない）。
-              // 運用者が個別開放した機能も開いた扱いにする
-              const locked = !canUseFeature(access, f.id, f.plan);
-              const setup = !locked && needsSetup(f, status);
-              return (
-                <li key={f.id}>
-                  <Link
-                    href={f.path}
-                    onClick={onNavigate}
-                    aria-current={active ? "page" : undefined}
-                    title={f.label}
-                    className={`relative mx-2 flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
-                      active
-                        ? "bg-on-brand/12 font-bold text-on-brand before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[3px] before:rounded-r-sm before:bg-on-brand before:content-['']"
-                        : "text-on-brand/90 hover:bg-on-brand/8"
-                    }`}
-                  >
-                    <FeatureIconSvg icon={f.icon} className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">{f.shortLabel}</span>
-                    {locked ? (
-                      <span
-                        title={`「${upgradeTarget(f.plan).label}」プランでご利用いただけます`}
-                        className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted"
-                      >
-                        {planShortLabel(f.plan)}
-                      </span>
-                    ) : setup ? (
-                      <span
-                        title={`未設定: ${missingLabel(f, status)}`}
-                        className="rounded-sm border border-on-brand-muted px-1 text-[10px] leading-4 text-on-brand-muted"
-                      >
-                        要設定
-                      </span>
-                    ) : (
-                      f.featureIds.length > 0 && (
-                        <span className="inline-flex items-center gap-1" aria-label={`機能 ID ${f.featureIds.join(", ")}`}>
-                          <span className="rounded-sm border border-on-brand/30 px-1 font-mono text-[10px] leading-4 text-on-brand-muted">
-                            {f.featureIds[0]}
-                          </span>
-                          {f.featureIds.length > 1 && (
-                            <span className="rounded-sm border border-on-brand/30 px-1 font-mono text-[10px] leading-4 text-on-brand-muted">
-                              +{f.featureIds.length - 1}
-                            </span>
-                          )}
-                        </span>
-                      )
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+      {/* 共通: 料金・設定 */}
+      <div>
+        <div className="mt-4 mb-1 px-4 text-[11px] text-on-brand-muted">設定</div>
+        <ul className="space-y-0.5">
+          {tree.common.map((f) => (
+            <FeatureLink key={f.id} feature={f} {...linkProps} />
+          ))}
+        </ul>
+      </div>
 
       {/*
         運用者・代理店だけに出す。判定はサーバー（/api/plan）で、ここは表示の出し分けだけ。
@@ -202,11 +232,7 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                   href="/admin"
                   onClick={onNavigate}
                   aria-current={pathname.startsWith("/admin") ? "page" : undefined}
-                  className={`relative mx-2 flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
-                    pathname.startsWith("/admin")
-                      ? "bg-on-brand/12 font-bold text-on-brand before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[3px] before:rounded-r-sm before:bg-on-brand before:content-['']"
-                      : "text-on-brand/90 hover:bg-on-brand/8"
-                  }`}
+                  className={`${ITEM_CLASS} ${pathname.startsWith("/admin") ? ACTIVE_CLASS : IDLE_CLASS}`}
                 >
                   <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">マスター画面</span>
@@ -219,11 +245,7 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                   href="/agency"
                   onClick={onNavigate}
                   aria-current={pathname.startsWith("/agency") ? "page" : undefined}
-                  className={`relative mx-2 flex h-9 items-center gap-2.5 rounded-md px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
-                    pathname.startsWith("/agency")
-                      ? "bg-on-brand/12 font-bold text-on-brand before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[3px] before:rounded-r-sm before:bg-on-brand before:content-['']"
-                      : "text-on-brand/90 hover:bg-on-brand/8"
-                  }`}
+                  className={`${ITEM_CLASS} ${pathname.startsWith("/agency") ? ACTIVE_CLASS : IDLE_CLASS}`}
                 >
                   <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">代理店画面</span>
@@ -240,31 +262,19 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         <span className="mx-1.5" aria-hidden="true">
           ·
         </span>
-        <Link
-          href="/terms"
-          onClick={onNavigate}
-          className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60"
-        >
+        <Link href="/terms" onClick={onNavigate} className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60">
           利用規約
         </Link>
         <span className="mx-1.5" aria-hidden="true">
           ·
         </span>
-        <Link
-          href="/privacy"
-          onClick={onNavigate}
-          className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60"
-        >
+        <Link href="/privacy" onClick={onNavigate} className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60">
           プライバシー
         </Link>
         <span className="mx-1.5" aria-hidden="true">
           ·
         </span>
-        <Link
-          href="/legal/tokushoho"
-          onClick={onNavigate}
-          className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60"
-        >
+        <Link href="/legal/tokushoho" onClick={onNavigate} className="rounded-sm underline underline-offset-2 outline-none hover:text-on-brand focus-visible:ring-2 focus-visible:ring-on-brand/60">
           特商法表記
         </Link>
       </div>

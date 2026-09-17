@@ -12,33 +12,48 @@ import type { IntegrationKey } from "./integrations";
 export type FeatureGroupId = "free" | "foundation" | "diagnosis" | "measure" | "research" | "generate" | "settings";
 
 /**
- * サイドバーのタブ（利用者の指示: AIO / SEO / MEO で分ける）。
+ * サイドバーの分類。
  * group（基礎 / 診断 / 計測 / …）は「何をするか」、category は「何のための施策か」。
- * 設定・料金など共通のものは category を持たない（どのタブでも出す）。
+ * 設定・料金など共通のものは category を持たない（どこを開いていても出す）。
  *
  * 位置づけ（利用者の指示 2026-09-17）: このサービスは **AIO 対策の可視化ツール**で、SEO に競合より少し力を入れている。
  * AIO 対策 = SEO 対策 + MEO 対策 + 海外を含む基本情報サイトへの NAP 登録（サイテーション）の総称。
- * AIO タブには「土台」（サイテーション・NAP 登録・llms.txt）と AI 検索の計測を置き、タブの説明で「全体」と分かるようにする。
- * SEO タブは「お客様が持っているホームページの最適化」（診断・改修案・順位・キーワード・原稿）に絞る。
+ * だからサイドバーは「AIO 対策」を親のくくりにし、**その中に** SEO / MEO / サイテーションの 3 本の柱を並べる
+ * （利用者の指示 2026-09-17「独立しているのではなく、AI の中に SEO・MEO・サイテーションがあると分かる構成に」）。
+ * AI 検索モニタリングは柱ではなく、AIO 対策全体の成果をはかるものとして親の直下に置く。
+ *
+ *   aio      … 親のくくり（AIO 対策）の直下。AI 検索モニタリング
+ *   seo      … 柱 1: お客様が持っているホームページの最適化
+ *   meo      … 柱 2: Google マップ・口コミ
+ *   citation … 柱 3: 基礎情報の掲載（サイテーション・NAP 登録・llms.txt）
  */
-export type FeatureCategoryId = "seo" | "aio" | "meo";
+export type FeatureCategoryId = "aio" | "seo" | "meo" | "citation";
+/** AIO 対策の中の柱（サイドバーで開閉する区切り） */
+export type FeaturePillarId = Exclude<FeatureCategoryId, "aio">;
 
 export interface FeatureCategory {
   id: FeatureCategoryId;
   label: string;
-  /** タブの補足（1 行。サイドバーのタブの下に出す） */
+  /** 補足（1 行。サイドバーの見出しの下に出す） */
   description: string;
 }
 
-export const FEATURE_CATEGORIES: readonly FeatureCategory[] = [
-  // 並びは売りの順番（検索 → 地図 → AI）に合わせる（利用者の指定 2026-09-13、r54）
-  { id: "seo", label: "SEO", description: "お持ちのホームページの最適化。Google 検索で上位に出すための診断・改修案・計測・原稿" },
+/** 親のくくり。サイドバーの見出しになる */
+export const AIO_CATEGORY: FeatureCategory = {
+  id: "aio",
+  label: "AIO 対策",
+  description: "AI 検索対策の全体。SEO・MEO・サイテーションの 3 本を土台に、AI に引用・言及される状態をつくる",
+};
+
+/** AIO 対策の中の柱。並びは売りの順番（検索 → 地図 → 基礎情報）に合わせる（利用者の指定 2026-09-13） */
+export const FEATURE_CATEGORIES: readonly (FeatureCategory & { id: FeaturePillarId })[] = [
+  { id: "seo", label: "SEO", description: "お持ちのホームページの最適化。診断・改修案・順位・キーワード・原稿" },
   { id: "meo", label: "MEO", description: "Google マップ・ビジネス プロフィールの改善、口コミ、競合比較" },
-  { id: "aio", label: "AIO", description: "AI 検索対策の全体。SEO・MEO・サイテーション（NAP 登録）を土台に、AI に引用・言及される状態をつくる" },
+  { id: "citation", label: "サイテーション", description: "基礎情報（店名・住所・電話）をウェブに揃えて載せる。掲載チェック・NAP 登録・llms.txt" },
 ];
 
-/** 最初に開いたときのタブ（先頭のタブ） */
-export const DEFAULT_FEATURE_CATEGORY: FeatureCategoryId = FEATURE_CATEGORIES[0]!.id;
+/** 最初に開いたときに開いている柱（先頭） */
+export const DEFAULT_FEATURE_CATEGORY: FeaturePillarId = FEATURE_CATEGORIES[0]!.id;
 
 export type FeatureStatus = "ready" | "beta";
 
@@ -336,7 +351,7 @@ const FOUNDATION: readonly Feature[] = [
     status: "beta",
     requires: ["dataforseo"],
     group: "foundation",
-    category: "aio",
+    category: "citation",
     // 読む・測る系なのでライト。1 回 = DataForSEO の検索 3 回（数円）
     plan: "light",
   },
@@ -361,7 +376,7 @@ const FOUNDATION: readonly Feature[] = [
     optional: ["anthropic", "places"],
     // NAP 登録は AIO の土台（サイテーションの隣）
     group: "foundation",
-    category: "aio",
+    category: "citation",
     plan: "standard",
   },
   {
@@ -381,7 +396,7 @@ const FOUNDATION: readonly Feature[] = [
     requires: [],
     // AI クローラに読ませる土台なので基礎対策（生成 → 移動。2026-09-17）
     group: "foundation",
-    category: "aio",
+    category: "citation",
     plan: "standard",
   },
 ];
@@ -495,6 +510,7 @@ const MEASURE: readonly Feature[] = [
     requires: ["dataforseo", "supabase"],
     optional: ["anthropic"],
     group: "measure",
+    // 柱ではなく AIO 対策全体の成果をはかるので、親（AIO 対策）の直下に出す
     category: "aio",
     // 「測る」系だが、1 アカウント月 ¥2,000 前後の変動費（DataForSEO）が出るためスタンダード（plans.test.ts）。
     // 2026-09-17 に LLMO モニタリング（ライト）を引退させ、AI の計測をここに一本化した。ライトには AI の計測が無い
@@ -701,7 +717,7 @@ export function requireFeature(id: string): Feature {
 
 /**
  * サイドバー描画用: クイック診断（単独ブロック）と、その下に並べるツールのグループ。
- * category を渡すと、そのタブの機能と共通（category 無し）の機能だけに絞る。空のグループは落とす。
+ * category を渡すと、その分類の機能と共通（category 無し）の機能だけに絞る。空のグループは落とす。
  */
 export function groupsForSidebar(category?: FeatureCategoryId): { free: readonly Feature[]; tools: readonly FeatureGroup[] } {
   const free = FEATURE_GROUPS.find((g) => g.id === "free")?.features ?? [FREE_FEATURE];
@@ -713,14 +729,43 @@ export function groupsForSidebar(category?: FeatureCategoryId): { free: readonly
   return { free, tools };
 }
 
-/** パスが属するタブ（共通の機能やクイック診断なら null） */
+export interface SidebarPillar {
+  category: FeatureCategory & { id: FeaturePillarId };
+  features: readonly Feature[];
+}
+
+export interface SidebarTree {
+  /** 親（AIO 対策）の直下に出す機能（AI 検索モニタリング） */
+  umbrella: readonly Feature[];
+  /** AIO 対策の中の柱（SEO / MEO / サイテーション）と、その中の機能（サイドバー順） */
+  pillars: readonly SidebarPillar[];
+  /** どこを開いていても出す共通の機能（料金・設定） */
+  common: readonly Feature[];
+}
+
+/** サイドバーの木。「AIO 対策の中に SEO・MEO・サイテーションがある」がそのまま構造になっている */
+export function sidebarTree(): SidebarTree {
+  const visible = TOOL_FEATURES.filter((f) => !f.hidden);
+  return {
+    umbrella: visible.filter((f) => f.category === "aio"),
+    pillars: FEATURE_CATEGORIES.map((category) => ({ category, features: visible.filter((f) => f.category === category.id) })),
+    common: visible.filter((f) => !f.category),
+  };
+}
+
+/** パスが属する分類（共通の機能やクイック診断なら null） */
 export function categoryForPath(pathname: string): FeatureCategoryId | null {
   return findFeatureByPath(pathname)?.category ?? null;
 }
 
+export function isPillar(id: FeatureCategoryId | null | undefined): id is FeaturePillarId {
+  return id !== null && id !== undefined && id !== "aio";
+}
+
 export function findCategory(id: FeatureCategoryId): FeatureCategory {
+  if (id === "aio") return AIO_CATEGORY;
   const c = FEATURE_CATEGORIES.find((x) => x.id === id);
-  if (!c) throw new Error(`registry に無いタブです: ${id}`);
+  if (!c) throw new Error(`registry に無い分類です: ${id}`);
   return c;
 }
 

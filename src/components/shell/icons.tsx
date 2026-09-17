@@ -31,6 +31,15 @@ export function MenuIcon({ className = "" }: IconProps) {
   );
 }
 
+/** 開閉の矢印（サイドバーの柱の見出し）。open で下向き */
+export function ChevronIcon({ className = "", open = false }: IconProps & { open?: boolean }) {
+  return (
+    <svg {...base} className={`${className} transition-transform ${open ? "rotate-90" : ""}`}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
 export function CloseIcon({ className = "" }: IconProps) {
   return (
     <svg {...base} className={className}>
