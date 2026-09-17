@@ -81,14 +81,15 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r88 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r89 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
 | Clerk（**Production インスタンス**） | 稼働中。`clerk.seo-checker.tokyo` / `accounts.seo-checker.tokyo` | 2026-09-09 に Development から移行完了。DNS 5/5 Verified、SSL 発行済み |
 | Clerk（Development インスタンス） | 残存。本番では未使用 | Preview 用に流用する予定（現在 Preview には Clerk のキーが無い） |
-| Google Cloud `seo-checker-508104` | OAuth 構成済み（テスト状態） | 下記「Google Cloud の設定」 |
-| Google 連携（GSC / GA4） | **技術的に完成・動作確認済み** | `matsumatsu452@gmail.com` で接続、両スコープ許可済み。一覧が空なのは Google 側にデータの権限が無いだけ |
+| Google Cloud `seo-checker-508104` | OAuth 構成済み（テスト状態） | 下記「Google Cloud の設定」。**r89 以降、要求するスコープは口コミ返信の `business.manage` だけ**（GSC / GA4 は廃止） |
+| Google 連携（GSC / GA4） | **提供終了（r89、09-17。利用者の決定「Google Search Console と GA4 は使わない」）** | 画面は代替へ転送、API は 410。代替: 検索パフォーマンス（推定）（r87）と**アクセス解析（自前の計測タグ。r89）**。コード（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/lib/site-report/` の大半・`src/components/{search-performance,site-report,ai-traffic,google}/`）は**削除待ち**（下の残タスク #105） |
+| アクセス解析（自前の計測タグ） | **コードは完成（r89）。Supabase の SQL が未実行** | `tracking_sites` / `tracking_events` の 2 テーブル（下の SQL）。実行するまで画面は「テーブルが見つかりません」で止まる |
 | Places API（Google マップ） | **コードは完成、キー未設定** | 請求先アカウントの紐づけとキー作成が利用者側で未了 |
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
@@ -197,8 +198,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 9 | 鍵のローテーション: Clerk Production `sk_live_`（Instance → API keys → Regenerate → Vercel 更新 → Redeploy）、Clerk Development `sk_test_`、Google OAuth クライアントシークレット（シークレットを追加 → Clerk に貼り替え → 古い方を無効化） | 利用者 | 未 |
 | 10 | GSC / GA4 の権限付与（上記「Google 側のデータの持ち主」）→ 設定画面「一覧を取り直す」→ 検索パフォーマンス・生成 AI 流入分析で数値確認 | 利用者 | 未 |
 | 11 | フェーズ 3（承認後）: Business Profile API で 9 項目（r27 ではオーナー申告で埋めている）を API の値に置き換え、インサイト（8 指標・期間比較・CSV・詳細グラフ）を追加 | Claude | 承認待ち |
-| 12 | 規約・ポリシーの専門家レビュー | 利用者 | 推奨 |
-| 13 | Google OAuth の本番公開申請（GA4 の `analytics.readonly` が機密スコープ。2〜6 週間）。準備: #6 運営者情報 → 紹介サイト seo-checker.tokyo に説明 + /privacy /terms リンク → Search Console で seo-checker.tokyo の所有確認 → #8 ブランディング URL → 用途説明文（Claude が文案）→ デモ動画 2〜3 分（Claude が台本）→ Google Auth Platform で「公開」→ 審査申請。**テスト中はトークンが 7 日で失効**。それまではテストユーザー（100 人まで） | 利用者 + Claude | 未 |
+| 12 | 規約・ポリシーの専門家レビュー。**r89 で第 2 条・第 5 条・第 7 条・第 8 条・第 11 条を書き換えた**（計測タグ = お客様のサイトの訪問者のデータを預かる。Cookie なし・IP 保存なし・日替わりハッシュ・400 日で削除）。**この部分を必ず見てもらう** | 利用者 | 推奨 |
+| 13 | Google OAuth の本番公開申請（**r89 で対象が口コミ返信の `business.manage` だけになった**。GSC / GA4 の機密スコープはもう要求しない。申請文・デモ動画は口コミ返信だけで作り直す）。準備: #6 運営者情報 → 紹介サイト seo-checker.tokyo に説明 + /privacy /terms リンク → Search Console で seo-checker.tokyo の所有確認 → #8 ブランディング URL → 用途説明文（Claude が文案）→ デモ動画 2〜3 分（Claude が台本）→ Google Auth Platform で「公開」→ 審査申請。**テスト中はトークンが 7 日で失効**。それまではテストユーザー（100 人まで） | 利用者 + Claude | 未 |
 | 15 | Places API の **利用者ごとの月間上限**（例: レポート 50 回 / 月）を Supabase で数えて 429 を返す。お客様に開放する前に入れる。費用は運営者のプロジェクト 1 本に集中するため | Claude | 提案中（利用者の判断待ち） |
 | 16 | Places の費用削減: 競合比較の詳細取得は口コミ・紹介文を外した安い区分のフィールドマスクにする（`src/lib/maps/client.ts` のマスクを 2 種類に） | Claude | 候補（利用が増えたら） |
 | 17 | 競合分析の強化（提案中）: 競合の履歴保存と推移グラフ、口コミ内容の AI 要約比較（自社 vs 競合の褒め・不満）、口コミ増加ペースの推定。地点別の擬似順位は要望が出てから | Claude | 利用者の判断待ち |
@@ -228,11 +229,15 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
 | 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。**⑧ 本番モードを作業中（Claude in Chrome 用のプロンプトは [chrome-prompts.md](./chrome-prompts.md) の B）: 2026-09-17 01:50 に本番の商品 2 つ「スタンダード ¥50,000 / 月」「ライト ¥38,000 / 月」を作成済み。残りは Price ID の控え → Webhook → ポータル → `sk_live_` → Vercel の環境変数 4 つ → Redeploy → `DEFAULT_PLAN` を `free` に**）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
 | 85 | **Gemini の既定モデルを切り替える**: `gemini-2.5-flash` は 2026-10-16 に提供終了予定（公式の料金ページの注記）。Vercel に `GEMINI_MODEL`（後継の Flash。公式の一覧で ID を確認）を追加 → Redeploy → LLMO の Gemini 列が動くこと。Gemini のキーが未設定のままなら急がない | 利用者 → Claude | 未（10 月中旬まで） |
-| 104 | **GA4 の代わりに自前の計測タグを配る**（2026-09-17 利用者の決定「CS にコストを掛けられないので、API 料金が上がってでも GA4 と GSC を模倣したい」）: 設計は [gsc-ga4-substitute-design.md](./gsc-ga4-substitute-design.md) の第 2 段。**サイト内の行動と CV は外部 API では原理的に取れない**（Similarweb 等の推定は日本の店舗規模では値が出ない）。**自前タグなら「発行した 1 行を貼るだけ」になり、GA4 の設定説明という CS がまるごと消える。**イベント名の揺れも無くなるので「GA4 イベントの割り当て」画面ごと不要になる。最小構成 3 日 → CV 2 日 → 画面差し替え 2 日。Cookie を使わず IP を保存しない設計にして同意バナーを避ける（**#12 の専門家レビューと一緒に見てもらう**） | 利用者（判断）→ Claude | 提案中 |
+| 105 | **GSC / GA4 の死んだコードを削除する**（r89 では画面を転送・API を 410 にしただけで、コードは残っている。このセッションでは `git rm` が安全装置で止められたため）: `src/lib/google/search-console/`・`src/lib/google/{ga4,analytics-admin,setup,settings,status}.ts`・`src/lib/ga4/`（`ai-sources.ts` だけはアクセス解析が使うので残す）・`src/lib/site-report/`（`findability.ts` だけは検索パフォーマンス（推定）が使うので残す）・`src/lib/ai-traffic/`・`src/lib/diagnosis/sources/{gsc,ga4}.ts` とルール・`src/components/{search-performance,site-report,ai-traffic,google}/`・`src/app/api/{search-performance,site-report,ai-traffic,google}/`・`src/app/tools/{search-performance,site-report,ai-traffic}/`（転送は 1〜2 か月残してから）・`GA4_PROPERTY_ID` 系の環境変数と `integrations.ts` の `ga4`。**利用者の許可（「消してよい」）をもらってから** | 利用者（許可）→ Claude | 未 |
+| 106 | **アクセス解析の Supabase テーブルを作る**（下の SQL「6 つ目（r89）」を SQL Editor で実行）。実行するまで `/tools/analytics` は「テーブルが見つかりません」 | 利用者 | **未** |
+| 107 | アクセス解析の本番確認: 利用者のサイト（または紹介サイト seo-checker.tokyo）にタグを貼り、`/tools/analytics` で「最後に届いた計測」が出ること、流入元と CV が数えられることを確かめる。紹介サイトに貼るなら `marketing/public/index.html` の `</head>` 直前に 1 行 | 利用者 + Claude | 未（#106 のあと） |
+| 108 | 紹介サイト（Cloudflare Worker）の再デプロイ: r89 で `marketing/public/index.html` の文面を GSC / GA4 なしに書き換えた。#29 の切り替えが済んでいれば main の push で自動、済んでいなければ旧リポジトリへの反映が要る | 利用者 | 未 |
+| 104 | **GA4 の代わりに自前の計測タグを配る**（2026-09-17 利用者の決定「CS にコストを掛けられないので、API 料金が上がってでも GA4 と GSC を模倣したい」）: 設計は [gsc-ga4-substitute-design.md](./gsc-ga4-substitute-design.md) の第 2 段。**サイト内の行動と CV は外部 API では原理的に取れない**（Similarweb 等の推定は日本の店舗規模では値が出ない）。**自前タグなら「発行した 1 行を貼るだけ」になり、GA4 の設定説明という CS がまるごと消える。**イベント名の揺れも無くなるので「GA4 イベントの割り当て」画面ごと不要になる。最小構成 3 日 → CV 2 日 → 画面差し替え 2 日。Cookie を使わず IP を保存しない設計にして同意バナーを避ける（**#12 の専門家レビューと一緒に見てもらう**） | Claude | **最小構成 + CV + 画面まで完了（r89、2026-09-17）**。`/tools/analytics`（ライト）。残り: Supabase の SQL 実行（利用者）、ポリシーの専門家レビュー（#12） |
 | 102 | **GSC が無くても「検索パフォーマンス（推定）」を出す**（2026-09-17 利用者の問題提起「GSC と GA4 の登録は大変。サービスとして質が低く見える。解決策は？」）: **部品はすべて既にある。**順位 = SerpApi（`src/lib/serp/`、稼働中）／CTR カーブ = `src/lib/site-report/findability.ts` の `ctrForRank`（実装済み）／月間検索数 = `src/lib/rank/store.ts` の `monthlyVolume`（**いまは手入力**。DataForSEO の Keywords Data で自動取得に置き換えられる。アカウントは #91 で用意済み）。推定表示回数 ≒ 月間検索数、推定クリック ≒ 月間検索数 × 順位別 CTR。**契約初日から数字が出せるようになり、GSC をつないだら実測に切り替える**設計にする。**実測の代わりにはならない**（クエリ単位の実データは GSC にしかない）ことは画面に明記する。1〜2 日 | Claude | **完了（r87、2026-09-17）**。`/tools/search-estimate`。DataForSEO Labs の `ranked_keywords` から取得 → `ctrForRank` で推定。**エンドポイントが違っていたら `DATAFORSEO_LABS_RANKED_PATH` で差し替えられる** |
-| 103 | **連携のオンボーディング画面**（同上の短期策）: 「Search Console に登録済みですか」→ ①**登録済み（他の人が管理）→ 閲覧権限をもらう依頼文を自動生成**（制作会社に送るメール文面。GSC の「ユーザーと権限」で閲覧者を足すだけ、1 分で済む）②**自分で登録済み → 連携を押すだけ** ③**未登録 → DNS に TXT を 1 行**の手順を提示。**所有確認そのものは API で代行できない**（サイト所有者の操作が要る）が、手順を極限まで短くできる。GA4 も同じ 3 分岐（プロパティがあれば閲覧者権限をもらうだけでタグ設置は不要）。半日 | Claude | 提案中（利用者の判断待ち） |
+| 103 | **連携のオンボーディング画面**（同上の短期策）: 「Search Console に登録済みですか」→ ①**登録済み（他の人が管理）→ 閲覧権限をもらう依頼文を自動生成**（制作会社に送るメール文面。GSC の「ユーザーと権限」で閲覧者を足すだけ、1 分で済む）②**自分で登録済み → 連携を押すだけ** ③**未登録 → DNS に TXT を 1 行**の手順を提示。**所有確認そのものは API で代行できない**（サイト所有者の操作が要る）が、手順を極限まで短くできる。GA4 も同じ 3 分岐（プロパティがあれば閲覧者権限をもらうだけでタグ設置は不要）。半日 | — | **不要になった（r89 で GSC / GA4 を廃止）** |
 | 97 | **GA4 / GTM の計測タグが入っているかを自動判定する（提案。2026-09-17 利用者の質問「GA4 タグはツール画面から入れられないの？」から）**: **タグの設置そのものはこのツールからはできない**（お客様のサイトの HTML に書く必要があり、こちらに書き込み権限は無い）。**できるのは ①入っているかの判定 ②設置手順と貼り付け用スニペットの提示**。①は診断でページの HTML を既に取得しているので、`gtag/js?id=G-`、`googletagmanager.com/gtm.js`、`G-XXXXXXX` を探すだけ。**現状は判定していない**（`src/lib/diagnosis/rules/` は「計測タグが入っているか確認する」と**人に促す文言**があるだけで、自動判定は無い）。②は接続済み GA4 プロパティの測定 ID を出してコピーさせる。半日程度 | Claude | 提案中（利用者の GO 待ち。リリース後で可） |
-| 96 | **GA4 の読み取りに 2 つの経路があり、サイトレポートと生成 AI 流入分析がお客様のデータを読めない**（2026-09-17 判明。詳細は [google-oauth-verification.md](./google-oauth-verification.md) の「実装の食い違い」）: **精密診断と GA4 イベント割り当ては OAuth（お客様ごと）**だが、**サイトレポートと生成 AI 流入分析は環境変数 `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` のサービスアカウント方式（運営者の 1 プロパティ固定）**。しかも**本番の画面に「`.env.local` に追加して開発サーバーを再起動」という開発者向けの文言が出ている**。**ライト以上でサイトレポートを売っているので、お客様が開くと使えない。**案 A: 2 画面を OAuth 方式に寄せる（コードは既にある。リリース後で可）／案 B: 今週はプランから外すか「運営者設定のみ」と明記し、**最低限 `.env.local` の文言をお客様向けに直す** | 利用者（判断）→ Claude | **案 B で対応済み（r85、2026-09-17）**: 利用者の指示で**プレミアムに移し、既定では出さない（`hidden: true`）**。ライトの記載からも外した。**経路 A（OAuth 方式）への移行は引き続き未実装**で、プレミアムで有効にする場合は運営者が環境変数を入れる必要がある |
+| 96 | **GA4 の読み取りに 2 つの経路があり、サイトレポートと生成 AI 流入分析がお客様のデータを読めない**（2026-09-17 判明。詳細は [google-oauth-verification.md](./google-oauth-verification.md) の「実装の食い違い」）: **精密診断と GA4 イベント割り当ては OAuth（お客様ごと）**だが、**サイトレポートと生成 AI 流入分析は環境変数 `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` のサービスアカウント方式（運営者の 1 プロパティ固定）**。しかも**本番の画面に「`.env.local` に追加して開発サーバーを再起動」という開発者向けの文言が出ている**。**ライト以上でサイトレポートを売っているので、お客様が開くと使えない。**案 A: 2 画面を OAuth 方式に寄せる（コードは既にある。リリース後で可）／案 B: 今週はプランから外すか「運営者設定のみ」と明記し、**最低限 `.env.local` の文言をお客様向けに直す** | — | **r89 で機能ごと提供終了**（経路の問題は消えた） |
 | 95 | **料金の税表記と Stripe の価格が食い違っている（最初の課金までに決める）**: 特商法ページ（`src/components/legal/Tokushoho.tsx`）と紹介サイト `marketing/public/index.html` は「**税別**。消費税は別途申し受けます」だが、**Stripe の価格は ¥50,000 / ¥38,000 で税設定なし（税コード「—」）なので、請求されるのはこの金額ちょうど**。消費税は加算されない。決め方は ①**免税事業者として「税込」表記に直す**（コード修正。受取 50,000 円）か ②**税別で通す**（Stripe の価格を税込 55,000 円 / 41,800 円で作り直すか Stripe Tax を有効化。受取 50,000 円 + 税）。インボイス登録の有無で決まる。**初月無料なので最初の課金は約 30 日後**だが、料金表記は営業で先に見せるので早めに | 利用者（判断）→ Claude（文言の修正） | **完了（r78、2026-09-17）**。利用者の決定「料金の価格は税込み」→ 特商法・料金プラン・サービス案内・紹介サイト・llms.txt・README をすべて「税込」に統一。**Stripe の価格（50,000 円 / 38,000 円）はそのままでよい**（税設定なしで請求がこの額ちょうど = 税込表記と一致） |
 | 84 | **Stripe のセキュリティチェックリスト（期日超過・決済と入金が停止中）**: 2026-09-09 付で「Additional information required」。本文は `All businesses in Japan are required to complete the security checklist to process payments.`。**影響: 決済・入金とも 2026/09/09 に一時停止**。つまり #58 の本番モード（⑧）に進む前に、これを片付けないと実際の課金ができない。画面: Stripe → 設定 → ビジネス → アカウントのステータス → 該当タスク → 「Provide information」。テスト環境の検証（#58 の 1〜7）は止まらないので並行して進めてよい | 利用者（回答内容は Claude が下書き可） | **送信済み・審査待ち（09-16）**。要対応タスクが 0 になり赤帯も消えた。設問と回答は [stripe-checklist-prompt.md](./stripe-checklist-prompt.md) に記録。**「支払い」が有効に戻ったかは要確認**（同ファイル「送信後の状態」） |
 | 101 | **古いブランチ 12 本の削除**（作り直す前の履歴の残骸。いまの main と共通の祖先が無く、中身は main に入り直し済み）。Claude からは `git push origin --delete` が 403 で拒否されるため、画面操作が要る。画面: https://github.com/matsu609/seo-checker/branches → 各行のごみ箱アイコン。ブランチ名と復元用の SHA は下の作業ログ（2026-09-16「返答フォーマットの追加と、古いブランチ 12 本の削除」）の表 | 利用者 | 未 |
@@ -250,7 +255,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 54 | **口コミ返信を有効にする（Google 側の作業）**: ① Business Profile API の利用申請 → ② 承認後、Google Cloud で API 3 つを有効化 → ③ OAuth の同意画面に `business.manage` スコープを追加 → ④ 本番 `/tools/replies` で「Google に口コミ返信の権限を追加する」→ Google の確認画面で許可（下の「口コミ返信を有効にする手順」） | 利用者 | **①申請済み（09-11、ケース ID `0-4126000041187`、7〜10 営業日）**。②は Account Management / Business Information の 2 つが有効化済み（09-11 確認）。残りの「Google My Business API」（v4）と③④は承認メール後 |
 | 59 | クイック診断の切り出し（zip）を作るスクリプト `scripts/extract-free.mjs` | Claude | **完了（r42、09-12 に利用者の判断で main へマージ）** |
 | 14 | Preview 環境用の Clerk キー（Development の `pk_test_` / `sk_test_`）の登録（Preview を使うなら） | 利用者 | 任意 |
-| 60 | registry の食い違いを直す: `/tools/maps` の `optional` に `anthropic` を足す、`/tools/site-report` の `serpapi` を間接依存として書き直す（[tool-map.md](./tool-map.md) の ※1・※4） | Claude | 未（次にコードを触るときで可） |
+| 60 | registry の食い違いを直す: `/tools/maps` の `optional` に `anthropic` を足す、`/tools/site-report` の `serpapi` を間接依存として書き直す（[tool-map.md](./tool-map.md) の ※1・※4） | Claude | 半分不要に（`/tools/site-report` は r89 で提供終了）。`/tools/maps` の `optional` だけ残 |
 | 61 | 採点ツールの誤検出を直す: 意図した noindex（サイト内検索の結果ページなど）とトップページのパンくずを減点しない | Claude | **完了（r43、09-12 に利用者の指示で main へマージ）** |
 | 62 | 採点ツールの誤検出（続き）: もともと検索に載せないページの **robots.txt での拒否**（`ai-crawlers-allowed`・配点 3）も減点しない。サイト全体の拒否（`Disallow: /`）は従来どおり減点 | Claude | **完了（r44、09-12 に利用者の指示で main へマージ）** |
 | 63 | サイト診断: **検索に載せないページを採点対象外（参考）にする**。noindex か robots.txt で実際に検索から外されているサイト内検索の結果などは、診断はするが平均点・項目の集計・ページ一覧に入れず、付録 A に理由つきで載せる | Claude | **完了（r44）** |
@@ -649,11 +654,11 @@ create table if not exists geo_model_versions (
 
 ### 入力待ち（利用者からの回答が要るもの）
 
+- **アクセス解析の SQL 実行の連絡（#106）**と、**死んだコードを消してよいか（#105）**
 - **明日の公開の形（09-16 提案）**: Stripe が止まっているあいだ、最初のお客様の初月（無料）は管理画面の個別開放で使ってもらい、2 か月目の請求は ①Stripe 復旧を待って Checkout で ②請求書（銀行振込）で、のどちらにするか。②なら請求書の発行方法（Stripe の請求書機能は決済停止中は使えない可能性が高いので、手書き / 会計ソフト）
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
 - Business Profile API の承認結果（#5 / #54 ①。09-11 申請、ケース ID `0-4126000041187`、7〜10 営業日）。承認されたら #54 の②〜④へ
-- `wolf@wolf-info.org` 側に GSC / GA4 が存在するか（#10）
 - 口コミ支援の課金（スタンダードに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 - **Clerk のユーザーで `publicMetadata.plan` に `standard` を手で割り当てた人がいないか**（r63 で `standard` の意味が「診断・計測のみ」から「全機能」に変わったため。いれば `light` に直す。誰にも割り当てていなければ何もしなくてよい）。画面: https://dashboard.clerk.com/ → Users → 各ユーザー → Metadata
 - プレミアム（伴走）の中身の詰め: レポート代行の範囲と、お見積りの目安（どういう条件だと 150,000 円で、何が増えるといくら上がるのか）。r65 で**所要時間と返信目標の数字は外した**（「月 1 回の報告ミーティング（オンライン）」「優先サポート（メール・チャット）」）ので、約束しているのは頻度と手段だけ。数字を戻すなら `src/lib/plans/catalog.ts` と `marketing/public/index.html`・`public/service-guide.html` の 3 か所
@@ -831,6 +836,43 @@ alter table analysis_runs add column if not exists audit jsonb;
 
 `audit` はサイト診断の全結果（`AuditResult`: 課題一覧・ページ一覧・構成・信頼。1 行で最大 1 MB 前後）。列が無い環境では保存を諦めて事実シートだけで動く（`runs.ts` が 400 を受けて落とす）ので、報告書の「詳細」が空になるだけで止まりはしない。
 
+6 つ目（r89、アクセス解析 = 自前の計測タグ。**未実行**）:
+
+```sql
+create table if not exists tracking_sites (
+  key text primary key,
+  user_id text not null unique,
+  created_at timestamptz not null default now()
+);
+alter table tracking_sites enable row level security;
+
+create table if not exists tracking_events (
+  id bigserial primary key,
+  site_key text not null references tracking_sites (key) on delete cascade,
+  day date not null,
+  ts timestamptz not null default now(),
+  visitor text not null,
+  type text not null,
+  path text not null default '/',
+  referrer_host text not null default '',
+  channel text not null default 'direct',
+  source text not null default '',
+  utm_source text not null default '',
+  utm_medium text not null default '',
+  utm_campaign text not null default '',
+  device text not null default '',
+  kind text not null default '',
+  seconds integer not null default 0,
+  scroll integer not null default 0
+);
+create index if not exists tracking_events_site_day_idx on tracking_events (site_key, day);
+create index if not exists tracking_events_site_ts_idx on tracking_events (site_key, ts desc);
+alter table tracking_events enable row level security;
+```
+
+`tracking_sites.key` はタグに埋め込む公開 ID（20 文字の乱数。`src/lib/analytics/store.ts`）。利用者が `/tools/analytics` を開いた時点で自動で作られる。
+`tracking_events` は `type` = pageview / leave / click / form。`visitor` は日替わりハッシュ（IP は保存しない）。生ログは 400 日で消す（報告書を開いたときにそのサイトの分だけ削除。Cron は増やしていない）。
+
 `status` は collected（収集のみ）/ analyzed（AI 分析済み）/ failed。`sheet` は事実シート（`src/lib/seo-analysis/sheet/types.ts` の `SeoFactSheet`）、`analysis` は Claude の分析（`ai/schema.ts` の `AnalysisRecord`）、`second_opinion` は ChatGPT（`SecondOpinionRecord`）。月の回数は `user_id` × 今月（JST）× `status <> 'failed'` の行数で数える（`runs.ts`）。1 行は数百 KB になりうる（PSI の結果を含む）。
 
 `profile` は `src/lib/listings/profile.ts` の `ListingProfileSchema`（店名・ふりがな・業種・郵便番号・住所・電話・サイト・メール・営業時間・短い説明 150・説明文 750）、`states` は媒体 ID → `{ status, url, note, updatedAt }`（`ListingStatesSchema`。status は todo / submitted / live / skip）。利用者 × 自社店舗（MEO の `meo_stores` の own）で 1 行。
@@ -876,6 +918,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | 日付 | 判断 | 理由 |
 |---|---|---|
+| 09-17 | **Google Search Console と GA4 は使わない。機能ごと提供終了し、代わりに連携の要らない 2 つ（検索パフォーマンス（推定）= r87、アクセス解析（自前の計測タグ）= r89）をライトから使えるようにする** | 利用者の決定「GSC と GA4 は使わない方針で。機能自体はオフにして構わない。それに似たデータを取れるサービスを使えるように」。GSC / GA4 はお客様側の登録・所有確認・権限付与が要り、その CS に人の時間が食われる（09-17 の問題提起）。代替は「API 費用 < CS 費用」の軸で既に決めてあった（gsc-ga4-substitute-design.md）。**コードの削除は安全装置で止められたので、画面は転送・API は 410 にとどめ、削除は利用者の許可を得てから（#105）** |
 | 09-17 | **GSC / GA4 の詳細機能（Search Console の実測・サイトレポート・生成 AI 流入分析）はサイドバーに一切出さない**（r85 + r88）。`hidden: true` で消し、ページ・API・プレミアムのゲートは残す | 利用者の指示「GSC と GA4 の詳細機能は基本的にほとんどのユーザーに使われないのでタブから消してください」。お客様側の設定（所有確認・計測タグ）が要る機能は、大半のお客様には「有料」バッジ付きで使えない項目が並ぶだけになり、ライトの人ほど「使えないものが多い」印象になる。ライトには連携の要らない「検索パフォーマンス（推定）」があるので、実測は連携を代行したプレミアムのお客様に URL を渡す形にした。**テストで「プレミアム限定 = 全部 hidden」を固定**（`plans.test.ts`）し、今後プレミアム限定のツールを足してもサイドバーに出ないようにした |
 | 09-16 | **ホームページの URL は設定で 1 回だけ登録し、他のタブでは URL を聞かない**（r81）。URL の入力欄を残すのは**競合**と**クイック診断（`/`・`/meo`。見込み客向けで登録が無い）**だけ | 利用者の指示。同じ URL を画面ごとに打ち直させるのは手間で、打ち間違いがあると「タブごとに違うサイトを診断している」状態になり、数字が食い違う。設定に 1 か所だけ正本を置けば、対象がずれない。ページ単位のツール（ページ最適化レポート・HP 改修提案・ページ診断・AIO 頻出トピック）は URL ではなく**登録サイトからのパス**だけを聞き、空欄ならトップページ（ページ診断だけは「検索順位が最も高い自社ページを自動で選ぶ」）。**新しいツールに自社サイトの URL 入力欄を足さない**（規約は ARCHITECTURE.md に記載） |
 | 09-15 | **料金を 1 プランから 3 段階にした**（r63）。ライト 38,000 円 / **スタンダード 50,000 円（本命）** / プレミアム（伴走）150,000 円・月 3 社まで | 利用者の提起（極端回避性・おとり効果・松竹梅）。1 つだけ並べると、お客様が比べる軸が「買うか買わないか」＝ 50,000 円 vs 0 円になる。3 つ並べると軸が「どれを買うか」に変わり、両端を避けて真ん中が選ばれやすくなる。上に 3 倍の段を置くと、それが基準になって 50,000 円が手ごろに見える（アンカリング）。**50,000 円という数字は 09-13 の決定のまま動かしていない**。変えたのは、その数字が置かれている文脈だけ |
@@ -2468,4 +2511,32 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **API**: 画面と別に `checkPlanForFeature` でも止めているので、URL を直接叩いても動かない。
 - **今回の変更前は**、Search Console の実測がライト・スタンダードの人に「有料」バッジ付きで見えていた（バッジの文言は「『プレミアム（伴走）』プランでご利用いただけます」）。使えない項目がタブに残る状態だったので、今回消した。
 - 見せ方を変えたければ候補は 2 つ: ①「有料」バッジを「スタンダード」のようにプラン名にする（`planShortLabel` を変えるだけ）、②ライトでは項目ごと消す（`hidden` と同じ仕組みでプラン別に出し分ける）。①は「上に何があるか」が見えるので、いまの 3 段階の売り方（ライトをおとりにしてスタンダードへ）とは①のほうが相性がよい。判断があれば次の作業で。
+
+### 2026-09-17（GSC / GA4 を提供終了、自前の計測タグ「アクセス解析」を追加、r89）
+
+**利用者の指示**「Google Search Console と Google Analytics 4 は使わない方針で。機能自体はオフにして構わない。スタンダード・ライトから、この 2 つの無料の Google の機能を使ったサービスは停止して。その代わり、似たデータを取れるサービス（先ほど説明したもの）を使えるように。main にマージして」
+
+**止めたもの（r89）**
+- 画面: `/tools/search-performance` → `/tools/search-estimate` へ転送、`/tools/site-report` と `/tools/ai-traffic` → `/tools/analytics` へ転送。registry から 3 つとも削除（プレミアム限定のツールは 0 に。テストで固定）。
+- API: `/api/search-performance` `/api/site-report` `/api/ai-traffic` `/api/google/link` `/api/google/events` は **410 Gone**（古いクライアントが叩いても実費が出ない）。
+- 設定画面の「Google 連携」カード（Search Console のサイト・GA4 プロパティの選択）と「GA4 イベントの割り当て」を撤去。
+- 接続時に要求する OAuth スコープから `webmasters.readonly` / `analytics.readonly` を外した（`REQUIRED_SCOPES = []`）。口コミ返信の `business.manage` だけを、口コミ返信の画面から要求する。
+- 精密診断: Google 連携の層を集めない（`unusedGoogleOutcome`）。「数字の診断」カードはデータが無ければ出さない。
+- 料金表（ライト・プレミアムの記載）、オンボーディングの手順 2（Google 接続 → 計測タグの設置）、紹介サイト（12 か所）、プライバシーポリシー、README、ARCHITECTURE / tool-map / OAuth 審査メモを同じ方針に書き換え。
+- **削除していないもの**: 上記の裏側のコード（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/components/{search-performance,site-report,ai-traffic,google}/` など）。`git rm` がこのセッションの安全装置（不可逆な削除の扱い）で止められたため、**転送と 410 で止めるにとどめた**。削除は #105 として利用者の許可待ち。
+
+**足したもの: アクセス解析（計測タグ）`/tools/analytics`（ライト）**
+- **`/t.js`**: お客様のサイトに貼る 1 行 `<script async src="https://app.seo-checker.tokyo/t.js" data-site="…"></script>` の本体（`src/lib/analytics/script.ts`）。ページビュー（パス・参照元・UTM・自サイトのホスト）、離脱（滞在秒・スクロール到達 %）、電話 / メール / 外部リンクのタップ、フォーム送信。SPA の pushState にも追従。Cookie も localStorage も使わない。
+- **`POST /api/t`**（公開）: 収集口。サイト ID の実在確認（10 分キャッシュ）、1 回 20 件まで、IP ごとに 1 分 120 回、クローラの UA は捨てる。常に 204。訪問者 ID は「日替わりの塩 + サイト + IP + UA」の SHA-256（IP は保存しない。`TRACKING_SECRET` 任意、無ければ Supabase のキーから派生）。
+- **`POST /api/analytics`**: 7 / 28 / 90 日の報告書 + 貼り付け用タグ + 最後に届いた時刻。集計は純関数（`aggregate.ts`。セッション = 30 分の空き、流入元 = 最初のページビュー、CV はセッションの範囲内）。開くたびに 400 日より古い生ログをそのサイトの分だけ削除。
+- 画面: タグのコピー・受信状況 → 期間タブ → サマリー（訪問者・セッション・PV・平均滞在・CV・生成 AI 経由。前期比）→ 日別 → 流入元（検索 / 生成 AI / SNS / 広告 / 参照 / 直接。AI の内訳と参照元の上位）→ ページ別。生成 AI の判定は GA4 版の辞書（`src/lib/ga4/ai-sources.ts`）を流用。
+- テスト 21 件（分類・集計・収集口の検証・ハッシュ・クローラ判定）。
+
+**検証**: lint / tsc / **test 1,969 件** / build 通過。`/t.js` `/api/t` `/api/analytics` `/tools/analytics` がビルドに出ることを確認。
+
+**利用者にお願いしたいこと**
+1. Supabase の SQL Editor で「6 つ目（r89）」の SQL を実行（#106）。実行するまで `/tools/analytics` は「テーブルが見つかりません」。
+2. 死んだコードを消してよいか（#105）。「消してよい」の一言で次のセッションが削除する。
+3. プライバシーポリシーの第 2・5・7・8・11 条を専門家レビューに含める（#12）。計測タグは**お客様のサイトの訪問者**のデータを預かるので、ここがいちばん見てもらうべき箇所。
+4. 紹介サイトの再デプロイ（#108）。
 

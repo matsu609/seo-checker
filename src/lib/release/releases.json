@@ -439,6 +439,11 @@
       "commit": "3d43235",
       "date": "2026-09-17",
       "summary": "Search Console の実測（検索パフォーマンス）をサイドバーから外す。GSC / GA4 の詳細機能はすべて非表示に"
+    },
+    {
+      "commit": "28eef77",
+      "date": "2026-09-17",
+      "summary": "Search Console / GA4 の機能を提供終了し、GA4 の代わりに自前の計測タグ（アクセス解析）を追加"
     }
   ]
 }
