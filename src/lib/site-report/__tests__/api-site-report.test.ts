@@ -12,7 +12,7 @@ describe("/api/site-report（提供終了）", () => {
       expect(res.status).toBe(410);
       const body = (await res.json()) as { error: string; code: string };
       expect(body.code).toBe("gone");
-      expect(body.error).toContain("/tools/analytics");
+      expect(body.error).toContain("/tools/search-estimate");
     }
   });
 });

@@ -79,8 +79,7 @@ export interface Feature {
   category?: FeatureCategoryId;
   /**
    * サイドバーに出さない（ページと API は残す）。
-   * 別の機能に統合した旧機能と、お客様側の設定（Google 連携・計測タグ）が要るため
-   * ほとんどのお客様が使わない機能に付ける。プランのゲートは残るので、API が素通りにならない。
+   * 別の機能に統合した旧機能に付ける。お客様側の作業が要る機能はそもそも置かない（利用者の決定 2026-09-17）。プランのゲートは残るので、API が素通りにならない。
    */
   hidden?: boolean;
   /**
@@ -324,35 +323,13 @@ const MEASURE: readonly Feature[] = [
     details: [
       "そのドメインが順位を持っているキーワードを自動で集めます（登録作業は不要）",
       "順位ごとのクリック率から、推定の表示回数・クリック数・CTR・平均順位を出します",
-      "実際に検索された語そのものは Search Console にしかありません。実測値が必要な場合はプレミアムで連携の設定を代行します",
+      "実際に検索された語そのものは Search Console にしかありません。本サービスは Search Console を使わないため、ここに出るのはすべて推定値です",
     ],
     featureIds: [],
     icon: "traffic",
     status: "beta",
     // ドメインを渡すだけで動く。お客様側の設定は要らない（ここが Search Console との違い）
     requires: ["dataforseo"],
-    group: "measure",
-    category: "seo",
-    plan: "light",
-  },
-  {
-    id: "analytics",
-    path: "/tools/analytics",
-    label: "アクセス解析（計測タグ）",
-    shortLabel: "アクセス解析",
-    description:
-      "発行した 1 行の計測タグをホームページに貼るだけで、訪問者数・流入元（検索 / 生成 AI / SNS / 広告 / 直接）・よく見られたページ・電話やメールのタップ・フォーム送信が見られます。Google アナリティクスの設定は不要です。",
-    details: [
-      "訪問者・セッション・ページビュー・平均滞在時間と、前の期間との比較（7 / 28 / 90 日）",
-      "流入元の内訳（検索エンジン・ChatGPT / Gemini / Perplexity などの生成 AI・SNS・広告・直接）と参照元サイト",
-      "ページ別の閲覧数と、電話・メール・外部予約サイトのタップ、フォーム送信（CV）",
-      "Cookie を使わず、IP アドレスも保存しません（同意バナーが要らない設計）",
-    ],
-    featureIds: [],
-    icon: "dashboard",
-    status: "beta",
-    // 保存先は Supabase。お客様側の作業はタグを 1 行貼るだけ（Google の設定は要らない）
-    requires: ["supabase"],
     group: "measure",
     category: "seo",
     plan: "light",

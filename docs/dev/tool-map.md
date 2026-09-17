@@ -88,7 +88,6 @@ flowchart LR
 | HP 改修提案 | `/tools/improvement` | standard | 必須 | ● | − | − | − | − | − | − | − |
 | 順位計測・AIO 引用 | `/tools/rank` | light | 必須 | − | ● | − | − | − | − | − | − |
 | 検索パフォーマンス（推定） | `/tools/search-estimate` | light | 必須 | − | − | − | − | − | − | − ※8 | − |
-| アクセス解析（計測タグ） | `/tools/analytics` | light | 必須 | − | − | − | − | − | ● | − | − |
 | Google マップ（MEO） | `/tools/maps` | light | 必須 | ○ ※1 | − | − | − | ● | ● | − | − |
 | 口コミ支援（QR） | `/tools/reviews` | standard | 必須 ※2 | ○ | − | − | − | ○ | ● | − | − |
 | LLMO モニタリング | `/tools/llmo` | light | 必須 | ● | − | − | − | − | − | ○ | − |

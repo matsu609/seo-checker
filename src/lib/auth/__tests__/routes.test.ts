@@ -139,7 +139,6 @@ describe("公開パスの一覧", () => {
       "/legal/tokushoho",
       "/robots.txt",
       "/sitemap.xml",
-      "/t.js",
     ]);
     expect(PUBLIC_PATHS.apis).toEqual([
       "/api/analyze",
@@ -150,7 +149,6 @@ describe("公開パスの一覧", () => {
       "/api/cron/maps-refresh",
       "/api/cron/geo-run",
       "/api/billing/webhook",
-      "/api/t",
     ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);
     expect(PUBLIC_PATHS.pagePrefixes).toEqual(["/r/"]);

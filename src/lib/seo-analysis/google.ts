@@ -70,7 +70,7 @@ export function unusedGoogleOutcome(): CollectGoogleOutcome {
       searchConsole: null,
       ga4: null,
       notes: [
-        "本サービスは Google Search Console / Google アナリティクスを使いません。検索の状況は「検索パフォーマンス（推定）」、サイト内の行動（訪問者・流入元・電話やメールのタップ）は「アクセス解析（計測タグ）」でご覧ください",
+        "本サービスは Google Search Console / Google アナリティクスを使いません。検索の状況は「検索パフォーマンス（推定）」でご覧ください",
       ],
     },
     gscDataset: null,

@@ -105,7 +105,6 @@ describe("機能とプランの対応", () => {
     expect(light).toContain("rank");
     // Search Console / GA4 は使わない（利用者の決定 2026-09-17）。ライトには連携の要らない代替を置く
     expect(light).toContain("search-estimate");
-    expect(light).toContain("analytics");
     expect(light).not.toContain("search-performance");
     expect(light.length).toBeGreaterThanOrEqual(9);
   });
@@ -124,12 +123,9 @@ describe("機能とプランの対応", () => {
     expect(groupsForSidebar().tools.flatMap((g) => g.features.map((f) => f.plan))).not.toContain("premium");
   });
 
-  // Google を使わない代わりに、お客様側の設定が要らない 2 つをライトに置く
-  it("GA4 の代替（自前の計測タグ）はライトで、Google の連携を必要としない", () => {
-    const analytics = features.find((f) => f.id === "analytics");
-    expect(analytics?.plan).toBe("light");
-    expect(analytics?.hidden).toBeUndefined();
-    expect(analytics?.requires).toEqual(["supabase"]);
+  // 自前の計測タグ（アクセス解析）は「お客様がタグを貼る = ツール内で完結しない」ので取り下げた（利用者の決定 2026-09-17）
+  it("お客様側の作業が要るツールは置かない（計測タグは取り下げ）", () => {
+    expect(features.map((f) => f.id)).not.toContain("analytics");
   });
 
   // 連携なしで数字が出る代替をライトに置く。ここが無いと「契約初日に何も出ない」になる

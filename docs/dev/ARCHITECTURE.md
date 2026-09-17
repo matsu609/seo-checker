@@ -25,7 +25,7 @@
 | 計測 | `/tools/llmo` | LLMO モニタリング・LLM リサーチ | B4, B8 | Anthropic（他社は任意） |
 | 計測 | `/tools/prompt-expansion` | プロンプト拡張 | B7 | Anthropic |
 | 計測 | `/tools/search-estimate` | 検索パフォーマンス（推定。Search Console の連携なしで数字を出す） | — | DataForSEO |
-| 計測 | `/tools/analytics` | アクセス解析（自前の計測タグ `/t.js` → `POST /api/t`。GA4 の代替。訪問者・流入元・CV） | — | Supabase |
+| 計測 | `/tools/analytics` | （取り下げ 2026-09-17。自前の計測タグはお客様側の作業が要るので提供しない。推定へ転送のみ。API と `/t.js` は 410） | — | — |
 | 計測 | `/tools/search-performance` | （提供終了 2026-09-17。検索パフォーマンス（推定）へ転送のみ。API は 410） | — | — |
 | 計測 | `/tools/ai-traffic` | （提供終了 2026-09-17。アクセス解析へ転送のみ。API は 410） | B6 | — |
 | 計測 | `/tools/site-report` | （提供終了 2026-09-17。アクセス解析へ転送のみ。API は 410） | E8 | — |

@@ -18,9 +18,8 @@
  * `/robots.txt` と `/sitemap.xml` はクローラ向けの生成ファイル。proxy.ts のマッチャが
  * 拡張子で除外してもいるが、**マッチャの書き換えで静かに保護対象に戻ると
  * サイトマップが取得できなくなる**ので、公開範囲の定義にも明示しておく。
- * `/t.js` は自前の計測タグ本体。お客様のサイトが `<script>` で読むので、ログインは要らない。
  */
-const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy", "/legal/tokushoho", "/robots.txt", "/sitemap.xml", "/t.js"]);
+const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy", "/legal/tokushoho", "/robots.txt", "/sitemap.xml"]);
 
 /**
  * ログイン不要で開けるページの前方一致（末尾のスラッシュまで含めて比べる）。
@@ -40,10 +39,8 @@ const PUBLIC_PAGE_PREFIXES = ["/r/"] as const;
  * ハンドラ側が IP ごとの回数制限と 1 日の全体上限で守る（src/lib/free/ratelimit.ts）。
  * `/api/cron/maps-refresh` と `/api/cron/geo-run` は Vercel の Cron が叩く（ログインは無い）。
  * ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
- * `/api/t` は自前の計測タグ（`/t.js`）がお客様のサイトの訪問者のブラウザから叩く収集口。
- * ログインは無い。ハンドラ側がサイト ID の実在確認・1 回の件数上限・IP ごとの回数制限で守る。
  */
-const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/cron/maps-refresh", "/api/cron/geo-run", "/api/billing/webhook", "/api/t"]);
+const PUBLIC_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/cron/maps-refresh", "/api/cron/geo-run", "/api/billing/webhook"]);
 
 /**
  * ログイン不要で叩ける API の前方一致。`/api/r/<slug>/...` は来店客のアンケート
