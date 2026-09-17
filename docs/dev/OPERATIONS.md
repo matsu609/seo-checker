@@ -268,7 +268,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 93 | **AI 検索モニタリングをどのプランに入れるか決める**: いまは**スタンダード**に置いてある（1 アカウント月 ¥2,000 前後の変動費が出るため）。「測る」系なので本来の線引きではライトだが、原価が他のツールと桁違い。ライトに下ろすなら料金表（`src/lib/plans/catalog.ts`）・紹介サイト・サービス資料・`src/lib/features/registry.ts` の `plan` とテストをまとめて直す（Claude 側 30 分）。**このままスタンダードでよければ何もしなくてよい** | 利用者 → Claude | 判断待ち |
 | 92 | AI 検索モニタリングの**生成処理**（仕様書 §7.2 / §7.3）: 週次レポート（軽量モデル + テンプレート）と月次深掘り（高性能モデル 月 1 回）、差分実行（前回とほぼ同じなら再生成しない）。クレジットのレート（週次 30 / 月次 150）と台帳は実装済みなので、`run.ts` の後段に足すだけ | Claude | 未（計測が回ってから） |
 | 90 | **露出した Ahrefs の API キーを作り直す（急ぎ）**: 2026-09-16 に Vercel の環境変数画面のスクリーンショット（値が平文表示）が会話に貼られた。https://app.ahrefs.com/account/api-keys で**そのキーを削除 → 新しいキーを作成** → Vercel の間違った変数 `AHREFS_API_KEY_ISSUED_2026_09_17` を削除 → 正しい名前で `AHREFS_API_KEY`（Sensitive）と `AHREFS_API_KEY_ISSUED_AT` を作る → Redeploy。DR は無料エンドポイントなので、漏れても課金の被害は無いが、他人がこのアカウントのキーとして使える状態は避ける | 利用者 | **完了（2026-09-17、利用者報告）**。露出したキーは無効になった。**マスター画面 /admin での確認も完了（2026-09-17、利用者報告）**。次回の作り直しは #87（2027-09-17 ごろ） |
-| 89 | **Vercel のビルドが 1 push で 2 回走るのを止める**（2026-09-16 判明）: 作業ブランチと main に同じコミットを push しているため Production と Preview の両方がビルドされる。中身が同じなので Preview は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする（履歴の追いやすさは落ちる）②Vercel → Settings → Git で Preview を作るブランチを絞る。**急ぎではない**（上限には当たっていない） | 利用者 → Claude | 判断待ち |
+| 89 | **Vercel のビルドが 1 push で 2 回走るのを止める**（2026-09-16 判明）: 作業ブランチと main に同じコミットを push しているため Production と Preview の両方がビルドされる。中身が同じなので Preview は無駄で、Hobby プランのビルド時間を倍使う。対策は ①作業ブランチを push せず main だけにする（履歴の追いやすさは落ちる）②Vercel → Settings → Git で Preview を作るブランチを絞る。**急ぎではない**（上限には当たっていない） | 利用者 → Claude | **対応済み（2026-09-17、利用者が設定）**。Vercel → Settings → Git → Ignored Build Step を Custom にし、`case "$VERCEL_GIT_COMMIT_REF" in claude/*) exit 0;; *) exit 1;; esac` を保存（**exit 0 = スキップ、exit 1 = ビルド**）。`claude/*` のプレビュービルドが止まる。**次の push から有効。**Hobby プランには「Preview の対象ブランチを絞る」設定が無かった |
 | 88 | **Ahrefs の Domain Rating ライセンスに目を通す**: https://ahrefs.com/legal/domain-rating-license 。有料サービスに組み込む以上、条件（帰属表示・再配布と競合の禁止・一括収集の禁止・いつでも取り消し可）を一度ご自身で確認しておく。Claude 側はこの環境から ahrefs.com に接続できず、検索インデックス経由でしか読めていない | 利用者 | 未 |
 | 87 | **Ahrefs の API キーを作り直す**（#83 で作った日の 1 年後）: **期限はマスター画面 https://app.seo-checker.tokyo/admin の「外部連携」→ Ahrefs の行に出る**（残り 30 日で黄色、切れると赤。r73 で実装）。切れたら https://app.ahrefs.com/account/api-keys で新しいキーを作る → Vercel の `AHREFS_API_KEY` を差し替え → `AHREFS_API_KEY_ISSUED_AT` も新しい日付に → Redeploy。**費用はかからない**（`domain-rating-free` は無料の公開エンドポイント） | 利用者 | **次回は 2027-09-17 ごろ**（#90 で 2026-09-17 に作り直したため、#83 の日付ではなくこちらが起点）。期限日は画面が教えてくれるので、このメモに書き込む必要は無い |
 | 86 | **Open PageRank をどうするか決める**（2026-09-16 判明）: 旧 API が **2026-09-30 に終了**し、Keywords Everywhere の新 API（`openpagerank.keywordseverywhere.com`、Bearer 認証、無料枠 月 30,000 ドメイン）に移る。選択肢は ① 新 API に移行する ② Open PageRank をやめて Ahrefs の DR 一本にする（DR があれば採点は埋まる）。**推奨は ②**（DR が本命で、OPR は代替。移行の実装と利用者のアカウント作成が要る割に得るものが小さい）。②なら `src/lib/domain-power/openpagerank.ts` と関連の設定・文言を消す | 利用者 → Claude | 判断待ち |
@@ -2416,4 +2416,34 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 - Pro に上げれば上限も上がるので、**#42 を先にやれば ② は当面問題にならない**。
 
 **デプロイ自体は正常**: r87 のコミットが 5 分前に緑のチェックで入っている。
+- ドキュメントのみの更新。コードは触っていない。
+
+### 2026-09-17（Vercel の二重ビルドを止めた / さらに効く改善を計測した）
+
+**利用者が設定した内容（#89 対応済み）**
+- Vercel → Settings → Git → **Ignored Build Step** を Custom にして保存（「Ignored build step updated」を確認）:
+
+```sh
+case "$VERCEL_GIT_COMMIT_REF" in claude/*) exit 0;; *) exit 1;; esac
+```
+
+- **exit 0 = ビルドをスキップ、exit 1 = ビルドする**（Vercel の仕様。直感と逆なので注意）。`claude/*` のプレビュービルドが止まり、`main` は今までどおり。**次の push から有効。**
+- 「Preview の対象ブランチを絞る」は **Hobby プランの Git 設定に項目が無かった**ため使っていない。
+
+**Claude in Chrome が挙げた注意点の評価**
+- 「Production Overrides が出ている」→ **正しい。**いまの本番デプロイが古い設定のまま動いているという意味で、次の push で解消する。
+- 「Automatic のときの重複スキップが無くなった」→ **このリポジトリではほぼ影響しない。**Vercel の Automatic は**プロジェクトのルートディレクトリ配下に変更があったか**で判断する仕組みで、ここはリポジトリの直下が Next.js のプロジェクトなので、もともとほとんどスキップされていなかった。
+
+**さらに効く改善（提案。実データで確認した）**
+- **直近 40 コミットのうち 27 件（68%）が `docs/` だけの変更**（運用メモの更新ルールのため、やり取りのたびに 1 件出る）。**これが全部、本番の完全ビルドを起こしている。**Functions Storage 6.26 GB の大半はこれ。
+- 対策: Ignored Build Step を次の形にすると、**`docs/` と `marketing/` だけの変更ではビルドしなくなる**（`marketing/` は Cloudflare が配信するので Vercel には無関係）。
+
+```sh
+case "$VERCEL_GIT_COMMIT_REF" in claude/*) exit 0;; esac
+git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 0 || exit 1
+```
+
+- **失敗したときの向きが安全**: git の履歴が浅くて差分が取れないときはコマンドがエラーになり、**ビルドする側に倒れる**（取りこぼしではなく余分に作る側）。
+- **代わりに 1 つ失うもの（判断が要る）**: マスター画面の「**動いているコミット**」（`VERCEL_GIT_COMMIT_SHA` を表示。`src/lib/release/build.ts`）が **main の先頭と一致しなくなる**。ドキュメントだけの更新をスキップするので当然だが、**いまの動作確認の手順が「一致すること」になっている**ため、手順の書き換えが要る（「main の**コードを含む**最後のコミットと一致」に変える）。
+- **リリース番号は影響を受けない**（`src/lib/release/releases.json` は `src/` にあるのでコード扱い。r 番号を足すコミットは必ずビルドされる）。
 - ドキュメントのみの更新。コードは触っていない。
