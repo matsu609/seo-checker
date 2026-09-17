@@ -223,7 +223,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 39 | **公開前に必須**: Vercel `DEFAULT_PLAN` を `free` に → Redeploy。**順番に注意（2026-09-17 に判明）: 先に Clerk Production → Users → 自分（matsumatsu452@gmail.com）→ Public metadata に `{"plan": "premium"}` を入れてから変えること。**`ADMIN_EMAILS` に入っていてもプランの判定は素通りできない（`src/lib/plans/current.ts` の判定順は Stripe の契約 → `publicMetadata.plan` → `DEFAULT_PLAN` → free で、管理者かどうかは入っていない。マスター画面の「個別開放」は `publicMetadata.featureOverrides` を機能ごとに立てるもので、プランそのものは上がらない）。順番を逆にすると自分が締め出される（戻し方: `DEFAULT_PLAN` を `pro` に戻して Redeploy）。**Claude in Chrome 用のプロンプトは [chrome-prompts.md](./chrome-prompts.md) の C**。Clerk Production → Configure → Restrictions で招待制 / 許可リスト（決済がつながるまで） | 利用者 | **未。明日の公開の A-1 / A-2（下の「明日リリースするための優先順位」）** |
 | 40 | クイック診断（店舗）を「要点のみ」に絞る案 B（#69 と同じ論点）: 総合評価・4 カテゴリ・改善点上位 3・口コミの数字だけ表示し、21 項目の一覧・口コミ本文・PDF は「無料登録で開放」。登録後は free プランで /tools/maps に自社 1 店舗（履歴 1 件・一斉更新対象外・競合なし・AI 総評なし） | Claude | 利用者の判断待ち（推奨 B） |
 | 41 | 料金: ~~オールインワン 9,800 円（r26）~~ → ~~定価 50,000 円の 1 本 + クーポン割引（r46）~~ → **3 段階に決定（r63、利用者の決定 2026-09-15）**: ライト 38,000 円（診断・計測）／**スタンダード 50,000 円（本命）**（+ AI が改修案・原稿を作成）／プレミアム（伴走）**150,000 円〜・お見積り**（+ 人の作業。月 3 社まで・問い合わせ受付。r65 で「〜」表記に）。実装・文面・紹介サイトまで完了 | 利用者 → Claude | **完了（r63、r64、r65）**。残りは Stripe 側の作業（#58 の 1 と 3）だけ |
-| 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | 未 |
+| 42 | **商用化前に Vercel を Pro プランへ**（Hobby は非商用限定。月 20 ドル）。Settings → General → Plan | 利用者 | **未。2026-09-17 の画面で Hobby のままを確認。**課金を始める前に必須 |
 | 43 | 「特定商取引法に基づく表記」ページ `/legal/tokushoho` | Claude | **完了（r41）**。内容（解約は期間末まで利用可・日割り返金なし・運営責任者「松下」）は Claude の仮置き。利用者が確認して直す点があれば伝える |
 | 44 | ~~決済の開始（Clerk Billing）~~ → **Clerk Billing はドルのみのため取りやめ。Stripe 直結（r41、#58）に置き換え** | — | 取りやめ |
 | 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。**⑧ 本番モードを作業中（Claude in Chrome 用のプロンプトは [chrome-prompts.md](./chrome-prompts.md) の B）: 2026-09-17 01:50 に本番の商品 2 つ「スタンダード ¥50,000 / 月」「ライト ¥38,000 / 月」を作成済み。残りは Price ID の控え → Webhook → ポータル → `sk_live_` → Vercel の環境変数 4 つ → Redeploy → `DEFAULT_PLAN` を `free` に**）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
@@ -2390,3 +2390,30 @@ Vercel で値を足したあと **Redeploy** して初めて反映される（�
 1. **`DATAFORSEO_LOGIN` と `DATAFORSEO_PASSWORD` が Vercel に入っているか**（#91 の作業。入っていないと画面が「未設定」で止まる）。
 2. **エンドポイントと単価**。この環境から dataforseo.com に接続できないため、**パスは知識で書いた**。違っていたら画面にエラーが出るので、そのときは **`DATAFORSEO_LABS_RANKED_PATH` に正しいパスを入れれば差し替えられる**（デプロイ不要）。**単価は利用者の画面で確認してほしい。**
 3. 1 回の取得は既定 200 語。増やすと単価が上がる（`limit` で変更可、上限 1,000）。
+
+### 2026-09-17（Vercel の画面を確認: Hobby のまま / 容量 62% / 二重ビルド継続）
+
+利用者が Vercel の Overview を共有。3 つ分かった。
+
+**① Vercel は Hobby プランのまま（#42。リリース前に必須）**
+- 左上に `Hobby` バッジ、「Upgrade to Pro」が出ている。**Hobby は非商用限定**なので、**お金を受け取る前に Pro（月 20 ドル）へ上げる必要がある**。画面: https://vercel.com/matsumatsu452-6233/seo-checker/settings （Settings → General → Plan）。
+
+**② 直近 30 日の使用量。Functions Storage が 62% で、ここだけ注意が要る**
+
+| 項目 | 使用量 | 上限に対して |
+|---|---|---|
+| **Functions Storage** | **6.26 GB / 10 GB** | **62%。ここが先に埋まる** |
+| Deployment Storage | 2.8 GB / 10 GB | 28% |
+| Fluid Active CPU | 17分31秒 / 4時間 | 7% |
+| Edge Requests | 15K / 1M | 1.5% |
+
+- **CPU もリクエストも余裕がある。**増えているのは**ビルドの成果物の保存量**だけ。
+
+**③ #89 の二重ビルドが続いている（②の原因の一部）**
+- Recent Previews に `claude/laughing-fermat-c9rh4z` と `claude/happy-sagan-zmn1rk` のプレビュービルドが並んでいる。
+- **main と作業ブランチに同じ内容を push しているため、Production と Preview の両方がビルドされる。**中身は同じなので Preview 側は捨てているのと同じで、**保存量とビルド時間を倍使っている**。
+- **Claude 側の運用ルール（作業ブランチに push する）を変えずに直す方法**: Vercel の **Settings → Git → Ignored Build Step** に `claude/*` ブランチをスキップする条件を入れるか、**Preview の対象ブランチを絞る**。画面操作だけで済み、履歴の運用は変えなくてよい。
+- Pro に上げれば上限も上がるので、**#42 を先にやれば ② は当面問題にならない**。
+
+**デプロイ自体は正常**: r87 のコミットが 5 分前に緑のチェックで入っている。
+- ドキュメントのみの更新。コードは触っていない。
