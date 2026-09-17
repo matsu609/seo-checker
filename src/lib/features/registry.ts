@@ -461,10 +461,13 @@ const MEASURE: readonly Feature[] = [
     featureIds: ["B6"],
     icon: "traffic",
     status: "beta",
+    // GA4 の計測タグがお客様のサイトに要るため、既定では出さない（利用者の指示 2026-09-17）。
+    // 使うお客様にだけ個別開放するか、プレミアムでご相談のうえ有効にする
+    hidden: true,
     requires: ["ga4"],
     group: "measure",
     category: "aio",
-    plan: "light",
+    plan: "premium",
   },
   {
     id: "site-report",
@@ -481,10 +484,13 @@ const MEASURE: readonly Feature[] = [
     featureIds: ["E8"],
     icon: "dashboard",
     status: "beta",
+    // GA4 の計測タグがお客様のサイトに要るため、既定では出さない（利用者の指示 2026-09-17）。
+    // 使うお客様にだけ個別開放するか、プレミアムでご相談のうえ有効にする
+    hidden: true,
     requires: ["ga4", "serpapi"],
     group: "measure",
     category: "seo",
-    plan: "light",
+    plan: "premium",
   },
 ];
 

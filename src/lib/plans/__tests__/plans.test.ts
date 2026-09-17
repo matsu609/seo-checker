@@ -107,9 +107,15 @@ describe("機能とプランの対応", () => {
     expect(light.length).toBeGreaterThanOrEqual(9);
   });
 
-  // プレミアムは人の作業だけを足す段。ツールのゲートには使わない
-  it("プレミアム限定のツールは無い", () => {
-    expect(features.filter((f) => f.plan === "premium")).toEqual([]);
+  /**
+   * プレミアムは人の作業を足す段。ツールのゲートには原則使わない。
+   * 例外は GA4 を使う 2 つだけ（利用者の指示 2026-09-17）。GA4 の計測タグがお客様の
+   * サイトに入っていることが前提で、無いと空の画面になるため、既定では出さない。
+   */
+  it("プレミアム限定のツールは GA4 を使う 2 つだけで、どちらも既定では出さない", () => {
+    const premium = features.filter((f) => f.plan === "premium");
+    expect(premium.map((f) => f.id).sort()).toEqual(["ai-traffic", "site-report"]);
+    expect(premium.every((f) => f.hidden)).toBe(true);
   });
 
   it("プラン一覧のハイライトが実態と矛盾しない", () => {
