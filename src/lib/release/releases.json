@@ -479,6 +479,11 @@
       "commit": "3ba5e7a",
       "date": "2026-09-17",
       "summary": "プライバシーポリシー第 5 条に口コミ返信の権限で行う操作の範囲を追記、OAuth 審査の用途説明文とデモ動画の台本を整備"
+    },
+    {
+      "commit": "f9765c6",
+      "date": "2026-09-17",
+      "summary": "Business Profile Performance API（Google での見られ方: 表示回数・電話・ルート・流入キーワード）を MEO 画面に追加。承認後に接続するだけで動く"
     }
   ]
 }
