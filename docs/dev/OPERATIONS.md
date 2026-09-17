@@ -91,6 +91,7 @@
 | Google 連携（GSC / GA4） | **提供終了（r89、09-17。利用者の決定「Google Search Console と GA4 は使わない」）** | 画面は代替へ転送、API は 410。代替: 検索パフォーマンス（推定）（r87）だけ。サイト内の行動（訪問者・CV）は外部から取れず、自前タグも r90 で取り下げ。コード（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/lib/site-report/` の大半・`src/components/{search-performance,site-report,ai-traffic,google}/`）は**削除待ち**（下の残タスク #105） |
 | アクセス解析（自前の計測タグ） | **取り下げ（r90、09-17。利用者の決定「ツールで完結しないので面倒。やらない」）** | r89 で作った直後に取り下げ。画面は推定へ転送、API と `/t.js` は 410。コードは削除待ち（#105）。Supabase の SQL は**実行不要** |
 | LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity） | **提供終了（r92、09-17。利用者の決定「AI 検索モニタリングに一本化」）** | `/tools/llmo` → `/tools/geo` へ転送、`/api/llmo/run` と `/api/seo-analysis/second-opinion` は 410。**残る契約は Anthropic・DataForSEO・SerpApi・Google（マップ・PageSpeed）・Supabase・Clerk・Stripe**。コードは削除待ち（#105） |
+| DataForSEO | **接続済み・動作確認済み（09-17）** | `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Production に登録。検索パフォーマンス（推定）が実データを返した = Labs `ranked_keywords` のエンドポイントは合っていた（`DATAFORSEO_LABS_RANKED_PATH` の差し替えは不要）。残高はお試し $1 → 動作確認後に $50 入金 |
 | Places API（Google マップ） | **コードは完成、キー未設定** | 請求先アカウントの紐づけとキー作成が利用者側で未了 |
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
@@ -271,7 +272,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 69 | クイック診断（店舗・MEO）の扱い | 利用者 → Claude | **方針決定・完了（r51）**。利用者の判断「隠すのではなく、評価を厳しくできるなら改善点が増えるのでそちらが良い」→ 項目を隠さず**採点基準を厳しくした（v2）**。#40 の案 B（要点だけ見せて残りは登録で開放）は採らない |
 | 100 | **r81（ホームページ URL の一元登録）の本番確認**: `https://app.seo-checker.tokyo/settings` のいちばん上「ホームページ」カードに自社サイトの URL を 1 回登録 → 保存 → サイト診断・精密診断・ページ最適化レポート・ページ診断・AIO 頻出トピック・プロンプト拡張・llms.txt の各タブを開き、**URL の入力欄が無く「対象のホームページ ○○」と出ている**ことを確認する。登録はブラウザごと（localStorage）なので、PC を変えたら登録し直し（移すときは同じ設定画面の「JSON をダウンロード / 読み込む」） | 利用者 | 未（コードは r81 で完了） |
 | 99 | **Search Console にサイトマップを 2 本送信する**（2026-09-17 の質問）。画面: https://search.google.com/search-console/sitemaps?resource_id=sc-domain%3Aseo-checker.tokyo → 「新しいサイトマップの追加」に**フル URL**を入れて送信（ドメイン プロパティなのでホスト名の省略はできない）。①`https://seo-checker.tokyo/sitemap.xml`（紹介サイト。トップ 1 ページ）②`https://app.seo-checker.tokyo/sitemap.xml`（アプリ。規約・プライバシー・特商法の 3 ページだけ。**OAuth 審査でプライバシーポリシーが参照されるので、こちらも出しておく**）。送信後「ステータス = 成功」と「検出された URL」が 1 / 3 になれば完了（反映に数時間〜数日） | 利用者 | **紹介サイトは「成功しました」／1 ページ（完了）。アプリ側は「取得できませんでした」／0** → 原因は `robots.txt` が `/sitemap.xml` を塞いでいたこと。**r84 で修正済み**。Vercel のデプロイ完了後に、Search Console の同じ画面で app の行を**削除 → もう一度送信**（Claude in Chrome 用のプロンプトは [chrome-prompts.md](./chrome-prompts.md) の A）。**09-17 04:00 時点でまだ「取得できませんでした」のまま。**Google は robots.txt を最大 24 時間キャッシュするので、修正を出した直後に送り直しても古いままのことがある。**先に確かめる順番: ①`/admin` の「動いているコミット」が `1d316f7` 以降か ②Search Console の 設定 → robots.txt レポートに `Allow: /sitemap.xml` が出ているか ③URL 検査で `https://app.seo-checker.tokyo/sitemap.xml` が「robots.txt により拒否されました」と言わないか。**②が古ければ再クロールを依頼して待つだけでよい（Google の自動再試行を待ってもよい）。「成功しました」／3 ページになれば完了 |
-| 91 | **AI 検索モニタリングを動かす**（下の「AI 検索モニタリングを有効にする手順」）: Supabase で 8 テーブルの SQL を実行 → DataForSEO に登録して前払い → Vercel に `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` → Redeploy → `/tools/geo` で自社ブランドとプロンプトを登録 → 翌朝の Cron で数字が入る | 利用者 | 未 |
+| 91 | **AI 検索モニタリングを動かす**（下の「AI 検索モニタリングを有効にする手順」）: Supabase で 8 テーブルの SQL を実行 → DataForSEO に登録して前払い → Vercel に `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` → Redeploy → `/tools/geo` で自社ブランドとプロンプトを登録 → 翌朝の Cron で数字が入る | 利用者 | 利用者 + Claude | **4〜6 完了（09-17 22 時台。`DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Vercel に登録 → Redeploy → `/tools/search-estimate` が動作）**。残り: 7（`/admin` で設定済み確認）→ 8（`/tools/geo` でブランドとプロンプトを登録）→ 9（翌朝の計測を確認）。お試し $1 なので、動作確認後に $50 を入金 |
 | 93 | **AI 検索モニタリングをどのプランに入れるか決める**: いまは**スタンダード**に置いてある（1 アカウント月 ¥2,000 前後の変動費が出るため）。「測る」系なので本来の線引きではライトだが、原価が他のツールと桁違い。ライトに下ろすなら料金表（`src/lib/plans/catalog.ts`）・紹介サイト・サービス資料・`src/lib/features/registry.ts` の `plan` とテストをまとめて直す（Claude 側 30 分）。**このままスタンダードでよければ何もしなくてよい** | 利用者 → Claude | 判断待ち |
 | 92 | AI 検索モニタリングの**生成処理**（仕様書 §7.2 / §7.3）: 週次レポート（軽量モデル + テンプレート）と月次深掘り（高性能モデル 月 1 回）、差分実行（前回とほぼ同じなら再生成しない）。クレジットのレート（週次 30 / 月次 150）と台帳は実装済みなので、`run.ts` の後段に足すだけ | Claude | 未（計測が回ってから） |
 | 90 | **露出した Ahrefs の API キーを作り直す（急ぎ）**: 2026-09-16 に Vercel の環境変数画面のスクリーンショット（値が平文表示）が会話に貼られた。https://app.ahrefs.com/account/api-keys で**そのキーを削除 → 新しいキーを作成** → Vercel の間違った変数 `AHREFS_API_KEY_ISSUED_2026_09_17` を削除 → 正しい名前で `AHREFS_API_KEY`（Sensitive）と `AHREFS_API_KEY_ISSUED_AT` を作る → Redeploy。DR は無料エンドポイントなので、漏れても課金の被害は無いが、他人がこのアカウントのキーとして使える状態は避ける | 利用者 | **完了（2026-09-17、利用者報告）**。露出したキーは無効になった。**マスター画面 /admin での確認も完了（2026-09-17、利用者報告）**。次回の作り直しは #87（2027-09-17 ごろ） |
@@ -2620,5 +2621,13 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 対応: **`DATAFORSEO_LOGIN` = 画面の「API ログイン」（メールアドレス）**、**`DATAFORSEO_PASSWORD` = 「API パスワード」**（ログイン画面のパスワードとは別物）。「Base64 形式」は使わない（コードが login:password から自分で作る。`src/lib/geo/dataforseo.ts`）。
 - **API パスワードがスクリーンショットに写った状態で共有された** → 画面の「パスワードをリセット」で作り直し、**新しい方**を Vercel に入れるよう案内。古い値はメモに書かない。
 - 次: #91 の 4〜6（Vercel に 2 つ登録 → Redeploy）→ `/admin` で「DataForSEO 設定済み」→ `/tools/search-estimate` と `/tools/geo` で動作確認。
+- ドキュメントのみの更新。
+
+### 2026-09-17（DataForSEO を Vercel に登録、検索パフォーマンス（推定）が本番で動作）
+
+- 利用者報告「入れた。6 も OK」= `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を登録して Redeploy し、`/tools/search-estimate` でドメインを入れて推定が出た。
+- これで **r87 で「知識で書いた」Labs のエンドポイント（`/v3/dataforseo_labs/google/ranked_keywords/live`）が正しかったことが確定**。#102 の「要確認」は解消。
+- 未確定: 1 回の取得で減ったクレジット額（単価）。利用者に「残高がいくらになったか」を確認中。
+- 次: #91 の 7〜9（`/admin` で設定済み確認 → `/tools/geo` でブランド・プロンプト登録 → 翌朝の計測）、$50 の入金、#105（死んだコードの削除）の許可。
 - ドキュメントのみの更新。
 
