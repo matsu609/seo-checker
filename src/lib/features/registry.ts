@@ -314,12 +314,33 @@ const MEASURE: readonly Feature[] = [
     plan: "light",
   },
   {
+    id: "search-estimate",
+    path: "/tools/search-estimate",
+    label: "検索パフォーマンス（推定）",
+    shortLabel: "検索の推定",
+    description:
+      "Search Console を連携していなくても、ドメインを入れるだけで「どのキーワードで何位にいて、どれくらい見られているか」を推定します。実測値ではありません。",
+    details: [
+      "そのドメインが順位を持っているキーワードを自動で集めます（登録作業は不要）",
+      "順位ごとのクリック率から、推定の表示回数・クリック数・CTR・平均順位を出します",
+      "実際に検索された語そのものは Search Console にしかありません。連携できる場合は「検索パフォーマンス」の実測値をご覧ください",
+    ],
+    featureIds: [],
+    icon: "traffic",
+    status: "beta",
+    // ドメインを渡すだけで動く。お客様側の設定は要らない（ここが Search Console との違い）
+    requires: ["dataforseo"],
+    group: "measure",
+    category: "seo",
+    plan: "light",
+  },
+  {
     id: "search-performance",
     path: "/tools/search-performance",
     label: "検索パフォーマンス（Search Console）",
     shortLabel: "検索パフォーマンス",
     description:
-      "連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を取得します。推定ではなく Google の実測値です。",
+      "連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を取得します。推定ではなく Google の実測値です（連携の設定を代行するプレミアムの機能です）。",
     details: [
       "期間の合計と前期間との比較（クリック・表示回数・CTR・平均掲載順位）",
       "日別の推移と、クリックの多いクエリ・ページの一覧",
@@ -333,7 +354,7 @@ const MEASURE: readonly Feature[] = [
     requires: [],
     group: "measure",
     category: "seo",
-    plan: "light",
+    plan: "premium",
   },
   {
     id: "maps",
