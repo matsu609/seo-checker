@@ -110,9 +110,9 @@ Google Cloud の「アプリを公開」→ 審査の申請フォームに、**�
 
 > このスコープは、**利用者本人が管理する GA4 プロパティ**から、サイトの利用状況（セッション数、参照元・メディア、ページ別の表示回数、コンバージョンなどの集計値）を**読み取るため**に使用します。プロパティの一覧を取得するために Admin API、数値を取得するために Data API を使います。
 >
-> 取得した値は、アプリ内の「サイトレポート」「生成 AI 流入分析」画面と「精密診断」の報告書に、**その利用者本人にだけ**表示します。当サービスの中心的な価値は、検索で見つかったあと実際にサイトで何が起きているか（直帰、離脱、問い合わせに至らない導線）まで含めて改善点を示すことにあり、GA4 の集計値が無いとこの部分が成立しません。
+> 取得した値は、アプリ内の「精密診断」の報告書と、設定画面の「GA4 イベントの割り当て」に、**その利用者本人にだけ**表示します。当サービスの中心的な価値は、検索で見つかったあと実際にサイトで何が起きているか（直帰、離脱、問い合わせに至らない導線）まで含めて改善点を示すことにあり、GA4 の集計値が無いとこの部分が成立しません。
 >
-> 「生成 AI 流入分析」は、参照元に生成 AI サービスが含まれる訪問を集計して表示する機能で、GA4 の参照元データを使います。
+> 設定画面では、利用者が自分の GA4 プロパティを一覧から選べるようにするため Admin API を使い、選んだプロパティのイベント名を読み取って、当サービス共通の指標に割り当てます。
 >
 > 個人を特定する情報（ユーザー ID、IP アドレス、端末識別子）は取得せず、集計値のみを扱います。書き込み・削除は行わないため読み取り専用のスコープのみを要求しています。汎用的な AI・機械学習モデルの学習には使用しません。
 
@@ -120,7 +120,7 @@ Google Cloud の「アプリを公開」→ 審査の申請フォームに、**�
 
 > We use this scope to read aggregated usage data (sessions, source/medium, pageviews, conversions) **from GA4 properties the user themselves administers**. We use the Admin API to list their properties and the Data API to read the numbers.
 >
-> We display these values only to that same user, in our "Site report" and "Generative-AI traffic" screens and in the "Detailed diagnosis" report. The core value of our product is showing what happens after a visitor arrives, not just how they found the site, so this data is required for the feature to work. The "Generative-AI traffic" screen aggregates visits whose referrer is a generative-AI service.
+> We display these values only to that same user, in our "Detailed diagnosis" report and in the "GA4 event mapping" section of the settings screen. The core value of our product is showing what happens after a visitor arrives, not just how they found the site, so this data is required for the feature to work. On the settings screen we use the Admin API so the user can pick their own GA4 property from a list, and we read that property's event names to map them onto our standard set of metrics.
 >
 > We read aggregated metrics only; we do not request user IDs, IP addresses, or device identifiers. We never write or delete, so we request the read-only scope. We do not use this data to develop, improve, or train generalized AI/ML models.
 
@@ -212,7 +212,7 @@ Google Cloud の「アプリを公開」→ 審査の申請フォームに、**�
 | 8 | Search Console のサイトを選んで保存 | 一覧から選べるところ | 「ご自身のサイトを選びます」 |
 | 9 | GA4 のプロパティを選んで保存 | 一覧から選べるところ | 「アナリティクスのプロパティも同じように選びます」 |
 | 10 | 検索パフォーマンス画面を開く | **数字が出ている表** | 「これが Search Console から読み取った実測値です。本人にだけ表示します」 |
-| 11 | サイトレポート画面を開く | **数字が出ている表** | 「こちらはアナリティクスから読み取った利用状況です」 |
+| 11 | 設定画面の「GA4 イベントの割り当て」に戻る | **選んだ GA4 プロパティと、読み取ったイベント名の一覧** | 「アナリティクスのプロパティを選び、イベント名を読み取って指標に割り当てます」（**サイトレポートと生成 AI 流入分析は OAuth ではなく運営者のサービスアカウントを使うので、この動画には出さない。#96**） |
 | 12 | 精密診断の報告書を開く（あれば） | 分析文と改善案 | 「これらの実測値をもとに改善案を作ります」 |
 | 13 | ヘッダー右上 → アカウントを管理 → 接続済みアカウント | 解除できる画面 | 「連携はいつでも解除できます」 |
 | 14 | `app.seo-checker.tokyo/privacy` を開き、**第 5 条までスクロール** | **第 5 条（Google アカウントのデータの取り扱い）** | 「取り扱いはプライバシーポリシーに明記しています」 |
@@ -416,3 +416,27 @@ Google Cloud の公開ステータスは、**審査の完了を待たずに「�
 >
 > また、この期間中は **約 1 週間ごとに連携の再許可**が必要です（Google の仕様）。
 > 画面に「権限が足りません」と出たら、設定画面の「接続し直す」を押してください。確認手続きが完了すると、この作業は不要になります。
+
+---
+
+# 実装の食い違い（2026-09-17 に判明。#96）
+
+**GA4 の読み取りに 2 つの経路がある。**
+
+| 経路 | 使うもの | 誰のデータか | 使っている画面 |
+|---|---|---|---|
+| **A: OAuth（お客様ごと）** | `analytics.readonly` + `createGa4ClientWithToken`（`src/lib/google/ga4.ts` の `settings.ga4PropertyId`） | **お客様が選んだプロパティ** | **精密診断**、設定画面の **GA4 イベントの割り当て** |
+| **B: サービスアカウント（運営者固定）** | 環境変数 `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON`（`src/lib/ga4/client.ts` の `getGa4Client`） | **運営者の 1 プロパティだけ** | **サイトレポート**、**生成 AI 流入分析** |
+
+**これが問題になる点:**
+
+1. **サイトレポートと生成 AI 流入分析は、お客様ごとの GA4 を読めない。**環境変数を入れれば動くが、映るのは運営者のプロパティ。**多店舗・多顧客の SaaS としては成立していない。**
+2. **本番の画面に開発者向けの文言が出ている。**「プロジェクト直下の `.env.local` に次の行を追加し、開発サーバーを再起動してください」。**お客様に見せる文面ではない。**
+3. **OAuth の申請文が実態とずれていた。**当初「GA4 のデータはサイトレポートと生成 AI 流入分析に表示する」と書いていたが、この 2 画面は OAuth を使っていない。**上の申請文を「精密診断」と「GA4 イベントの割り当て」に直した**（型 7「申告との矛盾」を避けるため）。
+
+**やること（利用者の判断が要る）:**
+
+- **案 A（推奨・後回し可）**: サイトレポートと生成 AI 流入分析を、経路 A（お客様の OAuth + `settings.ga4PropertyId`）に寄せる。コードは既にあるので、クライアントの取得元を差し替える作業。**リリース後でよい。**
+- **案 B（今週の暫定）**: この 2 画面を**プラン機能から外す**か、「運営者が設定したプロパティのみ」と画面に明記する。少なくとも**開発者向けの文言（`.env.local`）はお客様向けに書き直す**。
+
+**今週のリリースへの影響**: ライト以上に「サイトレポート」を含めて売っているので、**お客様が開くと使えない状態になる**。案 B の最低限（文言の修正と、使えない旨の明示）は**リリース前に入れたほうがよい**。
