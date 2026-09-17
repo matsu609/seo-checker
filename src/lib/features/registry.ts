@@ -79,7 +79,8 @@ export interface Feature {
   category?: FeatureCategoryId;
   /**
    * サイドバーに出さない（ページと API は残す）。
-   * 別の機能に統合した旧機能に付ける。プランのゲートは残るので、API が素通りにならない。
+   * 別の機能に統合した旧機能と、お客様側の設定（Google 連携・計測タグ）が要るため
+   * ほとんどのお客様が使わない機能に付ける。プランのゲートは残るので、API が素通りにならない。
    */
   hidden?: boolean;
   /**
@@ -323,7 +324,7 @@ const MEASURE: readonly Feature[] = [
     details: [
       "そのドメインが順位を持っているキーワードを自動で集めます（登録作業は不要）",
       "順位ごとのクリック率から、推定の表示回数・クリック数・CTR・平均順位を出します",
-      "実際に検索された語そのものは Search Console にしかありません。連携できる場合は「検索パフォーマンス」の実測値をご覧ください",
+      "実際に検索された語そのものは Search Console にしかありません。実測値が必要な場合はプレミアムで連携の設定を代行します",
     ],
     featureIds: [],
     icon: "traffic",
@@ -352,6 +353,10 @@ const MEASURE: readonly Feature[] = [
     // 環境変数ではなく、利用者ごとの Google 連携が必要。
     // 未連携のときは画面側で接続を案内する
     requires: [],
+    // Search Console の所有確認と連携はほとんどのお客様が使わないため、サイドバーには出さない
+    // （利用者の指示 2026-09-17）。ライトには連携の要らない「検索パフォーマンス（推定）」を置く。
+    // ページと API は残し、プレミアムで連携を代行したお客様に URL を渡す
+    hidden: true,
     group: "measure",
     category: "seo",
     plan: "premium",

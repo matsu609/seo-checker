@@ -24,8 +24,10 @@
 | 計測 | `/tools/geo` | AI 検索モニタリング（引用・参照の定点観測） | — | DataForSEO + Supabase（Anthropic は任意） |
 | 計測 | `/tools/llmo` | LLMO モニタリング・LLM リサーチ | B4, B8 | Anthropic（他社は任意） |
 | 計測 | `/tools/prompt-expansion` | プロンプト拡張 | B7 | Anthropic |
-| 計測 | `/tools/ai-traffic` | 生成 AI 流入分析 | B6 | GA4 |
-| 計測 | `/tools/site-report` | サイトレポート | E8 | GA4 + SERP |
+| 計測 | `/tools/search-estimate` | 検索パフォーマンス（推定。Search Console の連携なしで数字を出す） | — | DataForSEO |
+| 計測 | `/tools/search-performance` | 検索パフォーマンス（Search Console の実測。プレミアム。`hidden: true`: サイドバーには出さず、連携を代行したお客様に URL を渡す） | — | Google 連携（GSC） |
+| 計測 | `/tools/ai-traffic` | 生成 AI 流入分析（プレミアム。`hidden: true`） | B6 | GA4 |
+| 計測 | `/tools/site-report` | サイトレポート（プレミアム。`hidden: true`） | E8 | GA4 + SERP |
 | 計測 | `/tools/maps` | Google マップ・店舗情報（MEO） | — | Places API (New) |
 | 計測 | `/tools/reviews` | 口コミ支援（アンケート QR） | — | Supabase（AI 下書きは Anthropic 任意） |
 | 生成 | `/tools/replies` | 口コミへの返信（AI 返信案） | — | Google 連携（Business Profile API、`business.manage`）。返信案は Anthropic 任意 |

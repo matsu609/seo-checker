@@ -3,7 +3,7 @@
  * ここが崩れると「有料機能が無料で使える」か「契約者が使えない」のどちらかになる。
  */
 import { describe, expect, it } from "vitest";
-import { features, FEATURE_GROUPS } from "@/lib/features/registry";
+import { features, FEATURE_GROUPS, groupsForSidebar } from "@/lib/features/registry";
 import {
   LISTED_PLANS,
   PLANS,
@@ -124,6 +124,15 @@ describe("機能とプランの対応", () => {
     const ga4Tools = features.filter((f) => f.id === "ai-traffic" || f.id === "site-report");
     expect(ga4Tools).toHaveLength(2);
     expect(ga4Tools.every((f) => f.hidden)).toBe(true);
+  });
+
+  // GSC / GA4 の詳細機能はほとんどのお客様が使わないので、サイドバーには一切出さない（利用者の指示 2026-09-17）。
+  // プレミアム限定のツール = お客様側の設定が要るもの = hidden、が常に一致する
+  it("プレミアム限定のツールはすべてサイドバーに出さない", () => {
+    const premium = features.filter((f) => f.plan === "premium");
+    expect(premium.length).toBeGreaterThan(0);
+    expect(premium.every((f) => f.hidden)).toBe(true);
+    expect(groupsForSidebar().tools.flatMap((g) => g.features.map((f) => f.plan))).not.toContain("premium");
   });
 
   // 連携なしで数字が出る代替をライトに置く。ここが無いと「契約初日に何も出ない」になる
