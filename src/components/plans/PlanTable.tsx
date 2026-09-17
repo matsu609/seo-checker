@@ -9,14 +9,14 @@
  */
 import { Badge, Card } from "@/components/ui";
 import { ButtonLink } from "@/components/ui/Button";
-import { FEATURE_GROUPS } from "@/lib/features/registry";
+import { toolGroupsForDisplay } from "@/lib/features/registry";
 import { OPERATOR } from "@/lib/legal/operator";
 import { LISTED_PLANS, planAllows, planPriceLabel, type PlanId } from "@/lib/plans/catalog";
 import { PlanCheckoutButton } from "./PlanCheckoutButton";
 
 /** そのプランで使えるツール名（クイック診断と設定は除く）。上位プランは下位の機能も含む */
 function toolsFor(plan: PlanId): string[] {
-  return FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings")
+  return toolGroupsForDisplay()
     .flatMap((g) => g.features)
     .filter((f) => f.plan !== "free" && planAllows(plan, f.plan))
     .map((f) => f.shortLabel);

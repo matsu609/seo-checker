@@ -8,11 +8,11 @@
  * レポート本体と同じ PDF 化の仕組み（html2canvas + jsPDF）に載せるので、
  * 幅は download.ts の RENDER_WIDTH（768px）に合わせて組む。
  */
-import { FEATURE_GROUPS } from "@/lib/features/registry";
+import { toolGroupsForDisplay } from "@/lib/features/registry";
 import { LISTED_PLANS, planShortLabel, planPriceLabel } from "@/lib/plans/catalog";
 
 /** クイック診断と設定を除いた、プランに含まれるツールのグループ */
-const TOOL_GROUPS = FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings");
+const TOOL_GROUPS = toolGroupsForDisplay();
 
 export interface ServiceGuideProps {
   /** 会社名・サービス名（NEXT_PUBLIC_CONTACT_NAME） */

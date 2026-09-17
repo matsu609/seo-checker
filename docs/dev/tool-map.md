@@ -79,18 +79,19 @@ flowchart LR
 | クイック診断（店舗） | `/meo` | 無料 | 不要 | − | − | − | − | ● | − | − | − |
 | **精密診断** | `/tools/seo-analysis` | standard | 必須 | ● | ○ | ○ | − | − | ● | ○ ※6 | − ※7 |
 | サイト診断 | `/tools/site-audit` | light | 必須 | − | − | − | − | − | − | − | − |
-| ページ最適化レポート | `/tools/page-report` | light | 必須 | − | − | ○ | − | − | − | − | − |
+| ~~ページ最適化レポート~~（サイドバーから外した r94。HP 改修提案へ転送） | `/tools/page-report` | light | 必須 | − | − | ○ | − | − | − | − | − |
 | ページ診断（競合比較） | `/tools/page-diagnosis` | light | 必須 | ◍ | ◍ | − | − | − | − | − | − |
-| AIO 頻出トピック | `/tools/aio-topics` | light | 必須 | ● | ● | − | − | − | − | − | − |
-| HP 改修提案 | `/tools/improvement` | standard | 必須 | ● | − | − | − | − | − | − | − |
+| ~~AIO 頻出トピック~~（サイドバーから外した r94。AI 検索モニタリングへ転送） | `/tools/aio-topics` | light | 必須 | ● | ● | − | − | − | − | − | − |
+| HP 改修提案（SEO タブ） | `/tools/improvement` | standard | 必須 | ● | − | − | − | − | − | − | − |
 | 順位計測・AIO 引用 | `/tools/rank` | light | 必須 | − | ● | − | − | − | − | − | − |
 | 検索パフォーマンス（推定） | `/tools/search-estimate` | light | 必須 | − | − | − | − | − | − | − ※8 | − |
 | Google マップ（MEO） | `/tools/maps` | light | 必須 | ○ ※1 | − | − | − | ● | ● | − | − |
 | 口コミ支援（QR） | `/tools/reviews` | standard | 必須 ※2 | ○ | − | − | − | ○ | ● | − | − |
-| プロンプト拡張 | `/tools/prompt-expansion` | light | 必須 | ● | − | − | − | − | − | − | − |
+| プロンプト拡張（サイドバーには出さず、AI 検索モニタリングの設定からリンク） | `/tools/prompt-expansion` | light | 必須 | ● | − | − | − | − | − | − | − |
 | キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |
 | AI ライティング | `/tools/writing` | standard | 必須 | ● | ○ ※4 | − | − | − | − | − | − |
 | 口コミへの返信 | `/tools/replies` | standard | 必須 | ○ | − | − | − | ○ | ○ | − | ◍ BP ※5 |
+| サイテーション（DataForSEO ※8） | `/tools/citations` | light | 必須 | − | − | − | − | − | − | − | − |
 | 基本情報掲載（NAP） | `/tools/listings` | standard | 必須 | ○ | − | − | − | ○ | ● | − | − |
 | llms.txt 生成 | `/tools/llms-txt` | standard | 必須 | − | − | − | − | − | − | − | − |
 | 料金プラン・設定 | `/plans` `/settings` | 無料 | 必須 | − | − | − | − | − | − | − | − |
@@ -295,9 +296,8 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | ツール | 何で動くか |
 |---|---|
 | サイト診断（テクニカル SEO） | 自前クローラ |
-| ページ最適化レポート（AIO/LLM） | 自前クローラ |
 | ページ診断（競合比較） | 自前クローラ + SerpApi + Claude |
-| AIO 頻出トピック | SerpApi + Claude |
+| サイテーション | DataForSEO（Google 検索 3 回） |
 | HP 改修提案 | Claude |
 | 順位計測・AI Overviews 引用 | SerpApi |
 | プロンプト拡張 | Claude |

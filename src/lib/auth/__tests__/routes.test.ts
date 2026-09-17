@@ -82,6 +82,7 @@ describe("保護パス", () => {
       "/api/ai-traffic",
       "/api/aio-topics",
       "/api/aio-topics/coverage",
+      "/api/citations",
       "/api/integrations",
       "/api/keywords",
       "/api/llmo/run",

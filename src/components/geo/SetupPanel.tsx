@@ -8,7 +8,7 @@
  * 指名プロンプトを高精度枠に入れようとしたらサーバーが警告を返す（§2.2）。
  */
 import { useState } from "react";
-import { Badge, Button, Callout, Card, Field, Input } from "@/components/ui";
+import { Badge, Button, ButtonLink, Callout, Card, Field, Input } from "@/components/ui";
 import { PRECISION_REPEATS_PER_WEEK, NORMAL_REPEATS_PER_WEEK } from "@/lib/geo/schedule";
 import { GEO_MODEL_LABELS, GEO_MODELS, type GeoBrand, type GeoKeyword, type GeoModel, type GeoPrompt } from "@/lib/geo/types";
 import { saveSetup, type SetupResponse } from "./client";
@@ -168,7 +168,14 @@ function PromptForm({ prompts, precisionSlots, onChanged }: { prompts: GeoPrompt
     <Card
       title="計測するプロンプト"
       description={`AI に投げる質問です。通常は週 ${NORMAL_REPEATS_PER_WEEK} 回、高精度枠は週 ${PRECISION_REPEATS_PER_WEEK} 回、週内の別の日に分けて実行します（同じ日にまとめて聞いても、言葉のゆらぎしか見えないため）。`}
-      actions={<Badge tone="neutral" icon={false}>高精度枠 {usedSlots} / {precisionSlots}</Badge>}
+      actions={
+        <>
+          <ButtonLink href="/tools/prompt-expansion" size="sm" variant="ghost">
+            プロンプト拡張で候補を作る
+          </ButtonLink>
+          <Badge tone="neutral" icon={false}>高精度枠 {usedSlots} / {precisionSlots}</Badge>
+        </>
+      }
     >
       {error && <Callout tone="fail" className="mb-3">{error}</Callout>}
       {warning && <Callout tone="warn" className="mb-3" title="この設定は効果が薄いかもしれません">{warning}</Callout>}

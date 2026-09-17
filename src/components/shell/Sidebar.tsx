@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 import { INTEGRATIONS, type IntegrationStatus } from "@/lib/features/integrations";
 import {
   categoryForPath,
   FEATURE_CATEGORIES,
+  findCategory,
   groupsForSidebar,
   isFeatureActive,
   type Feature,
@@ -54,9 +55,23 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
   closeRef,
 ) {
   const [saved, setSaved] = useStore(sidebarTabStore);
-  // 開いている画面のタブを優先。共通の画面（設定など）では最後に選んだタブ
+  /**
+   * 押したタブは必ず反映する。
+   *
+   * 以前は「開いている画面のタブ ?? 保存したタブ」で表示していたため、どれかのタブに属する
+   * 画面（順位計測など）を開いたままタブを押しても、画面のタブが常に勝って切り替わらなかった
+   * （利用者の報告 2026-09-17「反応が悪い・切り替わらないことが多い」）。
+   * いまは「この画面で押したタブ」を最優先にし、別の画面へ移動したらその画面のタブ、
+   * 共通の画面（設定など）では最後に押したタブを出す。
+   */
+  const [picked, setPicked] = useState<{ pathname: string; tab: FeatureCategoryId } | null>(null);
   const pathCategory = categoryForPath(pathname);
-  const tab: FeatureCategoryId = pathCategory ?? saved.tab;
+  const tab: FeatureCategoryId = picked && picked.pathname === pathname ? picked.tab : (pathCategory ?? saved.tab);
+  const selectedCategory = findCategory(tab);
+  function pickTab(next: FeatureCategoryId) {
+    setPicked({ pathname, tab: next });
+    setSaved({ tab: next });
+  }
   const { tools } = groupsForSidebar(tab);
   const { status } = useIntegrations();
   const access = useAccess();
@@ -99,7 +114,7 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
               role="tab"
               aria-selected={selected}
               title={c.description}
-              onClick={() => setSaved({ tab: c.id })}
+              onClick={() => pickTab(c.id)}
               className={`h-8 rounded-sm text-[12px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-on-brand/60 ${
                 selected ? "bg-on-brand text-brand" : "text-on-brand/90 hover:bg-on-brand/10"
               }`}
@@ -109,6 +124,8 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
           );
         })}
       </div>
+      {/* 選んだタブの位置づけ（AIO が全体、SEO はホームページ、MEO は Google マップ） */}
+      <p className="mx-4 mt-2 text-[11px] leading-relaxed text-on-brand-muted">{selectedCategory.description}</p>
 
       {tools.map((group) => (
         <div key={group.id}>

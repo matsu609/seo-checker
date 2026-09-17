@@ -9,27 +9,36 @@
 import type { PlanId } from "@/lib/plans/catalog";
 import type { IntegrationKey } from "./integrations";
 
-export type FeatureGroupId = "free" | "diagnosis" | "measure" | "research" | "generate" | "settings";
+export type FeatureGroupId = "free" | "foundation" | "diagnosis" | "measure" | "research" | "generate" | "settings";
 
 /**
  * サイドバーのタブ（利用者の指示: AIO / SEO / MEO で分ける）。
- * group（診断 / 計測 / …）は「何をするか」、category は「何のための施策か」。
+ * group（基礎 / 診断 / 計測 / …）は「何をするか」、category は「何のための施策か」。
  * 設定・料金など共通のものは category を持たない（どのタブでも出す）。
+ *
+ * 位置づけ（利用者の指示 2026-09-17）: このサービスは **AIO 対策の可視化ツール**で、SEO に競合より少し力を入れている。
+ * AIO 対策 = SEO 対策 + MEO 対策 + 海外を含む基本情報サイトへの NAP 登録（サイテーション）の総称。
+ * AIO タブには「土台」（サイテーション・NAP 登録・llms.txt）と AI 検索の計測を置き、タブの説明で「全体」と分かるようにする。
+ * SEO タブは「お客様が持っているホームページの最適化」（診断・改修案・順位・キーワード・原稿）に絞る。
  */
 export type FeatureCategoryId = "seo" | "aio" | "meo";
 
 export interface FeatureCategory {
   id: FeatureCategoryId;
   label: string;
-  /** タブの補足（1 行） */
+  /** タブの補足（1 行。サイドバーのタブの下に出す） */
   description: string;
 }
 
 export const FEATURE_CATEGORIES: readonly FeatureCategory[] = [
-  { id: "seo", label: "SEO", description: "Google 検索で上位に出すための診断・計測・制作" },
-  { id: "meo", label: "MEO", description: "Google マップ・ビジネス プロフィールの改善と競合比較" },
-  { id: "aio", label: "AIO", description: "AI Overviews や生成 AI に引用・言及されるための最適化" },
+  // 並びは売りの順番（検索 → 地図 → AI）に合わせる（利用者の指定 2026-09-13、r54）
+  { id: "seo", label: "SEO", description: "お持ちのホームページの最適化。Google 検索で上位に出すための診断・改修案・計測・原稿" },
+  { id: "meo", label: "MEO", description: "Google マップ・ビジネス プロフィールの改善、口コミ、競合比較" },
+  { id: "aio", label: "AIO", description: "AI 検索対策の全体。SEO・MEO・サイテーション（NAP 登録）を土台に、AI に引用・言及される状態をつくる" },
 ];
+
+/** 最初に開いたときのタブ（先頭のタブ） */
+export const DEFAULT_FEATURE_CATEGORY: FeatureCategoryId = FEATURE_CATEGORIES[0]!.id;
 
 export type FeatureStatus = "ready" | "beta";
 
@@ -51,7 +60,8 @@ export type FeatureIcon =
   | "map"
   | "qr"
   | "reply"
-  | "broadcast";
+  | "broadcast"
+  | "quote";
 
 export interface Feature {
   /** URL セグメント（例: "site-audit"）。クイック診断は "free"、設定は "settings" */
@@ -228,6 +238,11 @@ const DIAGNOSIS: readonly Feature[] = [
     group: "diagnosis",
     category: "aio",
     plan: "light",
+    // 2026-09-17 サイドバーから外した（利用者の指示「本当に必要な機能に絞る」）。
+    // 1 ページの AI フレンドリー度の採点はクイック診断（/）が無料で出し、直し方は HP 改修提案が
+    // 同じ診断（A2）を走らせたうえで改修案まで作る。/tools/page-report は HP 改修提案へ転送。
+    // API と src/lib/page-report/ は HP 改修提案・PSI・llms.txt が使うので残す
+    hidden: true,
   },
   {
     id: "page-diagnosis",
@@ -269,11 +284,15 @@ const DIAGNOSIS: readonly Feature[] = [
     group: "diagnosis",
     category: "aio",
     plan: "light",
+    // 2026-09-17 サイドバーから外した（利用者の指示「本当に必要な機能に絞る」）。
+    // SerpApi と Anthropic の両方が要るうえ、「AI が何を語っているか」は AI 検索モニタリングが
+    // 引用・参照として毎週はかる。/tools/aio-topics は AI 検索モニタリングへ転送。API は残す
+    hidden: true,
   },
   {
     id: "improvement",
     path: "/tools/improvement",
-    label: "HP 改修提案（AI 最適化）",
+    label: "HP 改修提案（そのまま貼れる改修案を AI が作成）",
     shortLabel: "HP 改修提案",
     description:
       "URL を入れてボタンを押すだけで、ページを診断し、そのまま貼って使える改修案を AI が作ります。お客様は内容を確認するだけで、反映は運用者が行います。",
@@ -287,6 +306,81 @@ const DIAGNOSIS: readonly Feature[] = [
     status: "beta",
     requires: ["anthropic"],
     group: "diagnosis",
+    // お客様のホームページそのものを直す機能なので SEO タブ（利用者の指示 2026-09-17。AIO から移動）
+    category: "seo",
+    plan: "standard",
+  },
+];
+
+/**
+ * 基礎対策（AIO タブの土台）。海外を含む基本情報サイトに NAP（店名・住所・電話）を揃えて載せ、
+ * ウェブ上でどう言及されているか（サイテーション）を確かめ、AI クローラ向けの llms.txt を置く。
+ * 生成 AI は複数の媒体で一致した基本情報を「実在する事業者」と認識して回答に含める。
+ */
+const FOUNDATION: readonly Feature[] = [
+  {
+    id: "citations",
+    path: "/tools/citations",
+    label: "サイテーション（ウェブ上の掲載・言及チェック）",
+    shortLabel: "サイテーション",
+    description:
+      "店名・電話番号・住所で Google を検索し、地図・ディレクトリ・口コミ・SNS・メディアのどこに自社が載っているか、電話番号や住所が食い違っていないかを一覧にします。主要な媒体で見つからなければ、基本情報掲載から登録に進めます。",
+    details: [
+      "「店名 + 電話番号」「店名 + 住所」「店名（自社サイト以外）」の 3 通りで検索し、言及しているサイトを重複なくまとめる",
+      "サイトごとに種類（地図 / ディレクトリ / 口コミ / SNS / メディア / その他）と、検索結果に出た電話番号・住所が基本情報と一致するかを表示",
+      "基本情報掲載の主要媒体（Google / Apple / Bing / Yahoo! など）ごとの「見つかった / 見つからない」",
+      "MEO の登録店舗から基本情報を取り込み。結果は CSV に書き出せる。同じ条件は 24 時間キャッシュ",
+    ],
+    featureIds: [],
+    icon: "quote",
+    status: "beta",
+    requires: ["dataforseo"],
+    group: "foundation",
+    category: "aio",
+    // 読む・測る系なのでライト。1 回 = DataForSEO の検索 3 回（数円）
+    plan: "light",
+  },
+  {
+    id: "listings",
+    path: "/tools/listings",
+    label: "基本情報掲載（NAP 一括登録）",
+    shortLabel: "基本情報掲載",
+    description:
+      "店名・住所・電話・営業時間・説明文を 1 か所で決め、Google / Apple / Bing / Yahoo! など 30 の地図・検索・ディレクトリに同じ内容で載せます。無料で自分で登録できる媒体は登録画面へ直接進み、掲載状況を店舗ごとに管理します。",
+    details: [
+      "MEO の自社店舗ごとに基本情報（NAP）を決め、Google マップの公開情報から取り込み・表記ゆれを確認",
+      "無料で登録できる媒体（Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap ほか）の登録画面と手順、コピー用の基本情報",
+      "自動で流れる媒体（Siri・カーナビ各社・Navmii・Uber）と、配信代行（有料）でしか載らない媒体の区別",
+      "AI が説明文（短い 150 文字 / 長い 750 文字）を作成、サイトに貼る構造化データ（LocalBusiness）を生成",
+      "AIO への効果: ChatGPT（Bing）・Gemini（Google）・Copilot / Perplexity は複数の媒体で一致した基本情報を「実在する店」と認識して回答に含める。インバウンドは Apple マップ・Siri・Yelp・カーナビにも届く",
+    ],
+    featureIds: [],
+    icon: "broadcast",
+    status: "beta",
+    requires: ["supabase"],
+    optional: ["anthropic", "places"],
+    // NAP 登録は AIO の土台（サイテーションの隣）
+    group: "foundation",
+    category: "aio",
+    plan: "standard",
+  },
+  {
+    id: "llms-txt",
+    path: "/tools/llms-txt",
+    label: "llms.txt 生成",
+    shortLabel: "llms.txt 生成",
+    description: "サイト情報を入力するウィザードで、AI クローラ向けの llms.txt を生成します。",
+    details: [
+      "サイト名・概要・主要ページ・連絡先を入力して llms.txt を生成",
+      "sitemap から主要ページの候補を自動取得",
+      "生成結果のコピー・ダウンロード",
+    ],
+    featureIds: ["D6"],
+    icon: "file-text",
+    status: "beta",
+    requires: [],
+    // AI クローラに読ませる土台なので基礎対策（生成 → 移動。2026-09-17）
+    group: "foundation",
     category: "aio",
     plan: "standard",
   },
@@ -425,6 +519,10 @@ const MEASURE: readonly Feature[] = [
     group: "measure",
     category: "aio",
     plan: "light",
+    // 2026-09-17 サイドバーから外した（利用者の指示「本当に必要な機能に絞る」）。
+    // AI 検索モニタリングのプロンプトを増やすための下ごしらえなので、単独の項目にせず、
+    // AI 検索モニタリングの設定画面からリンクで開く。ページと API はそのまま
+    hidden: true,
   },
 ];
 
@@ -496,48 +594,6 @@ const GENERATE: readonly Feature[] = [
     category: "meo",
     plan: "standard",
   },
-  {
-    id: "listings",
-    path: "/tools/listings",
-    label: "基本情報掲載（NAP 一括登録）",
-    shortLabel: "基本情報掲載",
-    description:
-      "店名・住所・電話・営業時間・説明文を 1 か所で決め、Google / Apple / Bing / Yahoo! など 30 の地図・検索・ディレクトリに同じ内容で載せます。無料で自分で登録できる媒体は登録画面へ直接進み、掲載状況を店舗ごとに管理します。",
-    details: [
-      "MEO の自社店舗ごとに基本情報（NAP）を決め、Google マップの公開情報から取り込み・表記ゆれを確認",
-      "無料で登録できる媒体（Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap ほか）の登録画面と手順、コピー用の基本情報",
-      "自動で流れる媒体（Siri・カーナビ各社・Navmii・Uber）と、配信代行（有料）でしか載らない媒体の区別",
-      "AI が説明文（短い 150 文字 / 長い 750 文字）を作成、サイトに貼る構造化データ（LocalBusiness）を生成",
-      "AIO への効果: ChatGPT（Bing）・Gemini（Google）・Copilot / Perplexity は複数の媒体で一致した基本情報を「実在する店」と認識して回答に含める。インバウンドは Apple マップ・Siri・Yelp・カーナビにも届く",
-    ],
-    featureIds: [],
-    icon: "broadcast",
-    status: "beta",
-    requires: ["supabase"],
-    optional: ["anthropic", "places"],
-    group: "generate",
-    category: "aio",
-    plan: "standard",
-  },
-  {
-    id: "llms-txt",
-    path: "/tools/llms-txt",
-    label: "llms.txt 生成",
-    shortLabel: "llms.txt 生成",
-    description: "サイト情報を入力するウィザードで、AI クローラ向けの llms.txt を生成します。",
-    details: [
-      "サイト名・概要・主要ページ・連絡先を入力して llms.txt を生成",
-      "sitemap から主要ページの候補を自動取得",
-      "生成結果のコピー・ダウンロード",
-    ],
-    featureIds: ["D6"],
-    icon: "file-text",
-    status: "beta",
-    requires: [],
-    group: "generate",
-    category: "aio",
-    plan: "standard",
-  },
 ];
 
 const SETTINGS: readonly Feature[] = [
@@ -584,6 +640,7 @@ const SETTINGS: readonly Feature[] = [
 /** サイドバーに出す順で並べたグループ */
 export const FEATURE_GROUPS: readonly FeatureGroup[] = [
   { id: "free", label: FREE_SUITE_LABEL, features: [FREE_FEATURE, FREE_MEO_FEATURE] },
+  { id: "foundation", label: "基礎対策", features: FOUNDATION },
   { id: "diagnosis", label: "診断", features: DIAGNOSIS },
   { id: "measure", label: "計測", features: MEASURE },
   { id: "research", label: "調査", features: RESEARCH },
@@ -596,6 +653,17 @@ export const features: readonly Feature[] = FEATURE_GROUPS.flatMap((g) => g.feat
 
 /** /tools/* と /settings の機能（クイック診断を除く） */
 export const TOOL_FEATURES: readonly Feature[] = features.filter((f) => f.group !== "free");
+
+/**
+ * 料金表・マスター画面・サービス資料に出すツールのグループ。
+ * クイック診断と設定を除き、サイドバーから外した機能（hidden）も出さない。
+ * サイドバー以外の一覧がここを使わないと、引退した機能が料金表にだけ残る。
+ */
+export function toolGroupsForDisplay(): readonly FeatureGroup[] {
+  return FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings")
+    .map((g) => ({ ...g, features: g.features.filter((f) => !f.hidden) }))
+    .filter((g) => g.features.length > 0);
+}
 
 function normalizePath(pathname: string): string {
   const p = pathname.split(/[?#]/)[0] || "/";

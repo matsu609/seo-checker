@@ -1,20 +1,10 @@
-import type { Metadata } from "next";
-import { AioTopicsTool } from "@/components/aio-topics/AioTopicsTool";
-import { PlanGate } from "@/components/plans/PlanGate";
-import { PageHeader } from "@/components/ui";
-import { requireFeature } from "@/lib/features/registry";
+import { redirect } from "next/navigation";
 
-const feature = requireFeature("aio-topics");
-
-export const metadata: Metadata = { title: feature.label, description: feature.description };
-
+/**
+ * AIO 頻出トピック（A5）はサイドバーから外した（利用者の指示 2026-09-17「本当に必要な機能に絞る」）。
+ * 「AI が自社について何を語っているか」は AI 検索モニタリングが引用・参照として毎週はかる。
+ * 古いリンクとブックマークのために転送だけ残す。API（/api/aio-topics）はそのまま。
+ */
 export default function Page() {
-  return (
-    <div className="mx-auto w-full max-w-6xl @container">
-      <PageHeader feature={feature} />
-      <PlanGate featureId="aio-topics">
-        <AioTopicsTool />
-      </PlanGate>
-    </div>
-  );
+  redirect("/tools/geo");
 }

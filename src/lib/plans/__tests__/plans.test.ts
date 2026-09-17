@@ -105,6 +105,8 @@ describe("機能とプランの対応", () => {
     expect(light).toContain("rank");
     // Search Console / GA4 は使わない（利用者の決定 2026-09-17）。ライトには連携の要らない代替を置く
     expect(light).toContain("search-estimate");
+    // サイテーション（ウェブ上の掲載・言及チェック）は読む・測る系なのでライト（2026-09-17）
+    expect(light).toContain("citations");
     expect(light).not.toContain("search-performance");
     expect(light.length).toBeGreaterThanOrEqual(9);
   });

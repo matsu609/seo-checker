@@ -9,7 +9,7 @@
 
 ## ルーティングとサイドバー
 
-サイドバーの定義は `src/lib/features/registry.ts` に一元化する（ラベル・パス・アイコン・グループ・機能 ID・状態）。ページ側はこの定義を参照して見出しを出す。サイドバーは **SEO / AIO / MEO のタブ**（`category`）で切り替え、タブの中を従来のグループ（診断 / 計測 / 調査 / 生成）で並べる。設定・料金は `category` を持たず全タブに出る。開いている画面のタブを優先し、共通画面では最後に選んだタブ（localStorage `sidebarTab`）。
+サイドバーの定義は `src/lib/features/registry.ts` に一元化する（ラベル・パス・アイコン・グループ・機能 ID・状態）。ページ側はこの定義を参照して見出しを出す。サイドバーは **SEO / MEO / AIO のタブ**（`category`）で切り替え、タブの中をグループ（基礎対策 / 診断 / 計測 / 調査 / 生成）で並べる。設定・料金は `category` を持たず全タブに出る。**押したタブを最優先**し（画面のタブが常に勝って切り替わらない不具合を r94 で修正）、別の画面へ移動したらその画面のタブ、共通画面では最後に押したタブ（localStorage `sidebarTab`）。位置づけ（利用者の指示 2026-09-17）: このサービスは **AIO 対策の可視化ツール**（AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称）で、SEO に少し力を入れている。AIO タブ = 基礎対策（サイテーション・基本情報掲載・llms.txt）+ AI 検索モニタリング、SEO タブ = お客様のホームページの最適化、MEO タブ = Google マップ・口コミ。サイドバーから外した機能は `hidden: true`（ページは転送、定義とプランのゲートは残す）。
 
 | グループ | パス | ラベル | 機能 ID | 外部依存 |
 |---|---|---|---|---|
@@ -17,13 +17,13 @@
 | クイック診断 | `/meo` | クイック診断（店舗・MEO。店舗 1 件、ログイン不要、回数制限つき） | — | Places API (New) |
 | 診断 | `/tools/seo-analysis` | 精密診断（事実シート + AI の現状分析と改善案。ドメインパワーを含む） | — | Supabase + Anthropic（PSI / SerpApi / OpenAI / CrUX / Ahrefs DR / Open PageRank は任意） |
 | 診断 | `/tools/site-audit` | （精密診断に統合。転送のみ。`hidden: true`） | A1 | — |
-| 診断 | `/tools/page-report` | ページ最適化レポート（AIO/LLM） | A2, A3 | PSI 任意 |
+| 診断 | `/tools/page-report` | （サイドバーから外した 2026-09-17。HP 改修提案へ転送のみ。`hidden: true`。API と `src/lib/page-report/` は HP 改修提案・PSI・llms.txt が使う） | A2, A3 | — |
 | 診断 | `/tools/page-diagnosis` | ページ診断（キーワード × ページ） | A4 | SERP or Anthropic web 検索 |
-| 診断 | `/tools/aio-topics` | AIO 頻出トピック | A5 | SERP + Anthropic |
+| 診断 | `/tools/aio-topics` | （サイドバーから外した 2026-09-17。AI 検索モニタリングへ転送のみ。`hidden: true`。API は残る） | A5 | — |
 | 計測 | `/tools/rank` | 順位計測・AI Overviews 引用 | B1, B2, B3 | SERP |
 | 計測 | `/tools/geo` | AI 検索モニタリング（引用・参照の定点観測） | — | DataForSEO + Supabase（Anthropic は任意） |
 | 計測 | `/tools/llmo` | （提供終了 2026-09-17。AI 検索モニタリングへ転送のみ。API は 410） | B4, B8 | — |
-| 計測 | `/tools/prompt-expansion` | プロンプト拡張 | B7 | Anthropic |
+| 計測 | `/tools/prompt-expansion` | プロンプト拡張（サイドバーには出さない `hidden: true`。AI 検索モニタリングの設定画面からリンクで開く） | B7 | Anthropic |
 | 計測 | `/tools/search-estimate` | 検索パフォーマンス（推定。Search Console の連携なしで数字を出す） | — | DataForSEO |
 | 計測 | `/tools/analytics` | （取り下げ 2026-09-17。自前の計測タグはお客様側の作業が要るので提供しない。推定へ転送のみ。API と `/t.js` は 410） | — | — |
 | 計測 | `/tools/search-performance` | （提供終了 2026-09-17。検索パフォーマンス（推定）へ転送のみ。API は 410） | — | — |
@@ -34,8 +34,9 @@
 | 生成 | `/tools/replies` | 口コミへの返信（AI 返信案） | — | Google 連携（Business Profile API、`business.manage`）。返信案は Anthropic 任意 |
 | 調査 | `/tools/keywords` | キーワード調査 | C1 | なし（意図分類は Anthropic 任意） |
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
-| 生成 | `/tools/listings` | 基本情報掲載（NAP 一括登録） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
-| 生成 | `/tools/llms-txt` | llms.txt 生成 | D6 | なし |
+| 基礎対策 | `/tools/citations` | サイテーション（店名・電話・住所で Google を検索し、ウェブ上の掲載・言及と NAP の食い違いを一覧に。AIO タブ） | — | DataForSEO |
+| 基礎対策 | `/tools/listings` | 基本情報掲載（NAP 一括登録。AIO タブ） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
+| 基礎対策 | `/tools/llms-txt` | llms.txt 生成（AIO タブ） | D6 | なし |
 | 設定 | `/settings` | **ホームページ（自社サイト）の URL**・競合・データの書き出し / 読み込み（Google 連携のカードは 2026-09-17 に廃止。API キーの設定状況は `/admin`） | E1, E2 | なし |
 | 運用 | `/admin` | マスター画面（全登録者の契約状況・機能の個別開放・代理店の追加と担当の割り当て）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
 | 運用 | `/agency` | 代理店画面（担当として割り当てられた登録者だけを表示のみ）。`publicMetadata.role = "agency"` の人だけ。ほかは 404 | — | Clerk |
@@ -76,7 +77,8 @@ src/
     domain-power/             # ドメインパワー（無料の 8 指標からの推定。ahrefs.ts = DR 0〜100（無料の公開エンドポイント。
                               #   他社の測定サイトと同じ数値）、openpagerank.ts = OPR 0〜10、rdap.ts = 登録日、
                               #   残りは検索・CrUX・クロールの数値を使い回す。採点は score.ts の純関数）
-    page-report/              # A2/A3
+    page-report/              # A2/A3（画面は引退。HP 改修提案・PSI・llms.txt が使う）
+    citations/                # サイテーション（sources = 既知の媒体、analyze = 純関数、dataforseo = 検索）
     serp/                     # SERP プロバイダ抽象（SerpApi 実装、未設定時は null）
     llm/                      # Anthropic クライアント、モデル定数、構造化出力ヘルパ
     llmo/（プロンプト拡張だけ）rank/ keywords/ writing/ llms-txt/ geo/ search-estimate/ ...

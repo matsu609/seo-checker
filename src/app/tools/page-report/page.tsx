@@ -1,20 +1,11 @@
-import type { Metadata } from "next";
-import { PageReportView } from "@/components/page-report/PageReportView";
-import { PlanGate } from "@/components/plans/PlanGate";
-import { PageHeader } from "@/components/ui";
-import { requireFeature } from "@/lib/features/registry";
+import { redirect } from "next/navigation";
 
-const feature = requireFeature("page-report");
-
-export const metadata: Metadata = { title: feature.label, description: feature.description };
-
+/**
+ * ページ最適化レポート（A2 / A3）はサイドバーから外した（利用者の指示 2026-09-17「本当に必要な機能に絞る」）。
+ * 1 ページの採点はクイック診断（/）が無料で出し、直し方は HP 改修提案が同じ診断を走らせたうえで
+ * 改修案まで作る。古いリンクとブックマークのために転送だけ残す。API と src/lib/page-report/ は
+ * HP 改修提案・PSI・llms.txt が使うのでそのまま。
+ */
 export default function Page() {
-  return (
-    <div className="mx-auto w-full max-w-6xl @container">
-      <PageHeader feature={feature} />
-      <PlanGate featureId="page-report">
-        <PageReportView />
-      </PlanGate>
-    </div>
-  );
+  redirect("/tools/improvement");
 }

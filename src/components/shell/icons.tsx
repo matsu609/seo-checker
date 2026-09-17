@@ -201,7 +201,18 @@ const ICONS: Record<FeatureIcon, (p: IconProps) => React.JSX.Element> = {
   qr: QrIcon,
   reply: ReplyIcon,
   broadcast: BroadcastIcon,
+  quote: QuoteIcon,
 };
+
+/** 引用符（サイテーション = ウェブ上での言及） */
+function QuoteIcon({ className = "" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M10 8H6a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2" />
+      <path d="M20 8h-4a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2" />
+    </svg>
+  );
+}
 
 function BroadcastIcon({ className = "" }: IconProps) {
   return (

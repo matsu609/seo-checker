@@ -15,14 +15,14 @@ import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Field";
-import { FEATURE_GROUPS } from "@/lib/features/registry";
+import { toolGroupsForDisplay } from "@/lib/features/registry";
 import { planLabel } from "@/lib/plans/catalog";
 import type { AgencyRow } from "@/lib/admin/agencies";
 import type { ClientRow } from "@/lib/admin/clients";
 import { formatDate, planSourceLabel, STATUS_TONE } from "./format";
 
 /** 個別開放の対象。設定・料金プランは誰でも使えるので出さない */
-const TOGGLEABLE = FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings");
+const TOGGLEABLE = toolGroupsForDisplay();
 
 /** 担当なしを表す選択肢の値（空文字だと未選択と区別しにくいので明示する） */
 const NO_AGENCY = "none";
