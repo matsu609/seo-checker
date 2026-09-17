@@ -2614,3 +2614,11 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 2. DataForSEO の登録 → `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Vercel に → Redeploy（#91 の 2〜6）。これで検索パフォーマンス（推定）と AI 検索モニタリングの両方が動く。
 3. 死んだコードを消してよいか（#105）。
 
+### 2026-09-17（DataForSEO 登録完了、`DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` の対応を案内）
+
+- 利用者が DataForSEO に登録し「API アクセス」画面を共有（残高 $1.00 = お試しクレジット）。
+- 対応: **`DATAFORSEO_LOGIN` = 画面の「API ログイン」（メールアドレス）**、**`DATAFORSEO_PASSWORD` = 「API パスワード」**（ログイン画面のパスワードとは別物）。「Base64 形式」は使わない（コードが login:password から自分で作る。`src/lib/geo/dataforseo.ts`）。
+- **API パスワードがスクリーンショットに写った状態で共有された** → 画面の「パスワードをリセット」で作り直し、**新しい方**を Vercel に入れるよう案内。古い値はメモに書かない。
+- 次: #91 の 4〜6（Vercel に 2 つ登録 → Redeploy）→ `/admin` で「DataForSEO 設定済み」→ `/tools/search-estimate` と `/tools/geo` で動作確認。
+- ドキュメントのみの更新。
+
