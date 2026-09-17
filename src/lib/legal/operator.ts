@@ -26,8 +26,8 @@ export const OPERATOR: OperatorInfo = {
 
 /** 規約の施行日（YYYY-MM-DD） */
 export const TERMS_EFFECTIVE_DATE = "2026-09-10";
-/** 規約の最終更新日（YYYY-MM-DD） */
-export const TERMS_UPDATED_DATE = "2026-09-10";
+/** 規約の最終更新日（YYYY-MM-DD）。2026-09-17: プライバシーポリシー第 5 条（口コミ返信の権限で行う操作の範囲）を追記 */
+export const TERMS_UPDATED_DATE = "2026-09-17";
 
 /** サービス名（規約本文で使う） */
 export const SERVICE_NAME = "SEO Checker";
