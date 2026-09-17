@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r92 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r93 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -89,8 +89,8 @@
 | Clerk（Development インスタンス） | 残存。本番では未使用 | Preview 用に流用する予定（現在 Preview には Clerk のキーが無い） |
 | Google Cloud `seo-checker-508104` | OAuth 構成済み（テスト状態） | 下記「Google Cloud の設定」。**r89 以降、要求するスコープは口コミ返信の `business.manage` だけ**（GSC / GA4 は廃止） |
 | Google 連携（GSC / GA4） | **提供終了（r89、09-17。利用者の決定「Google Search Console と GA4 は使わない」）** | 画面は代替へ転送、API は 410。代替: 検索パフォーマンス（推定）（r87）だけ。サイト内の行動（訪問者・CV）は外部から取れず、自前タグも r90 で取り下げ。コード（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/lib/site-report/` の大半・`src/components/{search-performance,site-report,ai-traffic,google}/`）は**削除待ち**（下の残タスク #105） |
-| アクセス解析（自前の計測タグ） | **取り下げ（r90、09-17。利用者の決定「ツールで完結しないので面倒。やらない」）** | r89 で作った直後に取り下げ。画面は推定へ転送、API と `/t.js` は 410。コードは削除待ち（#105）。Supabase の SQL は**実行不要** |
-| LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity） | **提供終了（r92、09-17。利用者の決定「AI 検索モニタリングに一本化」）** | `/tools/llmo` → `/tools/geo` へ転送、`/api/llmo/run` と `/api/seo-analysis/second-opinion` は 410。**残る契約は Anthropic・DataForSEO・SerpApi・Google（マップ・PageSpeed）・Supabase・Clerk・Stripe**。コードは削除待ち（#105） |
+| アクセス解析（自前の計測タグ） | **取り下げ（r90、09-17。利用者の決定「ツールで完結しないので面倒。やらない」）** | r89 で作った直後に取り下げ。画面は推定へ転送、API と `/t.js` は 410。コードは r93 で削除済み。Supabase の SQL は**実行不要** |
+| LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity） | **提供終了（r92、09-17。利用者の決定「AI 検索モニタリングに一本化」）** | `/tools/llmo` → `/tools/geo` へ転送、`/api/llmo/run` と `/api/seo-analysis/second-opinion` は 410。**残る契約は Anthropic・DataForSEO・SerpApi・Google（マップ・PageSpeed）・Supabase・Clerk・Stripe**。コードは r93 で削除済み |
 | DataForSEO | **接続済み・動作確認済み（09-17）** | `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Production に登録。検索パフォーマンス（推定）が実データを返した = Labs `ranked_keywords` のエンドポイントは合っていた（`DATAFORSEO_LABS_RANKED_PATH` の差し替えは不要）。残高はお試し $1 → 動作確認後に $50 入金 |
 | Places API（Google マップ） | **コードは完成、キー未設定** | 請求先アカウントの紐づけとキー作成が利用者側で未了 |
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
@@ -232,7 +232,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 58 | **決済を有効にする（Stripe 側と Vercel の作業）**（テスト環境は 1〜7 完了。09-13 にテストカードで申し込み → 「契約中 / ¥50,000 / 次回更新 2026-10-13」を確認。**⑧ 本番モードを作業中（Claude in Chrome 用のプロンプトは [chrome-prompts.md](./chrome-prompts.md) の B）: 2026-09-17 01:50 に本番の商品 2 つ「スタンダード ¥50,000 / 月」「ライト ¥38,000 / 月」を作成済み。残りは Price ID の控え → Webhook → ポータル → `sk_live_` → Vercel の環境変数 4 つ → Redeploy → `DEFAULT_PLAN` を `free` に**）: ① 商品と価格（月 9,800 円 JPY）→ ② Webhook → ③ カスタマーポータル → ④ 公開事業者情報に特商法ページの URL → ⑤ Vercel の環境変数 3 つ → Redeploy → ⑥ テストカードで申し込み → カード変更 → 解約を確認 → ⑦ 本番キーに差し替え（下の「Stripe を有効にする手順」） | 利用者 | 未 |
 | 85 | **Gemini の既定モデルを切り替える**: `gemini-2.5-flash` は 2026-10-16 に提供終了予定（公式の料金ページの注記）。Vercel に `GEMINI_MODEL`（後継の Flash。公式の一覧で ID を確認）を追加 → Redeploy → LLMO の Gemini 列が動くこと。Gemini のキーが未設定のままなら急がない | 利用者 → Claude | 未（10 月中旬まで） |
 | 109 | **AI 検索モニタリングの対象に Claude と Perplexity を足す**（DataForSEO の LLM Responses は両方に対応。Perplexity は Live のみ）。LLMO モニタリングで見られていた 4 サービスのうち、一本化後は ChatGPT / Gemini / AI Overviews の 3 つになった。`src/lib/geo/`（`GEO_MODELS`・`llmPath`・単価）の拡張。1 日 | Claude | 未（利用者の要望があれば） |
-| 105 | **GSC / GA4 と計測タグの死んだコードを削除する**（r89 / r90 では画面を転送・API を 410 にしただけで、コードは残っている。このセッションでは `git rm` が安全装置で止められたため）: `src/lib/google/search-console/`・`src/lib/google/{ga4,analytics-admin,setup,settings,status}.ts`・`src/lib/ga4/`（`ai-sources.ts` だけはアクセス解析が使うので残す）・`src/lib/site-report/`（`findability.ts` だけは検索パフォーマンス（推定）が使うので残す）・`src/lib/ai-traffic/`・`src/lib/diagnosis/sources/{gsc,ga4}.ts` とルール・`src/components/{search-performance,site-report,ai-traffic,google}/`・`src/app/api/{search-performance,site-report,ai-traffic,google}/`・`src/app/tools/{search-performance,site-report,ai-traffic}/`（転送は 1〜2 か月残してから）・`GA4_PROPERTY_ID` 系の環境変数と `integrations.ts` の `ga4`・**`src/lib/analytics/`・`src/components/analytics/`・`src/app/{t.js,api/t,api/analytics,tools/analytics}/`**（r90 で取り下げた計測タグ）・**`src/lib/llmo/providers/{openai,gemini,perplexity}.ts`・`src/components/llmo/`・`src/app/{tools/llmo,api/llmo}/`・`src/lib/seo-analysis/ai/second-opinion.ts`・`src/app/api/seo-analysis/second-opinion/`**（r92 で提供終了した LLMO とセカンドオピニオン。`src/lib/llmo/expansion/` はプロンプト拡張が使うので残す）。**利用者の許可（「消してよい」）をもらってから** | 利用者（許可）→ Claude | 未 |
+| 105 | 提供終了した機能のコードを削除（GSC / GA4 / 数字の診断 134 ルール / 計測タグ / LLMO 本体 / セカンドオピニオン） | Claude | **完了（r93、09-17）**。利用者の許可「消してよいです」。旧 URL の転送ページ（search-performance / site-report / ai-traffic / llmo）だけ残してある（1〜2 か月後に消してよい） |
 | 106 | ~~アクセス解析の Supabase テーブルを作る~~ | — | **不要（r90 で取り下げ。SQL は実行しない）** |
 | 107 | ~~アクセス解析の本番確認~~ | — | **不要（r90 で取り下げ）** |
 | 108 | 紹介サイト（Cloudflare Worker）の再デプロイ: r89 で `marketing/public/index.html` の文面を GSC / GA4 なしに書き換えた。#29 の切り替えが済んでいれば main の push で自動、済んでいなければ旧リポジトリへの反映が要る | 利用者 | 未 |
@@ -657,7 +657,6 @@ create table if not exists geo_model_versions (
 
 ### 入力待ち（利用者からの回答が要るもの）
 
-- **死んだコード（GSC / GA4 / 計測タグ）を消してよいか（#105）**
 - **明日の公開の形（09-16 提案）**: Stripe が止まっているあいだ、最初のお客様の初月（無料）は管理画面の個別開放で使ってもらい、2 か月目の請求は ①Stripe 復旧を待って Checkout で ②請求書（銀行振込）で、のどちらにするか。②なら請求書の発行方法（Stripe の請求書機能は決済停止中は使えない可能性が高いので、手書き / 会計ソフト）
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
@@ -2630,4 +2629,15 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 未確定: 1 回の取得で減ったクレジット額（単価）。利用者に「残高がいくらになったか」を確認中。
 - 次: #91 の 7〜9（`/admin` で設定済み確認 → `/tools/geo` でブランド・プロンプト登録 → 翌朝の計測）、$50 の入金、#105（死んだコードの削除）の許可。
 - ドキュメントのみの更新。
+
+### 2026-09-17（提供終了した機能のコードを削除、r93）
+
+**利用者の許可**「消してよいです」（#105）。
+
+**消したもの**: `src/lib/google/{search-console,setup,settings,status,ga4,analytics-admin}`、`src/lib/ga4`、`src/lib/ai-traffic`、`src/lib/site-report`（`findability.ts` だけ `src/lib/search-estimate/` へ移動）、`src/lib/analytics`、**`src/lib/diagnosis`（数字の診断 134 ルール。GSC / GA4 が無いと発火しないので機能ごと廃止）**、`src/lib/llmo` の LLMO 本体（`expansion/` = プロンプト拡張だけ残す）、セカンドオピニオン一式、`components/{google,search-performance,site-report,ai-traffic,analytics,llmo}`、対応する API と tests、GA4 の連携キー（`ga4`）。
+**残したもの**: 旧 URL の転送ページ 4 つ（ブックマーク対策。1〜2 か月後に消してよい）、`src/lib/google/{business-profile,token,scopes,errors}.ts`（口コミ返信）。
+
+**精密診断への影響**: 事実シートから「数字の診断」の層（N-◯◯ の行）と、`coverage.searchConsole / ga4 / diagnosis` を外した。AI への指示文からも数字の診断の決まりを削除。**古い保存分（`analysis_runs.sheet`）に残っている `diagnosis` キーは読まないだけで、表示は壊れない。** `analysis_runs.second_opinion` 列は使わなくなった（消さなくてよい）。
+
+**検証**: lint / tsc / **test 1,506 件**（削除したテスト 456 件分減少） / build 通過。文書（README / ARCHITECTURE / tool-map / scoring-reference §7 / diagnosis-rules-spec / `.env.example`）に「廃止」を明記。
 

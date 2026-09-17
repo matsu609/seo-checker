@@ -133,7 +133,6 @@ src/
 | `AHREFS_API_KEY_ISSUED_AT` | 上のキーを作った日（`YYYY-MM-DD`）。APIv3 キーは 1 年で失効するので、入れるとマスター画面の外部連携に**残り日数**が出る（`src/lib/features/key-expiry.ts` の純関数。日付は秘密ではないので `GET /api/integrations` で画面に返す。キーの値は返さない） | 任意 |
 | `OPENPAGERANK_API_KEY` | ドメインパワーの「外部からのリンクの評価」の代替（Open PageRank 0〜10）。DR が取れていればそちらを優先する。どちらも無ければその 25 点分を分母から外して採点する。**旧 API は 2026-09-30 に終了**するので新規に設定しない（#86） | 任意 |
 | `SEO_ANALYSIS_MONTHLY_LIMIT` | 精密診断の利用者ごとの月の回数（既定 10。`ADMIN_EMAILS` は無制限） | 任意 |
-| `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | GA4 Data API（サービスアカウント JSON をそのまま、または base64） | 任意 |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（Places API (New)） | 任意 |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗（`meo_stores`）と診断報告書の履歴（`meo_reports`）、口コミ支援（`review_forms` / `review_channels` / `review_responses`）、基本情報掲載（`listing_profiles`）。`src/lib/db/supabase.ts` が PostgREST を fetch で叩く。service_role は RLS を素通りするので行は必ず user_id で絞る | MEO に必須 |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。`src/lib/billing/`。Checkout → Webhook → Clerk の `publicMetadata.stripe`。3 つそろうと `/plans` に申し込みとお支払いの管理が出る | 有料販売に必須 |
