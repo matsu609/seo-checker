@@ -19,7 +19,8 @@ import { Callout } from "@/components/ui/Callout";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { COMPANY_MAX, CONTACT_NAME_MAX, LEAD_KEY, LeadProfileSchema, PHONE_MAX, STORE_TYPES } from "@/lib/free/lead";
 
-const PASSWORD_MIN = 8;
+/** Clerk の Password 設定（Minimum length）と合わせる。2026-09-18 に Clerk のエラー「Passwords must be 15 characters or more.」で 15 と確認 */
+const PASSWORD_MIN = 15;
 
 /** Clerk の英語のエラーを、よくあるものだけ日本語にする */
 function clerkMessage(err: { code?: string; message?: string; longMessage?: string } | null | undefined): string {
