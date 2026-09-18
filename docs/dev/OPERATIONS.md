@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r108 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r109 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -2934,3 +2934,7 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 ### 2026-09-18（利用者の確認: 「本当に反映されているのか。Stripe の API でここまでできるのか。登録した記憶が無い」）
 
 - 回答: 割引の選択・保存は Clerk（設定済みの鍵で今すでに動く）。適用は申し込み時に Stripe API が行い、クーポンもアプリが自動作成する。新しい登録（Supabase・Stripe の画面）は不要で、こちらも何も設定していない。**ただし Stripe API を呼ぶ部分は実機で未確認**（開発環境に鍵が無い。自動テストは保存と条件の判定まで）。本番の Vercel にはサンドボックスの鍵が入っているので、上の「割引の運用」の確認手順（①〜⑤）で実際に通してもらう。決済画面に割引が出なければ表示を送ってもらい修正する。
+
+### 2026-09-18（無料診断の導線から GSC / GA4 の文言を削除、r109）
+
+- 利用者「無料診断の結果の『Search Console と GA4 の実データを取り込み…』を削除して。もう機能として使っていない」→ **r109**: `src/lib/free/upsell.ts` のサイト版「精密診断で分かること」からその 1 行を削除（残り 3 点。テストの下限 3 を満たす）。r89 で GSC / GA4 を提供終了したときの消し漏れ。同じ画面の `MethodAppendix` / `ServiceGuide` にある「成果の確認は Search Console で」は一般的な助言（機能の説明ではない）なので残した。lint / tsc / test（1,551 件）/ build 通過。
