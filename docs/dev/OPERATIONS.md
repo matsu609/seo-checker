@@ -1034,6 +1034,18 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 | `domhandler` が package.json に無い | `src/lib/audit/extras.ts:9`、`src/lib/analyzer/sentences.ts:17` が `import type` で使用 | 型だけなので実行時は壊れないが、cheerio の依存が変わると型チェックが落ちる。`devDependencies` に明記すべき |
 | 撤去済み機能の SQL がメモに残存 | このメモの `tracking_events` / `tracking_sites`（r90 で取り下げた自前アクセス解析） | 実行不要。消してよい |
 
+**追加で見つかったもの（すべて実測で確認）**
+
+| # | 内容 | 根拠 | 深刻度 |
+|---|---|---|---|
+| F | **順位計測と AI 検索モニタリングが、同じ数字を別の有料 API で測っている。**AI 検索モニタリングは DataForSEO で organic 順位（`rank`）と AI Overviews（`aio`）も測る（`src/lib/geo/types.ts:24`・`src/lib/geo/pricing.ts:67-68`）。一方 順位計測は SerpApi で同じ 2 つを測る。**毎月ふた通り払っている** | 両方のコードを確認 | **中（実費）** |
+| G | **1 ページの採点エンジンが 2 実装。**`src/lib/analyzer/types.ts:100`（5 カテゴリ・crawlers 20/structuredData 25/meta 20/headings 15/content 20）と `src/lib/page-report/config.ts:22`（8 セクション・content 20/headings 15/structuredData 15/head 10/semantic 10/internalLinks 10/robots 10/images 10）。**どちらも「1 ページを 0〜100 点」で、同じページに違う点数が出る**（クイック診断と HP 改修提案で食い違う） | 両方の重み表を確認 | 中 |
+| H | **価格の抜け穴。**`site-audit` は `plan: "light"`（`registry.ts:231`）、精密診断は `plan: "standard"`（`:209`）。`findFeatureById`（`:707`）は hidden を除外しないので、**ライト契約者が `POST /api/site-audit` を直接叩けばスタンダードで売っている 48 ルールの全クロールが取れる** | コードで確認 | **中（売上）** |
+| — | **プロンプト拡張は実質到達不能。**唯一のリンクが AI 検索モニタリングの設定パネル（`src/components/geo/SetupPanel.tsx:173`）の中で、その画面はエラー時に全体が差し替わる（`GeoTool.tsx:52-58`）。上の geo が動いていなければ到達できない | コードで確認 | 低 |
+| — | **レジストリに無い転送専用ページが 4 本。**`/tools/{llmo,search-performance,site-report,ai-traffic}` → 実体は r93 で削除済み。ブックマーク対策として残す判断も妥当 | 4 ファイルを確認 | 低 |
+| — **重複した小さな関数**: `hostOf` が **6 実装**（`components/maps/format.ts`・`citations/analyze.ts`・`report/format.ts`・`page-diagnosis/serp.ts`・`rank/measure.ts`・`seo-analysis/search.ts`）、`displayWidth` が **3 実装**（`analyzer/meta.ts`・`audit/parse.ts`・`page-report/extract.ts`。実装はバイト単位で同一）、`fullWidthCount` が 2 実装、`matchesDomain` が 2 実装。**次のリファクタリングの対象** | grep で確認 | 低 |
+| — | `groupsForSidebar()`（`registry.ts:722`）は**テストからしか呼ばれていない**（本番は `sidebarTree()`）。テストを寄せて削除できる | 呼び出し元を確認 | 低 |
+
 **コーディングのミス（実測で確認したもの）**
 
 | 内容 | 場所 | 深刻度 |
@@ -1051,7 +1063,8 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | # | 深刻度 | 内容 | 場所 | 直し方 |
 |---|---|---|---|---|
-| **機能の統廃合の判断（2026-09-18）** | 下の「機能の棚卸し（2026-09-18）」の A〜E。**削除で約 5,400 行（src の 6%）が消える**。A（サイト診断の UI）と C（AIO 頻出トピック）は今すぐ消せる。B（ページ最適化レポート）は共有部分の切り出しが要る。D（プロンプト拡張）は**非表示なのに生きている**ので「出す / 消す」の判断が要る | 利用者の回答待ち |
+| **機能の統廃合の判断（2026-09-18）** | 下の「機能の棚卸し（2026-09-18）」の A〜H。**削除で約 5,400 行（src の 6%）**。A（サイト診断の UI と API）と C（AIO 頻出トピック）は今すぐ消せる。F（順位計測 × AI 検索モニタリングの二重払い）は毎月の実費に効く | 利用者の回答待ち |
+| **AI 検索モニタリングが動いていない可能性（2026-09-18・最優先）** | `geo_*` 8 テーブルの SQL だけ**実行記録が無い**（他のテーブルは全部実行日つき。下の `:397` のチェックが未）。未実行なら `/tools/geo` は赤いエラーだけが出る。**まず Supabase の Table Editor で `geo_` のテーブルがあるか見てください**（あればこの指摘は取り下げ） | 利用者の確認待ち |
 | S-0 | **最優先（利用者の作業）** | **`CLERK_SECRET_KEY`（`sk_live_`）が会話に貼られたまま未ローテーション**（このメモの #9 / A-3）。この鍵があれば誰でも任意の利用者（運用者含む）のセッションを発行でき、下のすべての防御が無効になる。Google OAuth のクライアントシークレットも同様 | 環境変数 | Clerk → API keys → Regenerate → Vercel 更新 → Redeploy |
 | S-1 | **高** | **`/api/store` に 1 人あたりの行数・総量の上限が無い**（r111 の回帰）。`isSyncedStoreName` は `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/` に合う**任意の名前**を通し、1 行 2 MB まで書ける。登録は誰でもできるので、無料アカウント 1 つで 250 リクエスト ≒ 500 MB（Supabase Free の上限）を埋められ、**全顧客の書き込み（店舗登録・口コミ・報告書・精密診断）が止まる** | `src/app/api/store/route.ts:24,55`、`src/lib/store/sync-rules.ts:19` | 実在する 28 個のストア名の許可リストにする + 1 行の上限を 512 KB に下げる（許可リストなら行数は自動で上限になる） |
 | S-2 | **高** | **`/api/faq` はログイン確認だけで、回数制限・プラン判定・レート制限が無い**。キャッシュは `url + 本文` のハッシュなので本文を 1 文字変えれば必ず外れる。無料アカウントから Anthropic を無制限に呼べる（無料診断の 2 回を使い切った後も可） | `src/app/api/faq/route.ts:20,46` | `consumeFreeRun()` か `takeDailyToken()` を足す |
@@ -3135,3 +3148,5 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **やったこと（動作は変えない。r116）**: 参照 0 件の barrel 5 本を削除。UUID の正規表現 7 か所 → `src/lib/api/ids.ts`。`readJson` / `badRequest` の二重定義 → `src/lib/api/request.ts`。`requireReviewsUser` / `requireListingsUser` を r115 の `requireUser()` に委譲（中身が同一だった）。差分 15 ファイル・+58 / −121 行。lint / tsc / test 1,579 件 / build 通過。
 - **報告したこと**: 上の「機能の棚卸し（2026-09-18）」。`knip` で未使用ファイルを機械的に洗い、動的ルートの誤検知（`/api/reviews/forms/[id]/qr` など 6 本は実際には呼ばれている）と `playwright` の誤検知は手で除いた。
 - **判断待ち**: A（サイト診断の UI 削除）・B（ページ最適化レポートの共有部分の切り出し）・C（AIO 頻出トピックの削除）・D（プロンプト拡張を出すか消すか）・E（配点表の一元化）。削除だけで約 5,400 行（src の 6%）。
+- 追記（同日、4 系統の調査を全部回収したあと）: 上の表に F〜H と小さな重複を追加した。**最優先は「AI 検索モニタリングの 8 テーブルが未作成かもしれない」**（他の全テーブルには実行日が書いてあるのに、これだけ無い。`:397` のチェックも未）。未実行なら `/tools/geo` は赤いエラーだけが出て、プロンプト拡張も到達不能になる。Supabase の Table Editor を見れば 10 秒で分かる。
+- あわせてこのメモの環境変数表の `AHREFS_API_KEY` を「未設定」→「設定済み」に直した（#90 の記録と食い違っていた）。ほかに `SERPAPI_KEY` の行が表に無い（#79 は 09-15 に設定完了）、`:98` の Anthropic「未設定」は 09-11 時点の古い行、`:110` の Stripe「未設定（本番）」は r110 の続報と矛盾 — 表の全体的な棚卸しが必要。
