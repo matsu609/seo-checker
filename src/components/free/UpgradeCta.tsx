@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { buttonClass } from "@/components/ui/Button";
 import { PAID_DIAGNOSIS_LABEL } from "@/lib/features/registry";
-import { PLANS_PATH, SIGN_UP_PATH, UPSELL, type FreeKind } from "@/lib/free/upsell";
+import { PLANS_PATH, UPSELL, type FreeKind } from "@/lib/free/upsell";
 import { PLAN_BY_ID, RECOMMENDED_PLAN } from "@/lib/plans/catalog";
 import { ServiceGuideButton } from "./ServiceGuideButton";
 
@@ -48,7 +48,7 @@ export function UpgradeCta({ kind, note = null, className = "" }: UpgradeCtaProp
       </ul>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Link href={SIGN_UP_PATH} className={buttonClass("primary", "lg")}>
+        <Link href={PLANS_PATH} className={buttonClass("primary", "lg")}>
           {copy.cta}
         </Link>
         <ServiceGuideButton />

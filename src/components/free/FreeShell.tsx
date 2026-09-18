@@ -12,7 +12,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { buttonClass } from "@/components/ui/Button";
 import { LogoMark } from "@/components/shell/icons";
-import { SIGN_UP_PATH } from "@/lib/free/upsell";
+import { PLANS_PATH, SIGN_UP_PATH } from "@/lib/free/upsell";
 import { SERVICE_NAME } from "@/lib/legal/operator";
 import { FreeHeaderActions } from "./FreeHeaderActions";
 
@@ -36,7 +36,7 @@ export function FreeShell({ children, authEnabled }: FreeShellProps) {
             <FreeHeaderActions />
           ) : (
             <Link href={SIGN_UP_PATH} className={buttonClass("primary", "sm")}>
-              初月無料ではじめる
+              登録して無料診断
             </Link>
           )}
         </div>
@@ -46,8 +46,8 @@ export function FreeShell({ children, authEnabled }: FreeShellProps) {
 
       <footer className="no-print border-t border-line px-4 py-4 text-[11px] text-muted md:px-8">
         <p>
-          クイック診断は、公開されている情報だけをその場で採点するものです。ログイン不要・無料。実データ（Search Console / GA4）の計測・競合比較・AI の改修案は
-          <Link href={SIGN_UP_PATH} className="mx-1 text-accent underline underline-offset-2">
+          クイック診断は、公開されている情報だけをその場で採点するものです。アカウント登録のあと、メールアドレスごとに 2 回まで無料。毎週の計測・競合比較・AI の改修案は
+          <Link href={PLANS_PATH} className="mx-1 text-accent underline underline-offset-2">
             精密診断
           </Link>
           でご利用いただけます。

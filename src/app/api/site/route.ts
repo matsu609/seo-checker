@@ -5,6 +5,7 @@ import { analyzeSite } from "@/lib/analyzer/site";
 import { globalCache } from "@/lib/cache";
 import { resolveMaxPages } from "@/lib/crawl/crawler";
 import { freeSiteMaxPages } from "@/lib/free/limits";
+import { consumeFreeRun } from "@/lib/free/quota";
 import type { SiteStreamEvent } from "@/lib/crawl/types";
 
 export const runtime = "nodejs";
@@ -108,6 +109,9 @@ export async function POST(request: NextRequest) {
   if (maxPages !== undefined && maxPages !== null && typeof maxPages !== "number") {
     return Response.json({ error: "maxPages は数値で指定してください" }, { status: 400 });
   }
+  // 無料診断は登録したメールアドレスごとに回数制限（利用者の決定 2026-09-18）。ストリームを始める前に止める
+  const denied = await consumeFreeRun();
+  if (denied) return denied;
 
   // ストリームを始める前に、入力自体の問題は通常のエラー応答で返す
   try {

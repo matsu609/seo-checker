@@ -18,6 +18,7 @@ import {
   takeClientToken,
   takeDailyToken,
 } from "@/lib/free/ratelimit";
+import { consumeFreeRun, requireFreeUser } from "@/lib/free/quota";
 import { isPlacesConfigured, placesErrorResponse } from "@/lib/maps/client";
 import { getPlaceCached, peekPlaceCached } from "@/lib/maps/fetch";
 import { buildMeoReport, type MeoReport } from "@/lib/maps/report";
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
   if (!isPlacesConfigured()) {
     return Response.json({ error: "店舗診断は現在準備中です。", code: "not_configured" }, { status: 503, headers: NO_STORE });
   }
+  // 無料診断は登録（ログイン）したメールアドレスごとに回数制限（利用者の決定 2026-09-18）
+  const denied = await requireFreeUser();
+  if (denied) return denied;
   let raw: unknown;
   try {
     raw = await request.json();
@@ -68,6 +72,9 @@ export async function POST(request: Request) {
     return Response.json({ error: FREE_LIMIT_MESSAGE, code: "daily_limit" }, { status: 429, headers: NO_STORE });
   }
 
+  // キャッシュに無い = Google に問い合わせるときだけ 1 回ぶん消費する
+  const exhausted = await consumeFreeRun();
+  if (exhausted) return exhausted;
   try {
     const { detail, cached } = await getPlaceCached(placeId);
     const body: FreeMeoReportResponse = { report: buildMeoReport(detail, new Date(), null, FREE_SCORE), cached };

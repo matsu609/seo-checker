@@ -16,6 +16,9 @@ import { resolveUserPlan, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
 import { summarizeStripeState, summarizeSubscription, type BillingSummary } from "./billing";
 import { agencyIdFromMetadata, canAssignAgency, withAgencyId } from "./roles";
+import { leadFromMetadata, type LeadProfile } from "@/lib/free/lead";
+import { freeRunLimit } from "@/lib/free/quota";
+import { freeRunsFromMetadata } from "@/lib/free/quota-rules";
 
 /** 1 回に読む人数。Clerk の上限は 500 */
 export const PAGE_SIZE = 100;
@@ -38,6 +41,10 @@ export interface ClerkUserLike {
   primaryEmailAddressId: string | null;
   emailAddresses: { id: string; emailAddress: string }[];
   publicMetadata: unknown;
+  /** 登録フォームが載せた登録情報（lead）。古い行には無い */
+  unsafeMetadata?: unknown;
+  /** 無料診断の回数（サーバーだけが書く）。古い行には無い */
+  privateMetadata?: unknown;
   createdAt: number;
   lastActiveAt: number | null;
 }
@@ -55,12 +62,18 @@ export interface ClientRow {
   overrides: string[];
   /** 担当の代理店（Clerk のユーザー ID）。付いていなければ null */
   agencyId: string | null;
+  /** 登録フォームの情報（担当者名・会社名・電話・店舗の種類）。無ければ null */
+  lead: LeadProfile | null;
+  /** 無料診断を使った回数 */
+  freeRuns: number;
   /** 契約情報の取得に失敗した理由（画面に出して、金額を空欄と取り違えないようにする） */
   billingError?: string;
 }
 
 export interface ClientList {
   rows: ClientRow[];
+  /** 無料診断の上限（回数の表示に使う） */
+  freeRunLimit: number;
   totalCount: number;
   /** 表示しきれていない人数 */
   truncated: number;
@@ -136,7 +149,7 @@ export async function buildClientRows(users: ClerkUserLike[]): Promise<ClientRow
     return {
       userId: user.id,
       email: primaryEmail(user),
-      name: displayName(user),
+      name: displayName(user) || leadFromMetadata(user.publicMetadata, user.unsafeMetadata ?? null)?.contactName || "",
       createdAt: user.createdAt,
       lastActiveAt: user.lastActiveAt ?? null,
       plan,
@@ -144,6 +157,8 @@ export async function buildClientRows(users: ClerkUserLike[]): Promise<ClientRow
       billing,
       overrides,
       agencyId: agencyIdFromMetadata(user.publicMetadata),
+      lead: leadFromMetadata(user.publicMetadata, user.unsafeMetadata ?? null),
+      freeRuns: freeRunsFromMetadata(user.privateMetadata ?? null),
     };
   });
 }
@@ -157,7 +172,7 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
 
   const rows = await buildClientRows(users as ClerkUserLike[]);
 
-  return { rows, totalCount, truncated: Math.max(0, totalCount - rows.length) };
+  return { rows, freeRunLimit: freeRunLimit(), totalCount, truncated: Math.max(0, totalCount - rows.length) };
 }
 
 /**

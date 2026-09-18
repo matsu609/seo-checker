@@ -18,9 +18,10 @@ import {
 describe("公開パス", () => {
   it("無料診断の画面と、その裏側の API だけが公開", () => {
     expect(isPublicPath("/")).toBe(true);
-    expect(isPublicPath("/api/analyze")).toBe(true);
-    expect(isPublicPath("/api/site")).toBe(true);
-    expect(isPublicPath("/api/faq")).toBe(true);
+    // 無料診断の API は 2026-09-18 からログイン必須（登録したメールアドレスごとに回数制限）。画面だけ公開
+    expect(isPublicPath("/api/analyze")).toBe(false);
+    expect(isPublicPath("/api/site")).toBe(false);
+    expect(isPublicPath("/api/faq")).toBe(false);
     // 利用規約とプライバシーポリシーは登録前に読めなければならない
     // （Google OAuth の審査と Clerk の設定でも URL を求められる）
     expect(isPublicPath("/terms")).toBe(true);
@@ -29,8 +30,8 @@ describe("公開パス", () => {
     expect(isPublicPath("/privacy/")).toBe(true);
     // 無料 MEO 診断（実費はハンドラ側の回数制限で守る）
     expect(isPublicPath("/meo")).toBe(true);
-    expect(isPublicPath("/api/meo/search")).toBe(true);
-    expect(isPublicPath("/api/meo/report")).toBe(true);
+    expect(isPublicPath("/api/meo/search")).toBe(false);
+    expect(isPublicPath("/api/meo/report")).toBe(false);
     // 有料の MEO はログイン必須のまま
     expect(isPublicPath("/tools/maps")).toBe(false);
     expect(isPublicPath("/api/meo/history")).toBe(false);
@@ -48,7 +49,8 @@ describe("公開パス", () => {
   it("末尾のスラッシュがあっても同じ判定になる", () => {
     expect(normalizePath("/api/site/")).toBe("/api/site");
     expect(normalizePath("/")).toBe("/");
-    expect(isPublicPath("/api/site/")).toBe(true);
+    expect(isPublicPath("/terms/")).toBe(true);
+    expect(isPublicPath("/api/site/")).toBe(false);
     expect(isPublicPath("/tools/rank/")).toBe(false);
   });
 });
@@ -82,6 +84,13 @@ describe("保護パス", () => {
       "/api/ai-traffic",
       "/api/aio-topics",
       "/api/aio-topics/coverage",
+      "/api/analyze",
+      "/api/site",
+      "/api/faq",
+      "/api/meo/search",
+      "/api/meo/report",
+      "/api/free/quota",
+      "/api/account/lead",
       "/api/citations",
       "/api/integrations",
       "/api/keywords",
@@ -141,12 +150,8 @@ describe("公開パスの一覧", () => {
       "/robots.txt",
       "/sitemap.xml",
     ]);
+    // 無料診断の API 5 本は 2026-09-18 にログイン必須へ（登録したメールアドレスごとに回数制限）
     expect(PUBLIC_PATHS.apis).toEqual([
-      "/api/analyze",
-      "/api/site",
-      "/api/faq",
-      "/api/meo/search",
-      "/api/meo/report",
       "/api/cron/maps-refresh",
       "/api/cron/geo-run",
       "/api/billing/webhook",

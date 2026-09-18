@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { globalCache } from "@/lib/cache";
 import { generateFaqs, isFaqEnabled, MAX_INPUT_CHARS } from "@/lib/faq/generate";
+import { requireFreeUser } from "@/lib/free/quota";
 import type { FaqItem } from "@/lib/faq/schema";
 
 export const runtime = "nodejs";
@@ -15,6 +16,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // 無料診断の一部（AI の費用が出る）。登録（ログイン）が要る
+  const denied = await requireFreeUser();
+  if (denied) return denied;
   if (!isFaqEnabled()) {
     return Response.json(
       { error: "FAQ 生成は無効です。サーバーに ANTHROPIC_API_KEY を設定してください" },

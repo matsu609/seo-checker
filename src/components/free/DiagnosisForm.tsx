@@ -34,6 +34,7 @@ export function DiagnosisForm({
   onSubmit,
   busy,
   error,
+  disabled = false,
 }: {
   url: string;
   onUrlChange: (value: string) => void;
@@ -42,12 +43,14 @@ export function DiagnosisForm({
   onSubmit: (e: FormEvent) => void;
   busy: boolean;
   error?: string | null;
+  /** 無料診断の回数を使い切ったとき（送信を止める） */
+  disabled?: boolean;
 }) {
   return (
     <section className="no-print mb-6 rounded-sm border border-line bg-panel p-5">
       <h1 className="text-[20px] font-bold text-ink">{FREE_SUITE_LABEL}</h1>
       <p className="mt-1 text-[13px] leading-relaxed text-muted">
-        URL を入力すると、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として出力します。ログインも API キーも不要です。
+        URL を入力すると、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として出力します。登録したメールアドレスごとに 2 回まで無料です。
       </p>
       <FreeTargetSwitch current="site" />
 
@@ -89,8 +92,8 @@ export function DiagnosisForm({
           })}
         </div>
 
-        <Button type="submit" size="lg" loading={busy} className="mt-3 w-full">
-          診断する
+        <Button type="submit" size="lg" loading={busy} disabled={disabled} className="mt-3 w-full">
+          {disabled ? "無料診断の回数を使い切りました" : "診断する"}
         </Button>
       </form>
 

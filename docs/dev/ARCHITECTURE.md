@@ -13,8 +13,8 @@
 
 | グループ | パス | ラベル | 機能 ID | 外部依存 |
 |---|---|---|---|---|
-| クイック診断 | `/` | クイック診断（サイト・SEO / AIO。無料・ログイン不要。サイト全体は代表 10 ページ） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
-| クイック診断 | `/meo` | クイック診断（店舗・MEO。店舗 1 件、ログイン不要、回数制限つき） | — | Places API (New) |
+| クイック診断 | `/` | クイック診断（サイト・SEO / AIO。無料。**アカウント登録のあと、メールアドレスごとに 2 回まで**（2026-09-18。入口は `src/lib/free/gate.ts`、回数は `src/lib/free/quota.ts`）。サイト全体は代表 10 ページ） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
+| クイック診断 | `/meo` | クイック診断（店舗・MEO。店舗 1 件、登録が要る（サイトと合計 2 回）、回数制限つき） | — | Places API (New) |
 | 診断 | `/tools/seo-analysis` | 精密診断（事実シート + AI の現状分析と改善案。ドメインパワーを含む） | — | Supabase + Anthropic（PSI / SerpApi / OpenAI / CrUX / Ahrefs DR / Open PageRank は任意） |
 | 診断 | `/tools/site-audit` | （精密診断に統合。転送のみ。`hidden: true`） | A1 | — |
 | 診断 | `/tools/page-report` | （サイドバーから外した 2026-09-17。HP 改修提案へ転送のみ。`hidden: true`。API と `src/lib/page-report/` は HP 改修提案・PSI・llms.txt が使う） | A2, A3 | — |
@@ -41,6 +41,7 @@
 | 運用 | `/admin` | マスター画面（全登録者の契約状況・機能の個別開放・代理店の追加と担当の割り当て）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
 | 運用 | `/agency` | 代理店画面（担当として割り当てられた登録者だけを表示のみ）。`publicMetadata.role = "agency"` の人だけ。ほかは 404 | — | Clerk |
 | 共通 | `/legal/tokushoho` | 特定商取引法に基づく表記（ログイン不要） | — | なし |
+| 共通 | `/sign-up` | アカウント登録（自前の 6 項目フォーム + Clerk の `useSignUp`。追加項目は `unsafeMetadata.lead`）。`/sign-up/profile` は登録情報の補完（Google でログインした人向け。`/api/account/lead`） | — | Clerk |
 | 共通 | `/start` | ログイン直後の振り分け（代理店は `/agency`、未契約は `/plans`、契約済みはツールへ。画面は出さない） | — | なし |
 
 - **PDF に出す折りたたみには `print:block` を使わない。** PDF は `@media print` ではなく DOM の複製（`.pdf-capture`）を画像化して作るので、Tailwind の `print:` 系は PDF にまったく効かない。画面で開かずに PDF を作ると中身が丸ごと抜ける。折りたたみは `hidden print-expand`、画面専用の操作は `no-print` を使う（`globals.css` に定義。`src/app/__tests__/pdf-capture-css.test.ts` で固定）。

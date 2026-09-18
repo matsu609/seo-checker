@@ -10,7 +10,7 @@ import { Callout } from "@/components/ui/Callout";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { hasStripeSubscription, STRIPE_CUSTOMER_KEY, stripeStateFromMetadata, type StripeState } from "@/lib/billing/state";
 import { isStripeConfigured, isStripeLive, purchasablePlanIds, trialDays } from "@/lib/billing/stripe";
-import { FIRST_TOOL_PATH } from "@/app/start/page";
+import { FIRST_TOOL_PATH } from "@/lib/auth/landing";
 import { requireFeature } from "@/lib/features/registry";
 import { isBillingEnabled } from "@/lib/plans/billing";
 import { planLabel } from "@/lib/plans/catalog";

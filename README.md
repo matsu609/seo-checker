@@ -2,7 +2,7 @@
 
 URL を入れるだけで検索エンジンと AI 検索（AIO）に読まれる土台を採点する**クイック診断（サイト・無料）**、店名を入れるだけで Google マップの店舗情報を採点する**クイック診断（店舗・MEO・無料）**、そして SEO / AIO / MEO の運用に使う**ツール群**をひとつにまとめた Next.js アプリです。
 
-左のサイドバーで両者を明確に分けています。クイック診断はログインも API キーも不要で、そのまま報告書として PDF に出せます。ツール群は用途に応じて外部 API を設定して使います。
+左のサイドバーで両者を明確に分けています。クイック診断はアカウント登録（無料。担当者名・メール・会社名・電話・店舗の種類・パスワード）のあと、メールアドレスごとに 2 回まで（`FREE_DIAGNOSIS_LIMIT`。2026-09-18 の利用者の決定）使え、API キーは不要で、そのまま報告書として PDF に出せます。ツール群は用途に応じて外部 API を設定して使います。
 
 ```bash
 npm install
@@ -309,7 +309,7 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 セットアップ:
 
 1. Clerk でアプリケーションを作り、API Keys から `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` と `CLERK_SECRET_KEY` を `.env.local` に入れる
-2. **Clerk の Restrictions で招待制か許可リストにする。** 既定では誰でも登録でき、登録した人はそのまま実費の出るツールを使えます
+2. **登録は誰でもできる前提**（登録した見込み客はクイック診断を 2 回まで使い、ツールはプランを付けるまで開かない）。そのため **本番の `DEFAULT_PLAN` は `free`** にし、契約者には Stripe か `/admin` の個別開放でプランを付けます。`DEFAULT_PLAN=pro` のままだと登録した全員に全ツールが開きます
 3. サーバーを再起動する
 
 ---
@@ -353,7 +353,8 @@ Google Cloud・Clerk・アプリの分担は [docs/dev/services.md](docs/dev/ser
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援: アンケート 1 つあたりの 1 日の回答数（既定 500）と、AI 下書きの 1 日の全体上限（既定 2,000。超えたら回答は受け付け、下書きは回答をそのまま並べる） |
 | `CRON_SECRET` | 毎週月曜 5:00 の一斉更新（`vercel.json` の Cron → `/api/cron/maps-refresh`）。未設定なら一斉更新は動かない |
 | ~~`GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON`~~ | 使わない（GA4 の機能は 2026-09-17 に提供終了）。設定されていても何も起きない |
-| `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free` |
+| `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free`。**登録を開いている本番では `free` にする** |
+| `FREE_DIAGNOSIS_LIMIT` | クイック診断の回数（登録したメールアドレスごと。サイト + 店舗の合計）。既定 2 |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・スタンダードとライトの Price ID・Webhook の署名シークレット。鍵・スタンダードの Price・Webhook がそろうと `/plans` に申し込みとお支払いの管理が出る（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名） |
 | `STRIPE_PRICE_PREMIUM` | 任意。プレミアム（伴走）の Price ID。料金画面には出ないが、支払いリンク・請求書で立てた契約をプレミアムとして記録するために使う |
 | `STRIPE_TRIAL_DAYS` | 無料期間の日数（既定 30 = 初月無料）。`0` でトライアルなし。特商法ページと料金画面の文面もこの値に従う |

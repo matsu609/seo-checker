@@ -15,11 +15,13 @@ import { ClientTable } from "./ClientTable";
 export interface AdminConsoleProps {
   agencies: AgencyRow[];
   clients: ClientRow[];
+  /** 無料診断の上限（回数の表示に使う） */
+  freeRunLimit?: number;
   totalCount: number;
   truncated: number;
 }
 
-export function AdminConsole({ agencies: initialAgencies, clients, totalCount, truncated }: AdminConsoleProps) {
+export function AdminConsole({ agencies: initialAgencies, clients, totalCount, truncated, freeRunLimit }: AdminConsoleProps) {
   const [agencies, setAgencies] = useState(initialAgencies);
 
   return (
@@ -35,7 +37,7 @@ export function AdminConsole({ agencies: initialAgencies, clients, totalCount, t
         {truncated > 0 && <span>（新しい順に {clients.length} 件を表示）</span>}
       </div>
 
-      <ClientTable initial={clients} agencies={agencies} />
+      <ClientTable initial={clients} agencies={agencies} freeRunLimit={freeRunLimit} />
     </>
   );
 }

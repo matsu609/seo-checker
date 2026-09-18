@@ -12,14 +12,22 @@ import { Button, Callout } from "@/components/ui";
 import type { AnalysisResult, SiteAnalysisResult, SiteProgress } from "@/lib/analyzer/types";
 import { requestSiteAnalysis, SiteRequestError } from "@/lib/crawl/client";
 import { freeSiteMaxPages, truncationNote } from "@/lib/free/limits";
+import { isExhausted, type FreeQuota } from "@/lib/free/quota-rules";
 import { downloadPdf } from "@/lib/pdf/download";
 import { reportFileName } from "@/lib/report";
 import { DiagnosisForm, type Mode } from "./DiagnosisForm";
+import { FreeQuotaNotice } from "./FreeQuotaNotice";
+import { useFreeQuota } from "./useFreeQuota";
 import { Download, Printer } from "./Icons";
 import { PageReport } from "./PageReport";
 import { ProgressPanel } from "./ProgressPanel";
 import { SiteReport } from "./SiteReport";
 import { UpgradeCta } from "./UpgradeCta";
+
+export interface CheckerProps {
+  /** 無料診断の残り回数（サーバーが入口で判定して渡す。認証が無効なら null = 制限なし） */
+  quota: FreeQuota | null;
+}
 
 type State =
   | { phase: "idle" }
@@ -51,7 +59,9 @@ function messageOf(err: unknown): string {
   return "診断に失敗しました。しばらく待ってからもう一度お試しください。";
 }
 
-export function Checker() {
+export function Checker({ quota: initialQuota }: CheckerProps) {
+  const { quota, refresh: refreshQuota } = useFreeQuota(initialQuota);
+  const exhausted = isExhausted(quota);
   const [url, setUrl] = useState("");
   const [mode, setMode] = useState<Mode>("page");
   const [state, setState] = useState<State>({ phase: "idle" });
@@ -99,6 +109,7 @@ export function Checker() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (exhausted) return;
     const target = url.trim();
     if (!target) {
       setFormError("URL を入力してください。");
@@ -156,6 +167,8 @@ export function Checker() {
       setState({ phase: "error", message: messageOf(err) });
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
+      // 1 回消費したので残り回数を取り直す（失敗した診断は消費されていないこともある）
+      void refreshQuota();
     }
   }
 
@@ -180,6 +193,7 @@ export function Checker() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
+      <FreeQuotaNotice quota={quota} className="mb-3" />
       <DiagnosisForm
         url={url}
         onUrlChange={setUrl}
@@ -188,6 +202,7 @@ export function Checker() {
         onSubmit={onSubmit}
         busy={state.phase === "loading"}
         error={formError}
+        disabled={exhausted}
       />
 
       {state.phase === "loading" && (

@@ -29,11 +29,13 @@ const NO_AGENCY = "none";
 
 export interface ClientTableProps {
   initial: ClientRow[];
+  /** 無料診断の上限（回数の表示に使う） */
+  freeRunLimit?: number;
   /** 担当代理店の選択肢。代理店を足す・外すと親から入れ替わる */
   agencies: AgencyRow[];
 }
 
-export function ClientTable({ initial, agencies }: ClientTableProps) {
+export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTableProps) {
   const [rows, setRows] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -232,6 +234,32 @@ export function ClientTable({ initial, agencies }: ClientTableProps) {
                   <dt className="text-[11px] text-muted">次回請求</dt>
                   <dd className="mt-1 text-sm text-ink tabular-nums">
                     {formatDate(row.billing.nextPaymentAt)}
+                  </dd>
+                </div>
+              </dl>
+
+              {/* 登録情報（無料診断の前に集める 4 項目）と無料診断の回数 */}
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-sm border border-line bg-surface p-3 @lg:grid-cols-5">
+                <div>
+                  <dt className="text-[11px] text-muted">担当者名</dt>
+                  <dd className="mt-1 text-sm text-ink">{row.lead?.contactName || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-muted">会社名</dt>
+                  <dd className="mt-1 text-sm text-ink">{row.lead?.company || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-muted">電話番号</dt>
+                  <dd className="mt-1 text-sm text-ink tabular-nums">{row.lead?.phone || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-muted">店舗の種類</dt>
+                  <dd className="mt-1 text-sm text-ink">{row.lead?.storeType || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-muted">無料診断</dt>
+                  <dd className="mt-1 text-sm text-ink tabular-nums">
+                    {row.freeRuns} / {freeRunLimit} 回{row.freeRuns >= freeRunLimit && row.plan === "free" && <span className="ml-1 text-[11px] text-warn">使い切り</span>}
                   </dd>
                 </div>
               </dl>

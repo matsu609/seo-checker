@@ -60,6 +60,7 @@ export default async function Page() {
       </div>
 
       <AdminConsole
+        freeRunLimit={clients.freeRunLimit}
         agencies={agencies}
         clients={clients.rows}
         totalCount={clients.totalCount}

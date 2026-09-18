@@ -15,12 +15,15 @@ import { MeoReportView } from "@/components/maps/report/MeoReportView";
 import { formatCount, formatRating, statusLabel } from "@/components/maps/format";
 import { Button, Callout, DataTable, Field, Input, type Column } from "@/components/ui";
 import { FREE_SUITE_LABEL } from "@/lib/features/registry";
+import { isExhausted, type FreeQuota } from "@/lib/free/quota-rules";
 import { SIGN_UP_PATH } from "@/lib/free/upsell";
 import { meoReportFileName } from "@/lib/maps/report";
 import type { PlaceSummary } from "@/lib/maps/types";
 import { downloadPdf } from "@/lib/pdf/download";
 import { Download } from "./Icons";
+import { FreeQuotaNotice } from "./FreeQuotaNotice";
 import { FreeTargetSwitch } from "./FreeTargetSwitch";
+import { useFreeQuota } from "./useFreeQuota";
 import { UpgradeCta } from "./UpgradeCta";
 
 type Search = { phase: "idle" } | { phase: "loading" } | { phase: "error"; message: string } | { phase: "done"; data: FreeMeoSearchResponse };
@@ -43,9 +46,13 @@ async function errorMessage(res: Response): Promise<string> {
 export interface MeoCheckerProps {
   /** Places API が設定されているか（サーバーで判定して渡す） */
   enabled: boolean;
+  /** 無料診断の残り回数（サーバーが入口で判定して渡す。認証が無効なら null = 制限なし） */
+  quota: FreeQuota | null;
 }
 
-export function MeoChecker({ enabled }: MeoCheckerProps) {
+export function MeoChecker({ enabled, quota: initialQuota }: MeoCheckerProps) {
+  const { quota, refresh: refreshQuota } = useFreeQuota(initialQuota);
+  const exhausted = isExhausted(quota);
   const [query, setQuery] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [search, setSearch] = useState<Search>({ phase: "idle" });
@@ -77,6 +84,7 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
   }
 
   async function onDiagnose(place: PlaceSummary) {
+    if (exhausted) return;
     setPdf("idle");
     setReport({ phase: "loading", placeId: place.id });
     try {
@@ -91,6 +99,8 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
       setTimeout(() => reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     } catch (err) {
       setReport({ phase: "error", message: err instanceof Error ? err.message : "診断に失敗しました" });
+    } finally {
+      void refreshQuota();
     }
   }
 
@@ -139,7 +149,7 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
           size="sm"
           onClick={() => void onDiagnose(p)}
           loading={report.phase === "loading" && report.placeId === p.id}
-          disabled={report.phase === "loading"}
+          disabled={report.phase === "loading" || (exhausted && !(report.phase === "done" && report.placeId === p.id))}
           variant={report.phase === "done" && report.placeId === p.id ? "secondary" : "primary"}
         >
           {report.phase === "done" && report.placeId === p.id ? "表示中" : "この店舗を診断"}
@@ -150,10 +160,11 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
+      <FreeQuotaNotice quota={quota} className="mb-3" />
       <section className="no-print mb-6 rounded-sm border border-line bg-panel p-5">
         <h1 className="text-[20px] font-bold text-ink">{FREE_SUITE_LABEL}</h1>
         <p className="mt-1 text-[13px] leading-relaxed text-muted">
-          店名を入力すると、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として出力します。ログイン不要です。
+          店名を入力すると、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として出力します。登録したメールアドレスごとに 2 回まで無料です（サイト診断と合計）。
         </p>
         <FreeTargetSwitch current="meo" />
 

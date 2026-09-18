@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r97 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r98 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -190,7 +190,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 114 | **口コミ返信をツール内で完結させるための「API 以外」の作業**: ① プライバシーポリシー第 5 条に「この権限で行う 3 つの操作」「自動投稿しない」「口コミは保存しない」「解除でトークン削除」を追記 → **完了（r96）** ② 用途説明文（日 / 英）とデモ動画の台本 → **完了（[google-oauth-verification.md](./google-oauth-verification.md) §2・§3）** ③ Clerk のアプリ名 `My Application` → `SEO Checker`（#7）、ブランディングに規約 / ポリシーの URL（#8） ④ 承認後: Google My Business API（v4）の有効化 → `/tools/replies` で接続 → 自分のプロフィールで投稿まで通す → 撮影 → OAuth 審査申請 ⑤ 任意: 新着口コミの通知（Notifications API + Pub/Sub）と Performance API（#113） | 利用者（③④・撮影・申請） | ①② 完了。③④ 未 |
 | 115 | **MEO の月次レポート（競合ツールの帳票の再現。2026-09-17 利用者が PDF を共有）**: 審査なし（Places API + 毎週の保存）で作れる部分を先に作る = 新規口コミ数・平均評価（前月比）／ 口コミの成長（月別件数 + 累計平均評価。登録日以降）／ 星別分布（当月。最新 5 件から）／ キーワード順位変動（月初 / 月末。毎週の順位から）／ 口コミの傾向。オーナー権限が要る欄（表示回数・マップ / 検索表示・電話 / サイト / ルート・流入キーワード・返信数と返信率・投稿数）は「接続すると表示」の枠にして、#113 / #114 のあと Performance API と v4 で埋める。PDF 出力は既存の仕組み。目安 3 日 | 利用者（判断）→ Claude | 未 |
 | 116 | **Performance API を承認当日に動かすための利用者の作業**: 下の「Business Profile Performance API を使えるようにする手順（#116）」の表 | 利用者 | **09-18: API 3 本を有効化済み。v4 は承認待ち。スコープ完了（非機密）。テストユーザー完了。**残り: Clerk の名前（7）・ブランディング（8）・ケースの督促（6。9/26 以降） |
-| 117 | **無料診断の前にユーザー登録**（2026-09-18 利用者の要望）: 登録フォーム 6 項目（担当者名・メール・会社名・電話・店舗の種類・パスワード）→ メール確認 → 無料診断（メールごとに 2 回）→ 3 回目からは料金プランへ。**Clerk だけで可**（自前のフォーム + Clerk の `useSignUp`、追加項目は `unsafeMetadata`、回数は `privateMetadata` をサーバーで加算）。**前提: Vercel の `DEFAULT_PLAN=pro` を `free` に変える**（今のままだと登録した見込み客に全ツールが開く）。設計は 09-18 の作業ログ。利用者の GO 待ち | 利用者（判断）→ Claude | 未 |
+| 117 | **無料診断の前にユーザー登録、メールアドレスごとに 2 回まで**（2026-09-18 利用者の要望 → GO） | Claude → 利用者 | **コードは完了（r98）**。残りは利用者の作業 = 下の「登録つき無料診断を本番で開く手順（#117）」（Vercel の `DEFAULT_PLAN=free`、既存の契約者の個別開放、Clerk の設定確認、本番で 1 回通す） |
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports`~~ → ~~Vercel に環境変数 2 つ~~ → ~~`meo_stores`~~（09-10 17:03 作成、Table Editor で 2 テーブル確認）→ 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: 動作確認のみ |
@@ -301,6 +301,20 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 76 | **クイック診断の入口を塞ぐ**（サイドバーから削除・ログイン済みは `/start` へ・紹介サイトと robots から除外）とタブ順を SEO → MEO → AIO に | Claude | **完了（r54、09-13）** |
 | 77 | 紹介サイトの「クイック診断 0 円」の料金カードを消したので、**無料の診断を営業でどう使うか**（誰に、どの場面で URL を渡すか）を決める。渡す URL は `https://app.seo-checker.tokyo/` と `/meo` | 利用者 | 未 |
 | 82 | **GSC / GA4 / CRM の自動診断 + コンサル回答生成**: 仕様は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)。利用者の決定（09-15）= 入口は既存の Google 連携のみ・CSV は作らない／精密診断と同義。**G1〜G6 完了（r61 / r65 / r66）= 134 ルール**（GSC 79 + GA4 47 + 突き合わせ 8）。§11 の 20 件は重複・共起を除いて 8 件に絞った（利用者の指示「件数より体験の質」）。残り: G7（人間による承認）／ G8（CRM） | Claude | **G1〜G6 完了（r66）。残りは G7・G8 で、どちらも利用者の判断待ち** |
+
+### 登録つき無料診断を本番で開く手順（#117。r98 の反映後）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | **先に**いまの契約者（無料で使ってもらっている人を含む）の行で、使わせたいツールを個別開放する。`DEFAULT_PLAN` を `free` にすると、Stripe の契約か個別開放が無い人はツールが開かなくなるため |
+| 2 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | `DEFAULT_PLAN` を `pro` → **`free`** に（Production と Preview）。任意で `FREE_DIAGNOSIS_LIMIT`（既定 2） |
+| 3 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイを Redeploy（環境変数を反映） |
+| 4 | Clerk ダッシュボード → User & Authentication → Email, Phone, Username | https://dashboard.clerk.com/ | **Email address = 必須・Verification は「Email verification code」が ON**、**Password = ON** であること（登録フォームはメール + パスワード + 確認コード。Phone は OFF のまま = 電話は SMS 認証せず文字で保存）。Name は任意（フォームは Clerk の名前欄を使わない） |
+| 5 | Clerk ダッシュボード → Restrictions | 同上 | 「Sign-up」が許可されていること（招待制・許可リストにしない。見込み客が自分で登録する設計） |
+| 6 | Clerk ダッシュボード → Attack protection | 同上 | Bot protection（Smart CAPTCHA）は ON のままでよい（フォームに `#clerk-captcha` の受け皿あり）。ON でも OFF でも動く |
+| 7 | 本番 → 登録フォーム（**シークレットウィンドウ**で） | https://app.seo-checker.tokyo/sign-up | 6 項目を入れて登録 → 確認コード → 無料診断（`/`）に着く → 「残り 2 回」が出る → 1 回診断 → 「残り 1 回」 → `/meo` で 1 回 → 「使い切りました」と料金プランへの導線が出ること |
+| 8 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 7 で作ったアカウントの行に「担当者名・会社名・電話番号・店舗の種類・無料診断 2 / 2 回」が出ること。確認が済んだらそのアカウントは Clerk で削除してよい |
+| 9 | Google でログインした人の確認（任意） | https://app.seo-checker.tokyo/sign-in | Google でログインすると `/sign-up/profile`（登録情報の補完）に送られ、4 項目を入れると無料診断に進めること |
 
 ### Business Profile Performance API を使えるようにする手順（#116。承認前にできること → 承認後）
 
@@ -681,6 +695,7 @@ create table if not exists geo_model_versions (
 
 ### 入力待ち（利用者からの回答が要るもの）
 
+- **登録つき無料診断（#117）**: 本番で開く前の作業（`DEFAULT_PLAN=free`・既存契約者の個別開放）が済んだら一言。
 - **サイドバーの整理（#111）**: r94 で外した 3 つ（ページ最適化レポート・AIO 頻出トピック・プロンプト拡張）はこれでよいか。さらに減らすか（ページ診断 / 順位計測と検索の推定の一本化）。
 - **明日の公開の形（09-16 提案）**: Stripe が止まっているあいだ、最初のお客様の初月（無料）は管理画面の個別開放で使ってもらい、2 か月目の請求は ①Stripe 復旧を待って Checkout で ②請求書（銀行振込）で、のどちらにするか。②なら請求書の発行方法（Stripe の請求書機能は決済停止中は使えない可能性が高いので、手書き / 会計ソフト）
 - 運営者名・連絡先メール・所在地（#6）
@@ -946,6 +961,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 | 日付 | 判断 | 理由 |
 |---|---|---|
 | 09-17 | **サイドバーは 3 つの並列タブではなく、「AIO 対策」（親）の中に SEO / MEO / サイテーション（柱）が入る入れ子にする**（r95） | 利用者の指示「独立しちゃっているので、くくり的には AI の中に MEO・SEO・サイテーションがあると分かる構成に」。柱は開閉式（開くのは 1 本。r94 の「押した柱が最優先」はそのまま）。AI 検索モニタリングは柱ではなく AIO 対策全体の成果をはかるものなので親の直下。柱の並びは 09-13 の指定（SEO → MEO → 基礎情報）のまま |
+| 09-18 | **無料診断はアカウント登録のあと、メールアドレスごとに 2 回まで（サイト + 店舗の合計）。契約済みには見せない。本番の `DEFAULT_PLAN` は `free` にする**（r98） | 利用者の要望と決定（a: 合計 2 回 = 既定案、b: 見せない、c: 切り替える）。見込み客の情報（担当者名・会社名・電話・店舗の種類）を先に集め、無料の体験を 2 回に限って料金プランへつなぐ。Clerk だけで作った（自前のフォーム + `useSignUp`。追加項目は `unsafeMetadata.lead`、回数は `privateMetadata.freeRuns`）。Supabase のテーブルは増やしていない |
 | 09-17 | **このサービスは「AIO 対策の可視化ツール」で、SEO に競合より少し力を入れている。AIO 対策 = SEO 対策 + MEO 対策 + 海外を含む基本情報サイトへの NAP 登録（サイテーション）の総称**（r94） | 利用者の指示。サイドバーの位置づけを AIO タブ = 土台（サイテーション・NAP 登録・llms.txt）+ AI 検索の計測、SEO タブ = お客様のホームページの最適化、MEO タブ = Google マップ・口コミ、に直し、タブの下に 1 行の説明を出す。HP 改修提案は「ホームページを直す機能」なので SEO タブへ |
 | 09-17 | **サイドバーを「本当に必要な機能」に絞る。外した 3 つ: ページ最適化レポート・AIO 頻出トピック・プロンプト拡張**（r94） | 利用者の指示「いらない機能が多い」。外す基準 = ①同じ答えを別のツールが出す（1 ページの採点はクイック診断、直し方は HP 改修提案）②必要な鍵が多く単独では使いにくい（AIO 頻出トピック = SerpApi + Anthropic）③別のツールの下ごしらえ（プロンプト拡張 → AI 検索モニタリングの設定からリンク）。消したのは画面の部品だけで、定義・API・プランのゲートは `hidden: true` で残す（戻すのは 1 行） |
 | 09-17 | **サイテーションは DataForSEO の Google 検索（Live）で作り、ライトに置く**（r94） | SerpApi は未設定、DataForSEO は接続済みで同じ鍵が使える。読む・測る系なのでライト（1 回 = 検索 3 回 ≒ $0.006、24 時間キャッシュ）。地図アプリ（Google / Apple / Bing など）は通常の検索結果に出ないので「主要媒体の掲載状況」には数えず、検索に出る媒体（Yahoo!ロコ・Foursquare・Facebook・Yelp など 8 つ）だけを数える |
@@ -2801,3 +2817,18 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **画面の流れ（案）**: `/` `/meo` → 未ログインなら登録フォーム（ログインへのリンクあり）→ 確認コード → `/`（残り 2 回の表示）→ 診断 → 結果の下に「精密診断はスタンダードで」→ 3 回目は診断ボタンの代わりに料金プランへの導線 + 「運営者に相談」。`/api/analyze` `/api/site` `/api/faq` `/api/meo/*` はログイン必須 + 回数チェック（IP の制限は二重の保険で残す）。登録内容は `/admin` の一覧に列を足して見られるようにする（見込み客リスト）。
 - **決めてもらうこと**: (a) 2 回は「サイト + 店舗の合計」か「それぞれ 2 回」か（既定案: 合計 2 回） (b) 契約済みの人にも無料診断を見せるか（既定案: 見せない、これまでどおり） (c) `DEFAULT_PLAN` を `free` にしてよいか（既定案: 今の契約者は `/admin` で個別開放してから切り替え）。目安 2〜3 日。
 - ドキュメントのみの更新。
+
+### 2026-09-18（登録つき無料診断、メールアドレスごとに 2 回まで、r98）
+
+**利用者の決定**: (a) 2 回はサイト + 店舗の合計（既定案）(b) 契約済みには見せない (c) `DEFAULT_PLAN` を `free` に切り替える → GO。
+
+**やったこと（r98）**
+- **登録フォーム**（`/sign-up`、`src/components/auth/RegisterForm.tsx`）: 担当者名・メール・会社名・電話・店舗の種類（11 択）・パスワード → Clerk v7 の `useSignUp`（`create` → `verifications.sendEmailCode` → `verifyEmailCode` → `finalize`）→ `/start`。追加項目は `unsafeMetadata.lead`（`src/lib/free/lead.ts` の zod で検証）。Google での登録は出さない。Google でログインした人は入口が `/sign-up/profile`（補完フォーム → `POST /api/account/lead` → `publicMetadata.lead`）へ送る。
+- **入口**（`src/lib/free/gate.ts`。`/` と `/meo` の page が呼ぶ）: 未ログイン → `/sign-up?redirect_url=…`、代理店 → `/agency`、契約済み（free 以外）→ ツール、登録情報なし → 補完、それ以外 → 画面（残り回数つき）。運用者は回数制限なしで入れる。
+- **回数**（`src/lib/free/quota.ts`）: `FREE_DIAGNOSIS_LIMIT`（既定 2）。`/api/analyze` `/api/site` `/api/meo/report` が本当に診断するときだけ 1 回消費（キャッシュに当たれば消費しない）。`/api/meo/search` `/api/faq` はログインだけ。保存先は Clerk の `privateMetadata.freeRuns`（サーバーだけが書く）。使い切ると 402 と `FREE_QUOTA_MESSAGE`。運用者・契約済み・認証無効は無制限。`GET /api/free/quota` で画面が取り直す。
+- **公開範囲**（`src/lib/auth/routes.ts`）: 無料診断の API 5 本を公開から外した（画面 `/` `/meo` は公開のまま。Proxy に任せると Clerk のログイン画面へ飛び、見込み客が登録にたどり着かないため）。
+- **画面**: `/` `/meo` の先頭に「残り N 回」（使い切ると料金プラン + 運営者への相談の Callout、診断ボタンは押せない）。ヘッダーはログイン済みならアカウントメニュー + 料金プラン（`/start` へ追い出さない）。`/start` は未契約を `/` へ。結果下の CTA は `/plans` へ（登録済みなので `/sign-up` ではない）。文言の「ログイン不要」を全部「登録のあと 2 回まで」に。
+- **マスター画面**: 各行に担当者名・会社名・電話・店舗の種類・無料診断 N / 2 回（使い切りの印）。名前が無い人は担当者名を名前に。
+- テスト: routes（公開範囲）・lead・quota-rules を追加 / 更新。lint / tsc / **test 1,540 件** / build 通過。
+- **利用者の作業は「登録つき無料診断を本番で開く手順（#117）」の表**。特に **1（既存契約者の個別開放）→ 2（`DEFAULT_PLAN=free`）の順番**を守る。
+- 補足: Clerk の Bot protection が ON だと登録フォームに CAPTCHA が出る（`#clerk-captcha` に描画）。Clerk の Email verification code が OFF だと `sendEmailCode` が失敗するので 4 で確認。

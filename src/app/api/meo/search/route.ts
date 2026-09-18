@@ -17,6 +17,7 @@ import {
   takeClientToken,
   takeDailyToken,
 } from "@/lib/free/ratelimit";
+import { requireFreeUser } from "@/lib/free/quota";
 import { isPlacesConfigured, placesErrorResponse, searchPlaces } from "@/lib/maps/client";
 import type { PlaceSummary } from "@/lib/maps/types";
 
@@ -41,6 +42,9 @@ export async function POST(request: Request) {
   if (!isPlacesConfigured()) {
     return Response.json({ error: "店舗診断は現在準備中です。", code: "not_configured" }, { status: 503, headers: NO_STORE });
   }
+  // 無料診断は登録（ログイン）が要る（利用者の決定 2026-09-18）。店舗の検索は回数に数えない
+  const denied = await requireFreeUser();
+  if (denied) return denied;
   let raw: unknown;
   try {
     raw = await request.json();
