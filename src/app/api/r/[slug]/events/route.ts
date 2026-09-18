@@ -12,14 +12,13 @@ import { getPublicForm, isValidSlug } from "@/lib/reviews/forms";
 import { DRAFT_MAX } from "@/lib/reviews/questions";
 import { isValidEditToken, markReviewClicked } from "@/lib/reviews/responses";
 import { NO_STORE } from "@/lib/api/headers";
+import { UUID_RE } from "@/lib/api/ids";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 const BodySchema = z.object({
-  responseId: z.string().regex(UUID),
+  responseId: z.string().regex(UUID_RE),
   token: z.string().refine(isValidEditToken),
   draftFinal: z.string().max(DRAFT_MAX).optional(),
 });

@@ -17,11 +17,10 @@ import { MeoOwnerInputSchema, type MeoOwnerData } from "@/lib/maps/owner-input";
 import { deleteOwnerInput, getOwnerInput, putOwnerInput } from "@/lib/maps/owner-store";
 import { getStore, type MeoStore } from "@/lib/maps/stores";
 import { requireUser } from "@/lib/auth/guard";
+import { isUuid } from "@/lib/api/ids";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const BodySchema = z.object({ input: MeoOwnerInputSchema });
 
@@ -37,7 +36,7 @@ export interface MapsOwnerSaveResponse extends MapsOwnerResponse {
 type Ctx = { params: Promise<{ id: string }> };
 
 async function ownStore(userId: string, id: string): Promise<MeoStore | Response> {
-  if (!UUID.test(id)) return Response.json({ error: "店舗の ID が正しくありません" }, { status: 400 });
+  if (!isUuid(id)) return Response.json({ error: "店舗の ID が正しくありません" }, { status: 400 });
   const store = await getStore(userId, id);
   if (!store) return Response.json({ error: "その店舗は登録されていません" }, { status: 404 });
   if (store.role !== "own") return Response.json({ error: "オーナー情報は自社の店舗にだけ入力できます" }, { status: 400 });

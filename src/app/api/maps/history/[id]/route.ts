@@ -10,11 +10,10 @@ import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { AiCommentarySchema, attachAiCommentary, deleteMeoReport, getMeoReport, type MeoHistoryEntry } from "@/lib/maps/history";
+import { isUuid } from "@/lib/api/ids";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -30,7 +29,7 @@ async function prepare(context: Context): Promise<{ userId: string; id: string }
   const userId = await currentUserId();
   if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
   const { id } = await context.params;
-  if (!UUID.test(id)) return Response.json({ error: "履歴の ID が正しくありません" }, { status: 400 });
+  if (!isUuid(id)) return Response.json({ error: "履歴の ID が正しくありません" }, { status: 400 });
   return { userId, id };
 }
 
