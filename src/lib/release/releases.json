@@ -579,6 +579,11 @@
       "commit": "280b659",
       "date": "2026-09-18",
       "summary": "使われていない barrel を削除し、API 入口の共通処理（UUID 判定・JSON 読み取り・認証）を 1 か所に寄せる"
+    },
+    {
+      "commit": "8877e2e",
+      "date": "2026-09-18",
+      "summary": ".env.example の記載漏れ（Stripe 6 変数ほか）を補い、monthStart と pct の重複を 1 か所に寄せる"
     }
   ]
 }
