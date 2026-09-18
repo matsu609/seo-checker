@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r110 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r111 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -549,6 +549,38 @@ Open PageRank を入れなくてもドメインパワーは 8 指標すべてが
 - 特商法ページ（`/legal/tokushoho`）の「お支払い時期」に、コードの条件で 0 円の月がある場合と 30 日の無料期間が付く場合の書き方を入れてある（r107）。
 - **何が Stripe で何が Clerk か**: 「割引」の選択と保存は Clerk（`publicMetadata.promo`）。適用は申し込みの瞬間に Stripe API（`checkout.sessions.create` の `subscription_data.trial_period_days` と `discounts[0].coupon`、クーポンは `coupons.create` で自動作成）。Stripe・Supabase の画面での設定は不要。**Stripe の API 呼び出しは開発環境に鍵が無いため実機で未確認（2026-09-18 時点）**。確認手順: ① `/admin` でテスト用アカウントに「30 日無料 + 月額 20,000 円引き」を設定 → ② そのアカウントで `/plans` に「割引が設定されています」が出る → スタンダードの「申し込む」→ ③ Checkout に「30 日間無料」と「月額 20,000 円引き」の行、今日 0 円・30 日後から 30,000 円 → テストカード 4242 → ④ Stripe（テスト）→ クーポン に `seo-checker-off20000` が自動作成されている https://dashboard.stripe.com/test/coupons → ⑤ 顧客のサブスクリプションがトライアル中 + 割引付き。代理ログインでは決済を塞いでいるので直接ログインして確認する。
 
+### お客様のブラウザ側データの同期（r111。代理ログインで「本当にお客様のアカウント」に見えるようにする）
+
+利用者の指示（2026-09-18）「この方の画面を見る」はお客様の体験を追体験するためのもの。履歴・分析結果・登録したものが全部見える状態にしたい。ボタンは新しいタブで開く（マスター画面を更新させない）。
+
+**背景**: SEO 系ツールのデータの多くは、お客様の**ブラウザ（localStorage）にしか無かった**（登録したホームページ `projects`、順位計測 `rankKeywords / rankGroups / rankSnapshots`、サイト診断の履歴 `auditHistory`、ページ診断・キーワード調査・AI ライティングの下書き `writingDrafts`・llms.txt・精密診断の入力など）。MEO・口コミ支援・掲載・AI 検索モニタリングは Supabase にあるので元から見えていた。
+
+**r111 の仕組み**: 全ストアを Supabase の `user_stores`（user_id, name, value jsonb）に同期する（`src/lib/store/StoreSync.tsx`、`/api/store`、`src/lib/db/user-stores.ts`、決めごとは `src/lib/store/sync-rules.ts`）。
+- ログイン直後にサーバーの値を読み込み、以後は変更のたびに 0.8 秒待ってまとめて保存。
+- **サーバーが正**。前回この端末で同期したユーザーと違う人がログインしたら、端末の値を全部捨ててサーバーの値に置き換える（別のお客様のデータが混ざらない。代理ログインもこの経路で、お客様のデータが運用者のブラウザに読み込まれる）。
+- **移行**: この端末で初めて かつ サーバーに何も無いときだけ、端末の値をサーバーへ上げる（今までのお客様のデータを失わないため）。共用端末で以前の人のデータが残っていた場合はそれが上がる可能性がある（許容）。
+- 代理ログイン中は読み込みだけ（`/api/store` の書き込みは 403）。運用者が代理中に触った変更はお客様に保存されない。
+- 同期しないもの: サイドバーで開いている柱、確認中の割引コード（端末ごとの画面の状態）。
+- Supabase が未設定・テーブルが無い（503）なら同期は静かに止まり、今までどおり端末保存だけで動く。
+- **副次効果**: お客様が別の PC・ブラウザからログインしても同じデータが出る。
+
+**SQL（Supabase SQL Editor で 1 回）** https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new
+
+```sql
+create table if not exists user_stores (
+  user_id text not null,
+  name text not null,
+  value jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, name)
+);
+alter table user_stores enable row level security;
+```
+
+**代理ログインのタブと Clerk のセッション**: ログインの状態はブラウザ全体で共有されるので、新しいタブでお客様としてログインすると、マスター画面のタブも裏ではお客様のログインになる（表示は残る。押すと 404 になる）。お客様のタブの下の帯「終了して自分に戻る」で戻ってからマスター画面を使う。Clerk の **Multi-session handling** を有効にしておくと、終了時に運用者のセッションへ自動で戻る（無効だとログイン画面に出る）: Clerk ダッシュボード → Configure → Sessions → Multi-session handling https://dashboard.clerk.com/ 。
+
+**確認手順**: ① SQL 実行 → ② 自分（運用者）でツールを開き、設定でホームページを登録・順位計測でキーワードを 1 つ入れる → ③ Supabase Table Editor の `user_stores` に行が増える → ④ マスター画面で別のアカウントの「この方の画面を見る」→ 新しいタブで開き、そのアカウントの設定・履歴が出る（自分のものではない）→ ⑤ 帯の「終了して自分に戻る」→ マスター画面に戻り、自分のデータに戻っている。
+
 ### 本番公開までに残っていること（決済まわり）
 
 **いちばん手前にあるのは #84（Stripe のセキュリティチェックリスト）。決済・入金が 2026/09/09 から停止しているので、これが終わるまで本番の課金は通らない。**
@@ -990,6 +1022,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | 日付 | 判断 | 理由 |
 |---|---|---|
+| **Supabase に `user_stores` テーブルを作る（r111 の反映に必須。作るまでは同期が静かに止まり、今までどおり端末保存だけ）** | 下の「お客様のブラウザ側データの同期（r111）」の SQL を Supabase SQL Editor で実行 | 利用者の作業待ち |
 | Stripe 本番切替の残り: `STRIPE_SECRET_KEY`（`sk_live_`）と `STRIPE_WEBHOOK_SECRET`（本番 Webhook の `whsec_`）の差し替え → Redeploy（2026-09-18） | A で進行中。Price ID 2 つは本番と一致済み、`STRIPE_PRICE_PRO` 削除済み（Claude in Chrome、20:30 ごろ）。Webhook `elegant-bliss` が本番モードのものかは要確認（テストの whsec だと契約状態が書かれない） | 利用者の作業待ち |
 | 09-17 | **サイドバーは 3 つの並列タブではなく、「AIO 対策」（親）の中に SEO / MEO / サイテーション（柱）が入る入れ子にする**（r95） | 利用者の指示「独立しちゃっているので、くくり的には AI の中に MEO・SEO・サイテーションがあると分かる構成に」。柱は開閉式（開くのは 1 本。r94 の「押した柱が最優先」はそのまま）。AI 検索モニタリングは柱ではなく AIO 対策全体の成果をはかるものなので親の直下。柱の並びは 09-13 の指定（SEO → MEO → 基礎情報）のまま |
 | 09-18 | **無料診断はアカウント登録のあと、メールアドレスごとに 2 回まで（サイト + 店舗の合計）。契約済みには見せない。本番の `DEFAULT_PLAN` は `free` にする**（r98） | 利用者の要望と決定（a: 合計 2 回 = 既定案、b: 見せない、c: 切り替える）。見込み客の情報（担当者名・会社名・電話・店舗の種類）を先に集め、無料の体験を 2 回に限って料金プランへつなぐ。Clerk だけで作った（自前のフォーム + `useSignUp`。追加項目は `unsafeMetadata.lead`、回数は `privateMetadata.freeRuns`）。Supabase のテーブルは増やしていない |
@@ -2953,3 +2986,10 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 続報（21:30、スクリーンショット 3 枚）: **本番モードで割引の全パターンの見え方を確認**。①「月額 50,000 円引き」→ Checkout が ¥0 / 月、小計 50,000 − 50,000。②`/plans` に「割引が設定されています: 最初の 30 日間は無料 + 月額 10,000 円引き」の Callout。③ Checkout が「30 日間無料、その後 ¥40,000 / 月、2026-10-18 以降」、クーポン「スタンダード 月額 10,000 円引き」。**クーポンは本番の Stripe に自動作成された**（`seo-checker-off50000` / `seo-checker-off10000`）。申し込みは押していない（`?checkout=cancel` で戻っている）。
 - 利用者の質問「いつから適用されるのか。今月から？次の支払いから？」→ 回答: マスター画面の選択は即保存（1 秒）だが、それは「次に申し込むときの条件」。未契約の人は最初の支払いから。**契約中の人はマスター画面で変えても今月も来月も変わらない**（Stripe の契約には触っていない。Stripe の顧客画面で付ければ次回請求から）。契約中の人にも反映させたいなら、割引変更時に Stripe の `subscriptions.update({ discounts })` を呼ぶ処理を足せる（値引きのみ。無料期間は既存契約に付けない）→ **利用者の希望があれば実装**。
 - 残り: 確認に使ったアカウントの割引を「割引なし」に戻す。Webhook（0 円申し込み後に `/plans` が「無料トライアル中」になるか）は未確認。
+
+### 2026-09-18（代理ログインを新しいタブで開き、お客様のブラウザ側データを同期、r111）
+
+- 利用者「『この方の画面を見る』はお客様の体験を追体験するためのもの。履歴・分析結果・登録したものが全部見えるように、本当にお客様のアカウントでログインしている状態にしたい。ボタンは新しいタブで開いてほしい（マスター画面が更新されると面倒）」。
+- 調査: 代理ログイン自体は Clerk の Actor Token で本当にお客様のセッションになっている。**見えなかった理由はデータの置き場**: SEO 系ツール（ホームページ登録・順位計測・サイト診断の履歴・ページ診断・キーワード調査・AI ライティング・llms.txt・精密診断の入力）はお客様のブラウザの localStorage にしか無く、運用者のブラウザで代理ログインしても出てこない。MEO・口コミ・掲載・AI 検索モニタリングは Supabase なので見えていた。
+- **r111**: 全ストアを Supabase `user_stores` に同期する `StoreSync`（`src/lib/store/StoreSync.tsx`、全ストアの登録 `all.ts`、決めごと `sync-rules.ts`、API `/api/store`、DB `src/lib/db/user-stores.ts`）。サーバーが正、ユーザーが変わったら端末の値を置き換え、初回だけ端末の値を上げる（移行）。代理中は読み込みのみ。`ClientTable` の「この方の画面を見る」は `window.open` で新しいタブ（fetch の前に空タブを開いてポップアップ遮断を避ける）。帯の文言に「データの保存はできません」を追記。テスト `sync-rules.test.ts`（7 件、計 1,558 件）。lint / tsc / test / build 通過。上の「お客様のブラウザ側データの同期（r111）」に SQL・仕組み・確認手順。
+- **利用者の作業**: Supabase で `user_stores` の SQL を実行（これをするまで同期は動かず、従来どおり端末保存）。任意で Clerk の Multi-session handling を有効に。
