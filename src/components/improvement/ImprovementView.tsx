@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { Badge, Button, Callout, Card, EmptyState, Field, Input, InlineDiff } from "@/components/ui";
 import { PageTargetField, SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
+import { useSharedSettings } from "@/lib/settings/client";
 import { resolvePageUrl } from "@/lib/site/target";
 import { AREA_LABELS, EFFORT_LABELS, PRIORITY_LABELS, type Proposal } from "@/lib/improvement/schema";
 import type { ImprovementResult } from "@/lib/improvement/generate";
@@ -29,6 +30,8 @@ export function ImprovementView() {
   const [page, setPage] = useState("");
   const targetUrl = resolvePageUrl(site.siteUrl, page);
   const [keyword, setKeyword] = useState("");
+  // 設定の対策キーワードを候補に出す（入力は自由）
+  const { keywords: keywordSuggestions } = useSharedSettings();
   const [result, setResult] = useState<ImprovementResult | null>(null);
   const [cached, setCached] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -71,14 +74,20 @@ export function ImprovementView() {
             onChange={setPage}
             disabled={loading}
           />
-          <Field label="対策キーワード（任意）" htmlFor="improve-kw" hint="入れると提案がその語に寄ります">
+          <Field label="対策キーワード（任意）" htmlFor="improve-kw" hint={keywordSuggestions.length > 0 ? "設定の対策キーワードから選べます。入れると提案がその語に寄ります" : "入れると提案がその語に寄ります"}>
             <Input
               id="improve-kw"
+              list="improve-kw-list"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="港区 税理士"
               disabled={loading}
             />
+            <datalist id="improve-kw-list">
+              {keywordSuggestions.map((k) => (
+                <option key={k} value={k} />
+              ))}
+            </datalist>
           </Field>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">

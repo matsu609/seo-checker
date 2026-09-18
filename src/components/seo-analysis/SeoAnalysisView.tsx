@@ -17,6 +17,7 @@ import type { RunSummary } from "@/lib/seo-analysis/runs";
 import { GOAL_LABELS, type AnalysisGoal, type AnalysisInput, type SeoFactSheet } from "@/lib/seo-analysis/sheet/types";
 import { seoAnalysisFormStore, splitLines } from "@/lib/seo-analysis/store";
 import { SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
+import { useSharedSettings } from "@/lib/settings/client";
 import { formatDateTime, hostOf } from "@/lib/report";
 import { useStore } from "@/lib/store/hooks";
 import { ReportView } from "./ReportView";
@@ -56,6 +57,24 @@ export function SeoAnalysisView() {
   const [form, setForm] = useStore(seoAnalysisFormStore);
   // 分析するサイトは設定に登録したホームページ。この画面では URL を聞かない（競合だけ残す）
   const site = useRegisteredSite();
+  // キーワード・競合・ブランド名・業種・地域は設定から初期値を入れる（空欄のときだけ。直した値はそのまま残る）
+  const shared = useSharedSettings();
+  useEffect(() => {
+    const defaults = {
+      keywords: shared.keywords.join("\n"),
+      competitors: (shared.project?.competitors ?? []).flatMap((c) => c.domains).join("\n"),
+      brand: shared.project?.name.trim() || shared.lead?.company || "",
+      industry: shared.lead?.storeType ?? "",
+      region: shared.lead?.region ?? "",
+    };
+    seoAnalysisFormStore.update((prev) => {
+      let next = prev;
+      for (const key of ["keywords", "competitors", "brand", "industry", "region"] as const) {
+        if (!prev[key].trim() && defaults[key]) next = { ...next, [key]: defaults[key] };
+      }
+      return next;
+    });
+  }, [shared.keywords, shared.project, shared.lead]);
   const [meta, setMeta] = useState<RunsResponse | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -230,7 +249,7 @@ export function SeoAnalysisView() {
           <SiteTargetNotice what="精密診断" />
           <p className="text-[12px] text-muted">クロールは最大 {CRAWL_PAGE_LIMIT} ページまで（固定）。それを超えるサイトは、サイトマップとリンクの順に {CRAWL_PAGE_LIMIT} ページを取ります。</p>
           <div className="grid gap-3 @2xl:grid-cols-3">
-            <Field label={`対策キーワード（最大 ${MAX_KEYWORDS}・任意）`} htmlFor="sa-kw" hint="1 行に 1 つ。順位と検索結果の特徴を取ります（SerpApi）">
+            <Field label={`対策キーワード（最大 ${MAX_KEYWORDS}・任意）`} htmlFor="sa-kw" hint="設定の対策キーワードが初期値。1 行に 1 つ。順位と検索結果の特徴を取ります（SerpApi）">
               <Textarea id="sa-kw" rows={4} value={form.keywords} disabled={busy} placeholder={"世田谷区 歯医者\n歯科 矯正 費用"} onChange={(e) => setForm({ ...form, keywords: e.target.value })} />
             </Field>
             <div className="grid gap-3">
@@ -243,18 +262,18 @@ export function SeoAnalysisView() {
                   ))}
                 </Select>
               </Field>
-              <Field label="業種（任意）" htmlFor="sa-industry">
+              <Field label="業種（任意）" htmlFor="sa-industry" hint="設定の店舗の種類が初期値">
                 <Input id="sa-industry" value={form.industry} disabled={busy} placeholder="例: 歯科医院、税理士事務所、EC（アパレル）" onChange={(e) => setForm({ ...form, industry: e.target.value })} />
               </Field>
             </div>
             <div className="grid gap-3">
-              <Field label="地域（任意）" htmlFor="sa-region">
+              <Field label="地域（任意）" htmlFor="sa-region" hint="設定の地域・商圏が初期値">
                 <Input id="sa-region" value={form.region} disabled={busy} placeholder="例: 東京都世田谷区" onChange={(e) => setForm({ ...form, region: e.target.value })} />
               </Field>
-              <Field label="ブランド名（任意）" htmlFor="sa-brand" hint="空ならトップページの title から推定">
+              <Field label="ブランド名（任意）" htmlFor="sa-brand" hint="設定のサイト名（無ければ会社名）が初期値。空ならトップページの title から推定">
                 <Input id="sa-brand" value={form.brand} disabled={busy} placeholder="例: サンプル工房" onChange={(e) => setForm({ ...form, brand: e.target.value })} />
               </Field>
-              <Field label={`競合サイトの URL（最大 ${MAX_COMPETITORS}・任意）`} htmlFor="sa-comp" hint="1 行に 1 つ。キーワードごとの順位を並べます">
+              <Field label={`競合サイトの URL（最大 ${MAX_COMPETITORS}・任意）`} htmlFor="sa-comp" hint="設定の競合サイトが初期値。1 行に 1 つ。キーワードごとの順位を並べます">
                 <Textarea id="sa-comp" rows={2} value={form.competitors} disabled={busy} onChange={(e) => setForm({ ...form, competitors: e.target.value })} />
               </Field>
             </div>

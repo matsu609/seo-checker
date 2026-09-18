@@ -106,6 +106,25 @@ export function prefillFromGoogle(profile: ListingProfile, detail: Pick<PlaceDet
   };
 }
 
+/**
+ * 設定の「会社・店舗の基本情報」（登録時のデータ）で空欄を埋める。
+ * 入っている値は上書きしない（Google から取り込んだ値や利用者が直した値が優先）。
+ */
+export function prefillFromBusiness(
+  profile: ListingProfile,
+  lead: { company: string; phone: string; address: string; storeType: string } | null,
+): ListingProfile {
+  if (!lead) return profile;
+  const next = {
+    ...profile,
+    name: profile.name || lead.company,
+    phone: profile.phone || lead.phone,
+    address: profile.address || lead.address,
+    category: profile.category || lead.storeType,
+  };
+  return next.name === profile.name && next.phone === profile.phone && next.address === profile.address && next.category === profile.category ? profile : next;
+}
+
 /** 比べる前の正規化（全角 / 半角、空白、ハイフンの種類、末尾スラッシュの違いは表記ゆれと見なさない） */
 export function normalizeForCompare(text: string): string {
   return text

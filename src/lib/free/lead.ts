@@ -31,6 +31,8 @@ export type StoreType = (typeof STORE_TYPES)[number];
 export const CONTACT_NAME_MAX = 60;
 export const COMPANY_MAX = 100;
 export const PHONE_MAX = 30;
+export const ADDRESS_MAX = 200;
+export const REGION_MAX = 60;
 
 export const LeadProfileSchema = z.object({
   contactName: z.string().trim().min(1, "担当者名を入力してください").max(CONTACT_NAME_MAX),
@@ -42,8 +44,14 @@ export const LeadProfileSchema = z.object({
     .max(PHONE_MAX)
     .regex(/^[0-9０-９+＋()（）\-‐－ー\s]+$/, "電話番号は数字とハイフンで入力してください"),
   storeType: z.enum(STORE_TYPES, { message: "店舗の種類を選んでください" }),
+  /** 所在地（設定画面で後から足す任意項目。登録フォームでは聞かない） */
+  address: z.string().trim().max(ADDRESS_MAX).default(""),
+  /** 商圏・地域（例: 東京都世田谷区）。精密診断・ページ診断の「地域」の初期値 */
+  region: z.string().trim().max(REGION_MAX).default(""),
 });
 export type LeadProfile = z.infer<typeof LeadProfileSchema>;
+/** 保存 API・フォームに渡す入力（任意項目は省略できる） */
+export type LeadProfileInput = z.input<typeof LeadProfileSchema>;
 
 function pick(metadata: unknown): LeadProfile | null {
   if (typeof metadata !== "object" || metadata === null) return null;

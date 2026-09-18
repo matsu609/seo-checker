@@ -16,9 +16,12 @@ export interface GeoAccountView {
 
 export interface SetupResponse {
   account: GeoAccountView;
+  /** 設定（/settings）のホームページ・競合から同期したもの（この画面では編集しない） */
   brands: GeoBrand[];
   prompts: GeoPrompt[];
+  /** 設定の対策キーワードから同期したもの */
   keywords: GeoKeyword[];
+  settings: { siteRegistered: boolean; keywordCount: number };
 }
 
 export interface ShareRow {

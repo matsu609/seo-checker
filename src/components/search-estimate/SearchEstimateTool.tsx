@@ -10,6 +10,7 @@
  * Search Console は使わない（利用者の決定 2026-09-17）ので、実測値への誘導は書かない。
  */
 import { useState } from "react";
+import { useRegisteredSite } from "@/components/site/RegisteredSite";
 import {
   Button,
   Callout,
@@ -56,7 +57,11 @@ const COLUMNS: readonly Column<EstimatedRow>[] = FIELDS.map((f) => ({
 const CSV_COLUMNS = FIELDS.map((f) => ({ header: f.header, value: (row: EstimatedRow) => f.text(row) }));
 
 export function SearchEstimateTool() {
-  const [domain, setDomain] = useState("");
+  // 設定に登録したホームページのドメインを初期値にする（別のドメインを見たいときは書き換えられる）
+  const site = useRegisteredSite();
+  const [edited, setEdited] = useState<string | null>(null);
+  const domain = edited ?? site.domain;
+  const setDomain = (value: string) => setEdited(value);
   const { state, run } = useToolRun<SearchEstimate>();
   const running = state.phase === "running";
 
@@ -84,7 +89,7 @@ export function SearchEstimateTool() {
 
       <Card title="対象">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="ドメイン" hint="例: example.jp（https:// や www. は付けても構いません）" className="min-w-[260px] flex-1">
+          <Field label="ドメイン" hint={site.registered ? "設定に登録したホームページが初期値です。別のドメインも入れられます" : "例: example.jp（https:// や www. は付けても構いません）"} className="min-w-[260px] flex-1">
             <Input
               value={domain}
               onChange={(e) => setDomain(e.target.value)}

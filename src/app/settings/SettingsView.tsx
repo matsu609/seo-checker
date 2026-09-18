@@ -6,6 +6,10 @@
  * 利用者の指示（2026-09-16）: ホームページの URL はここで 1 回だけ登録し、
  * ほかのタブでは URL の入力を求めない。競合の URL だけは入力欄を残す。
  * そのため、いちばん上に「ホームページ」カードを置き、競合は別カードに分ける。
+ *
+ * 利用者の指示（2026-09-19）: SEO・MEO・AIO の共通の基本設定はぜんぶここに集約する。
+ * 会社・店舗の基本情報（登録時のデータ）・対策キーワード・Google マップの店舗のカードを足した
+ * （SharedCards.tsx）。各ツールは細かい変更だけを持つ。
  */
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
@@ -19,11 +23,15 @@ import { requireFeature } from "@/lib/features/registry";
 import { displayUrl, toSiteUrl } from "@/lib/site/target";
 import { exportAll, importAll, newId, resetAll, splitList, type Competitor, type Project } from "@/lib/store";
 import { useCurrentProject, useProjects } from "@/lib/store/hooks";
+import { useLeadProfile } from "@/lib/account/lead-client";
+import { BusinessCard, KeywordsCard, StoresCard } from "./SharedCards";
 
 const feature = requireFeature("settings");
 
 /** ホームページ登録カードの id。各ツールからここへ直接飛ばす（/settings#home-url） */
 const HOME_URL_ANCHOR = "home-url";
+/** 競合カードの id（AI 検索モニタリングから /settings#competitors で飛ぶ） */
+const COMPETITORS_ANCHOR = "competitors";
 
 function stamp(): string {
   const d = new Date();
@@ -40,8 +48,11 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
     <div className="mx-auto w-full max-w-6xl">
       <PageHeader feature={feature} />
       <div className="space-y-6">
+        <BusinessCard />
         <HomeUrlCard />
         <CompetitorsCard />
+        <KeywordsCard />
+        <StoresCard />
         {googleSection}
         <DataCard />
       </div>
@@ -74,6 +85,8 @@ function toSiteDraft(p: Project): SiteDraft {
 function HomeUrlCard() {
   const { add, update, remove } = useProjects();
   const { project, projects, setCurrentProjectId } = useCurrentProject();
+  // サイト名を空欄にしたら、登録時の会社名（屋号）を名前にする（無ければドメイン）
+  const { lead } = useLeadProfile();
   const [draft, setDraft] = useState<SiteDraft>(EMPTY_SITE);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +125,7 @@ function HomeUrlCard() {
       return;
     }
     const domain = new URL(siteUrl).host;
-    const name = draft.name.trim() || domain;
+    const name = draft.name.trim() || lead?.company.trim() || domain;
     const brandAliases = splitList(draft.brandAliases);
 
     if (adding || !project) {
@@ -196,11 +209,11 @@ function HomeUrlCard() {
             }}
           />
         </Field>
-        <Field label="サイト名（任意）" htmlFor="home-url-name" hint="空欄ならドメインを名前にします">
+        <Field label="サイト名（任意）" htmlFor="home-url-name" hint={lead?.company ? `空欄なら会社名「${lead.company}」を名前にします` : "空欄ならドメインを名前にします"}>
           <Input
             id="home-url-name"
             value={draft.name}
-            placeholder="例: 自社サイト"
+            placeholder={lead?.company || "例: 自社サイト"}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           />
         </Field>
@@ -296,7 +309,7 @@ function CompetitorsCard() {
 
   if (!project) {
     return (
-      <Card title="競合サイト" description="順位の比較や LLMO の言及判定に使う競合を登録します。">
+      <Card id={COMPETITORS_ANCHOR} title="競合サイト" description="順位の比較や AI 検索モニタリングの言及判定に使う競合を登録します。">
         <EmptyState
           title="先にホームページを登録してください"
           description="競合は、対象にしているホームページごとに保存します。"
@@ -323,8 +336,9 @@ function CompetitorsCard() {
 
   return (
     <Card
+      id={COMPETITORS_ANCHOR}
       title="競合サイト"
-      description={`「${project.name}」と比べる競合。順位の並びや LLMO の言及判定に使います。競合の URL はここで登録しても、各タブでその都度入れても構いません。`}
+      description={`「${project.name}」と比べる競合。順位計測の並び、精密診断の競合欄の初期値、AI 検索モニタリングの競合ブランド（名前・ドメイン・表記ゆれ）に使います。`}
       actions={
         <Button
           size="sm"

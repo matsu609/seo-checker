@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ListingsDescribeResponse } from "@/app/api/listings/describe/route";
 import type { ListingsProfileResponse } from "@/app/api/listings/profile/route";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
+import { useSharedSettings } from "@/lib/settings/client";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -32,6 +33,7 @@ import {
   compareNap,
   EMAIL_MAX,
   emptyProfile,
+  prefillFromBusiness,
   HOURS_MAX,
   jsonLdScript,
   LISTING_NOTE_MAX,
@@ -130,12 +132,15 @@ export function ListingsTool() {
     };
   }, []);
 
-  /** 画面と保存に使う内容。「サイト」が未入力なら登録したホームページで埋める */
-  const profile = useMemo<ListingProfile>(
-    () =>
-      websiteTouched || !site.siteUrl || saved.website.trim() ? saved : { ...saved, website: site.siteUrl },
-    [saved, websiteTouched, site.siteUrl],
-  );
+  /**
+   * 画面と保存に使う内容。「サイト」が未入力なら登録したホームページ、
+   * 店名・電話・住所・業種が未入力なら設定の「会社・店舗の基本情報」（登録時のデータ）で埋める。
+   */
+  const shared = useSharedSettings();
+  const profile = useMemo<ListingProfile>(() => {
+    const withSite = websiteTouched || !site.siteUrl || saved.website.trim() ? saved : { ...saved, website: site.siteUrl };
+    return prefillFromBusiness(withSite, shared.lead);
+  }, [saved, websiteTouched, site.siteUrl, shared.lead]);
 
   const store = useMemo(() => data?.stores.find((s) => s.placeId === placeId) ?? null, [data, placeId]);
   const mismatches = useMemo(() => (store?.google ? compareNap(profile, store.google) : []), [profile, store]);

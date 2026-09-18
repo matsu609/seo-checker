@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
+import { useSharedSettings } from "@/lib/settings/client";
 import {
   Badge,
   Button,
@@ -92,7 +93,16 @@ function formFromStore(item: ListingsStoreItem, fallbackWebsite: string): Form {
 
 export function CitationsTool() {
   const site = useRegisteredSite();
-  const [form, setForm] = useState<Form>({ name: "", phone: "", address: "", website: "" });
+  // 店名・電話・住所は設定の「会社・店舗の基本情報」（登録時のデータ）が初期値。触ったら edits を使う
+  const shared = useSharedSettings();
+  const [edits, setEdits] = useState<Form | null>(null);
+  const form: Form = edits ?? {
+    name: shared.lead?.company ?? "",
+    phone: shared.lead?.phone ?? "",
+    address: shared.lead?.address ?? "",
+    website: "",
+  };
+  const setForm = (next: Form) => setEdits(next);
   const [websiteTouched, setWebsiteTouched] = useState(false);
   const [stores, setStores] = useState<ListingsStoreItem[]>([]);
   const [storeId, setStoreId] = useState("");

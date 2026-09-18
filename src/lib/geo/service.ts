@@ -16,7 +16,6 @@ import {
   findCachedMeasurement,
   latestModelVersion,
   listBrands,
-  listKeywords,
   listPrompts,
   recordCredit,
   saveMeasurement,
@@ -24,6 +23,8 @@ import {
   saveObservations,
   updateAccount,
 } from "./store";
+import { syncGeoFromSettings } from "./sync";
+import { loadSharedSettings } from "@/lib/settings/server";
 import type { GeoModel, GeoObservation } from "./types";
 
 /** 定期バッチが 1 アカウント分を回す */
@@ -41,7 +42,11 @@ export async function runDailyForUser(userId: string, options: { now?: Date; bud
     await updateAccount(userId, { creditBalance: fresh.balance, creditResetAt: nextResetAt(now) });
   }
 
-  const [brands, prompts, keywords] = await Promise.all([listBrands(userId), listPrompts(userId), listKeywords(userId)]);
+  // ブランド・競合・キーワードは設定（/settings）が正。計測の前に geo テーブルへ写す（2026-09-19）
+  const synced = await syncGeoFromSettings(userId, await loadSharedSettings(userId));
+  const brands = synced.brands;
+  const keywords = synced.keywords;
+  const prompts = await listPrompts(userId);
   const items = planToday(prompts, keywords, account.runDayOffset, now);
   if (items.length === 0) return emptySummary("今日は実行対象がありません（反復は週内の別の日に分散しています）");
 

@@ -12,6 +12,7 @@ import { llmsTxtStore, INITIAL_STATE } from "@/lib/llms-txt/store";
 import { WIZARD_STEPS, type LlmsTxtState, type StepId } from "@/lib/llms-txt/types";
 import { useStore } from "@/lib/store/hooks";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
+import { useSharedSettings } from "@/lib/settings/client";
 import { StepPages } from "./PagesStep";
 import { StepResult } from "./ResultStep";
 import { LlmsTxtValidator } from "./Validator";
@@ -31,6 +32,18 @@ export function LlmsTxtWizard() {
   useEffect(() => {
     if (site.siteUrl && state.siteUrl !== site.siteUrl) patch({ siteUrl: site.siteUrl });
   }, [site.siteUrl, state.siteUrl, patch]);
+
+  // サイト名・会社情報の空欄は設定（サイト名・会社名・所在地・電話）で埋める（利用者の指示 2026-09-19）。
+  // 入力済みの値は上書きしない
+  const shared = useSharedSettings();
+  useEffect(() => {
+    const next: Partial<LlmsTxtState> = {};
+    if (!state.siteName.trim() && site.registered && site.name) next.siteName = site.name;
+    if (!state.companyName.trim() && shared.lead?.company) next.companyName = shared.lead.company;
+    if (!state.companyAddress.trim() && shared.lead?.address) next.companyAddress = shared.lead.address;
+    if (!state.companyContact.trim() && shared.lead?.phone) next.companyContact = shared.lead.phone;
+    if (Object.keys(next).length > 0) patch(next);
+  }, [state.siteName, state.companyName, state.companyAddress, state.companyContact, site.registered, site.name, shared.lead, patch]);
 
   const goTo = useCallback((step: StepId) => patch({ step }), [patch]);
   const current = WIZARD_STEPS.find((s) => s.id === state.step) ?? WIZARD_STEPS[0];

@@ -7,7 +7,8 @@
  * 統計の扱いは lib/geo/stats.ts に寄せてあり、この画面は表示だけを持つ。
  */
 import { useEffect, useState } from "react";
-import { Badge, Button, Callout, Card, Field, Input, StatCard, Tabs } from "@/components/ui";
+import { Badge, Button, ButtonLink, Callout, Card, Field, Input, StatCard, Tabs } from "@/components/ui";
+import { SITE_SETTINGS_HREF } from "@/components/site/RegisteredSite";
 import { CREDIT_ACTION_LABELS, GEO_MODEL_LABELS, type CreditAction, type GeoModel } from "@/lib/geo/types";
 import { pct } from "@/lib/report/format";
 import { BrandedCard } from "./BrandedCard";
@@ -64,7 +65,7 @@ export function GeoTool() {
       <Tabs
         tabs={[
           { id: "dashboard", label: "ダッシュボード" },
-          { id: "setup", label: "設定（ブランド・プロンプト）" },
+          { id: "setup", label: "プロンプトと計測対象" },
         ]}
         value={tab}
         onChange={setTab}
@@ -84,13 +85,22 @@ function Dashboard({ data, onGoSetup }: { data: DashboardResponse; onGoSetup: ()
 
   if (!own || data.promptCount === 0) {
     return (
-      <Callout tone="info" title="まず設定をしてください">
+      <Callout tone="info" title="まず準備をしてください">
         <p className="leading-relaxed">
-          自社ブランド（名前・別名・ドメイン）と、計測するプロンプトを登録すると、翌日の定期計測から数字が入ります。
+          {own
+            ? "計測するプロンプトを登録すると、翌日の定期計測から数字が入ります。"
+            : "自社のホームページ（URL・サイト名・ブランドの表記ゆれ）は「設定」に登録します。登録が済むと自社ブランドとして自動で取り込まれ、あとは計測するプロンプトを登録するだけです。"}
         </p>
-        <Button className="mt-3" size="sm" onClick={onGoSetup}>
-          設定を開く
-        </Button>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {!own && (
+            <ButtonLink href={SITE_SETTINGS_HREF} size="sm">
+              設定でホームページを登録する
+            </ButtonLink>
+          )}
+          <Button size="sm" variant={own ? "primary" : "secondary"} onClick={onGoSetup}>
+            プロンプトを登録する
+          </Button>
+        </div>
       </Callout>
     );
   }

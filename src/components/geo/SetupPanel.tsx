@@ -1,17 +1,23 @@
 "use client";
 
 /**
- * オンボーディング（仕様書 §10「自社ドメイン、競合、エイリアス登録を必須ステップに」）
- * と、プロンプト・キーワードの登録。
+ * AI 検索モニタリングの計測対象。
  *
- * エイリアスは参照判定の精度そのものなので、**登録を必須にする**。
+ * 自社ブランド・競合・検索キーワードは設定（/settings）に集約した（利用者の指示 2026-09-19）。
+ * ここでは「設定から取り込んだもの」を確認だけできる（編集は設定で）。
+ * この画面で登録するのはプロンプトだけ。
  * 指名プロンプトを高精度枠に入れようとしたらサーバーが警告を返す（§2.2）。
  */
 import { useState } from "react";
 import { Badge, Button, ButtonLink, Callout, Card, Field, Input } from "@/components/ui";
+import { SITE_SETTINGS_HREF } from "@/components/site/RegisteredSite";
 import { PRECISION_REPEATS_PER_WEEK, NORMAL_REPEATS_PER_WEEK } from "@/lib/geo/schedule";
 import { GEO_MODEL_LABELS, GEO_MODELS, type GeoBrand, type GeoKeyword, type GeoModel, type GeoPrompt } from "@/lib/geo/types";
 import { saveSetup, type SetupResponse } from "./client";
+
+/** 設定画面のキーワードカードへの直リンク */
+const KEYWORDS_SETTINGS_HREF = "/settings#keywords";
+const COMPETITORS_SETTINGS_HREF = "/settings#competitors";
 
 export function SetupPanel({ setup, onChanged }: { setup: SetupResponse; onChanged: () => void }) {
   const own = setup.brands.find((b) => b.type === "own") ?? null;
@@ -20,112 +26,84 @@ export function SetupPanel({ setup, onChanged }: { setup: SetupResponse; onChang
   return (
     <div className="space-y-6">
       {!own && (
-        <Callout tone="warn" title="はじめに自社ブランドを登録してください">
-          自社のブランド名・表記ゆれ（カナ / 英字 / 略称）・ドメインが無いと、回答の中で自社が言及されたかを判定できません。定期計測もこの登録が済むまで動きません。
+        <Callout tone="warn" title="はじめに設定でホームページを登録してください">
+          自社のブランド名・表記ゆれ（カナ / 英字 / 略称）・ドメインは「設定」のホームページから自動で取り込みます。登録が無いと、回答の中で自社が言及されたかを判定できず、定期計測も動きません。
+          <div className="mt-3">
+            <ButtonLink href={SITE_SETTINGS_HREF} size="sm">
+              設定でホームページを登録する
+            </ButtonLink>
+          </div>
         </Callout>
       )}
 
-      <BrandForm title="自社ブランド" type="own" brand={own} onSaved={onChanged} />
-
-      <Card
-        title="競合ブランド"
-        description="比較対象のブランドです。自社と同じ基準で参照率・引用率を出し、同じグラフに重ねます。"
-      >
-        <ul className="mb-4 space-y-2">
-          {competitors.map((brand) => (
-            <li key={brand.id} className="flex flex-wrap items-center gap-2 border-b border-line py-2 text-[13px] last:border-0">
-              <span className="font-bold text-ink">{brand.displayName}</span>
-              <span className="text-muted">{brand.domains.join(" / ") || "ドメイン未登録"}</span>
-              <span className="text-[11px] text-muted">別名 {brand.aliases.length} 件</span>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="ml-auto"
-                onClick={async () => {
-                  await saveSetup({ kind: "delete", target: "brand", id: brand.id });
-                  onChanged();
-                }}
-              >
-                削除
-              </Button>
-            </li>
-          ))}
-          {competitors.length === 0 && <li className="text-[13px] text-muted">まだ登録がありません。</li>}
-        </ul>
-        <BrandForm title="競合を追加" type="competitor" brand={null} onSaved={onChanged} compact />
-      </Card>
-
+      <SharedBrandsCard own={own} competitors={competitors} />
       <PromptForm prompts={setup.prompts} precisionSlots={setup.account.precisionSlots} onChanged={onChanged} />
-      <KeywordForm keywords={setup.keywords} onChanged={onChanged} />
+      <SharedKeywordsCard keywords={setup.keywords} />
     </div>
   );
 }
 
-/* ───────────── ブランド ───────────── */
+/* ───────────── 設定から取り込んだブランド ───────────── */
 
-function BrandForm({ title, type, brand, onSaved, compact }: { title: string; type: "own" | "competitor"; brand: GeoBrand | null; onSaved: () => void; compact?: boolean }) {
-  const [displayName, setDisplayName] = useState(brand?.displayName ?? "");
-  const [aliases, setAliases] = useState((brand?.aliases ?? []).join("\n"));
-  const [domains, setDomains] = useState((brand?.domains ?? []).join("\n"));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    setBusy(true);
-    setError(null);
-    try {
-      await saveSetup({
-        kind: "brand",
-        ...(brand ? { id: brand.id } : {}),
-        type,
-        displayName: displayName.trim(),
-        aliases: aliases.split("\n").map((s) => s.trim()).filter(Boolean),
-        domains: domains.split("\n").map((s) => s.trim()).filter(Boolean),
-      });
-      if (!brand) {
-        setDisplayName("");
-        setAliases("");
-        setDomains("");
-      }
-      onSaved();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "保存できませんでした");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const body = (
-    <>
-      {error && <Callout tone="fail" className="mb-3">{error}</Callout>}
-      <div className="grid gap-3 @2xl:grid-cols-3">
-        <Field label="ブランド名" hint="画面に出る正式名称">
-          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="サンプル工房" />
-        </Field>
-        <Field label="別名（1 行に 1 つ）" hint="カナ・英字・略称・サービス名。多いほど取りこぼしが減ります">
-          <textarea
-            className="min-h-[5rem] w-full rounded-sm border border-line bg-panel px-3 py-2 text-[13px] text-ink"
-            value={aliases}
-            onChange={(e) => setAliases(e.target.value)}
-            placeholder={"サンプルコウボウ\nSample Kobo\nサンプル"}
-          />
-        </Field>
-        <Field label="ドメイン（1 行に 1 つ）" hint="サブドメインも自社として数えます">
-          <textarea
-            className="min-h-[5rem] w-full rounded-sm border border-line bg-panel px-3 py-2 text-[13px] text-ink"
-            value={domains}
-            onChange={(e) => setDomains(e.target.value)}
-            placeholder={"sample-kobo.jp"}
-          />
-        </Field>
-      </div>
-      <Button className="mt-3" size="sm" loading={busy} disabled={!displayName.trim()} onClick={() => void submit()}>
-        {brand ? "保存する" : "追加する"}
-      </Button>
-    </>
+function BrandRow({ brand, label }: { brand: GeoBrand; label?: string }) {
+  return (
+    <li className="flex flex-wrap items-center gap-2 border-b border-line py-2 text-[13px] last:border-0">
+      {label && <Badge tone="info" icon={false}>{label}</Badge>}
+      <span className="font-bold text-ink">{brand.displayName}</span>
+      <span className="text-muted">{brand.domains.join(" / ") || "ドメイン未登録"}</span>
+      <span className="text-[11px] text-muted">{brand.aliases.length > 0 ? `別名: ${brand.aliases.join("、")}` : "別名なし"}</span>
+    </li>
   );
+}
 
-  return compact ? <div className="border-t border-line pt-4">{body}</div> : <Card title={title} description="ここで登録した別名で、回答本文にブランドが出てきたかを判定します（同名の一般名詞を拾わないよう、最後は AI が文脈で確かめます）。">{body}</Card>;
+function SharedBrandsCard({ own, competitors }: { own: GeoBrand | null; competitors: GeoBrand[] }) {
+  return (
+    <Card
+      title="自社ブランドと競合（設定から自動で取り込み）"
+      description="設定に登録したホームページ（サイト名・ブランドの表記ゆれ・ドメイン）を自社ブランド、競合サイトを競合ブランドとして使います。回答本文に別名が出てきたかで言及を判定するので、表記ゆれは多いほど取りこぼしが減ります。直すときは設定で変えてください（開き直すと反映されます）。"
+      actions={
+        <ButtonLink href={COMPETITORS_SETTINGS_HREF} size="sm" variant="ghost">
+          設定で直す
+        </ButtonLink>
+      }
+    >
+      <ul>
+        {own && <BrandRow brand={own} label="自社" />}
+        {competitors.map((brand) => (
+          <BrandRow key={brand.id} brand={brand} label="競合" />
+        ))}
+        {!own && competitors.length === 0 && <li className="py-2 text-[13px] text-muted">まだ設定にホームページが登録されていません。</li>}
+        {own && competitors.length === 0 && <li className="py-2 text-[13px] text-muted">競合は未登録です（設定の「競合サイト」で足せます）。</li>}
+      </ul>
+    </Card>
+  );
+}
+
+/* ───────────── 設定から取り込んだキーワード ───────────── */
+
+function SharedKeywordsCard({ keywords }: { keywords: GeoKeyword[] }) {
+  return (
+    <Card
+      title="検索キーワード（順位と AI Overviews。設定から自動で取り込み）"
+      description="設定の「対策キーワード」を使い、Google の検索結果から順位と AI Overviews の参照リンクを週 1 回取得します。足す・消すは設定で行ってください。"
+      actions={
+        <ButtonLink href={KEYWORDS_SETTINGS_HREF} size="sm" variant="ghost">
+          設定で直す
+        </ButtonLink>
+      }
+    >
+      <ul className="divide-y divide-line border-y border-line">
+        {keywords.map((keyword) => (
+          <li key={keyword.id} className="flex flex-wrap items-center gap-2 py-2 text-[13px]">
+            <span className="min-w-0 flex-1 text-ink">{keyword.text}</span>
+            {keyword.trackRank && <Badge tone="neutral" icon={false}>順位</Badge>}
+            {keyword.trackAio && <Badge tone="neutral" icon={false}>AIO</Badge>}
+          </li>
+        ))}
+        {keywords.length === 0 && <li className="py-2 text-[13px] text-muted">まだ登録がありません。設定の「対策キーワード」で登録すると、ここに出ます。</li>}
+      </ul>
+    </Card>
+  );
 }
 
 /* ───────────── プロンプト ───────────── */
@@ -236,60 +214,6 @@ function PromptForm({ prompts, precisionSlots, onChanged }: { prompts: GeoPrompt
       <Button className="mt-3" size="sm" loading={busy} disabled={!text.trim() || models.length === 0} onClick={() => void submit()}>
         追加する
       </Button>
-    </Card>
-  );
-}
-
-/* ───────────── キーワード ───────────── */
-
-function KeywordForm({ keywords, onChanged }: { keywords: GeoKeyword[]; onChanged: () => void }) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <Card title="検索キーワード（順位と AI Overviews）" description="Google の検索結果から、順位と AI Overviews の参照リンクを週 1 回取得します。">
-      <ul className="mb-4 divide-y divide-line border-y border-line">
-        {keywords.map((keyword) => (
-          <li key={keyword.id} className="flex flex-wrap items-center gap-2 py-2 text-[13px]">
-            <span className="min-w-0 flex-1 text-ink">{keyword.text}</span>
-            {keyword.trackRank && <Badge tone="neutral" icon={false}>順位</Badge>}
-            {keyword.trackAio && <Badge tone="neutral" icon={false}>AIO</Badge>}
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={async () => {
-                await saveSetup({ kind: "delete", target: "keyword", id: keyword.id });
-                onChanged();
-              }}
-            >
-              削除
-            </Button>
-          </li>
-        ))}
-        {keywords.length === 0 && <li className="py-2 text-[13px] text-muted">まだ登録がありません。</li>}
-      </ul>
-      <div className="flex flex-wrap items-end gap-3">
-        <Field label="キーワード" className="min-w-[16rem] flex-1">
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="SEO ツール おすすめ" />
-        </Field>
-        <Button
-          size="sm"
-          loading={busy}
-          disabled={!text.trim()}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await saveSetup({ kind: "keyword", text: text.trim(), trackRank: true, trackAio: true });
-              setText("");
-              onChanged();
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          追加する
-        </Button>
-      </div>
     </Card>
   );
 }
