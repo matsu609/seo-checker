@@ -150,6 +150,11 @@ export function storeNames(): string[] {
   return Array.from(registry.keys());
 }
 
+/** 登録済みの全ストア（サーバー同期 StoreSync.tsx 用） */
+export function allStores(): Store<unknown>[] {
+  return Array.from(registry.values());
+}
+
 /** 全ストアを初期値に戻す（設定画面の「すべて削除」） */
 export function resetAll(): void {
   for (const store of registry.values()) store.reset();

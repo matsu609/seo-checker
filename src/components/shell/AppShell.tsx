@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { FreeShell } from "@/components/free/FreeShell";
 import { findFeatureByPath } from "@/lib/features/registry";
+import { StoreSync } from "@/lib/store/StoreSync";
 import { ImpersonationBanner } from "./ImpersonationBanner";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -102,7 +103,13 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
     消える（判定がお客様のアカウントで行われるため）ので、ここが自分に戻る唯一の入口になる。
     ClerkProvider が無い環境（開発・E2E）では出せないので authEnabled で判断する。
   */
-  const banner = authEnabled ? <ImpersonationBanner /> : null;
+  // ブラウザ側ストアのサーバー同期も同じ条件（ログインがある環境だけ）。画面には何も出さない
+  const banner = authEnabled ? (
+    <>
+      <ImpersonationBanner />
+      <StoreSync />
+    </>
+  ) : null;
 
   if (isBare)
     return (

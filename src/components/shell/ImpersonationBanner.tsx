@@ -47,7 +47,7 @@ export function ImpersonationBanner() {
         <span className="font-bold">{who}</span> さんの画面を見ています
       </span>
       <span className="text-[12px]">
-        お支払いの操作はできません。30 分で自動的に切れます。
+        見るための画面です。お支払いの操作と、この方のデータの保存はできません。30 分で自動的に切れます。
       </span>
       <button
         type="button"

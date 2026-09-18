@@ -116,8 +116,9 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
     if (
       !window.confirm(
         `${label} さんの画面を開きます。\n\n` +
-          "・いまのログインがこの方のものに置き換わります（30 分で切れます）\n" +
-          "・画面の下の帯から、いつでも自分に戻れます\n" +
+          "・新しいタブで開きます。この方が登録・実行したもの（ホームページ・履歴・下書き）がそのまま見えます\n" +
+          "・開いている間、このブラウザのログインはこの方のものになります（30 分で切れます）\n" +
+          "・そのタブの下の帯「終了して自分に戻る」で戻ってから、このタブを使ってください\n" +
           "・お支払いの操作はできません（確認のための機能です）",
       )
     ) {
@@ -126,6 +127,9 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
     const key = `${row.userId}:impersonate`;
     setBusy(key);
     setError(null);
+    // 新しいタブで開く（マスター画面はそのまま残す。利用者の指示 2026-09-18）。
+    // タブは押した直後（fetch の前）に開かないとポップアップとして塞がれるので、先に空で開いて後から URL を入れる
+    const tab = window.open("", "_blank");
     try {
       const res = await fetch("/api/admin/impersonate", {
         method: "POST",
@@ -136,10 +140,13 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
       if (!res.ok || !body.url) {
         throw new Error(body.error ?? `代理ログインを開始できませんでした（HTTP ${res.status}）`);
       }
-      // Clerk のチケットを受け取る URL。ここへ遷移した時点でお客様としてのログインになる
-      window.location.assign(body.url);
+      // Clerk のチケットを受け取る URL。開いた時点でお客様としてのログインになる
+      if (tab) tab.location.href = body.url;
+      else window.location.assign(body.url);
     } catch (err) {
+      tab?.close();
       setError(err instanceof Error ? err.message : "代理ログインを開始できませんでした");
+    } finally {
       setBusy(null);
     }
   }
