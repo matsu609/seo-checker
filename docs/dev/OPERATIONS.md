@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r99 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r100 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -301,6 +301,14 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 76 | **クイック診断の入口を塞ぐ**（サイドバーから削除・ログイン済みは `/start` へ・紹介サイトと robots から除外）とタブ順を SEO → MEO → AIO に | Claude | **完了（r54、09-13）** |
 | 77 | 紹介サイトの「クイック診断 0 円」の料金カードを消したので、**無料の診断を営業でどう使うか**（誰に、どの場面で URL を渡すか）を決める。渡す URL は `https://app.seo-checker.tokyo/` と `/meo` | 利用者 | 未 |
 | 82 | **GSC / GA4 / CRM の自動診断 + コンサル回答生成**: 仕様は [diagnosis-rules-spec.md](./diagnosis-rules-spec.md)。利用者の決定（09-15）= 入口は既存の Google 連携のみ・CSV は作らない／精密診断と同義。**G1〜G6 完了（r61 / r65 / r66）= 134 ルール**（GSC 79 + GA4 47 + 突き合わせ 8）。§11 の 20 件は重複・共起を除いて 8 件に絞った（利用者の指示「件数より体験の質」）。残り: G7（人間による承認）／ G8（CRM） | Claude | **G1〜G6 完了（r66）。残りは G7・G8 で、どちらも利用者の判断待ち** |
+
+### Clerk のアカウントポータルを通らせない設定（#117 の追加。r100 のあと）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` = `/sign-in`、`NEXT_PUBLIC_CLERK_SIGN_UP_URL` = `/sign-up`（Production と Preview）→ Redeploy |
+| 2 | Clerk ダッシュボード → Configure → Account Portal（見当たらなければ Paths） | https://dashboard.clerk.com/ | 「Sign-in」を **Custom URL** `https://app.seo-checker.tokyo/sign-in`、「Sign-up」を `https://app.seo-checker.tokyo/sign-up` に。「After sign-in / After sign-up」は `https://app.seo-checker.tokyo/start` |
+| 3 | 確認（シークレットウィンドウ） | https://accounts.seo-checker.tokyo/sign-up | 開いたら `app.seo-checker.tokyo/sign-up`（6 項目のフォーム）に転送されること。`https://app.seo-checker.tokyo/tools/rank` を未ログインで開くと `app.seo-checker.tokyo/sign-in` に着くこと |
 
 ### 登録つき無料診断を本番で開く手順（#117。r98 の反映後）
 
@@ -2839,3 +2847,10 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **気づき**: プランのゲートは運用者（`ADMIN_EMAILS`）を特別扱いしていなかったので、`free` にした瞬間に運用者自身のツールも閉じる。r99 で **運用者は全ツールを使える**ようにした（`checkPlanForFeature` / `canUseFeature` / `/start`）。契約状況の表示（`/plans` の「現在のプラン」）は変えていない。
 - 残り: #117 の 1（既存契約者の個別開放。まだなら `/admin` で）、4〜5（Clerk の設定確認）、6〜7（本番で登録 → 2 回 → 使い切りを通す）。
 - 続報（09-18）: 利用者が Clerk の User & authentication の画面を共有。**Email: Sign-up with email ON / Require email ON / Verify at sign-up ON（Email verification code ✓）**、Phone: OFF、Username: OFF、**Password: Sign-up with password ON**。登録フォームの前提（#117 の 4）は満たしている。未確認: User model の Name が必須になっていないか（必須だと `finalize` で止まる。任意か OFF に）。
+
+### 2026-09-18（利用者の報告: 登録画面にサイドバーが出て、押すと Clerk のログイン画面に飛ぶ、r100）
+
+- 利用者報告: Clerk の Allowlist のトグルを OFF、User model の Name を任意に。`/sign-up` を開くと左に有料ツールのサイドバーが出て、押すと `accounts.seo-checker.tokyo/sign-in`（Clerk のアカウントポータル）に飛ぶ。「この画面から登録されるとカスタマーサポートが面倒」。
+- 原因: ① 登録・ログイン画面が管理画面の枠（AppShell + サイドバー）で描かれていた ② Proxy の `redirectToSignIn()` の行き先が Clerk のアカウントポータル（`signInUrl` 未指定）。
+- **r100**: ① `/sign-in` `/sign-up` `/sso-callback` は無料診断と同じ公開シェル（ロゴ・規約だけ）で描く ② `clerkMiddleware` に `signInUrl: "/sign-in"` `signUpUrl: "/sign-up"`。`.env.example` の `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `SIGN_UP_URL` を有効化（本番の Vercel にも入れる）。
+- **アカウントポータルそのものを塞ぐのは Clerk 側の設定**（下の表）。Clerk ダッシュボード → Account Portal（または Paths）で Sign-in / Sign-up のページを「アプリの URL」に向けると、`accounts.seo-checker.tokyo/sign-up` を開いても `https://app.seo-checker.tokyo/sign-up` に転送される。

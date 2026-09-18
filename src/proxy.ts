@@ -31,7 +31,11 @@ function getHandler(): NextMiddleware {
     // 追いかけて HTML を受け取ってしまい、呼び出し側がエラーを表示できない。
     if (isApiPath(pathname)) return unauthorizedResponse();
     return redirectToSignIn();
-  });
+  },
+  // 未ログインの行き先はこのアプリの画面（/sign-in → そこから /sign-up の登録フォーム）。
+  // 指定しないと Clerk のアカウントポータル（accounts.seo-checker.tokyo）に飛び、
+  // 登録フォームを通らずにアカウントが作られてしまう（利用者の報告 2026-09-18）
+  { signInUrl: "/sign-in", signUpUrl: "/sign-up" });
   return handler;
 }
 
