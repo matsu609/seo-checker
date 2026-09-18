@@ -7,6 +7,7 @@
  * 受け付けると、Checkout が落ちるか、払っていない段階が開いてしまう。
  */
 import { currentUser } from "@clerk/nextjs/server";
+import Stripe from "stripe";
 import { impersonationBlockedResponse, isImpersonating } from "@/lib/admin/impersonate";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { requireAuth } from "@/lib/auth/guard";
@@ -55,6 +56,8 @@ export async function POST(request: Request) {
     return Response.json({ url }, { headers: NO_STORE });
   } catch (err) {
     console.error("[billing] Checkout の作成に失敗", err);
-    return Response.json({ error: "申し込み画面を開けませんでした。しばらくしてからもう一度お試しください" }, { status: 502, headers: NO_STORE });
+    // Stripe が返した理由はそのまま出す（鍵や個人情報は含まない。原因の切り分けに要る）
+    const detail = err instanceof Stripe.errors.StripeError ? `Stripe: ${err.message}` : err instanceof Error ? err.message : null;
+    return Response.json({ error: "申し込み画面を開けませんでした。しばらくしてからもう一度お試しください", detail }, { status: 502, headers: NO_STORE });
   }
 }

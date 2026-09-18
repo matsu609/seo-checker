@@ -1,33 +1,28 @@
 /**
- * 割引コードのパターンに対応する Stripe のクーポンを用意する（サーバー専用）。
+ * 割引のパターンに対応する Stripe のクーポンを用意する（サーバー専用）。
  *
  * クーポンは Stripe の画面で手で作らず、ここが決まった ID で自動で作る（無ければ作る・あれば使う）。
- * 運用者の作業を「PROMO_CODES にコードを書く」だけにするため。テスト鍵と本番鍵で別々に作られる。
+ * 運用者の作業を「画面で割引を選ぶ」だけにするため。テスト鍵と本番鍵で別々に作られる。
  *
- * ID にはスタンダードの商品 ID を含める。Stripe の商品を作り直したときに、古い商品にしか
- * 効かないクーポンを掴まないようにするため（applies_to.products で商品を限定している）。
+ * 商品の限定（applies_to）は付けない。スタンダード専用という制限はアプリ側（/api/billing/checkout が
+ * ライトには割引を付けない）で守る。Checkout に渡すクーポンをできるだけ素直な形にして、
+ * 失敗の余地を減らすため（2026-09-18 に本番で「申し込み画面を開けませんでした」が出た際に単純化）。
  */
 import Stripe from "stripe";
 import type { PromoPattern } from "./promo";
 
-export function couponIdFor(pattern: PromoPattern, productId: string): string {
-  return `seo-checker-off${pattern.amountOff}-${productId}`;
+export function couponIdFor(pattern: PromoPattern): string {
+  return `seo-checker-off${pattern.amountOff}`;
 }
 
 function isStripeCode(err: unknown, code: string): boolean {
   return err instanceof Stripe.errors.StripeError && err.code === code;
 }
 
-/** その Price が属する商品の ID */
-export async function productIdOfPrice(stripe: Stripe, priceId: string): Promise<string> {
-  const price = await stripe.prices.retrieve(priceId);
-  return typeof price.product === "string" ? price.product : price.product.id;
-}
-
 /** パターンのクーポン ID（値引きが無いパターンは null）。無ければ Stripe に作る */
-export async function ensureCoupon(stripe: Stripe, pattern: PromoPattern, productId: string): Promise<string | null> {
+export async function ensureCoupon(stripe: Stripe, pattern: PromoPattern): Promise<string | null> {
   if (pattern.amountOff <= 0) return null;
-  const id = couponIdFor(pattern, productId);
+  const id = couponIdFor(pattern);
   try {
     const existing = await stripe.coupons.retrieve(id);
     if (existing.valid) return id;
@@ -43,7 +38,6 @@ export async function ensureCoupon(stripe: Stripe, pattern: PromoPattern, produc
       amount_off: pattern.amountOff,
       currency: "jpy",
       duration: "forever",
-      applies_to: { products: [productId] },
     });
   } catch (err) {
     // 同時に 2 人が申し込んで先に作られていたら、それを使う

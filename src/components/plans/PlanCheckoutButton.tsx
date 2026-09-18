@@ -35,8 +35,12 @@ export function PlanCheckoutButton({ plan, label, variant = "primary", className
         // 確認済みの割引コード（PromoCodeField）。スタンダード専用なので他のプランには付けない
         body: JSON.stringify({ plan, ...(plan === PROMO_PLAN && promoCodeStore.get().code ? { code: promoCodeStore.get().code } : {}) }),
       });
-      const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!res.ok || !body.url) throw new Error(body.error || `リクエストに失敗しました（HTTP ${res.status}）`);
+      const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string; detail?: string | null };
+      if (!res.ok || !body.url) {
+        const message = body.error || `リクエストに失敗しました（HTTP ${res.status}）`;
+        // サーバーが理由（Stripe のメッセージ）を返したら添える。運用者に伝えてもらうため
+        throw new Error(body.detail ? `${message}（${body.detail}）` : message);
+      }
       window.location.assign(body.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "申し込み画面を開けませんでした");

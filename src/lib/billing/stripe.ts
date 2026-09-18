@@ -28,7 +28,7 @@
  */
 import Stripe from "stripe";
 import { PLANS, STRIPE_PLANS, type PlanId } from "@/lib/plans/catalog";
-import { ensureCoupon, productIdOfPrice } from "./coupons";
+import { ensureCoupon } from "./coupons";
 import { FIRST_MONTH_FREE_DAYS, type PromoPattern } from "./promo";
 import { trialDays } from "./trial";
 
@@ -116,7 +116,7 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<strin
   const promo = input.promo ?? null;
   // 割引コードの無料期間が優先。無ければ全員向けの STRIPE_TRIAL_DAYS（既定 0）
   const days = promo?.firstMonthFree ? FIRST_MONTH_FREE_DAYS : trialDays();
-  const coupon = promo ? await ensureCoupon(stripe, promo, await productIdOfPrice(stripe, price)) : null;
+  const coupon = promo ? await ensureCoupon(stripe, promo) : null;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price, quantity: 1 }],
