@@ -29,7 +29,7 @@ function clerkMessage(err: { code?: string; message?: string; longMessage?: stri
       case "form_identifier_exists":
         return "このメールアドレスは登録済みです。ログインしてください。";
       case "form_password_pwned":
-        return "このパスワードは流出したことのあるものです。別のパスワードにしてください。";
+        return "このパスワードは過去の情報漏えいで流出したことがあるため使えません（数字だけ・単語だけの並びは流出リストに載りやすいです）。英字と数字を混ぜた別のパスワードにしてください。";
       case "form_password_length_too_short":
         return `パスワードは ${PASSWORD_MIN} 文字以上にしてください。`;
       case "form_param_format_invalid":
@@ -186,7 +186,7 @@ export function RegisterForm() {
             ))}
           </Select>
         </Field>
-        <Field label="パスワード" htmlFor="password" hint={`${PASSWORD_MIN} 文字以上`}>
+        <Field label="パスワード" htmlFor="password" hint={`${PASSWORD_MIN} 文字以上。英字と数字を混ぜてください。過去に流出したことのあるパスワード（数字だけ・単語だけなど）は使えません`}>
           <Input id="password" type="password" autoComplete="new-password" value={form.password} onChange={(e) => set("password", e.target.value)} minLength={PASSWORD_MIN} />
         </Field>
       </div>

@@ -36,7 +36,8 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
   const feature = findFeatureByPath(pathname);
   // クイック診断（/ と /meo）と、登録・ログイン画面は専用の公開シェルで出す（サイドバーもトップバーも出さない）。
   // 登録画面に有料ツールの一覧が並ぶと、見込み客がそこを押して Clerk のログイン画面に飛んでしまう（利用者の報告 2026-09-18）
-  const isFree = feature?.group === "free" || /^\/(sign-in|sign-up|sso-callback)(\/|$)/.test(pathname);
+  const isAuthPage = /^\/(sign-in|sign-up|sso-callback)(\/|$)/.test(pathname);
+  const isFree = feature?.group === "free" || isAuthPage;
   // 来店客向けのアンケート（/r/<slug>）はサイドバーもトップバーも出さない（店舗の画面ではない）
   const isBare = pathname.startsWith("/r/");
   const drawerId = useId();
@@ -114,7 +115,9 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
     return (
       <>
         {banner}
-        <FreeShell authEnabled={authEnabled}>{children}</FreeShell>
+        <FreeShell authEnabled={authEnabled} minimal={isAuthPage}>
+          {children}
+        </FreeShell>
       </>
     );
 

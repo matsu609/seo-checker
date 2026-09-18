@@ -20,9 +20,11 @@ export interface FreeShellProps {
   children: ReactNode;
   /** Clerk のキーが設定されているか。false ならログイン状態を見ない */
   authEnabled: boolean;
+  /** 登録・ログイン画面: ヘッダーのボタンとフッターを出さない（フォームの中に同じ導線があるため。利用者の指示 2026-09-18） */
+  minimal?: boolean;
 }
 
-export function FreeShell({ children, authEnabled }: FreeShellProps) {
+export function FreeShell({ children, authEnabled, minimal = false }: FreeShellProps) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="no-print sticky top-0 z-10 flex h-12 items-center gap-3 border-b border-line bg-panel px-4 md:px-8">
@@ -32,7 +34,7 @@ export function FreeShell({ children, authEnabled }: FreeShellProps) {
           <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">クイック診断・無料</span>
         </Link>
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {authEnabled ? (
+          {minimal ? null : authEnabled ? (
             <FreeHeaderActions />
           ) : (
             <Link href={SIGN_UP_PATH} className={buttonClass("primary", "sm")}>
@@ -44,6 +46,7 @@ export function FreeShell({ children, authEnabled }: FreeShellProps) {
 
       <div className="flex-1">{children}</div>
 
+      {!minimal && (
       <footer className="no-print border-t border-line px-4 py-4 text-[11px] text-muted md:px-8">
         <p>
           クイック診断は、公開されている情報だけをその場で採点するものです。アカウント登録のあと、メールアドレスごとに 2 回まで無料。毎週の計測・競合比較・AI の改修案は
@@ -64,6 +67,7 @@ export function FreeShell({ children, authEnabled }: FreeShellProps) {
           </Link>
         </p>
       </footer>
+      )}
     </div>
   );
 }

@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r100 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r101 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -2854,3 +2854,9 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 原因: ① 登録・ログイン画面が管理画面の枠（AppShell + サイドバー）で描かれていた ② Proxy の `redirectToSignIn()` の行き先が Clerk のアカウントポータル（`signInUrl` 未指定）。
 - **r100**: ① `/sign-in` `/sign-up` `/sso-callback` は無料診断と同じ公開シェル（ロゴ・規約だけ）で描く ② `clerkMiddleware` に `signInUrl: "/sign-in"` `signUpUrl: "/sign-up"`。`.env.example` の `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `SIGN_UP_URL` を有効化（本番の Vercel にも入れる）。
 - **アカウントポータルそのものを塞ぐのは Clerk 側の設定**（下の表）。Clerk ダッシュボード → Account Portal（または Paths）で Sign-in / Sign-up のページを「アプリの URL」に向けると、`accounts.seo-checker.tokyo/sign-up` を開いても `https://app.seo-checker.tokyo/sign-up` に転送される。
+
+### 2026-09-18（登録画面の整理: ヘッダーのボタンとフッターを消す、パスワードの案内、r101）
+
+- 利用者報告: `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `SIGN_UP_URL` を追加して Redeploy 済み。登録フォームでパスワードを入れると「パスワードがオンラインデータ漏洩により流出しました」で進めない。右上の「ログイン」「登録して無料診断」とフッター（クイック診断の説明・規約類）は不要。
+- **パスワードのエラーは Clerk の流出済みパスワード判定（Have I Been Pwned）**で、長さの条件ではない。試した値（数字の並びなど）が流出リストに載っていると、何文字でも拒否される。英字 + 数字を混ぜた別の値なら通る。Clerk の Password 設定に最小文字数の項目があり、既定は 8（利用者は「15 文字以上のはず」と認識 → 設定を確認してもらい、違えば `PASSWORD_MIN` を合わせる）。
+- **r101**: 登録・ログイン画面（FreeShell の `minimal`）ではヘッダーのボタンとフッターを出さない。パスワード欄の案内を「8 文字以上。英字と数字を混ぜる。流出したことのあるパスワードは使えない」に、流出時のエラー文も具体的に。
