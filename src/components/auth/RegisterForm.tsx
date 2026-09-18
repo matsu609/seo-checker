@@ -10,7 +10,7 @@
  *
  * Clerk のボット対策（Smart CAPTCHA）が有効なときは #clerk-captcha に描画されるので、空の div を置いておく。
  */
-import { useSignUp } from "@clerk/nextjs";
+import { useClerk, useSignUp } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -56,6 +56,7 @@ interface Form {
 export function RegisterForm() {
   // Clerk v7 の useSignUp（signals API）。create → verifications.sendEmailCode → verifyEmailCode → finalize
   const { signUp, fetchStatus } = useSignUp();
+  const clerk = useClerk();
   const isLoaded = fetchStatus !== undefined;
   const router = useRouter();
   const [form, setForm] = useState<Form>({ contactName: "", email: "", company: "", phone: "", storeType: "", password: "" });
@@ -88,7 +89,8 @@ export function RegisterForm() {
     }
     setBusy(true);
     try {
-      const created = await signUp.create({ emailAddress: email, password: form.password, unsafeMetadata: { [LEAD_KEY]: lead.data } });
+      // legalAccepted: フォームに規約・ポリシーへの同意文があるので、Clerk の「規約への同意」が必須設定でも止まらないようにする
+      const created = await signUp.create({ emailAddress: email, password: form.password, legalAccepted: true, unsafeMetadata: { [LEAD_KEY]: lead.data } });
       if (created.error) {
         setError(clerkMessage(created.error));
         return;
@@ -117,9 +119,25 @@ export function RegisterForm() {
         setError(clerkMessage(verified.error));
         return;
       }
-      // ログイン状態にする。/start が契約状況で振り分ける（登録直後は未契約なので無料診断へ）
-      const done = await signUp.finalize({ navigate: () => router.push("/start") });
-      if (done.error) setError(clerkMessage(done.error));
+      // 確認後の最新の状態は Clerk のクライアント側リソースから読む（フックが返した値は押した時点の写し。
+      // 写しの finalize() は「Cannot finalize sign-up without a created session」で止まることがある。2026-09-18）
+      const current = clerk.client?.signUp;
+      const sessionId = current?.createdSessionId ?? signUp.createdSessionId ?? null;
+      if (current?.status === "complete" && sessionId) {
+        // ログイン状態にする。/start が契約状況で振り分ける（登録直後は未契約なので無料診断へ）
+        await clerk.setActive({ session: sessionId });
+        router.push("/start");
+        return;
+      }
+      if (sessionId) {
+        await clerk.setActive({ session: sessionId });
+        router.push("/start");
+        return;
+      }
+      // 何が足りないかを画面に出す（Clerk 側の必須項目や追加の確認が残っているとき）
+      const missing = (current?.missingFields ?? []).join(", ") || "なし";
+      const unverified = (current?.unverifiedFields ?? []).join(", ") || "なし";
+      setError(`登録が完了していません（状態: ${current?.status ?? "不明"} / 不足している項目: ${missing} / 未確認: ${unverified}）。この表示をそのまま運営者にお知らせください。`);
     } catch (err) {
       setError(err instanceof Error && err.message ? err.message : "確認が完了しませんでした。");
     } finally {
