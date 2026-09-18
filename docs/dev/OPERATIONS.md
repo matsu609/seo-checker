@@ -2771,3 +2771,4 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 
 - 原因: 検索語に「（v4）」を含めていた。ライブラリ上の名前は「Google My Business API」。#116 の表を直リンク（`mybusiness.googleapis.com` など 4 本）に書き換えた。
 - ドキュメントのみの更新。
+- 続報（09-18 15:54）: 「My Business」で検索すると Business Information / Account Management / Verifications の 3 本だけが出て、**v4（Google My Business API）は一覧に出ない**。承認されたプロジェクトにしか表示されない扱いと判断。Performance API は名前が違う（「Business Profile Performance」）ので直リンクで有効化するよう案内。v4 は承認後に直リンクを開き直す。
