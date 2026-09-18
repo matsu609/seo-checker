@@ -2946,3 +2946,4 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 疑わしい箇所: r108 で割引を設定したアカウントなら、クーポンの自動作成（`coupons.create` の `applies_to`）か Price → 商品 ID の照会。設定していないなら Stripe 側（鍵・Price ID）。
 - **r110**: ① 502 の応答に Stripe のメッセージ（`detail`）を添え、ボタンの下に「（Stripe: …）」として出す。② クーポンの商品限定（`applies_to`）と `prices.retrieve` をやめて単純化（スタンダード専用の制限はアプリ側で守っている。クーポン ID は `seo-checker-off<金額>` に）。lint / tsc / test（1,551 件）/ build 通過。
 - **利用者の作業**: 反映後にもう一度「スタンダードを申し込む」を押し、出た文（括弧内）を送る。
+- 続報（20:20 ごろ）: 利用者が Vercel の Deployments を開いて「デプロイはどこで見るの」→ いちばん上の行（f684865・Ready・青い Production バッジ）が本番で動いている版で、r110 は反映済みと回答。次は `/plans` で再度「スタンダードを申し込む」を押して、括弧内の Stripe の文を送ってもらう。
