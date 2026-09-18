@@ -569,6 +569,11 @@
       "commit": "d8cc44b",
       "date": "2026-09-18",
       "summary": "「代理店アカウント」を「管理アカウント」に改称、マスター画面の外部連携から Open PageRank を外し、Google ビジネス プロフィール（OAuth）・CrUX・Stripe を追加"
+    },
+    {
+      "commit": "819f5f6",
+      "date": "2026-09-18",
+      "summary": "重複していた共通処理（eq / looksLikeHtml / NO_STORE / 認証の前置き）を 1 か所に寄せる（動作は変えない）"
     }
   ]
 }
