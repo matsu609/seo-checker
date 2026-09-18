@@ -2788,3 +2788,4 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 続報（09-18）: 利用者「メールまだ来てない」（`matsumatsu452@gmail.com`）。09-11 申請の 5 営業日目で目安（7〜10 営業日 = 9/24〜9/25）の範囲内。**9/26（金）になっても無ければ督促**（文案は下）。督促文（英語。申請時の自動返信に返信する形で）:
   > Subject: Follow-up on Business Profile API access request (Case 0-4126000041187)
   > Hello, I submitted a Basic API access request on September 11, 2026 (Case ID 0-4126000041187) for Google Cloud project seo-checker-508104 (website: https://seo-checker.tokyo/). I have not received a response yet. Could you let me know the current status, or whether any additional information is needed from my side? Thank you.
+- 続報（09-18）: 利用者「メールが来たら知らせる。#116 の残り（スコープ・テストユーザー）を進める」→ スコープ（データアクセスで `business.manage` の有無・追加・GSC / GA4 の残骸を外す）とテストユーザー（対象で `matsumatsu452@gmail.com` を追加）の手順を画面ごとに案内。完了報告待ち。
