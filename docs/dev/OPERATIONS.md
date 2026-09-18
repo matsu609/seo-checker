@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r117 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r118 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -389,7 +389,7 @@ SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計
 | 5 | Vercel → 環境変数（同じ画面） | 同上 | もう 1 つ「Add」→ Key `DATAFORSEO_PASSWORD`、Value に 3 のパスワード、Production、**Sensitive にチェック** |
 | 6 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | Redeploy |
 | 7 | 本番 → マスター画面 | https://app.seo-checker.tokyo/admin | 外部連携の「DataForSEO」が「設定済み」になることを確認 |
-| 8 | 本番 → AI 検索モニタリング | https://app.seo-checker.tokyo/tools/geo | 「設定」タブで**自社ブランド（名前・別名・ドメイン）**を登録 → プロンプトを登録（まずは 5 本ほど）。競合も入れると比較できる |
+| 8 | 本番 → 設定 / AI 検索モニタリング | https://app.seo-checker.tokyo/settings → https://app.seo-checker.tokyo/tools/geo | 設定にホームページ（サイト名・ブランドの表記ゆれ）・競合・対策キーワードが入っていることを確認（r118 から AI 検索モニタリングはここから自動で取り込む）→ AI 検索モニタリングの「プロンプトと計測対象」タブでプロンプトを登録（まずは 5 本ほど） |
 | 9 | 翌朝 | https://app.seo-checker.tokyo/tools/geo | Cron（毎日 5:00 JST）が当日分を計測するので、翌朝ダッシュボードに数字が入る。すぐ見たいときは「今すぐ実行」（2 クレジット） |
 
 **消し込み用のチェックリスト**（終わったら `[x]` にして、この行を更新して push する）
@@ -402,7 +402,7 @@ SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計
 - [ ] 5. Vercel に `DATAFORSEO_PASSWORD` を追加した（Sensitive）
 - [ ] 6. Redeploy した
 - [ ] 7. `/admin` の外部連携で DataForSEO が「設定済み」になった
-- [ ] 8. `/tools/geo` で自社ブランド（名前・別名・ドメイン）を登録した
+- [ ] 8. ~~`/tools/geo` で自社ブランドを登録した~~ → r118 から自社ブランド・競合・キーワードは **設定（/settings）のホームページ・競合・対策キーワード** から自動で取り込む。設定にホームページが登録されていれば何もしなくてよい
 - [ ] 8b. プロンプトを 5 本ほど登録した（競合も入れると比較できる）
 - [ ] 9. 翌朝、ダッシュボードに数字が入ったことを確認した
 
@@ -581,6 +581,24 @@ alter table user_stores enable row level security;
 **代理ログインのタブと Clerk のセッション**: ログインの状態はブラウザ全体で共有されるので、新しいタブでお客様としてログインすると、マスター画面のタブも裏ではお客様のログインになる（表示は残る。押すと 404 になる）。お客様のタブの下の帯「終了して自分に戻る」で戻ってからマスター画面を使う。Clerk の **Multi-session handling** を有効にしておくと、終了時に運用者のセッションへ自動で戻る（無効だとログイン画面に出る）: Clerk ダッシュボード → Configure → Sessions → Multi-session handling https://dashboard.clerk.com/ 。
 
 **確認手順**: ① SQL 実行 → ② 自分（運用者）でツールを開き、設定でホームページを登録・順位計測でキーワードを 1 つ入れる → ③ Supabase Table Editor の `user_stores` に行が増える → ④ マスター画面で別のアカウントの「この方の画面を見る」→ 新しいタブで開き、そのアカウントの設定・履歴が出る（自分のものではない）→ ⑤ 帯の「終了して自分に戻る」→ マスター画面に戻り、自分のデータに戻っている。
+
+### 基本設定の集約（r118。利用者の指示 2026-09-19）
+
+**方針**: SEO・MEO・AIO で同じ基本設定を何度も入力させない。設定（`/settings`）に集約し、各ツールは細かい変更だけを持つ。アカウント登録時のデータも自動で参照し、書き換えは設定で行う。
+
+| 設定のカード | 保存先 | 使うツール |
+|---|---|---|
+| 会社・店舗の基本情報（会社名・担当者名・電話・店舗の種類。r118 で所在地・地域を追加） | Clerk の `publicMetadata.lead`（登録フォームは `unsafeMetadata.lead`）。`GET/POST /api/account/lead` | 精密診断（業種・地域・ブランド名）、サイテーション（店名・電話・住所）、基本情報掲載（店名・電話・住所・業種）、llms.txt（会社名・所在地・連絡先）、AI 検索モニタリング（サイト名が空のときのブランド名） |
+| ホームページ（URL・サイト名・ブランドの表記ゆれ） | `projects` ストア（user_stores に同期） | 従来どおり全ツール + AI 検索モニタリングの自社ブランド（r118） |
+| 競合サイト（名前・ドメイン・表記ゆれ） | 同上 | 順位計測、精密診断の競合欄の初期値、AI 検索モニタリングの競合ブランド（r118） |
+| 対策キーワード（r118 で新設） | `rankKeywords` ストア（順位計測と同じ。デバイスは desktop で登録） | 順位計測、精密診断のキーワード欄の初期値、AI 検索モニタリングの検索キーワード、HP 改修提案 / ページ診断 / 原稿作成の候補 |
+| Google マップの店舗（r118 で新設。一覧と導線だけ） | `meo_stores`（登録・削除は MEO の画面） | 基本情報掲載・サイテーション・口コミ |
+
+**AI 検索モニタリングへの同期**（`src/lib/geo/sync.ts`）: `GET /api/geo/setup`（画面を開いたとき）と `runDailyForUser`（毎朝の Cron）の直前に、サーバーが `user_stores` の `projects` / `rankKeywords` と Clerk の lead を読み（`src/lib/settings/server.ts`）、`geo_brands` / `geo_keywords` を作る・直す・消す。設定にホームページが無いときは何もしない（既存の行も消さない）。競合は表示名、キーワードは文字列で突き合わせる。プロンプト（`geo_prompts`）は同期の対象外で、AI 検索モニタリングの画面でだけ登録する。`PUT /api/geo/setup` は `kind: "prompt"` と `delete(prompt)` だけ受け付ける（brand / keyword は廃止）。
+
+**初期値の入れ方**（ツール側）: 空欄のときだけ設定の値で埋め、利用者が直した値は上書きしない。精密診断はフォームのストアに書き込む（`seoAnalysisFormStore`）ので直した値が残る。サイテーション・検索の推定は「触るまでは設定の値、触ったら入力値」（派生値）。基本情報掲載は `prefillFromBusiness`（`src/lib/listings/profile.ts`）で表示・保存時に空欄を埋める。
+
+**登録情報の読み方**（ブラウザ）: `useLeadProfile()`（`src/lib/account/lead-client.ts`。`/api/account/lead` をモジュール内に 1 回だけ読む。localStorage には置かない = 端末を共有していても残らない）。まとめて読むなら `useSharedSettings()`（`src/lib/settings/client.ts`）。
 
 ### 本番公開までに残っていること（決済まわり）
 
@@ -3213,4 +3231,12 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 画面上部の「Automatically enable RLS on new tables → Set up trigger」は、今後作るテーブルに RLS を自動で付ける Supabase の機能。押しておくと SQL に書き忘れても守られるので推奨した（任意）。
 - チェックリスト #91 の 1 を `[x]`、1b（RLS の確認）を追加。
 - 利用者「（RLS の確認クエリ）全部 true でした」→ public スキーマの全テーブル（geo の 8 個 + 既存 9 個）で RLS 有効を確認。**AI 検索モニタリングのテーブルまわりは完了**。#91 の残りは DataForSEO の登録と環境変数（チェックリスト 2〜9）。
+
+### 2026-09-19（基本設定を「設定」に集約、r118）
+
+- 利用者の指示: 「SEO と MEO と AIO で基本設定が同じものが多いはず。設定に全部集約して、細かい設定や変更だけ各項目で変えられるように。すべての項目で設定し直すのは利用者の負担で分かりづらい」「アカウント登録時に登録しているはずなのでそのデータも自動で参照して。入力内容は設定で書き換えできるように」。
+- 調べたこと（棚卸し）: ホームページの URL は 09-16 に設定へ一本化済みだったが、**AI 検索モニタリングだけ自社ブランド・競合・別名・ドメインを geo_brands に別で持っていた**（設定と二重）。ほかに、検索の推定はドメインを毎回入力（設定を見ていない）、精密診断はキーワード・競合・ブランド名・業種・地域を毎回入力、サイテーション・基本情報掲載は店名・電話・住所を毎回入力、llms.txt はサイト名・会社名を再入力、キーワードは 8 か所（順位計測・精密診断・AI 検索モニタリング・ページ診断・改修提案・原稿作成・MEO オーナー申告・口コミ）で別々に聞いていた。
+- **やったこと（r118）**: 上の「基本設定の集約（r118）」のとおり。設定に 3 カード（会社・店舗の基本情報 / 対策キーワード / Google マップの店舗）を追加し、AI 検索モニタリングのブランド・競合・キーワード入力を廃止して設定からの自動同期に置き換えた。6 ツールの入力欄を設定の値で自動で埋める。差分 22 ファイル。lint / tsc / test 1,591 件（+12: 設定の読み取り 8・同期計画 5 のうち新規）/ build 通過。
+- 決めたこと: ①同期は「設定 → geo」の一方向。AI 検索モニタリング側では直せない（直すなら設定）。②設定から消した競合・キーワードは geo からも消す（観測の履歴は残る）。③所在地・地域は登録フォームでは聞かず、設定でだけ足す任意項目（`LeadProfileSchema` に `.default("")` で追加。既存の登録データはそのまま読める）。④MEO の店舗登録は Google マップから探す操作が要るので設定には一覧と導線だけ置き、登録・削除は MEO の画面のまま。
+- 触っていないもの（次の指示があれば）: 口コミ支援の店名・業種（アンケートごとに違いうるので初期値だけでも入れるか要判断）、MEO オーナー申告の対策キーワード（店舗ごと）、ページ診断の「地域」（SerpApi の `Tokyo, Japan` 形式なので設定の日本語の地域とは別物）。
 
