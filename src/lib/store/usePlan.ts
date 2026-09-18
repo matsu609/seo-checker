@@ -79,6 +79,8 @@ export function useAccess(): Access | null {
 /** 機能が使えるか。取得前は「使える」に倒す（鍵を出さない） */
 export function canUseFeature(access: Access | null, featureId: string, required: PlanId): boolean {
   if (!access) return true;
+  // 運用者は全ツールを使える（サーバーの checkPlanForFeature と同じ）
+  if (access.admin) return true;
   if (access.overrides.includes(featureId)) return true;
   return PLAN_RANK[access.plan] >= PLAN_RANK[required];
 }

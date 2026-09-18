@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { currentAgencyId } from "@/lib/admin/guard";
+import { currentAgencyId, isAdmin } from "@/lib/admin/guard";
 import { AGENCY_PATH, FIRST_TOOL_PATH, FREE_HOME_PATH } from "@/lib/auth/landing";
 import { getCurrentPlan } from "@/lib/plans/current";
 
@@ -19,6 +19,8 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   await connection();
   if (await currentAgencyId()) redirect(AGENCY_PATH);
+  // 運用者はプランに関係なくツールへ（無料診断は回数制限なしで別途入れる）
+  if (await isAdmin()) redirect(FIRST_TOOL_PATH);
   const { plan } = await getCurrentPlan();
   redirect(plan === "free" ? FREE_HOME_PATH : FIRST_TOOL_PATH);
 }

@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r98 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r99 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -107,7 +107,7 @@
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | 設定済み（`pk_live_`、Production のみ） | 復号すると `clerk.seo-checker.tokyo` |
 | `CLERK_SECRET_KEY` | 設定済み（`sk_live_`、Production のみ） | **要ローテーション**（会話に貼られた） |
 | `ADMIN_EMAILS` | `matsumatsu452@gmail.com` | マスター画面の管理者 |
-| `DEFAULT_PLAN` | `pro` | Production and Preview |
+| `DEFAULT_PLAN` | **`free`（09-18 に `pro` から変更、Redeploy 済み。利用者報告）** | Production and Preview。登録した見込み客はツールが開かない。契約者は Stripe か `/admin` の個別開放。運用者（`ADMIN_EMAILS`）は r99 から全ツールを使える |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET`（+ 任意で `STRIPE_PRICE_PREMIUM`） | 未設定（本番）。テスト環境は 09-13 に 3 つ登録済み | 決済（r41、r63 で 3 段階に）。#58。`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名として今も読むので、テスト環境の既存の登録はそのままで動く。**ライトを売るには `STRIPE_PRICE_LIGHT` の追加が要る**（未設定ならライトの「申し込む」だけが出ない）。まずテストキー（`sk_test_`）で確認 → 本番キーに差し替え |
 | `SITE_MAX_PAGES` | `100` | Production and Preview（一度誤って Preview のみにしたが復旧済み） |
 | `ANTHROPIC_API_KEY` | **設定済み**（09-10 17:30 設定画面で「設定済み」を確認） | Claude Console のクレジット購入済み |
@@ -2832,3 +2832,10 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - テスト: routes（公開範囲）・lead・quota-rules を追加 / 更新。lint / tsc / **test 1,540 件** / build 通過。
 - **利用者の作業は「登録つき無料診断を本番で開く手順（#117）」の表**。特に **1（既存契約者の個別開放）→ 2（`DEFAULT_PLAN=free`）の順番**を守る。
 - 補足: Clerk の Bot protection が ON だと登録フォームに CAPTCHA が出る（`#clerk-captcha` に描画）。Clerk の Email verification code が OFF だと `sendEmailCode` が失敗するので 4 で確認。
+
+### 2026-09-18（利用者報告: `DEFAULT_PLAN=free` にして Redeploy。運用者の全ツール開放、r99）
+
+- 利用者「DEFAULT_PLAN を free にして Redeploy した」（#117 の 2・3）。
+- **気づき**: プランのゲートは運用者（`ADMIN_EMAILS`）を特別扱いしていなかったので、`free` にした瞬間に運用者自身のツールも閉じる。r99 で **運用者は全ツールを使える**ようにした（`checkPlanForFeature` / `canUseFeature` / `/start`）。契約状況の表示（`/plans` の「現在のプラン」）は変えていない。
+- 残り: #117 の 1（既存契約者の個別開放。まだなら `/admin` で）、4〜5（Clerk の設定確認）、6〜7（本番で登録 → 2 回 → 使い切りを通す）。
+- 続報（09-18）: 利用者が Clerk の User & authentication の画面を共有。**Email: Sign-up with email ON / Require email ON / Verify at sign-up ON（Email verification code ✓）**、Phone: OFF、Username: OFF、**Password: Sign-up with password ON**。登録フォームの前提（#117 の 4）は満たしている。未確認: User model の Name が必須になっていないか（必須だと `finalize` で止まる。任意か OFF に）。

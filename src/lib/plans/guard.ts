@@ -5,6 +5,7 @@
  * API ルート側でプラン名を書き写すと必ずずれるので、機能 ID から引く。
  */
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { isAdmin } from "@/lib/admin/guard";
 import { findFeatureById } from "@/lib/features/registry";
 import { PLAN_BY_ID, RECOMMENDED_PLAN, planAllows, planLabel, planPriceLabel, upgradeTarget, type PlanId } from "./catalog";
 import { getCurrentPlan } from "./current";
@@ -66,6 +67,9 @@ export async function checkPlanForFeature(featureId: string): Promise<PlanDenial
   if (!feature) return null;
   const denial = await checkPlan(feature.plan);
   if (!denial) return null;
+  // 運用者（ADMIN_EMAILS）は全ツールを使える。本番の DEFAULT_PLAN を free にしたあと（2026-09-18）、
+  // 運用者自身の確認作業が止まらないようにするため。契約状況の表示は変えない
+  if (await isAdmin()) return null;
   const overrides = await featureOverrides();
   return overrides.includes(featureId) ? null : denial;
 }
