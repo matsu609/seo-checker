@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r116 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r117 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -1045,6 +1045,23 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 | — | **レジストリに無い転送専用ページが 4 本。**`/tools/{llmo,search-performance,site-report,ai-traffic}` → 実体は r93 で削除済み。ブックマーク対策として残す判断も妥当 | 4 ファイルを確認 | 低 |
 | — **重複した小さな関数**: `hostOf` が **6 実装**（`components/maps/format.ts`・`citations/analyze.ts`・`report/format.ts`・`page-diagnosis/serp.ts`・`rank/measure.ts`・`seo-analysis/search.ts`）、`displayWidth` が **3 実装**（`analyzer/meta.ts`・`audit/parse.ts`・`page-report/extract.ts`。実装はバイト単位で同一）、`fullWidthCount` が 2 実装、`matchesDomain` が 2 実装。**次のリファクタリングの対象** | grep で確認 | 低 |
 | — | `groupsForSidebar()`（`registry.ts:722`）は**テストからしか呼ばれていない**（本番は `sidebarTree()`）。テストを寄せて削除できる | 呼び出し元を確認 | 低 |
+
+**コーディングのミス（バグ調査で確定した 10 件。★は私も直接コードで確認済み。修正は利用者の指示待ち）**
+
+| # | 深刻度 | 場所 | 何が起きるか | 直し方（1 行） |
+|---|---|---|---|---|
+| B-1 ★ | **高** | `src/lib/geo/service.ts:39-61` | 月次リセットで DB を 2,000 に戻すのに、ローカル変数 `account.creditBalance` は先月の値のまま。最後にそれを基に上書きするので**月初の日次バッチで残高が先月の値に巻き戻る**。`credit_reset_at` は進んでいるので再リセットは 1 か月走らず、**「今すぐ実行」がクレジット不足で 1 か月止まる** | リセット後に `account.creditBalance = fresh.balance;` |
+| B-2 ★ | **高** | `src/lib/maps/history.ts:139` | 店舗ごとの最新報告書を `limit = 店舗数 × 3` の**全体上限**で取っている。週次更新で 1 店舗に 4 件以上たまると若い place_id が枠を食い、**競合比較表で後ろの店舗が「報告書がまだありません」になる**（4 店舗 × 4 週 = 16 行に対し上限 12） | `ids.length * HISTORY_LIMIT` にするか店舗ごとに問い合わせる |
+| B-3 | 中 | `src/lib/audit/rules/page.ts:571-597`、`audit/summary.ts:115` | 応答時間のルールが 2 本とも `loadMs` を見るので 3 秒超のページで**同じ問題が 2 件計上**され、「10 ページ中 2 ページで遅い」と出る | `ruleSlowTtfb` の先頭で `loadMs > slowLoadMs` なら返さない |
+| B-4 | 中 | `src/lib/audit/summary.ts:139-146` | 優先対応の並びが「宣言順 = 重要度順」のはずが件数順に sort → **alt 不足 30 件がリンク切れより上に来て、リンク切れが一覧から消える**ことがある | 宣言順を第 1 キー、件数を第 2 キーに |
+| B-5 | 中 | `src/lib/maps/rank.ts:86`、`api/maps/stores/[id]/owner/route.ts:89` | 再利用時に `previous` へ最新の順位を入れてしまう → **オーナー情報を保存し直すたび、順位表の変化欄が全部「前回と同じ」になる** | 再利用した行は `reused.previous` を保つ |
+| B-6 | 中 | `OutlineEditor.tsx:139`、`PlanTab.tsx:232-269`、`FormEditor.tsx:305-313` | 配列を `join("\n")` で textarea に出し onChange で `filter(Boolean)` → **Enter で改行できず、2 個目以降をキーボードで追加できない**（h3 見出し・タイトル案・対策キーワード・アンケート選択肢） | 生の文字列を state に持ち、保存時に split |
+| B-7 | 中 | `api/aio-topics/route.ts:104` | サーバーで `dateKey()`（ローカル時刻 = Vercel は UTC）→ JST 0〜9 時の計測が**前日の日付**で記録され、当日分を上書き | サーバーは JST 版を使う（aio-topics 自体が削除候補） |
+| B-8 | 中 | `src/lib/audit/rules/cross.ts:297-308` | `probe.hops >= 2` が**到達不能**（hops≥2 の URL は直前で除外される）→ 未クロール URL のリダイレクト連鎖が一度も報告されない | 分岐を消すか probe 側でホップ数を数える |
+| B-9 | 低 | `src/lib/audit/rules/page.ts:186` | 非 ASCII 判定が `new URL()` のエンコード済み pathname に対して走るので**常に false**（S-6 と同型の死んだ正規表現） | `decodeURIComponent` してから検査 |
+| B-10 | 低 | `src/components/admin/format.ts:19-24` | `toLocaleDateString` に timeZone 指定なし → サーバー描画の `/agency` と ブラウザ描画の `/admin` で**日付が 1 日ずれる** | `timeZone: "Asia/Tokyo"` |
+
+**他に見つかった小さなもの**: `src/components/seo-analysis/AiCommentCard.tsx`（109 行）と `components/seo-analysis/index.ts` は死んだ `SiteAuditView` からしか参照されていない（A で一緒に消える）。pass / warn / fail の日本語が 5 か所で 3 通り（「改善余地」「注意」「確認」）— 統一すると画面の文字が変わるので**どれにするかの判断が要る**。`hostOf` 6 実装のうち**同じ挙動なのは 4 つ**（`report/format.ts` は失敗時に入力を返し、`maps/format.ts` は「—」を返す別物）。JST の +9 時間が 9 か所に手書き（`src/lib/time/jst.ts` に寄せる余地）。テストの `FakeStorage` が 4 ファイルに同一コピー。
 
 **コーディングのミス（実測で確認したもの）**
 
@@ -3150,3 +3167,9 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **判断待ち**: A（サイト診断の UI 削除）・B（ページ最適化レポートの共有部分の切り出し）・C（AIO 頻出トピックの削除）・D（プロンプト拡張を出すか消すか）・E（配点表の一元化）。削除だけで約 5,400 行（src の 6%）。
 - 追記（同日、4 系統の調査を全部回収したあと）: 上の表に F〜H と小さな重複を追加した。**最優先は「AI 検索モニタリングの 8 テーブルが未作成かもしれない」**（他の全テーブルには実行日が書いてあるのに、これだけ無い。`:397` のチェックも未）。未実行なら `/tools/geo` は赤いエラーだけが出て、プロンプト拡張も到達不能になる。Supabase の Table Editor を見れば 10 秒で分かる。
 - あわせてこのメモの環境変数表の `AHREFS_API_KEY` を「未設定」→「設定済み」に直した（#90 の記録と食い違っていた）。ほかに `SERPAPI_KEY` の行が表に無い（#79 は 09-15 に設定完了）、`:98` の Anthropic「未設定」は 09-11 時点の古い行、`:110` の Stripe「未設定（本番）」は r110 の続報と矛盾 — 表の全体的な棚卸しが必要。
+
+### 2026-09-18（リファクタリング第 2 便 r117、バグ 10 件の報告、機能整理の相談）
+
+- **r117**: `.env.example` に **Stripe の 6 変数が 1 つも無かった**（コードは鍵 + Price + Webhook の 3 つが揃わないと申し込み画面を出さない = 新しい環境で課金が黙って無効になる）ので追記。`NEXT_PUBLIC_APP_ORIGIN`・`REVIEW_DRAFT_MODEL`・`REVIEW_REPLY_MODEL`・`DATAFORSEO_LABS_RANKED_PATH` も記載漏れ。geo/dashboard の `monthStart` を既存の `monthStartJst` に、`pct` の 3 実装を `report/format.ts` に統合。lint / tsc / test 1,579 件 / build 通過。
+- **バグ 10 件**を上の表に記録（B-1 と B-2 は私も直接確認。どちらも高）。修正は利用者の指示待ち。
+- 利用者の新しい相談: 「精密診断（サイト全体の診断 + AI の現状分析と改善案）の AI の状況分析は AI 検索モニタリングに入れるべきでは？ MEO 以外の SEO と AIO の機能を整理したい」→ 回答: **「AI の現状分析」は AI が分析を書く（手段）で、AI 検索モニタリングは AI 検索に引用されているか（対象）を測る別物。移すべきではなく、名前が紛らわしいだけ**。整理案は本文（利用者の回答待ち）。
