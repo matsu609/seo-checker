@@ -394,7 +394,7 @@ SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計
 
 **消し込み用のチェックリスト**（終わったら `[x]` にして、この行を更新して push する）
 
-- [ ] 1. Supabase で 8 テーブルの SQL を実行した
+- [ ] 1. Supabase で 8 テーブルの SQL を実行した（**2026-09-18 23:49 の Table Editor で未作成を確認**。SQL は下の「AI 検索モニタリングのテーブル」）
 - [ ] 2. DataForSEO に登録して入金した
 - [ ] 3. API 用のログインとパスワードを控えた（**会話には貼らない**）
 - [ ] 4. Vercel に `DATAFORSEO_LOGIN` を追加した（Sensitive）
@@ -1081,7 +1081,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 | # | 深刻度 | 内容 | 場所 | 直し方 |
 |---|---|---|---|---|
 | **機能の統廃合の判断（2026-09-18）** | 下の「機能の棚卸し（2026-09-18）」の A〜H。**削除で約 5,400 行（src の 6%）**。A（サイト診断の UI と API）と C（AIO 頻出トピック）は今すぐ消せる。F（順位計測 × AI 検索モニタリングの二重払い）は毎月の実費に効く | 利用者の回答待ち |
-| **AI 検索モニタリングが動いていない可能性（2026-09-18・最優先）** | `geo_*` 8 テーブルの SQL だけ**実行記録が無い**（他のテーブルは全部実行日つき。下の `:397` のチェックが未）。未実行なら `/tools/geo` は赤いエラーだけが出る。**まず Supabase の Table Editor で `geo_` のテーブルがあるか見てください**（あればこの指摘は取り下げ） | 利用者の確認待ち |
+| **AI 検索モニタリングが動いていない（2026-09-18 23:49 に確定・最優先）** | 利用者が Supabase の Table Editor を確認 → **`geo_*` 8 テーブルは 1 つも無い**（存在するのは `analysis_runs` / `listing_profiles` / `meo_owner_inputs` / `meo_reports` / `meo_stores` / `review_channels` / `review_forms` / `review_responses` / `user_stores` の 9 つ = コードが使う geo 以外の全テーブル）。`/tools/geo` は赤いエラーだけ、毎日 5:00 JST の Cron `/api/cron/geo-run` も毎回失敗している。直し方は「AI 検索モニタリングを有効にする手順（#91）」の 1（SQL を SQL Editor で実行）。SQL は会話に再掲した | 利用者の SQL 実行待ち |
 | S-0 | **最優先（利用者の作業）** | **`CLERK_SECRET_KEY`（`sk_live_`）が会話に貼られたまま未ローテーション**（このメモの #9 / A-3）。この鍵があれば誰でも任意の利用者（運用者含む）のセッションを発行でき、下のすべての防御が無効になる。Google OAuth のクライアントシークレットも同様 | 環境変数 | Clerk → API keys → Regenerate → Vercel 更新 → Redeploy |
 | S-1 | **高** | **`/api/store` に 1 人あたりの行数・総量の上限が無い**（r111 の回帰）。`isSyncedStoreName` は `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/` に合う**任意の名前**を通し、1 行 2 MB まで書ける。登録は誰でもできるので、無料アカウント 1 つで 250 リクエスト ≒ 500 MB（Supabase Free の上限）を埋められ、**全顧客の書き込み（店舗登録・口コミ・報告書・精密診断）が止まる** | `src/app/api/store/route.ts:24,55`、`src/lib/store/sync-rules.ts:19` | 実在する 28 個のストア名の許可リストにする + 1 行の上限を 512 KB に下げる（許可リストなら行数は自動で上限になる） |
 | S-2 | **高** | **`/api/faq` はログイン確認だけで、回数制限・プラン判定・レート制限が無い**。キャッシュは `url + 本文` のハッシュなので本文を 1 文字変えれば必ず外れる。無料アカウントから Anthropic を無制限に呼べる（無料診断の 2 回を使い切った後も可） | `src/app/api/faq/route.ts:20,46` | `consumeFreeRun()` か `takeDailyToken()` を足す |
@@ -3173,3 +3173,12 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **r117**: `.env.example` に **Stripe の 6 変数が 1 つも無かった**（コードは鍵 + Price + Webhook の 3 つが揃わないと申し込み画面を出さない = 新しい環境で課金が黙って無効になる）ので追記。`NEXT_PUBLIC_APP_ORIGIN`・`REVIEW_DRAFT_MODEL`・`REVIEW_REPLY_MODEL`・`DATAFORSEO_LABS_RANKED_PATH` も記載漏れ。geo/dashboard の `monthStart` を既存の `monthStartJst` に、`pct` の 3 実装を `report/format.ts` に統合。lint / tsc / test 1,579 件 / build 通過。
 - **バグ 10 件**を上の表に記録（B-1 と B-2 は私も直接確認。どちらも高）。修正は利用者の指示待ち。
 - 利用者の新しい相談: 「精密診断（サイト全体の診断 + AI の現状分析と改善案）の AI の状況分析は AI 検索モニタリングに入れるべきでは？ MEO 以外の SEO と AIO の機能を整理したい」→ 回答: **「AI の現状分析」は AI が分析を書く（手段）で、AI 検索モニタリングは AI 検索に引用されているか（対象）を測る別物。移すべきではなく、名前が紛らわしいだけ**。整理案は本文（利用者の回答待ち）。
+- 回答した整理案（利用者の採否待ち）: 診断 = 精密診断のみ（隠し 3 機能 A・B・C を削除、ページ診断は原稿作成の材料と位置づけ）／計測 = 順位計測 + 検索の推定を 1 画面（SEO）、AI 検索モニタリングは ChatGPT / Gemini の引用・参照に専念し AI Overviews は順位計測へ寄せる（F の二重計測を解消）／作る = 改修提案・ライティング・llms.txt／土台 = サイテーション + 基本情報掲載を 1 画面 2 タブ。精密診断のラベルから「AI の現状分析」を外し「サイト全体の診断と改善案」にする案。
+
+### 2026-09-18（Supabase のテーブル確認 → AI 検索モニタリングのテーブルが未作成と確定）
+
+- 利用者が Supabase の Table Editor（public スキーマ）のスクリーンショットを送付。テーブルは 9 つ（Chrome の自動翻訳で「分析実行」「リストプロフィール」「レビューチャンネル」「レビューフォーム」「レビューへの回答」「ユーザーストア」と表示 = `analysis_runs` / `listing_profiles` / `review_channels` / `review_forms` / `review_responses` / `user_stores`。ほか `meo_owner_inputs` / `meo_reports` / `meo_stores`）。**`geo_` で始まるテーブルは無い**。
+- コードが `supabaseRest` で触るテーブルは全 17 個（`src/lib/**` の `TABLE` / `FORMS` / `CHANNELS` / `T_*` 定数）。geo 以外の 9 個は全部ある。**無いのは `src/lib/geo/store.ts` の 8 個だけ**（`geo_accounts` `geo_brands` `geo_keywords` `geo_prompts` `geo_measurements` `geo_observations` `geo_credit_ledger` `geo_model_versions`）。
+- 影響: `/tools/geo`（AI 検索モニタリング）は開いた時点でエラー、`vercel.json` の Cron `/api/cron/geo-run`（毎日 20:00 UTC = 5:00 JST）は毎回失敗、プロンプト拡張（D）も到達不能。DataForSEO の費用は発生していない（テーブルが無いので計測まで進まない）。
+- 対応: 上の「AI 検索モニタリングのテーブル」の SQL をそのまま会話に貼り、SQL Editor での実行をお願いした。コードの変更は不要（SQL は `create table if not exists` なので二重実行しても安全）。
+- 表の「AI 検索モニタリングが動いていない可能性」の行を「確定」に書き換え、#91 のチェックリスト 1 に確認日時を書いた。
