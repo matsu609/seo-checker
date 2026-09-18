@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r111 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r112 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -1022,7 +1022,6 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | 日付 | 判断 | 理由 |
 |---|---|---|
-| **Supabase に `user_stores` テーブルを作る（r111 の反映に必須。作るまでは同期が静かに止まり、今までどおり端末保存だけ）** | 下の「お客様のブラウザ側データの同期（r111）」の SQL を Supabase SQL Editor で実行 | 利用者の作業待ち |
 | Stripe 本番切替の残り: `STRIPE_SECRET_KEY`（`sk_live_`）と `STRIPE_WEBHOOK_SECRET`（本番 Webhook の `whsec_`）の差し替え → Redeploy（2026-09-18） | A で進行中。Price ID 2 つは本番と一致済み、`STRIPE_PRICE_PRO` 削除済み（Claude in Chrome、20:30 ごろ）。Webhook `elegant-bliss` が本番モードのものかは要確認（テストの whsec だと契約状態が書かれない） | 利用者の作業待ち |
 | 09-17 | **サイドバーは 3 つの並列タブではなく、「AIO 対策」（親）の中に SEO / MEO / サイテーション（柱）が入る入れ子にする**（r95） | 利用者の指示「独立しちゃっているので、くくり的には AI の中に MEO・SEO・サイテーションがあると分かる構成に」。柱は開閉式（開くのは 1 本。r94 の「押した柱が最優先」はそのまま）。AI 検索モニタリングは柱ではなく AIO 対策全体の成果をはかるものなので親の直下。柱の並びは 09-13 の指定（SEO → MEO → 基礎情報）のまま |
 | 09-18 | **無料診断はアカウント登録のあと、メールアドレスごとに 2 回まで（サイト + 店舗の合計）。契約済みには見せない。本番の `DEFAULT_PLAN` は `free` にする**（r98） | 利用者の要望と決定（a: 合計 2 回 = 既定案、b: 見せない、c: 切り替える）。見込み客の情報（担当者名・会社名・電話・店舗の種類）を先に集め、無料の体験を 2 回に限って料金プランへつなぐ。Clerk だけで作った（自前のフォーム + `useSignUp`。追加項目は `unsafeMetadata.lead`、回数は `privateMetadata.freeRuns`）。Supabase のテーブルは増やしていない |
@@ -2993,3 +2992,11 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 調査: 代理ログイン自体は Clerk の Actor Token で本当にお客様のセッションになっている。**見えなかった理由はデータの置き場**: SEO 系ツール（ホームページ登録・順位計測・サイト診断の履歴・ページ診断・キーワード調査・AI ライティング・llms.txt・精密診断の入力）はお客様のブラウザの localStorage にしか無く、運用者のブラウザで代理ログインしても出てこない。MEO・口コミ・掲載・AI 検索モニタリングは Supabase なので見えていた。
 - **r111**: 全ストアを Supabase `user_stores` に同期する `StoreSync`（`src/lib/store/StoreSync.tsx`、全ストアの登録 `all.ts`、決めごと `sync-rules.ts`、API `/api/store`、DB `src/lib/db/user-stores.ts`）。サーバーが正、ユーザーが変わったら端末の値を置き換え、初回だけ端末の値を上げる（移行）。代理中は読み込みのみ。`ClientTable` の「この方の画面を見る」は `window.open` で新しいタブ（fetch の前に空タブを開いてポップアップ遮断を避ける）。帯の文言に「データの保存はできません」を追記。テスト `sync-rules.test.ts`（7 件、計 1,558 件）。lint / tsc / test / build 通過。上の「お客様のブラウザ側データの同期（r111）」に SQL・仕組み・確認手順。
 - **利用者の作業**: Supabase で `user_stores` の SQL を実行（これをするまで同期は動かず、従来どおり端末保存）。任意で Clerk の Multi-session handling を有効に。
+
+### 2026-09-18（利用者報告: r111 は全部うまくいった。クロール上限 200 固定と残り回数の表示、r112）
+
+- 利用者「全部うまくいってました」→ `user_stores` の SQL 実行・代理ログインの新タブ・データ同期は本番で動作確認済み。
+- 質問「分析の履歴はちゃんと保存されるようになっているか」→ **なっている**。精密診断の結果は元から Supabase（`seo_analysis_runs`。`/tools/seo-analysis` の「分析の履歴」）。サイト診断の履歴（`auditHistory`）・順位計測の記録（`rankSnapshots`）・ページ診断・キーワード調査・下書きは r111 から `user_stores` に同期され、代理ログインでも別の端末でも見える。
+- 「精密診断のクロールの上限は 200 ページで固定」→ **r112**: `CRAWL_PAGE_LIMIT = 200`（`src/lib/seo-analysis/input.ts`）。入力の `maxPages` は互換のため受け取るが使わない（常に 200）。画面の選択肢（50 / 100 / 200 / 300）を撤去し「最大 200 ページまで（固定）」の注記に。旧サイト診断（非表示の機能）の選択肢は触っていない。
+- 「残りの回数がカウントアップで分かりづらい。カウントダウンに」→ r112: 精密診断のバッジ「今月 1 / 3 回」→「今月の残り 2 回（3 回まで）」。マスター画面の無料診断「1 / 2 回」→「残り 1 回（2 回まで・1 回使用）」。無料診断の画面は元から「残り N 回」。
+- lint / tsc / test（1,558 件）/ build 通過。利用者の作業なし。
