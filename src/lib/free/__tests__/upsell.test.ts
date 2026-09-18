@@ -18,7 +18,9 @@ describe("無料診断からの導線", () => {
       expect(copy.title.length).toBeGreaterThan(0);
       expect(copy.limit.length).toBeGreaterThan(0);
       expect(copy.points.length).toBeGreaterThanOrEqual(3);
-      expect(copy.cta).toContain("初月無料");
+      expect(copy.cta).toContain("精密診断");
+      // 初月無料は全員に自動で付けない（クーポンで相手ごとに渡す。2026-09-18）ので、無料診断の導線で約束しない
+      expect(copy.cta).not.toContain("初月無料");
     }
   });
 

@@ -67,7 +67,7 @@ export function ImprovementSection({ plan, number, variant, limit = 8 }: Improve
           {variant === "free" ? (
             <p className="no-print mt-2 text-[13px] leading-relaxed text-ink">
               <Link href="/sign-up" className="font-bold text-accent underline underline-offset-2">
-                精密診断（初月無料）
+                精密診断（有料プラン）
               </Link>
               では、この {plan.ownerOnly.length} 項目をお店の方に答えてもらい、21 項目すべて・100 点満点で採点します。毎週の自動更新で推移も残ります。
             </p>

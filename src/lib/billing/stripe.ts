@@ -9,8 +9,8 @@
  *                            支払いリンクや請求書で契約を立てたときに「プレミアムの契約」として記録するために使う
  *   STRIPE_WEBHOOK_SECRET  … Webhook エンドポイントの署名シークレット（whsec_…）
  * 鍵・スタンダードの Price・Webhook の 3 つがそろって初めて料金画面に「申し込む」が出る（isStripeConfigured）。
- *   STRIPE_TRIAL_DAYS      … 無料期間の日数（任意。既定 30。0 または未設定でトライアルなし）。
- *                            カードは申し込み時に登録され、この日数を過ぎてから初回の請求が立つ。
+ *   STRIPE_TRIAL_DAYS      … 全員に付ける無料期間の日数（任意。既定 0 = トライアルなし。緊急時の逃げ道）。
+ *                            初月無料は全員に自動で付けず、クーポン（100% 割引・1 回）のプロモーションコードで相手ごとに渡す。
  *
  * プレミアム（伴走・月 3 社まで）は料金画面に「申し込む」を出さない（枠の確認が要るのでお問い合わせから受ける）。
  * 受注が決まった相手には Stripe の支払いリンク・請求書で契約を立てるので、その価格を
@@ -18,6 +18,8 @@
  *
  * 割引は Stripe のクーポン → プロモーションコードで行う（利用者の決定 2026-09-13）。
  * 申し込み画面でコードを入力した人だけに適用されるので、コードを持たない人の支払額は定価のまま。
+ * 初月無料も同じ仕組み（100% 割引・期間「1 回」のクーポン）で相手ごとに渡す（利用者の決定 2026-09-18）。
+ * どちらのコードを渡すかは相手によって使い分ける（月額の値引き / 初月無料）。
  * ただし「高いので下げてほしい」にはクーポンではなくライトを案内する（2026-09-15 の 3 段階化の趣旨）。
  *
  * カードの変更・解約・請求書の閲覧は Stripe のカスタマーポータルに任せる（自前でカード番号を扱わない）。
@@ -114,7 +116,7 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<strin
     metadata: { userId: input.userId, plan: input.plan },
     subscription_data: {
       metadata: { userId: input.userId, plan: input.plan },
-      // 初月無料。カードは登録され、この日数を過ぎてから初回の請求が立つ
+      // STRIPE_TRIAL_DAYS が正のときだけ全員にトライアルが付く（既定は 0 = なし。初月無料はクーポンで相手ごとに）
       ...(days > 0 ? { trial_period_days: days } : {}),
     },
     ...(input.customerId ? { customer: input.customerId } : input.email ? { customer_email: input.email } : {}),

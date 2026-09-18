@@ -42,7 +42,7 @@ export const UPSELL: Record<FreeKind, UpsellCopy> = {
       "ChatGPT などの生成 AI に自社が引用されているかを継続監視（LLMO モニタリング）",
       "AI が改修案を before → after の形で作成。そのまま原稿・llms.txt まで出力",
     ],
-    cta: "初月無料で精密診断をはじめる",
+    cta: "精密診断をはじめる",
   },
   meo: {
     title: "クイック診断で分かるのは「今の状態」までです",
@@ -53,7 +53,7 @@ export const UPSELL: Record<FreeKind, UpsellCopy> = {
       "毎週月曜に自動で取り直して推移を記録。直した効果が数字で残る",
       "口コミ支援（店内 QR のアンケートと AI の返信下書き）と、26 媒体への基本情報の一括掲載",
     ],
-    cta: "初月無料で精密診断をはじめる",
+    cta: "精密診断をはじめる",
   },
 };
 

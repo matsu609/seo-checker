@@ -217,7 +217,7 @@ export function MeoChecker({ enabled, quota: initialQuota }: MeoCheckerProps) {
           <p className="text-[12px] leading-relaxed text-muted">
             クイック診断で分かるのは公開情報 1 店舗ぶんの採点です。競合 5 店舗との比較、毎週の自動更新と推移、AI による総評、28 項目の採点は
             <Link href={SIGN_UP_PATH} className="mx-1 text-accent underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-accent/40">
-              精密診断（初月無料）
+              精密診断（有料プラン）
             </Link>
             でご利用いただけます。
           </p>
