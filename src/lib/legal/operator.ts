@@ -15,8 +15,8 @@ export interface OperatorInfo {
 }
 
 export const OPERATOR: OperatorInfo = {
-  // 個人事業。屋号 + 代表者名（利用者の指示 2026-09-10）
-  name: "SEO 研究所（代表: 松下）",
+  // 個人事業。屋号 + 代表者名（利用者の指示 2026-09-10。代表者名を松下 → 鈴木に変更 2026-09-18）
+  name: "SEO 研究所（代表: 鈴木）",
   // Google OAuth のデベロッパー連絡先とも揃える
   email: "contact@seo-checker.tokyo",
   // 個人事業のため所在地は請求時に開示する（特定商取引法の表示の運用に合わせる）
@@ -26,8 +26,8 @@ export const OPERATOR: OperatorInfo = {
 
 /** 規約の施行日（YYYY-MM-DD） */
 export const TERMS_EFFECTIVE_DATE = "2026-09-10";
-/** 規約の最終更新日（YYYY-MM-DD）。2026-09-17: プライバシーポリシー第 5 条（口コミ返信の権限で行う操作の範囲）を追記 */
-export const TERMS_UPDATED_DATE = "2026-09-17";
+/** 規約の最終更新日（YYYY-MM-DD）。2026-09-18: 代表者名を変更 */
+export const TERMS_UPDATED_DATE = "2026-09-18";
 
 /** サービス名（規約本文で使う） */
 export const SERVICE_NAME = "SEO Checker";

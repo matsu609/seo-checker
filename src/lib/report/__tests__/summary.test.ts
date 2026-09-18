@@ -469,20 +469,20 @@ describe("buildSiteSummary", () => {
     // structuredData の Σ配点 = 2(jsonld-parse-error) + 1(jsonld-website) + 0(jsonld-search-action) = 3
     //   jsonld-parse-error: 2 × 2 / 4 / 3 × 25 = 8.333…
     //   jsonld-website:     0.5 × 1 × 1 / 4 / 3 × 25 = 1.041…
-    // crawlers の Σ配点 = 3(ai-crawlers-allowed) + 2(noindex) + 0(llms-txt) = 5
-    //   noindex:             2 × 4 / 4 / 5 × 20 = 8
-    //   ai-crawlers-allowed: 3 × 2 / 4 / 5 × 20 = 6（配点は大きいが該当が 2 ページなので下）
+    // crawlers の Σ配点 = 3(ai-crawlers-allowed) + 2(noindex) + 1(llms-txt。2026-09-18 から有無を採点) = 6
+    //   noindex:             2 × 4 / 4 / 6 × 20 = 6.667
+    //   ai-crawlers-allowed: 3 × 2 / 4 / 6 × 20 = 5（配点は大きいが該当が 2 ページなので下）
     expect(s.improvements.map((i) => i.id)).toEqual([
       "jsonld-parse-error",
       "noindex",
       "ai-crawlers-allowed",
       "jsonld-website",
     ]);
-    expect(s.improvements.map((i) => i.gainLabel)).toEqual(["+8 点", "+8 点", "+6 点", "+1 点"]);
+    expect(s.improvements.map((i) => i.gainLabel)).toEqual(["+8 点", "+7 点", "+5 点", "+1 点"]);
     expect(s.improvements[0].gain).toBeCloseTo(8.333, 3);
-    expect(s.improvements[1].gain).toBeCloseTo(8, 3);
+    expect(s.improvements[1].gain).toBeCloseTo(6.667, 3);
     expect(s.improvements[3].gain).toBeCloseTo(1.042, 3);
-    // 配点 0 の項目（llms-txt など参考表示）は改善提案に出さない
+    // この固定データの llms-txt は参考表示（info・配点 0）のままなので改善提案に出ない
     expect(s.improvements.map((i) => i.id)).not.toContain("llms-txt");
     const uniformItem = s.improvements[1];
     expect(uniformItem.spread).toBe("uniform");
@@ -499,9 +499,9 @@ describe("buildSiteSummary", () => {
     // 全ページ合格の項目は優先改善に出さない
     expect(s.improvements.some((i) => i.id === "llms-txt")).toBe(false);
     expect(s.top3).toHaveLength(3);
-    // 総合 70 点 + TOP3 の 8.33 + 8 + 6 = 92 点
+    // 総合 70 点 + TOP3 の 8.33 + 6.67 + 5 = 90 点（llms-txt を採点に入れた 2026-09-18 以降の Σ配点）
     expect(s.overall).toBe(70);
-    expect(s.projected).toBe(92);
+    expect(s.projected).toBe(90);
     expect(s.projectedGrade.grade).toBe("A");
   });
 

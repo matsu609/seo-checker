@@ -59,7 +59,7 @@
 
 | カテゴリ | 重み | 何を見るか | コード |
 |---|---|---|---|
-| AI クローラ可否 | 20 | robots.txt が GPTBot などを拒否していないか、`llms.txt` があるか | `robots.ts` |
+| AI クローラ可否 | 20 | robots.txt が AI 検索用クローラを拒否していないか、noindex、`llms.txt` があるか（有無だけ。2026-09-18 から採点） | `robots.ts` |
 | 構造化データ | 25 | JSON-LD の有無と型（Organization / FAQPage / Article など） | `jsonld.ts` |
 | メタ情報 | 20 | title / description / canonical / OGP / 言語指定 | `meta.ts` |
 | 見出し | 15 | h1 が 1 つあるか、階層が飛んでいないか | `headings.ts` |

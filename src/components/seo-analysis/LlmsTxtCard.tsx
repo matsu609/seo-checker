@@ -7,12 +7,14 @@
  * 判定の基準は生成ツール（/tools/llms-txt）と同じ `validateLlmsTxt`。
  */
 import { Badge, Callout, Card } from "@/components/ui";
+import { llmsAdvice, type LlmsAdviceInput } from "@/lib/seo-analysis/llms-advice";
 import type { SheetLlmsTxt } from "@/lib/seo-analysis/sheet/types";
 
 const LEVEL_LABELS = { pass: "合格", warn: "注意", fail: "未対応" } as const;
 
-export function LlmsTxtCard({ llms }: { llms: SheetLlmsTxt }) {
+export function LlmsTxtCard({ llms, site }: { llms: SheetLlmsTxt; site?: LlmsAdviceInput | null }) {
   const checks = llms.checks.filter((c) => c.id !== "exists");
+  const advice = llmsAdvice(llms, site ?? {});
   const counts = { pass: 0, warn: 0, fail: 0 };
   for (const c of checks) counts[c.level] += 1;
 
@@ -74,6 +76,38 @@ export function LlmsTxtCard({ llms }: { llms: SheetLlmsTxt }) {
             {llms.full.present && " なお llms-full.txt は見つかりました。目次にあたる llms.txt も置くと、AI が全文を読む前に構成を把握できます。"}
           </p>
         </Callout>
+      )}
+
+      {advice.length > 0 && (
+        <section className="mt-5" aria-labelledby="llms-advice-heading">
+          <h3 id="llms-advice-heading" className="text-[13px] font-bold text-ink">
+            {llms.present ? "追加・修正すべきもの" : "このサイトの llms.txt に書くべきもの"}
+            <span className="ml-2 font-normal text-muted">クロールで分かったページ構成から、載せるべきページを URL つきで挙げています</span>
+          </h3>
+          <ol className="mt-2 space-y-3">
+            {advice.map((item, i) => (
+              <li key={item.title} className="rounded-sm border border-line px-4 py-3 text-[13px]">
+                <div className="flex gap-2">
+                  <span className="shrink-0 font-bold tabular-nums text-accent">{i + 1}.</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-ink">{item.title}</p>
+                    <p className="mt-1 leading-relaxed text-muted">{item.detail}</p>
+                    {item.pages && item.pages.length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {item.pages.map((p) => (
+                          <li key={p.url} className="truncate">
+                            <span className="text-ink">{p.title || p.url}</span>
+                            <span className="ml-2 font-mono text-[11px] text-muted">{p.url}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
     </Card>
   );

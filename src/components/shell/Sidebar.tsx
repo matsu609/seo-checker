@@ -252,6 +252,19 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                 </Link>
               </li>
             )}
+            {/* デモ用の無料診断（月 50 回。利用者の決定 2026-09-18）。画面は無料診断のシェルで開く */}
+            {[
+              { href: "/", label: "無料診断（サイト）" },
+              { href: "/meo", label: "無料診断（店舗）" },
+            ].map((demo) => (
+              <li key={demo.href}>
+                <Link href={demo.href} onClick={onNavigate} className={`${ITEM_CLASS} ${IDLE_CLASS}`}>
+                  <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{demo.label}</span>
+                  <span className="text-[10px] text-on-brand-muted">デモ用</span>
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
       )}

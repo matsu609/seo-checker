@@ -278,21 +278,20 @@ export function checkCrawlers(
   );
 
   // --- llms.txt --------------------------------------------------------------
-  // 参考表示のみ（配点 0）。llms.txt は提案段階の仕様で、これを読むと表明した
-  // 主要な AI クローラはまだ無く、Google も AI 検索への掲載に専用ファイルは
-  // 不要だとしている。無いことを減点する根拠が無い。
+  // 有無だけを採点する（配点 1。利用者の決定 2026-09-18「無料診断の評価に llms.txt の有無を入れる。有無だけでよい」）。
+  // 中身の良し悪しは精密診断（validateLlmsTxt）で見る。r? までは参考表示（配点 0）だった。
   const hasLlms = files.llmsTxt.present;
   results.push(
     check({
       id: "llms-txt",
       category: "crawlers",
-      status: "info",
-      label: hasLlms ? "llms.txt が設置されている（参考）" : "llms.txt は設置されていない（参考）",
+      status: hasLlms ? "pass" : "fail",
+      label: hasLlms ? "llms.txt が設置されている" : "llms.txt が設置されていない",
       evidence: hasLlms
         ? `${origin}/llms.txt（${files.llmsTxt.length} 文字）`
         : `${origin}/llms.txt → HTTP ${files.llmsTxt.status || "取得失敗"}`,
       advice:
-        "llms.txt は、サイトの概要と主要ページを AI 向けに Markdown でまとめる提案仕様です。読み取ることを表明した主要な AI クローラはまだ無く、Google も AI 検索への掲載に専用ファイルは不要だとしています。無くても不利にはならないため採点していません。設置する場合も、通常の HTML と robots.txt を整えることが先です。",
+        "llms.txt は、サイトの概要と主要ページを AI 向けに Markdown でまとめたテキストファイルです。サイトのルート（/llms.txt）に置くと、AI 検索がサイトを読むときの案内になります。1 行目に「# サイト名」、次に「> 1〜2 文の概要」、そのあとに「## サービス」「## 会社情報」のような見出しごとに「- [ページ名](URL): 1 行の説明」を並べてください。精密診断では、このサイトに合わせて何を書くべきかまで出します。",
     }),
   );
 

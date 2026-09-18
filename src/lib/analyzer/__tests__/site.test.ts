@@ -329,9 +329,9 @@ describe("analyzeSite", () => {
     // robots.txt はサイト共通なので全ページ同じ
     expect(byId["ai-crawlers-allowed"].spread).toBe("uniform");
     expect(byId["ai-crawlers-allowed"].counts.pass).toBe(4);
-    // llms.txt と学習用クローラの状態は参考表示のみ（採点対象外）
+    // llms.txt は有無だけを採点する（2026-09-18 から。無ければ fail）。サイト共通なので全ページ同じ
     expect(byId["llms-txt"].spread).toBe("uniform");
-    expect(byId["llms-txt"].counts.info).toBe(4);
+    expect(byId["llms-txt"].counts.fail).toBe(4);
     expect(byId["ai-crawlers-training"].counts.info).toBe(4);
 
     // ばらついた項目が先頭に並ぶ

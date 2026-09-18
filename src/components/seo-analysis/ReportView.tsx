@@ -238,7 +238,7 @@ export function ReportView(props: ReportViewProps) {
 
         {domain && <DomainPowerCard domain={domain} />}
 
-        {llms && <LlmsTxtCard llms={llms} />}
+        {llms && <LlmsTxtCard llms={llms} site={{ topPages: sheet.site.structure.topPages, kinds: sheet.site.structure.kinds, pageCount: sheet.site.structure.pageCount }} />}
 
         <SpeedCard sheet={sheet} />
 

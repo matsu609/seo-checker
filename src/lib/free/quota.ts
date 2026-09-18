@@ -5,20 +5,32 @@
  * 回数は Clerk の privateMetadata.freeRuns（サーバーだけが書ける）。厳密な排他は無いが、
  * 2 回の制限を数倍すり抜ける事故は起きない（同時に押しても 1 回ぶんの取りこぼしまで）。
  *
- * 回数制限が無いのは 3 つ: 認証が無効な環境（開発・E2E）、運用者（ADMIN_EMAILS）、契約済み（plan が free 以外。
+ * 回数制限が無いのは 2 つ: 認証が無効な環境（開発・E2E）、契約済み（plan が free 以外。
  * 契約済みはそもそも無料診断の画面に入れないが、API を直接叩いた場合も止めない）。
+ * 運用者（ADMIN_EMAILS）と代理店は「デモ用」として月 FREE_DEMO_LIMIT 回（既定 50。privateMetadata.demoRuns）。
  */
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
-import { isAdmin } from "@/lib/admin/guard";
+import { currentAgencyId, isAdmin } from "@/lib/admin/guard";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { getCurrentPlan } from "@/lib/plans/current";
 import { envInt } from "./ratelimit";
-import { FREE_QUOTA_MESSAGE, FREE_RUN_LIMIT_DEFAULT, FREE_RUNS_KEY, freeRunsFromMetadata, quotaOf, unlimitedQuota, type FreeQuota } from "./quota-rules";
+import { DEMO_RUN_LIMIT_DEFAULT, DEMO_RUNS_KEY, demoQuotaOf, demoRunsFromMetadata, FREE_QUOTA_MESSAGE, FREE_RUN_LIMIT_DEFAULT, FREE_RUNS_KEY, freeRunsFromMetadata, monthKey, quotaOf, unlimitedQuota, type FreeQuota } from "./quota-rules";
 
 const NO_STORE = { "cache-control": "no-store" } as const;
 
 export function freeRunLimit(): number {
   return envInt("FREE_DIAGNOSIS_LIMIT", FREE_RUN_LIMIT_DEFAULT);
+}
+
+/** 運用者・代理店のデモ用の枠（月あたり） */
+export function demoRunLimit(): number {
+  return envInt("FREE_DEMO_LIMIT", DEMO_RUN_LIMIT_DEFAULT);
+}
+
+/** 運用者か代理店か（デモ用の枠を使う人） */
+async function isDemoUser(): Promise<boolean> {
+  if (await isAdmin()) return true;
+  return (await currentAgencyId()) !== null;
 }
 
 /** ログインしていなければ 401（画面は登録へ誘導する）。通れば null */
@@ -35,10 +47,10 @@ export async function getFreeQuota(): Promise<FreeQuota | null> {
   if (!isAuthEnabled()) return unlimitedQuota("auth-disabled", limit);
   const { userId } = await auth();
   if (!userId) return null;
-  if (await isAdmin()) return unlimitedQuota("admin", limit);
+  const user = await currentUser();
+  if (await isDemoUser()) return demoQuotaOf(demoRunsFromMetadata(user?.privateMetadata, monthKey()), demoRunLimit());
   const { plan } = await getCurrentPlan();
   if (plan !== "free") return unlimitedQuota("paid", limit);
-  const user = await currentUser();
   return quotaOf(freeRunsFromMetadata(user?.privateMetadata), limit);
 }
 
@@ -58,6 +70,10 @@ export async function consumeFreeRun(): Promise<Response | null> {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "ログインが必要です", code: "sign_in" }, { status: 401, headers: NO_STORE });
   const client = await clerkClient();
-  await client.users.updateUserMetadata(userId, { privateMetadata: { [FREE_RUNS_KEY]: quota.used + 1 } });
+  if (quota.reason === "demo") {
+    await client.users.updateUserMetadata(userId, { privateMetadata: { [DEMO_RUNS_KEY]: { month: monthKey(), used: quota.used + 1 } } });
+  } else {
+    await client.users.updateUserMetadata(userId, { privateMetadata: { [FREE_RUNS_KEY]: quota.used + 1 } });
+  }
   return null;
 }

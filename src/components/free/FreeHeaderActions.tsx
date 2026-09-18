@@ -15,19 +15,29 @@ import { useAuth, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui/Button";
 import { PLANS_PATH, SIGN_UP_PATH } from "@/lib/free/upsell";
+import { useAccess } from "@/lib/store/usePlan";
 
 export function FreeHeaderActions() {
   const { isLoaded, isSignedIn } = useAuth();
+  const access = useAccess();
 
   // 読み込み中は高さだけ確保して、ヘッダーの中身が動かないようにする
   if (!isLoaded) return <span className="h-9 w-40" aria-hidden />;
 
   if (isSignedIn) {
+    // 運用者・代理店はデモ用に開いているので、料金プランではなく自分の画面へ戻す
+    const back = access?.admin ? { href: "/admin", label: "マスター画面へ" } : access?.agency ? { href: "/agency", label: "代理店画面へ" } : null;
     return (
       <>
-        <Link href={PLANS_PATH} className={buttonClass("primary", "sm")}>
-          料金プランを見る
-        </Link>
+        {back ? (
+          <Link href={back.href} className={buttonClass("secondary", "sm")}>
+            {back.label}
+          </Link>
+        ) : (
+          <Link href={PLANS_PATH} className={buttonClass("primary", "sm")}>
+            料金プランを見る
+          </Link>
+        )}
         <UserButton />
       </>
     );

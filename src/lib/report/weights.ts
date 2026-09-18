@@ -17,7 +17,8 @@ export const CHECK_WEIGHTS: Record<string, number> = {
   "ai-crawlers-allowed": 3,
   "ai-crawlers-training": 0,
   noindex: 2,
-  "llms-txt": 0,
+  // 2026-09-18 から有無を採点（利用者の決定）
+  "llms-txt": 1,
   "llms-full-txt": 0,
   // 構造化データ
   "jsonld-exists": 3,
@@ -70,7 +71,7 @@ export function categoryIndex(id: CategoryId): number {
 /** 付録 B「診断方法と採点基準」に載せる、カテゴリごとの主な確認内容 */
 export const CATEGORY_CRITERIA: Record<CategoryId, string> = {
   crawlers:
-    "robots.txt での AI 検索用クローラ（OAI-SearchBot・PerplexityBot・Claude-SearchBot など）の許可、noindex の有無。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページは、noindex も robots.txt での拒否も減点しません（サイト全体が拒否されている場合は減点します）。学習用クローラ（GPTBot など）の拒否と llms.txt の有無は参考表示で、採点していません",
+    "robots.txt での AI 検索用クローラ（OAI-SearchBot・PerplexityBot・Claude-SearchBot など）の許可、noindex の有無。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページは、noindex も robots.txt での拒否も減点しません（サイト全体が拒否されている場合は減点します）。llms.txt の有無も採点します（中身は精密診断で見ます）。学習用クローラ（GPTBot など）の拒否は参考表示で、採点していません",
   structuredData:
     "JSON-LD の有無と文法、Organization / パンくず / sameAs（公式 SNS 等）。WebSite はトップページのみ、パンくずは階層のある下層ページのみ、FAQPage は画面に FAQ が実在するページのみを採点します",
   meta: "title・meta description の有無と長さ、OGP、canonical、html の lang 属性",

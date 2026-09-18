@@ -29,3 +29,28 @@ describe("無料診断の回数", () => {
     expect(isExhausted(null)).toBe(false);
   });
 });
+
+describe("運用者・代理店のデモ用の枠（月 50 回）", () => {
+  it("既定は月 50 回", async () => {
+    const { DEMO_RUN_LIMIT_DEFAULT } = await import("../quota-rules");
+    expect(DEMO_RUN_LIMIT_DEFAULT).toBe(50);
+  });
+
+  it("月のキーは日本時間", async () => {
+    const { monthKey } = await import("../quota-rules");
+    // UTC 9/30 23:00 = JST 10/1 08:00
+    expect(monthKey(new Date("2026-09-30T23:00:00Z"))).toBe("2026-10");
+    expect(monthKey(new Date("2026-09-30T10:00:00Z"))).toBe("2026-09");
+  });
+
+  it("今月の回数だけを読む。月が違えば 0（自動でリセット）", async () => {
+    const { DEMO_RUNS_KEY, demoRunsFromMetadata, demoQuotaOf, isExhausted } = await import("../quota-rules");
+    expect(demoRunsFromMetadata(null, "2026-09")).toBe(0);
+    expect(demoRunsFromMetadata({ [DEMO_RUNS_KEY]: { month: "2026-09", used: 12 } }, "2026-09")).toBe(12);
+    expect(demoRunsFromMetadata({ [DEMO_RUNS_KEY]: { month: "2026-08", used: 50 } }, "2026-09")).toBe(0);
+    expect(demoRunsFromMetadata({ [DEMO_RUNS_KEY]: 5 }, "2026-09")).toBe(0);
+    const q = demoQuotaOf(49, 50);
+    expect(q).toEqual({ limit: 50, used: 49, remaining: 1, unlimited: false, reason: "demo", period: "month" });
+    expect(isExhausted(demoQuotaOf(50, 50))).toBe(true);
+  });
+});

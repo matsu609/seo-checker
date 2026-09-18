@@ -28,7 +28,7 @@ const trial = trialDays();
 
 export const TOKUSHOHO_ROWS: Row[] = [
   { label: "販売事業者", value: operatorLabel(OPERATOR.name) },
-  { label: "運営責任者", value: "松下" },
+  { label: "運営責任者", value: "鈴木" },
   { label: "所在地", value: "個人事業のため、請求があれば遅滞なく開示します（お問い合わせ先のメールアドレスまでご請求ください）。" },
   { label: "電話番号", value: "請求があれば遅滞なく開示します。お問い合わせはメールで受け付けています。" },
   { label: "お問い合わせ先", value: operatorLabel(OPERATOR.email) },
