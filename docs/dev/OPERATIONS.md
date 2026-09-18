@@ -305,7 +305,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
-| 1 | Google Cloud → API ライブラリ | https://console.cloud.google.com/apis/library?project=seo-checker-508104 | 次の 4 本を検索して「有効にする」（承認前でも有効化はできる。クォータが 0 なだけ）: **Business Profile Performance API**、**Google My Business API**（v4。口コミ）、My Business Account Management API（済）、My Business Business Information API（済） |
+| 1 | Google Cloud → API ライブラリ（**検索窓は使わず直リンク**。「Google My Business API（v4）」と検索すると 0 件になる。09-18 利用者が遭遇） | v4（口コミ）: https://console.cloud.google.com/apis/library/mybusiness.googleapis.com?project=seo-checker-508104 ／ Performance: https://console.cloud.google.com/apis/library/businessprofileperformance.googleapis.com?project=seo-checker-508104 ／ Account Management: https://console.cloud.google.com/apis/library/mybusinessaccountmanagement.googleapis.com?project=seo-checker-508104 ／ Business Information: https://console.cloud.google.com/apis/library/mybusinessbusinessinformation.googleapis.com?project=seo-checker-508104 | それぞれ「有効にする」（承認前でも有効化はできる。クォータが 0 なだけ）。v4 の直リンクが「利用できません」なら承認後に開き直す |
 | 2 | Google Cloud → 有効な API とサービス | https://console.cloud.google.com/apis/dashboard?project=seo-checker-508104 | 4 本が一覧に出ていることを確認。「割り当て」が 0 のままなら承認待ち（正常） |
 | 3 | Google Cloud → OAuth → データアクセス | https://console.cloud.google.com/auth/scopes?project=seo-checker-508104 | スコープに `https://www.googleapis.com/auth/business.manage` があること（無ければ「スコープを追加または削除」で追加）。他のスコープ（webmasters / analytics）が残っていれば外す |
 | 4 | Google Cloud → OAuth → 対象（テストユーザー） | https://console.cloud.google.com/auth/audience?project=seo-checker-508104 | ご自身の Google アカウント（店舗のオーナー / 管理者のもの）がテストユーザーに入っていること。審査前はこのアカウントだけ接続できる |
@@ -2766,3 +2766,8 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - MEO 画面に「5. Google での見られ方」カード（`PerformanceCard.tsx`）: 接続前は「接続すると表示」の枠 + 接続ボタン（口コミ返信と同じ `ConnectBusinessButton`）。接続後は 6 指標の前月比・ユーザーアクション・月別 12 か月の表・流入キーワード（当月 / 前月 / 増減、TOP3）。対象月は 18 か月から選べる（既定は先月 = Google の集計遅れ対策）。競合との比較は 6 番に。
 - テスト 19 件（URL・解析・集計・エラー）。lint / tsc / test 1,533 件 / build 通過。
 - **利用者の作業は #116 の表**（承認前: Cloud で 4 本の API を有効化・スコープ・テストユーザー・Clerk の名前・ブランディング・ケースの督促。承認後: MEO 画面で接続 → 数字が出る）。
+
+### 2026-09-18（利用者の報告: API ライブラリで「Google My Business API（v4）」が見つからない）
+
+- 原因: 検索語に「（v4）」を含めていた。ライブラリ上の名前は「Google My Business API」。#116 の表を直リンク（`mybusiness.googleapis.com` など 4 本）に書き換えた。
+- ドキュメントのみの更新。
