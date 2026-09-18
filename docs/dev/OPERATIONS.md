@@ -98,7 +98,7 @@
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
 | Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
-| Stripe（直結） | **コードは完成（r41、r63 で 3 段階に）、本番モードの設定と Vercel の環境変数が未了** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
+| Stripe（直結） | **本番モードで Checkout が開いた（2026-09-18 21:25。`sk_live_` 設定済み）。Webhook の本番 `whsec_` は要確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
 
 ### Vercel の環境変数（Production）
 
@@ -2949,3 +2949,4 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 続報（20:20 ごろ）: 利用者が Vercel の Deployments を開いて「デプロイはどこで見るの」→ いちばん上の行（f684865・Ready・青い Production バッジ）が本番で動いている版で、r110 は反映済みと回答。次は `/plans` で再度「スタンダードを申し込む」を押して、括弧内の Stripe の文を送ってもらう。
 - 続報（20:24）: r110 で理由が出た → **「Stripe: No such price: 'price_1UGM2NBQZc3g0qHVDrQsHpk1'; a similar object exists in live mode, but a test mode key was used to make this request.」**。原因は **Vercel の環境変数の食い違い**: `STRIPE_PRICE_STANDARD` に 09-17 に本番モードで作った Price ID が入っている（= #58 の 8b は済んでいる）のに、`STRIPE_SECRET_KEY` はテスト鍵のまま。コードの問題ではなく、割引やテストカードも無関係。対応は A（鍵・Webhook を本番に揃える。8c・8e・8f）か B（Price をテスト用に戻して先に確認）。利用者の方針「本番一発」なら A。A にするとテストカードは使えないので、動作確認は自分に「30 日無料」を付けて本物のカードで 0 円申し込み → 解約。#84 の「支払い」が有効かも確認が要る。
 - 続報（20:30 ごろ、Claude in Chrome の作業報告）: **A で進行**。本番の Price ID を確認: ライト `price_1UGM23BQZc3g0qHVZbl4FtOZ`、スタンダード `price_1UGM2NBQZc3g0qHVDrQsHpk1`。Vercel の `STRIPE_PRICE_LIGHT` / `STRIPE_PRICE_STANDARD` は本番と一致（変更不要）。`STRIPE_PRICE_PRO`（テスト用の旧価格 `price_1UF73IBQZc3g0qHVJGb0aumu`）は**削除**。`STRIPE_SECRET_KEY` と `STRIPE_WEBHOOK_SECRET` は 09-13 のテスト値のまま（Sensitive で読めない）→ 利用者が手で `sk_live_` と本番 Webhook の `whsec_` に差し替え → Redeploy。Stripe の Webhook 送信先の名前は `elegant-bliss`（本番モードかは要確認）。#58 の 8b 完了、8c 要確認、8e・8f 残り。
+- 続報（21:25）: 利用者が鍵を差し替えて Redeploy → `/plans` の「スタンダードを申し込む」で **本番の Stripe Checkout（`cs_live_…`）が開いた**（スタンダード ¥50,000 / 月、割引なし、メール s-matsushita@rikka-edtech.com）。`STRIPE_SECRET_KEY` は本番に切り替わった。**割引が出ていないのはそのアカウントに割引を設定していないため**。本物の請求になるので「申し込む」は押さないよう伝え、0 円で確認する手順（マスター画面でそのアカウントに「30 日無料」→ 再度申し込み → Checkout に「30 日間無料」が出る → 本物のカードで 0 円申し込み → `/plans` が「無料トライアル中」になるか = Webhook の確認 → Stripe で解約）を案内。#58 の 8e 完了、8c（本番 whsec）は 5 の結果で判明。
