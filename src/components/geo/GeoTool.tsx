@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, Callout, Card, Field, Input, StatCard, Tabs } from "@/components/ui";
 import { CREDIT_ACTION_LABELS, GEO_MODEL_LABELS, type CreditAction, type GeoModel } from "@/lib/geo/types";
-import { pct } from "@/lib/geo/stats";
+import { pct } from "@/lib/report/format";
 import { BrandedCard } from "./BrandedCard";
 import { SetupPanel } from "./SetupPanel";
 import { ShareCard } from "./ShareCard";

@@ -11,6 +11,7 @@ import { forecastStandardPlan } from "@/lib/geo/credits";
 import { ensureAccount, listBrands, listLedger, listModelVersionEvents, listObservations, listPrompts } from "@/lib/geo/store";
 import type { DomainClass, GeoModel } from "@/lib/geo/types";
 import { requireUser } from "@/lib/auth/guard";
+import { monthStartJst } from "@/lib/seo-analysis/runs";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,7 @@ export async function GET() {
       listObservations(userId, 90),
       listModelVersionEvents(20),
     ]);
-    const ledger = await listLedger(userId, monthStart(now));
+    const ledger = await listLedger(userId, monthStartJst(now));
 
     const promptById = new Map(prompts.map((p) => [p.id, p]));
     const observations: AggregateInput[] = rows.map((r) => {
@@ -76,8 +77,3 @@ export async function GET() {
   }
 }
 
-/** 今月の初日（JST）を ISO で */
-function monthStart(now: Date): string {
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), 1, -9, 0, 0)).toISOString();
-}

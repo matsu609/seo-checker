@@ -8,7 +8,8 @@
  * 「有意差」という言葉は使わない（§5.1-5）。
  */
 import { Badge, Card } from "@/components/ui";
-import { allowsPercent, BAND_LABELS, marginLabel, pct } from "@/lib/geo/stats";
+import { allowsPercent, BAND_LABELS, marginLabel } from "@/lib/geo/stats";
+import { pct } from "@/lib/report/format";
 import type { GeoBrand } from "@/lib/geo/types";
 import type { ShareRow } from "./client";
 

@@ -7,7 +7,7 @@
  * 代わりに 自社引用率 / 引用元構成比 / 競合同時言及率 を出す。
  */
 import { Card, StatCard } from "@/components/ui";
-import { pct } from "@/lib/geo/stats";
+import { pct } from "@/lib/report/format";
 import { DOMAIN_CLASS_LABELS, type DomainClass } from "@/lib/geo/types";
 import type { DashboardResponse } from "./client";
 

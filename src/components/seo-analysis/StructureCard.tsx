@@ -10,6 +10,7 @@ import { Badge, Card, DataTable, StatCard, type Column } from "@/components/ui";
 import { PAGE_KIND_LABELS, type SiteStructure, type StructurePage } from "@/lib/seo-analysis/types";
 import { fmt, pathOf, truncateMiddle } from "@/lib/report";
 import { palette } from "@/lib/ui/palette";
+import { pct } from "@/lib/report/format";
 
 const DEPTH_LABELS: Record<string, string> = {
   "0": "トップ",
@@ -20,9 +21,6 @@ const DEPTH_LABELS: Record<string, string> = {
   unreachable: "リンクで到達不可",
 };
 
-function percent(v: number): string {
-  return `${Math.round(v * 100)}%`;
-}
 
 export function StructureCard({ structure }: { structure: SiteStructure }) {
   const s = structure;
@@ -101,7 +99,7 @@ export function StructureCard({ structure }: { structure: SiteStructure }) {
         <StatCard label="内部リンクの延べ本数" value={fmt(s.links.total)} unit="本" hint={`1 ページあたり平均 ${s.links.avgOutlinks} 本`} />
         <StatCard
           label="本文中のリンクの割合"
-          value={percent(s.links.inContentShare)}
+          value={pct(s.links.inContentShare)}
           hint={s.links.inContentShare < 0.2 ? "ナビ・フッター頼みの構造です" : "本文からの案内があります"}
         />
         <StatCard
@@ -112,7 +110,7 @@ export function StructureCard({ structure }: { structure: SiteStructure }) {
         />
         <StatCard
           label="リンク先が分からないアンカー"
-          value={s.links.anchors.total > 0 ? percent(s.links.anchors.genericShare) : "—"}
+          value={s.links.anchors.total > 0 ? pct(s.links.anchors.genericShare) : "—"}
           hint={
             s.links.anchors.total > 0
               ? `本文のリンク ${fmt(s.links.anchors.total)} 本中 ${fmt(s.links.anchors.generic)} 本${s.links.anchors.samples.length > 0 ? `（${s.links.anchors.samples.slice(0, 3).join(" / ")}）` : ""}`
@@ -157,7 +155,7 @@ export function StructureCard({ structure }: { structure: SiteStructure }) {
             <dd className="tabular-nums text-ink">{fmt(s.coverage.hreflang.count)} ページ</dd>
             <dt>被リンクの集中</dt>
             <dd className="tabular-nums text-ink">
-              上位 {fmt(s.links.concentration.topPages)} ページに {percent(s.links.concentration.share)}
+              上位 {fmt(s.links.concentration.topPages)} ページに {pct(s.links.concentration.share)}
             </dd>
             <dt>更新日の分かるページ</dt>
             <dd className="tabular-nums text-ink">

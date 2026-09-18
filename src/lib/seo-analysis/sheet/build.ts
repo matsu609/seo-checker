@@ -1,3 +1,4 @@
+import { pct } from "@/lib/report/format";
 /**
  * 事実シートの組み立て（純関数。ネットワークにも DB にも出ない）。
  *
@@ -132,9 +133,6 @@ class FactList {
   }
 }
 
-export function pct(v: number): string {
-  return `${Math.round(v * 100)}%`;
-}
 
 function path(url: string): string {
   try {

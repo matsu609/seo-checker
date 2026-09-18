@@ -96,3 +96,8 @@ export function reportFileName(mode: "page" | "site", target: string, at: string
     : `_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
   return `aio-report${mode === "site" ? "-site" : ""}_${safeHost}${stamp}`;
 }
+
+/** 比率（0〜1）を「NN%」に。四捨五入。2026-09-18 まで 3 か所に同じ実装があった */
+export function pct(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}

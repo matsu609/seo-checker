@@ -98,9 +98,6 @@ export function compareRates(
 }
 
 /** 表示用のパーセント（小数なし） */
-export function pct(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
 
 /** 「±N pt」の表示。バンドの広さを一言で伝える */
 export function marginLabel(interval: Interval, point: number): string {
