@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r103 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r104 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -2867,3 +2867,4 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 見立て: Clerk v7 の `useSignUp()`（signals API）が返す `signUp` は押した時点の写しで、`verifyEmailCode` のあと写しの `finalize()` を呼ぶと `createdSessionId` が無くて止まる。または Clerk 側に要件（規約同意・追加の確認）が残っている。
 - **r102**: 確認後は `clerk.client.signUp`（クライアント側の最新のリソース）から `status` と `createdSessionId` を読み、`clerk.setActive({ session })` でログイン状態にしてから `/start` へ。`create` に `legalAccepted: true` を付ける（フォームに同意文があるので、Clerk の「規約への同意」が必須でも止まらない）。それでも完了しないときは **状態・不足している項目・未確認の項目を画面に出す**ので、その表示を見れば次の原因が分かる。
 - 続報（09-18）: Clerk のエラー「Passwords must be 15 characters or more.」= Clerk の最小文字数は **15**。r103 で登録フォームの表記とチェックを 15 文字に合わせた（`PASSWORD_MIN`）。Clerk 側の値を変えたらここも変える。
+- 続報（09-18）: 利用者が Clerk の Minimum length を 15 → **8** に変更。r104 でフォームの表記とチェックも 8 に戻した。
