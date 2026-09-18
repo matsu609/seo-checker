@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/ui";
 import { Callout } from "@/components/ui/Callout";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { hasStripeSubscription, STRIPE_CUSTOMER_KEY, stripeStateFromMetadata, type StripeState } from "@/lib/billing/state";
-import { hasPromoCodes } from "@/lib/billing/promo";
+import { assignedPatternFromMetadata, hasPromoCodes, patternLabel, type PromoPattern } from "@/lib/billing/promo";
 import { isStripeConfigured, isStripeLive, purchasablePlanIds, trialDays } from "@/lib/billing/stripe";
 import { FIRST_TOOL_PATH } from "@/lib/auth/landing";
 import { requireFeature } from "@/lib/features/registry";
@@ -42,10 +42,13 @@ export default async function Page({ searchParams }: Props) {
   const stripe = isStripeConfigured() && isAuthEnabled();
   let stripeState: StripeState | null = null;
   let hasCustomer = false;
+  // 運用者か担当の代理店が設定した割引（スタンダードの申し込みに自動で付く）
+  let assignedPromo: PromoPattern | null = null;
   if (stripe) {
     try {
       const user = await currentUser();
       stripeState = stripeStateFromMetadata(user?.publicMetadata);
+      assignedPromo = assignedPatternFromMetadata(user?.publicMetadata);
       hasCustomer = typeof (user?.privateMetadata as Record<string, unknown> | undefined)?.[STRIPE_CUSTOMER_KEY] === "string";
     } catch {
       // 取れなければ「契約なし」として出す
@@ -62,8 +65,15 @@ export default async function Page({ searchParams }: Props) {
         {SOURCE_NOTE[source] ?? ""}
       </Callout>
 
-      {/* 割引コード（スタンダード専用）。コードが設定してあり、まだ契約していない人にだけ出す */}
-      {stripe && !hasStripeSubscription(stripeState) && hasPromoCodes() && <PromoCodeField className="mb-4" />}
+      {/* 設定済みの割引（運用者・代理店が付けたもの）。契約前の人にだけ出す */}
+      {stripe && !hasStripeSubscription(stripeState) && assignedPromo && (
+        <Callout tone="pass" title="割引が設定されています" className="mb-4">
+          {patternLabel(assignedPromo)}。スタンダードの「申し込む」を押すと、この条件で申し込み画面が開きます。
+        </Callout>
+      )}
+
+      {/* 割引コード（スタンダード専用）。コードが設定してあり、割引が付いておらず、まだ契約していない人にだけ出す */}
+      {stripe && !hasStripeSubscription(stripeState) && !assignedPromo && hasPromoCodes() && <PromoCodeField className="mb-4" />}
 
       <PlanTable current={plan} purchasable={stripe ? purchasablePlanIds() : []} />
 

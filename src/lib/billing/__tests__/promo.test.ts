@@ -76,3 +76,27 @@ describe("PROMO_CODES の読み方", () => {
     expect(resolvePromoCode("", "WOLF-A7K2=free-off10")).toBeNull();
   });
 });
+
+describe("顧客ごとの割引（publicMetadata.promo。運用者・代理店が設定）", () => {
+  it("設定と解除。他のキーは残す", async () => {
+    const { assignedPromoFromMetadata, assignedPatternFromMetadata, withAssignedPromo, patternShortLabel } = await import("../promo");
+    const base = { plan: "free", agencyId: "user_agency" };
+    const set = withAssignedPromo(base, "free-off20", "user_admin", "2026-09-18T00:00:00.000Z");
+    expect(set.plan).toBe("free");
+    expect(set.agencyId).toBe("user_agency");
+    expect(assignedPromoFromMetadata(set)).toEqual({ pattern: "free-off20", by: "user_admin", at: "2026-09-18T00:00:00.000Z" });
+    expect(assignedPatternFromMetadata(set)?.amountOff).toBe(20_000);
+    const cleared = withAssignedPromo(set, null, "user_admin");
+    expect(cleared.promo).toBeNull();
+    expect(assignedPromoFromMetadata(cleared)).toBeNull();
+    expect(patternShortLabel(assignedPatternFromMetadata(set)!)).toBe("30 日無料 + 月額 20,000 円引き");
+  });
+
+  it("形が違う・知らないパターンは null（手で入れた値を割引にしない）", async () => {
+    const { assignedPromoFromMetadata } = await import("../promo");
+    expect(assignedPromoFromMetadata(null)).toBeNull();
+    expect(assignedPromoFromMetadata({ promo: "off10" })).toBeNull();
+    expect(assignedPromoFromMetadata({ promo: { pattern: "off99" } })).toBeNull();
+    expect(assignedPromoFromMetadata({ promo: { pattern: "OFF10" } })?.pattern).toBe("off10");
+  });
+});

@@ -16,6 +16,7 @@ import { resolveUserPlan, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
 import { summarizeStripeState, summarizeSubscription, type BillingSummary } from "./billing";
 import { agencyIdFromMetadata, canAssignAgency, withAgencyId } from "./roles";
+import { assignedPromoFromMetadata, patternById, withAssignedPromo } from "@/lib/billing/promo";
 import { leadFromMetadata, type LeadProfile } from "@/lib/free/lead";
 import { freeRunLimit } from "@/lib/free/quota";
 import { freeRunsFromMetadata } from "@/lib/free/quota-rules";
@@ -66,6 +67,8 @@ export interface ClientRow {
   lead: LeadProfile | null;
   /** 無料診断を使った回数 */
   freeRuns: number;
+  /** 設定済みの割引（パターン名。スタンダードの申し込みに付く）。無ければ null */
+  promo: string | null;
   /** 契約情報の取得に失敗した理由（画面に出して、金額を空欄と取り違えないようにする） */
   billingError?: string;
 }
@@ -159,6 +162,7 @@ export async function buildClientRows(users: ClerkUserLike[]): Promise<ClientRow
       agencyId: agencyIdFromMetadata(user.publicMetadata),
       lead: leadFromMetadata(user.publicMetadata, user.unsafeMetadata ?? null),
       freeRuns: freeRunsFromMetadata(user.privateMetadata ?? null),
+      promo: assignedPromoFromMetadata(user.publicMetadata)?.pattern ?? null,
     };
   });
 }
@@ -216,4 +220,21 @@ export async function assignClientAgency(
     publicMetadata: withAgencyId(metadata, agencyId),
   });
   return agencyId;
+}
+
+/**
+ * 顧客の割引を設定・解除する（null で解除）。保存後のパターン名を返す。
+ * 呼び出し側で「運用者」か「その顧客の担当代理店」かを必ず確認すること。
+ *
+ * publicMetadata は丸ごと置き換わるので、他のキー（plan・overrides など）を必ず残す。
+ */
+export async function assignClientPromo(userId: string, patternId: string | null, by: string): Promise<string | null> {
+  if (patternId !== null && !patternById(patternId)) throw new Error("その割引はありません。");
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
+  await client.users.updateUserMetadata(userId, {
+    publicMetadata: withAssignedPromo(metadata, patternId, by),
+  });
+  return patternId ? (patternById(patternId)?.id ?? null) : null;
 }

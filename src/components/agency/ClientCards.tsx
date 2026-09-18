@@ -1,16 +1,17 @@
 /**
- * 代理店画面の登録者一覧（読み取り専用）。
+ * 代理店画面の登録者一覧。
  *
- * マスター画面の顧客一覧と同じ情報を出すが、触れるものは 1 つも置かない。
- * 機能の個別開放と担当の付け替えは運用者（マスター）だけの操作なので、
- * ここには出さない。押せないボタンを並べると「頼めばできる」に見えてしまうため、
- * 表示そのものを持たせない。
+ * マスター画面の顧客一覧と同じ情報を出す。触れるのは「割引」だけ（利用者の決定 2026-09-18。
+ * 代理店が担当の登録者に割引を設定できるようにする）。機能の個別開放と担当の付け替えは
+ * 運用者（マスター）だけの操作なので、ここには出さない。押せないボタンを並べると
+ * 「頼めばできる」に見えてしまうため、表示そのものを持たせない。
  */
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { planLabel } from "@/lib/plans/catalog";
 import type { ClientRow } from "@/lib/admin/clients";
 import { formatDate, planSourceLabel, STATUS_TONE } from "@/components/admin/format";
+import { PromoSelect } from "@/components/admin/PromoSelect";
 
 export function ClientCards({ rows }: { rows: ClientRow[] }) {
   if (rows.length === 0) {
@@ -76,6 +77,10 @@ export function ClientCards({ rows }: { rows: ClientRow[] }) {
               </span>
             </div>
           )}
+
+          <div className="mt-4 border-t border-line pt-4">
+            <PromoSelect userId={row.userId} value={row.promo} endpoint="/api/agency/promo" subscribed={row.billing.status === "active" || row.billing.status === "trial"} />
+          </div>
 
           <p className="mt-4 text-[11px] text-muted">
             登録 {formatDate(row.createdAt)} · 最終利用 {formatDate(row.lastActiveAt)}

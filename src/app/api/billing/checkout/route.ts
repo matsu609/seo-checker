@@ -11,7 +11,7 @@ import { impersonationBlockedResponse, isImpersonating } from "@/lib/admin/imper
 import { isAuthEnabled } from "@/lib/auth/config";
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
-import { PROMO_PLAN, normalizeCode, resolvePromoCode } from "@/lib/billing/promo";
+import { PROMO_PLAN, assignedPatternFromMetadata, normalizeCode, resolvePromoCode } from "@/lib/billing/promo";
 import { createCheckoutSession, isStripeConfigured, purchasablePlanIds } from "@/lib/billing/stripe";
 import { stripeCustomerIdOf } from "@/lib/billing/sync";
 import { RECOMMENDED_PLAN, toPlanId } from "@/lib/plans/catalog";
@@ -35,17 +35,20 @@ export async function POST(request: Request) {
   if (!purchasablePlanIds().includes(plan)) {
     return Response.json({ error: "このプランは画面からお申し込みいただけません", code: "not_purchasable" }, { status: 400, headers: NO_STORE });
   }
-  // 割引コード。画面で確認済みでも、ここでもう一度検証する（コードは環境変数で差し替わる）
+  const user = await currentUser();
+  // 割引: 運用者・代理店が設定したもの（publicMetadata）が最優先。無ければ割引コード（PROMO_CODES）。
+  // どちらもスタンダード専用。設定済みの割引はライトの申し込みには黙って付けない（ライトは定価）
+  const assigned = assignedPatternFromMetadata(user?.publicMetadata);
   const code = typeof body.code === "string" ? normalizeCode(body.code).slice(0, 64) : "";
-  const promo = code ? resolvePromoCode(code) : null;
-  if (code && !promo) {
+  const fromCode = !assigned && code ? resolvePromoCode(code) : null;
+  if (!assigned && code && !fromCode) {
     return Response.json({ error: "この割引コードは使えません。コードを外すか、お確かめください", code: "bad_promo" }, { status: 400, headers: NO_STORE });
   }
-  if (promo && plan !== PROMO_PLAN) {
+  if (fromCode && plan !== PROMO_PLAN) {
     return Response.json({ error: "この割引コードはスタンダードプランでのみお使いいただけます", code: "promo_plan" }, { status: 400, headers: NO_STORE });
   }
+  const promo = plan === PROMO_PLAN ? (assigned ?? fromCode) : null;
   try {
-    const user = await currentUser();
     const email = user?.primaryEmailAddress?.emailAddress ?? null;
     const customerId = await stripeCustomerIdOf(userId);
     const url = await createCheckoutSession({ plan, userId, email, customerId, origin: new URL(request.url).origin, promo });

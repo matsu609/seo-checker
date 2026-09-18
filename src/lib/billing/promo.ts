@@ -106,3 +106,58 @@ export function resolvePromoCode(code: string, raw: string | undefined = process
 export function hasPromoCodes(raw: string | undefined = process.env[PROMO_CODES_ENV]): boolean {
   return parsePromoCodes(raw).size > 0;
 }
+
+/* ── 顧客ごとに設定する割引（マスター画面・代理店画面から。利用者の決定 2026-09-18） ──
+ *
+ * コードを渡す代わりに、運用者か担当の代理店が顧客を選んでパターンを設定する。
+ * 保存先は顧客の Clerk publicMetadata.promo（データベースは増やさない）。
+ * 設定があれば /plans に「割引が設定されています」と出て、スタンダードの申し込みに自動で付く。
+ * コード入力（PROMO_CODES）より優先する。
+ */
+
+/** publicMetadata のキー */
+export const PROMO_KEY = "promo";
+
+export interface AssignedPromo {
+  /** パターン名（PROMO_PATTERNS の id） */
+  pattern: string;
+  /** 設定した人の Clerk ユーザー ID */
+  by: string;
+  /** 設定日時（ISO） */
+  at: string;
+}
+
+function record(metadata: unknown): Record<string, unknown> {
+  return metadata && typeof metadata === "object" ? (metadata as Record<string, unknown>) : {};
+}
+
+/** publicMetadata から設定済みの割引を読む。形が違う・知らないパターンなら null */
+export function assignedPromoFromMetadata(metadata: unknown): AssignedPromo | null {
+  const raw = record(metadata)[PROMO_KEY];
+  if (!raw || typeof raw !== "object") return null;
+  const { pattern, by, at } = raw as Record<string, unknown>;
+  if (typeof pattern !== "string" || !patternById(pattern)) return null;
+  return { pattern: patternById(pattern)!.id, by: typeof by === "string" ? by : "", at: typeof at === "string" ? at : "" };
+}
+
+/** 設定済みの割引のパターン（無ければ null） */
+export function assignedPatternFromMetadata(metadata: unknown): PromoPattern | null {
+  const assigned = assignedPromoFromMetadata(metadata);
+  return assigned ? patternById(assigned.pattern) : null;
+}
+
+/**
+ * 割引を設定・解除した publicMetadata を作る（純粋）。null で解除。
+ * 外すときはキーを消さず null を入れる（Clerk の updateUserMetadata は null を削除として扱う）。
+ */
+export function withAssignedPromo(metadata: unknown, patternId: string | null, by: string, at = new Date().toISOString()): Record<string, unknown> {
+  const pattern = patternId ? patternById(patternId) : null;
+  return { ...record(metadata), [PROMO_KEY]: pattern ? ({ pattern: pattern.id, by, at } satisfies AssignedPromo) : null };
+}
+
+/** 選択肢に出す短い名前（マスター画面・代理店画面の select 用） */
+export function patternShortLabel(pattern: PromoPattern): string {
+  const off = pattern.amountOff > 0 ? `月額 ${yen(pattern.amountOff)}引き` : "";
+  if (pattern.firstMonthFree) return off ? `30 日無料 + ${off}` : "30 日無料";
+  return monthlyAfter(pattern) === 0 ? `${off}（ずっと無料）` : off;
+}

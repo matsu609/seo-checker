@@ -45,8 +45,9 @@ export default async function Page() {
         代理店画面
       </h1>
       <p className="mb-6 text-[13px] leading-relaxed text-muted">
-        担当としてお預かりしている登録者の契約状況・月額・ご利用状況です。表示だけで、
-        プランの変更や機能の開放はできません（運用者にご依頼ください）。
+        担当としてお預かりしている登録者の契約状況・月額・ご利用状況です。各登録者の「割引」は
+        ここで設定できます（スタンダードのお申し込みに付きます）。プランの変更や機能の開放は
+        できません（運用者にご依頼ください）。
       </p>
 
       <div className="mb-4 text-[13px] text-muted">

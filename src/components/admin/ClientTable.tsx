@@ -20,6 +20,7 @@ import { planLabel } from "@/lib/plans/catalog";
 import type { AgencyRow } from "@/lib/admin/agencies";
 import type { ClientRow } from "@/lib/admin/clients";
 import { formatDate, planSourceLabel, STATUS_TONE } from "./format";
+import { PromoSelect } from "./PromoSelect";
 
 /** 個別開放の対象。設定・料金プランは誰でも使えるので出さない */
 const TOGGLEABLE = toolGroupsForDisplay();
@@ -330,6 +331,9 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
                   )}
                 </div>
               </div>
+
+              {/* 割引（スタンダード専用）。代理店画面からも同じものを設定できる */}
+              {!isAgency && <PromoSelect userId={row.userId} value={row.promo} endpoint="/api/admin/promo" subscribed={row.billing.status === "active" || row.billing.status === "trial"} />}
 
               {/* 機能の個別開放 */}
               <div>
