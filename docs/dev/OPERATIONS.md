@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r114 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r115 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -3068,3 +3068,21 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 結果: 上の「セキュリティ点検（2026-09-18）」に S-0〜S-12 として記録。**IDOR・注入・XSS・認証の抜けは 0 件。**最優先は S-0（Clerk の鍵のローテーション。利用者の作業）と S-1（`/api/store` の上限欠落。r111 の回帰）。
 - **コードは 1 行も変えていない**（点検の依頼だったため）。修正の順番は利用者の指示を待つ（上の「入力待ち」）。
 - 追記（同日、4 系統の調査を全部回収したあと）: S-6 を「DNS リバインディング（中）」から **「IPv6 の IPv4 射影アドレスで私有判定を突破できる（高）」＋ S-6b（リバインディングは中）** に改めた。`node` で実測し、`[::ffff:127.0.0.1]`・`[::ffff:a9fe:a9fe]`（クラウドメタデータ）・NAT64・6to4 がすべて「公開」と判定されることを確認（該当の正規表現は `new URL()` の正規化により**到達不能な死んだコード**）。あわせて S-13〜S-19（オープンリダイレクト・口コミ投稿 URL のスキーム・AI 枠のテナント共有・代理ログインの閲覧専用が未実装・監査ログ・割引コードの総当たり・CSRF）を追加。いずれも実測またはコードの読み取りで確認済み。
+
+### 2026-09-18（重複した共通処理を 1 か所に寄せる。動作は変えない、r115）
+
+- 利用者の指示「外部から見た動作を一切変えずに、読みやすさと保守性を上げて。変更前にテストで何を保証すべきかも先に書いて」。
+- **先に安全網を書いてから着手した**（これが無いと「動作を変えていない」を主張できない）:
+  - `src/lib/db/__tests__/query-contract.test.ts`（10 件）… 8 モジュールが組み立てる PostgREST の URL を**1 文字単位で固定**。守るのは ①全読み書きが `user_id=eq.<本人>` で絞られている ②値が `encodeURIComponent` で無害化され `order=` / `limit=` / `select=` を差し込めない。**リファクタリング前に緑にしてから**作業した。
+  - `src/lib/auth/__tests__/require-user.test.ts`（4 件）… 共通ガードの 401 の本文（`code: "unauthorized"`）とヘッダーを固定。
+- 寄せたもの（いずれも実装がバイト単位で同一だったもの）:
+  | 対象 | 前 | 後 |
+  |---|---|---|
+  | `eq()` / `gte()`（PostgREST のフィルタ。**安全に関わる**） | 8 ファイルに同じ実装 | `src/lib/db/filters.ts` |
+  | `looksLikeHtml` | 2 ファイルに同じ実装 | `src/lib/analyzer/fetch.ts` |
+  | `NO_STORE` | 18 ファイルに同じ定義 | `src/lib/api/headers.ts` |
+  | `requireAuth` → `currentUserId` → 401 の 4 行 | 20 か所 | `requireUser()`（`src/lib/auth/guard.ts`）。16 か所を置換 |
+- **統合しなかったもの**: `crawl/url.ts` の `looksLikeHtmlResponse` は名前が似ているが**別物**（判定範囲 2000 文字・xhtml も対象）。まとめると採点が変わるので残した。`requireUser()` に寄せなかった 8 か所（billing 2 本・store・maps/history 2 本・maps/performance・maps/insights・account/lead）は、認証と利用者 ID の取得の**間に別の処理が挟まる**（代理ログインの判定・ヘッダーの組み立て）ため、順序を変えないよう据え置いた。
+- **作業中に安全網が 1 件バグを捕まえた**: `gte` の一括置換が新設した `filters.ts` 自身にも当たり、`gte` が自分を呼ぶ無限再帰になっていた。tsc では見つからない種類の壊れ方で、テストを先に書いていたから止められた。
+- 検証: lint / tsc / test **1,579 件**（1,565 + 安全網 14）/ build すべて通過。差分 44 ファイル・+123 / −152 行。差分に応答の文面・状態コード・ヘッダーの変更は無し（`git diff` で確認）。
+- 残っている重複（今回は手を付けていない。やるなら次）: ルートごとの `UUID` 正規表現（4 か所）、`badRequest` / `readJson` が `reviews/api.ts` と `listings/api.ts` に別々にある、`import` の並び順が未統一。
