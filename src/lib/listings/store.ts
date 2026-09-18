@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { supabaseRest } from "@/lib/db/supabase";
+import { eq } from "@/lib/db/filters";
 import { ListingProfileSchema, ListingStatesSchema, type ListingProfile, type ListingStates } from "./profile";
 
 const TABLE = "listing_profiles";
@@ -27,9 +28,6 @@ export interface ListingRecord {
   updatedAt: string;
 }
 
-function eq(value: string): string {
-  return `eq.${encodeURIComponent(value)}`;
-}
 
 /** 行 → 記録。壊れた部分は既定値に落とす（保存したのは自分のサーバー） */
 export function fromListingRow(row: { place_id: string; profile: unknown; states: unknown; updated_at: string }): ListingRecord {

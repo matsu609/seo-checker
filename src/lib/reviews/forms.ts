@@ -8,6 +8,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { supabaseRest } from "@/lib/db/supabase";
+import { eq } from "@/lib/db/filters";
 import { DEFAULT_LOCALE, type SurveyLocale } from "./i18n";
 import {
   MAX_CHANNELS,
@@ -106,9 +107,6 @@ const ChannelRowSchema = z.object({
 });
 export type ReviewChannelRow = z.infer<typeof ChannelRowSchema>;
 
-function eq(value: string): string {
-  return `eq.${encodeURIComponent(value)}`;
-}
 
 /** 行 → アンケート。質問や設定の形が壊れていれば例外（保存したのは自分のサーバー） */
 export function fromFormRow(row: ReviewFormRow): ReviewForm {

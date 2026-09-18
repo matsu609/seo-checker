@@ -4,12 +4,11 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { requireAuth } from "@/lib/auth/guard";
-import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, DbError } from "@/lib/db/supabase";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { generateAnalysis } from "@/lib/seo-analysis/ai/analyze";
 import { getRun, MAX_ANALYSES_PER_RUN, saveAnalysis } from "@/lib/seo-analysis/runs";
+import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -17,10 +16,8 @@ export const maxDuration = 300;
 const BodySchema = z.object({ runId: z.string().uuid() });
 
 export async function POST(request: NextRequest) {
-  const denied = await requireAuth({ feature: "seo-analysis" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "seo-analysis" });
+  if (userId instanceof Response) return userId;
   if (!isAnthropicEnabled()) return Response.json({ error: "ANTHROPIC_API_KEY が未設定です" }, { status: 503 });
 
   let raw: unknown;

@@ -7,11 +7,11 @@
 import { requireAuth } from "@/lib/auth/guard";
 import { normalizeCode, patternLabel, resolvePromoCode } from "@/lib/billing/promo";
 import { isStripeConfigured } from "@/lib/billing/stripe";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 export const maxDuration = 10;
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export async function POST(request: Request) {
   const denied = await requireAuth();

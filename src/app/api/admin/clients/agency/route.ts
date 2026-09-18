@@ -10,6 +10,7 @@ import { z } from "zod";
 import { loadAgencies } from "@/lib/admin/agencies";
 import { assignClientAgency } from "@/lib/admin/clients";
 import { requireAdmin } from "@/lib/admin/guard";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,6 @@ const BodySchema = z.object({
   agencyId: z.string().min(1).max(200).nullable(),
 });
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export async function POST(request: Request) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）

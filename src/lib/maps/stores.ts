@@ -9,6 +9,7 @@
  */
 import { z } from "zod";
 import { supabaseRest } from "@/lib/db/supabase";
+import { eq } from "@/lib/db/filters";
 import { MAX_COMPETITORS } from "./types";
 
 /** 1 利用者が登録できる自社店舗の上限（代行会社の利用を想定） */
@@ -55,9 +56,6 @@ export function fromStoreRow(row: MeoStoreRow): MeoStore {
   };
 }
 
-function eq(value: string): string {
-  return `eq.${encodeURIComponent(value)}`;
-}
 
 function parseRows(rows: unknown): MeoStoreRow[] {
   const parsed = z.array(RowSchema).safeParse(rows);

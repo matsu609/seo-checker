@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { supabaseRest } from "@/lib/db/supabase";
+import { eq, gte } from "@/lib/db/filters";
 import { cacheKey } from "./normalize";
 import { MONTHLY_CREDITS, nextResetAt } from "./credits";
 import { runDayOffsetFor } from "./schedule";
@@ -37,9 +38,6 @@ const T_VERSION = "geo_model_versions";
 /** キャッシュを使い回してよい時間（§7.1: 24 時間） */
 export const CACHE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-function eq(value: string): string {
-  return `eq.${encodeURIComponent(value)}`;
-}
 
 /* ───────────── アカウント ───────────── */
 
@@ -301,7 +299,7 @@ function toMeasurement(row: z.infer<typeof MeasurementRow>): GeoMeasurement {
 export async function findCachedMeasurement(hash: string, model: GeoModel, locale: string, now = new Date()): Promise<GeoMeasurement | null> {
   const since = new Date(now.getTime() - CACHE_WINDOW_MS).toISOString();
   const rows = await supabaseRest<unknown>(
-    `${T_MEASUREMENT}?select=*&normalized_hash=${eq(hash)}&model=${eq(model)}&locale=${eq(locale)}&executed_at=gte.${encodeURIComponent(since)}&order=executed_at.desc&limit=1`,
+    `${T_MEASUREMENT}?select=*&normalized_hash=${eq(hash)}&model=${eq(model)}&locale=${eq(locale)}&executed_at=${gte(since)}&order=executed_at.desc&limit=1`,
   );
   const parsed = z.array(MeasurementRow).safeParse(rows);
   return parsed.success && parsed.data[0] ? toMeasurement(parsed.data[0]) : null;
@@ -409,7 +407,7 @@ export async function listObservations(userId: string, days = 90): Promise<
 > {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const rows = await supabaseRest<unknown>(
-    `${T_OBSERVATION}?select=brand_id,prompt_id,mentioned,cited,mention_confidence,cited_domains,domain_class,observed_at,geo_measurements(model,executed_at)&user_id=${eq(userId)}&observed_at=gte.${encodeURIComponent(since)}&order=observed_at.desc&limit=20000`,
+    `${T_OBSERVATION}?select=brand_id,prompt_id,mentioned,cited,mention_confidence,cited_domains,domain_class,observed_at,geo_measurements(model,executed_at)&user_id=${eq(userId)}&observed_at=${gte(since)}&order=observed_at.desc&limit=20000`,
   );
   const parsed = z.array(ObservationJoinRow).safeParse(rows);
   if (!parsed.success) return [];
@@ -452,7 +450,7 @@ const LedgerRow = z.object({
 
 export async function listLedger(userId: string, since: string): Promise<CreditLedgerEntry[]> {
   const rows = await supabaseRest<unknown>(
-    `${T_LEDGER}?select=*&user_id=${eq(userId)}&created_at=gte.${encodeURIComponent(since)}&order=created_at.desc&limit=5000`,
+    `${T_LEDGER}?select=*&user_id=${eq(userId)}&created_at=${gte(since)}&order=created_at.desc&limit=5000`,
   );
   const parsed = z.array(LedgerRow).safeParse(rows);
   return parsed.success

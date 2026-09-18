@@ -10,11 +10,11 @@ import { clientKeyOf, REVIEW_CLIENT_LIMIT_MESSAGE, REVIEW_EVENT_PER_HOUR, takeCl
 import { getPublicForm, isValidSlug } from "@/lib/reviews/forms";
 import { DIRECT_CONTACT_MAX, DIRECT_MESSAGE_MAX } from "@/lib/reviews/questions";
 import { isValidEditToken, saveDirectMessage } from "@/lib/reviews/responses";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const BodySchema = z.object({

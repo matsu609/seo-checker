@@ -15,11 +15,11 @@ import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { listUserStores, removeUserStore, saveUserStore } from "@/lib/db/user-stores";
 import { isSyncedStoreName } from "@/lib/store/sync-rules";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 /** 1 ストアの上限（JSON の文字数）。履歴系のストアでもこれに収まる */
 const MAX_VALUE_CHARS = 2_000_000;
 

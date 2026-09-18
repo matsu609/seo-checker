@@ -5,21 +5,18 @@
  * クレジットの残高と内訳、モデル更新のマーカーを返す。
  * 集計は純関数（lib/geo/aggregate.ts）なので、ここは組み立てるだけ。
  */
-import { requireAuth } from "@/lib/auth/guard";
-import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { brandedMetrics, byModel, rollingShares, type AggregateInput } from "@/lib/geo/aggregate";
 import { forecastStandardPlan } from "@/lib/geo/credits";
 import { ensureAccount, listBrands, listLedger, listModelVersionEvents, listObservations, listPrompts } from "@/lib/geo/store";
 import type { DomainClass, GeoModel } from "@/lib/geo/types";
+import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const denied = await requireAuth({ feature: "geo" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "geo" });
+  if (userId instanceof Response) return userId;
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase が未設定です", code: "not_configured" }, { status: 503 });
 
   try {

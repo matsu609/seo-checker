@@ -23,6 +23,7 @@ import { isPlacesConfigured, placesErrorResponse } from "@/lib/maps/client";
 import { getPlaceCached, peekPlaceCached } from "@/lib/maps/fetch";
 import { buildMeoReport, type MeoReport } from "@/lib/maps/report";
 import type { ScoreOptions } from "@/lib/maps/score";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 
@@ -38,7 +39,6 @@ export interface FreeMeoReportResponse {
   cached: boolean;
 }
 
-const NO_STORE = { "cache-control": "no-store" };
 
 export async function POST(request: Request) {
   if (!isPlacesConfigured()) {

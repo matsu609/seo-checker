@@ -10,7 +10,7 @@
  * それは `/tools/llms-txt` の検証タブの役目）。失敗しても例外は投げず、
  * 「取得できず」として返す（報告書全体を止めない）。
  */
-import { fetchText } from "@/lib/analyzer/fetch";
+import { fetchText, looksLikeHtml } from "@/lib/analyzer/fetch";
 import { validateLlmsTxt } from "@/lib/llms-txt/validate";
 import type { SheetLlmsTxt } from "./sheet/types";
 
@@ -18,12 +18,6 @@ const TIMEOUT_MS = 8_000;
 /** 事実シートに載せるセクション名の上限 */
 const MAX_SECTIONS = 10;
 
-/** 404 ページが 200 で返るサイト対策: HTML が返ってきたらテキストファイルとみなさない */
-export function looksLikeHtml(res: { contentType: string; body: string }): boolean {
-  if (res.contentType.includes("text/html")) return true;
-  const head = res.body.slice(0, 500).trim().toLowerCase();
-  return head.startsWith("<!doctype html") || head.startsWith("<html");
-}
 
 export interface CollectLlmsOptions {
   signal?: AbortSignal;

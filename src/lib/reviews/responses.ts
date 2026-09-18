@@ -12,6 +12,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { DbError, supabaseRest } from "@/lib/db/supabase";
+import { eq, gte } from "@/lib/db/filters";
 import { isSurveyLocale, type SurveyLocale } from "./i18n";
 import { RawAnswersSchema, type Answers } from "./questions";
 
@@ -93,9 +94,6 @@ const RowSchema = z.object({
 });
 export type ReviewResponseRow = z.infer<typeof RowSchema>;
 
-function eq(value: string): string {
-  return `eq.${encodeURIComponent(value)}`;
-}
 
 function toStatus(s: string): ResponseStatus {
   return (RESPONSE_STATUSES as readonly string[]).includes(s) ? (s as ResponseStatus) : "open";
@@ -199,7 +197,7 @@ export async function listResponses(formId: string, filter: ListFilter = {}, lim
   if (filter.status) params.push(`status=${eq(filter.status)}`);
   if (filter.lowOnly) params.push("is_low=is.true");
   if (filter.channelId) params.push(`channel_id=${eq(filter.channelId)}`);
-  if (filter.from) params.push(`created_at=gte.${encodeURIComponent(filter.from)}`);
+  if (filter.from) params.push(`created_at=${gte(filter.from)}`);
   if (filter.to) params.push(`created_at=lt.${encodeURIComponent(filter.to)}`);
   const rows = await withLangFallback((cols) => supabaseRest<unknown>(`${TABLE}?select=${cols}&${params.join("&")}`));
   return parseRows(rows);

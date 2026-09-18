@@ -7,14 +7,13 @@
  * - AI が使えるか
  */
 import { isAuthEnabled } from "@/lib/auth/config";
-import { requireAuth } from "@/lib/auth/guard";
-import { currentUserId } from "@/lib/auth/user";
 import { listAllLocations, type BpLocation } from "@/lib/google/business-profile";
 import { GoogleLinkError } from "@/lib/google/errors";
 import { canUse } from "@/lib/google/scopes";
 import { getGoogleConnection } from "@/lib/google/token";
 import { isAnthropicEnabled } from "@/lib/llm/anthropic";
 import { listStores } from "@/lib/maps/stores";
+import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -39,10 +38,8 @@ export interface RepliesStatusResponse {
 }
 
 export async function GET() {
-  const denied = await requireAuth({ feature: "replies" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "replies" });
+  if (userId instanceof Response) return userId;
 
   const body: RepliesStatusResponse = {
     authEnabled: isAuthEnabled(),

@@ -10,11 +10,11 @@ import { clientKeyOf, REVIEW_CLIENT_LIMIT_MESSAGE, REVIEW_FORM_GET_PER_HOUR, tak
 import { findChannelByCode, getPublicForm, isValidChannelCode, isValidSlug, toPublicForm, type PublicReviewForm } from "@/lib/reviews/forms";
 import { resolveSurveyLocale } from "@/lib/reviews/i18n";
 import { translateForm } from "@/lib/reviews/translate";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export interface PublicFormResponse {
   form: PublicReviewForm;

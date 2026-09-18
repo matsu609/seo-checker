@@ -4,9 +4,9 @@
  */
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
+export { NO_STORE } from "@/lib/api/headers";
 
 export const FEATURE_ID = "listings";
-export const NO_STORE = { "cache-control": "no-store" } as const;
 export const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
 
 /** 未ログイン / プラン不足なら Response。通れば userId */

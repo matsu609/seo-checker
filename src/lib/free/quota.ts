@@ -15,8 +15,8 @@ import { isAuthEnabled } from "@/lib/auth/config";
 import { getCurrentPlan } from "@/lib/plans/current";
 import { envInt } from "./ratelimit";
 import { DEMO_RUN_LIMIT_DEFAULT, DEMO_RUNS_KEY, demoQuotaOf, demoRunsFromMetadata, FREE_QUOTA_MESSAGE, FREE_RUN_LIMIT_DEFAULT, FREE_RUNS_KEY, freeRunsFromMetadata, monthKey, quotaOf, unlimitedQuota, type FreeQuota } from "./quota-rules";
+import { NO_STORE } from "@/lib/api/headers";
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export function freeRunLimit(): number {
   return envInt("FREE_DIAGNOSIS_LIMIT", FREE_RUN_LIMIT_DEFAULT);

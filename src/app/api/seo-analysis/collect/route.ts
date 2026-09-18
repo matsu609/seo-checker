@@ -7,8 +7,6 @@
  */
 import { NextRequest } from "next/server";
 import { FetchError } from "@/lib/analyzer/fetch";
-import { requireAuth } from "@/lib/auth/guard";
-import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, DbError, isSupabaseConfigured } from "@/lib/db/supabase";
 import { isAnthropicEnabled } from "@/lib/llm/anthropic";
 import { collectFactSheet } from "@/lib/seo-analysis/collect";
@@ -16,6 +14,7 @@ import { acquireCrawlSlot, clientKeyOf } from "@/lib/seo-analysis/gate";
 import { AnalysisInputSchema, normalizeInput } from "@/lib/seo-analysis/input";
 import { quotaExceeded, quotaFor } from "@/lib/seo-analysis/quota";
 import { createRun } from "@/lib/seo-analysis/runs";
+import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -27,10 +26,8 @@ const NDJSON_HEADERS = {
 };
 
 export async function POST(request: NextRequest) {
-  const denied = await requireAuth({ feature: "seo-analysis" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "seo-analysis" });
+  if (userId instanceof Response) return userId;
   if (!isSupabaseConfigured()) {
     return Response.json({ error: "精密診断には SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY の設定が必要です", code: "not_configured" }, { status: 503 });
   }

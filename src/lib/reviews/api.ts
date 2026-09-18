@@ -7,6 +7,7 @@
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { getForm, type ReviewForm } from "./forms";
+export { NO_STORE } from "@/lib/api/headers";
 
 export const FEATURE_ID = "reviews";
 
@@ -15,7 +16,6 @@ export function isUuid(value: string): boolean {
   return UUID.test(value);
 }
 
-export const NO_STORE = { "cache-control": "no-store" } as const;
 
 /** 未ログイン / プラン不足なら Response。通れば userId */
 export async function requireReviewsUser(): Promise<string | Response> {

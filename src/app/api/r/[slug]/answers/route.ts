@@ -28,11 +28,11 @@ import { findChannelByCode, getPublicForm, isValidSlug, resolveStore } from "@/l
 import { DEFAULT_LOCALE, localeFromParam } from "@/lib/reviews/i18n";
 import { isLowRating, RawAnswersSchema, validateAnswers } from "@/lib/reviews/questions";
 import { insertResponse, newEditToken, type DraftSource } from "@/lib/reviews/responses";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 const BodySchema = z.object({
   code: z.string().max(8).optional(),

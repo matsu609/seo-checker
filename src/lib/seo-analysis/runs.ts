@@ -8,6 +8,7 @@
 import { z } from "zod";
 import type { AuditResult } from "@/lib/audit/types";
 import { DbError, supabaseRest } from "@/lib/db/supabase";
+import { eq, gte } from "@/lib/db/filters";
 import { DEFAULT_MONTHLY_LIMIT, MAX_ANALYSES_PER_RUN } from "./limits";
 import type { AnalysisRecord } from "./ai/schema";
 import type { AnalysisInput, SeoFactSheet } from "./sheet/types";
@@ -56,9 +57,6 @@ const DetailRow = SummaryRow.extend({
   audit: z.unknown().nullable().optional(),
 });
 
-function eq(value: string): string {
-  return `eq.${encodeURIComponent(value)}`;
-}
 
 function toSummary(row: z.infer<typeof SummaryRow>): RunSummary {
   return {
@@ -90,7 +88,7 @@ export function monthStartJst(now = new Date()): string {
 /** 今月に開始した回数（失敗した収集は数えない） */
 export async function countThisMonth(userId: string, now = new Date()): Promise<number> {
   const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=id&user_id=${eq(userId)}&status=neq.failed&created_at=gte.${encodeURIComponent(monthStartJst(now))}&limit=1000`,
+    `${TABLE}?select=id&user_id=${eq(userId)}&status=neq.failed&created_at=${gte(monthStartJst(now))}&limit=1000`,
   );
   return Array.isArray(rows) ? rows.length : 0;
 }

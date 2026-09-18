@@ -12,6 +12,7 @@ import { assignClientPromo } from "@/lib/admin/clients";
 import { currentAgencyId } from "@/lib/admin/guard";
 import { agencyIdFromMetadata, isAgencyMetadata } from "@/lib/admin/roles";
 import { patternById } from "@/lib/billing/promo";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,6 @@ const BodySchema = z.object({
   pattern: z.string().min(1).max(40).nullable(),
 });
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 const notFound = () => Response.json({ error: "見つかりませんでした。" }, { status: 404, headers: NO_STORE });
 
 export async function POST(request: Request) {

@@ -8,11 +8,11 @@ import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { createPortalSession, isStripeConfigured } from "@/lib/billing/stripe";
 import { stripeCustomerIdOf } from "@/lib/billing/sync";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export async function POST(request: Request) {
   const denied = await requireAuth();

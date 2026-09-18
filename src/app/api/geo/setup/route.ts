@@ -6,8 +6,6 @@
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { requireAuth } from "@/lib/auth/guard";
-import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { normalizedHash } from "@/lib/geo/normalize";
 import { precisionWarning } from "@/lib/geo/schedule";
@@ -24,6 +22,7 @@ import {
   savePrompt,
 } from "@/lib/geo/store";
 import { GEO_MODELS } from "@/lib/geo/types";
+import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 
@@ -58,10 +57,8 @@ const DeleteSchema = z.object({ kind: z.literal("delete"), target: z.enum(["bran
 const BodySchema = z.discriminatedUnion("kind", [BrandSchema, PromptSchema, KeywordSchema, DeleteSchema]);
 
 export async function GET() {
-  const denied = await requireAuth({ feature: "geo" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "geo" });
+  if (userId instanceof Response) return userId;
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase が未設定です", code: "not_configured" }, { status: 503 });
 
   try {
@@ -78,10 +75,8 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const denied = await requireAuth({ feature: "geo" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "geo" });
+  if (userId instanceof Response) return userId;
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase が未設定です", code: "not_configured" }, { status: 503 });
 
   let raw: unknown;

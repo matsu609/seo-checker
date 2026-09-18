@@ -2,10 +2,9 @@
  * GET / DELETE /api/seo-analysis/[id] — 1 件の分析（事実シート・AI 分析・セカンドオピニオン）。
  */
 import { NextRequest } from "next/server";
-import { requireAuth } from "@/lib/auth/guard";
-import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { deleteRun, getRun } from "@/lib/seo-analysis/runs";
+import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 
@@ -14,10 +13,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, context: Context) {
-  const denied = await requireAuth({ feature: "seo-analysis" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "seo-analysis" });
+  if (userId instanceof Response) return userId;
   const { id } = await context.params;
   if (!UUID.test(id)) return Response.json({ error: "ID が不正です" }, { status: 400 });
   try {
@@ -30,10 +27,8 @@ export async function GET(_request: NextRequest, context: Context) {
 }
 
 export async function DELETE(_request: NextRequest, context: Context) {
-  const denied = await requireAuth({ feature: "seo-analysis" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "seo-analysis" });
+  if (userId instanceof Response) return userId;
   const { id } = await context.params;
   if (!UUID.test(id)) return Response.json({ error: "ID が不正です" }, { status: 400 });
   try {

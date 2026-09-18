@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { supabaseRest } from "@/lib/db/supabase";
+import { eq } from "@/lib/db/filters";
 import { MeoOwnerInputSchema, type MeoOwnerData, type MeoOwnerInput } from "./owner-input";
 
 const TABLE = "meo_owner_inputs";
@@ -19,9 +20,6 @@ const RowSchema = z.object({
   updated_at: z.string(),
 });
 
-function eq(value: string): string {
-  return `eq.${encodeURIComponent(value)}`;
-}
 
 /** 行 → 申告。入力の形が壊れていれば null（保存したのは自分のサーバーだが、念のため検証する） */
 export function fromOwnerRow(row: { input: unknown; updated_at: string }): MeoOwnerData | null {

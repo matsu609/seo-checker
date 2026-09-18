@@ -10,6 +10,7 @@ import { z } from "zod";
 import { assignClientPromo } from "@/lib/admin/clients";
 import { requireAdmin } from "@/lib/admin/guard";
 import { patternById } from "@/lib/billing/promo";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,6 @@ const BodySchema = z.object({
   pattern: z.string().min(1).max(40).nullable(),
 });
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export async function POST(request: Request) {
   const denied = await requireAdmin();

@@ -97,6 +97,17 @@ export async function assertPublicHost(url: URL): Promise<void> {
   }
 }
 
+/**
+ * 404 ページが 200 で返るサイト対策: HTML が返ってきたらテキストファイル（robots.txt /
+ * llms.txt）とみなさない。`crawl/url.ts` の `looksLikeHtmlResponse` は**別物**（判定範囲が
+ * 2000 文字・xhtml も対象）なので、統合してはいけない。
+ */
+export function looksLikeHtml(res: { contentType: string; body: string }): boolean {
+  if (res.contentType.includes("text/html")) return true;
+  const head = res.body.slice(0, 500).trim().toLowerCase();
+  return head.startsWith("<!doctype html") || head.startsWith("<html");
+}
+
 export interface FetchedText {
   ok: boolean;
   status: number;

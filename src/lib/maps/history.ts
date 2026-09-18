@@ -9,6 +9,7 @@
  */
 import { z } from "zod";
 import { supabaseRest } from "@/lib/db/supabase";
+import { eq } from "@/lib/db/filters";
 import type { MeoOwnerData } from "./owner-input";
 import { buildMeoReport, type MeoReport } from "./report";
 import { CATEGORY_ORDER, type CategoryId } from "./score";
@@ -88,9 +89,6 @@ export function fromRow(row: MeoReportRow): MeoHistoryItem {
   };
 }
 
-function eq(value: string): string {
-  return `eq.${encodeURIComponent(value)}`;
-}
 
 export async function saveMeoReport(userId: string, report: SavedMeoReport): Promise<MeoHistoryItem> {
   const rows = await supabaseRest<unknown>(`${TABLE}?select=${LIST_COLUMNS}`, {

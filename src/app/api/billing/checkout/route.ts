@@ -16,11 +16,11 @@ import { PROMO_PLAN, assignedPatternFromMetadata, normalizeCode, resolvePromoCod
 import { createCheckoutSession, isStripeConfigured, purchasablePlanIds } from "@/lib/billing/stripe";
 import { stripeCustomerIdOf } from "@/lib/billing/sync";
 import { RECOMMENDED_PLAN, toPlanId } from "@/lib/plans/catalog";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export async function POST(request: Request) {
   const denied = await requireAuth();

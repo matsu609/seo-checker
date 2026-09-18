@@ -1,7 +1,7 @@
 import robotsParser from "robots-parser";
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
-import { fetchText } from "./fetch";
+import { fetchText, looksLikeHtml } from "./fetch";
 import { notForSearch, type NotForSearchPage } from "./page-kind";
 import type { CheckResult, CheckStatus, PageExclusion } from "./types";
 
@@ -313,9 +313,3 @@ export function checkCrawlers(
   return results;
 }
 
-/** 404 ページが 200 で返ってくるサイト対策: HTML が返ってきたらテキストファイルとみなさない */
-function looksLikeHtml(res: { contentType: string; body: string }): boolean {
-  if (res.contentType.includes("text/html")) return true;
-  const head = res.body.slice(0, 500).trim().toLowerCase();
-  return head.startsWith("<!doctype html") || head.startsWith("<html");
-}

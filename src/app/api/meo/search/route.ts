@@ -20,6 +20,7 @@ import {
 import { requireFreeUser } from "@/lib/free/quota";
 import { isPlacesConfigured, placesErrorResponse, searchPlaces } from "@/lib/maps/client";
 import type { PlaceSummary } from "@/lib/maps/types";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -36,7 +37,6 @@ export interface FreeMeoSearchResponse {
 
 // 有料の /api/maps/search と同じキャッシュ名（同じ語句なら共有してよい）
 const cache = globalCache<PlaceSummary[]>("mapsSearch", 60 * 60 * 1000, 200);
-const NO_STORE = { "cache-control": "no-store" };
 
 export async function POST(request: Request) {
   if (!isPlacesConfigured()) {

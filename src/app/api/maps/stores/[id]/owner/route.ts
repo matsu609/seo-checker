@@ -10,14 +10,13 @@
  * 使うので Google には問い合わせない（費用ゼロ）。
  */
 import { z } from "zod";
-import { requireAuth } from "@/lib/auth/guard";
-import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { enrichOwnReport } from "@/lib/maps/enrich";
 import { rescoreLatestReport, type MeoHistoryEntry } from "@/lib/maps/history";
 import { MeoOwnerInputSchema, type MeoOwnerData } from "@/lib/maps/owner-input";
 import { deleteOwnerInput, getOwnerInput, putOwnerInput } from "@/lib/maps/owner-store";
 import { getStore, type MeoStore } from "@/lib/maps/stores";
+import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -47,10 +46,8 @@ async function ownStore(userId: string, id: string): Promise<MeoStore | Response
 
 async function guard(): Promise<string | Response> {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth({ feature: "maps" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "maps" });
+  if (userId instanceof Response) return userId;
   return userId;
 }
 

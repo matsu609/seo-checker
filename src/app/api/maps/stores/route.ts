@@ -6,8 +6,6 @@
  *        （1 週間待たせないため。以後は週 1 回の一斉更新だけ。手動の取り直しは無い）。
  */
 import { z } from "zod";
-import { requireAuth } from "@/lib/auth/guard";
-import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { PlacesError } from "@/lib/maps/client";
 import { getPlaceCached } from "@/lib/maps/fetch";
@@ -17,6 +15,7 @@ import { getOwnerInputOrNull } from "@/lib/maps/owner-store";
 import { nextRefreshAt } from "@/lib/maps/refresh";
 import { buildMeoReport } from "@/lib/maps/report";
 import { addStore, listStores, markRefreshed, MAX_COMPETITORS_PER_STORE, MAX_OWN_STORES, type MeoStore } from "@/lib/maps/stores";
+import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -44,10 +43,8 @@ export interface MapsStoreAddResponse {
 
 export async function GET() {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth({ feature: "maps" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "maps" });
+  if (userId instanceof Response) return userId;
 
   try {
     const body: MapsStoresResponse = { stores: await listStores(userId), nextRefreshAt: nextRefreshAt().toISOString() };
@@ -59,10 +56,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAuth({ feature: "maps" });
-  if (denied) return denied;
-  const userId = await currentUserId();
-  if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
+  const userId = await requireUser({ feature: "maps" });
+  if (userId instanceof Response) return userId;
 
   let raw: unknown;
   try {

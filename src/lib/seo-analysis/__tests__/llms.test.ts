@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { collectLlmsTxt, looksLikeHtml } from "../llms";
+import { looksLikeHtml } from "@/lib/analyzer/fetch";
+import { collectLlmsTxt } from "../llms";
 
 const ORIGIN = "https://example.com";
 

@@ -10,13 +10,13 @@ import { z } from "zod";
 import { addAgencyByEmail, loadAgencies, removeAgency } from "@/lib/admin/agencies";
 import { requireAdmin } from "@/lib/admin/guard";
 import { normalizeEmail } from "@/lib/admin/roles";
+import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
 
 const AddSchema = z.object({ email: z.string().min(3).max(320) });
 const RemoveSchema = z.object({ userId: z.string().min(1).max(200) });
 
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export async function POST(request: Request) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
