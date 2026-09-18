@@ -11,7 +11,7 @@ import { isAdmin } from "@/lib/admin/guard";
 
 export const metadata: Metadata = {
   title: "マスター画面",
-  description: "顧客ごとの契約状況・月額・クーポンの確認と、機能の個別開放・代理店の管理。",
+  description: "顧客ごとの契約状況・月額・クーポンの確認と、機能の個別開放・管理アカウントの管理。",
   // 運用者だけの画面なので、検索にもクローラにも出さない
   robots: { index: false, follow: false },
 };
@@ -49,7 +49,7 @@ export default async function Page() {
       </h1>
       <p className="mb-6 text-[13px] leading-relaxed text-muted">
         登録しているすべてのお客様の契約状況・月額・クーポンを確認し、機能を個別に開放できます。
-        代理店アカウントを追加して、担当のお客様だけを見てもらうこともできます。
+        管理アカウント（旧称: 代理店アカウント）を追加して、担当のお客様だけを見てもらうこともできます。
         金額と契約状況は Clerk Billing（決済は Stripe）の値をそのまま出しています。
       </p>
 

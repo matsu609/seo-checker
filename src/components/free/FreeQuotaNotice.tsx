@@ -19,11 +19,11 @@ export function FreeQuotaNotice({ quota, className = "" }: { quota: FreeQuota | 
     // 運用者・代理店のデモ用の枠（月あたり）。使い切っても料金プランには送らない
     return isExhausted(quota) ? (
       <Callout tone="warn" className={`no-print ${className}`} title={`今月のデモ用の回数（${quota.limit} 回）を使い切りました`}>
-        <p className="leading-relaxed">運用者・代理店の無料診断は月 {quota.limit} 回までです。来月 1 日に回数が戻ります。急ぎであれば運用者にご連絡ください。</p>
+        <p className="leading-relaxed">運用者・管理アカウントの無料診断は月 {quota.limit} 回までです。来月 1 日に回数が戻ります。急ぎであれば運用者にご連絡ください。</p>
       </Callout>
     ) : (
       <p className={`no-print text-[12px] text-muted ${className}`} role="status">
-        運用者・代理店のデモ用（月 {quota.limit} 回まで）。<span className="font-bold text-ink">今月の残り {quota.remaining} 回</span>です。
+        運用者・管理アカウントのデモ用（月 {quota.limit} 回まで）。<span className="font-bold text-ink">今月の残り {quota.remaining} 回</span>です。
       </p>
     );
   }

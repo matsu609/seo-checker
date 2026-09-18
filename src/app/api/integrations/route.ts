@@ -1,4 +1,6 @@
+import { isAuthEnabled } from "@/lib/auth/config";
 import { requireAuth } from "@/lib/auth/guard";
+import { getGoogleConnection } from "@/lib/google/token";
 import { getIntegrationStatus, getKeyExpiries } from "@/lib/integrations";
 
 export const runtime = "nodejs";
@@ -16,6 +18,15 @@ export async function GET() {
   const denied = await requireAuth();
   if (denied) return denied;
   const status = getIntegrationStatus();
+  // Google ビジネス プロフィールは OAuth（Clerk）なので、ログイン中の人の接続状態で判定する
+  if (isAuthEnabled()) {
+    try {
+      const conn = await getGoogleConnection();
+      status["google-business"] = conn.connected && conn.missingScopes.length === 0;
+    } catch {
+      status["google-business"] = false;
+    }
+  }
   return Response.json(
     { ...status, status, keyExpiry: getKeyExpiries() },
     { headers: { "Cache-Control": "no-store" } },

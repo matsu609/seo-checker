@@ -248,7 +248,7 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                   className={`${ITEM_CLASS} ${pathname.startsWith("/agency") ? ACTIVE_CLASS : IDLE_CLASS}`}
                 >
                   <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">代理店画面</span>
+                  <span className="min-w-0 flex-1 truncate">管理アカウント画面</span>
                 </Link>
               </li>
             )}

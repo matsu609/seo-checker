@@ -71,6 +71,9 @@ function IntegrationRow({ meta, on, expiry }: { meta: IntegrationMeta; on: boole
               ▶
             </span>
             <span className="text-[13px] font-bold text-ink">{meta.label}</span>
+            {meta.auth === "oauth" && (
+              <code className="rounded-sm border border-line bg-surface px-1 font-mono text-[11px] text-muted">OAuth（鍵なし）</code>
+            )}
             {meta.envVars.map((v) => (
               <code key={v} className="rounded-sm border border-line bg-surface px-1 font-mono text-[11px] text-ink">
                 {v}
@@ -81,15 +84,16 @@ function IntegrationRow({ meta, on, expiry }: { meta: IntegrationMeta; on: boole
               {on === null ? (
                 <span className="text-[12px] text-muted">確認中…</span>
               ) : on ? (
-                <Badge tone="pass">設定済み</Badge>
+                <Badge tone="pass">{meta.auth === "oauth" ? "接続済み" : "設定済み"}</Badge>
               ) : (
                 <Badge tone="neutral" icon={false}>
-                  未設定
+                  {meta.auth === "oauth" ? "未接続" : "未設定"}
                 </Badge>
               )}
             </span>
           </div>
           <p className="mt-1 pl-5 text-[12px] leading-relaxed text-muted">{meta.description}</p>
+          {meta.statusNote && <p className="mt-1 pl-5 text-[11px] leading-relaxed text-muted">{meta.statusNote}</p>}
         </summary>
 
         <div className="mb-3 ml-5 rounded-sm border border-line bg-surface p-3">

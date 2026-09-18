@@ -293,15 +293,15 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
                 <p className="text-[12px] text-muted">クーポンの適用はありません。</p>
               )}
 
-              {/* 担当代理店 */}
+              {/* 担当の管理アカウント（旧称: 代理店） */}
               <div>
                 <label
                   className="text-[12px] font-bold text-ink"
                   htmlFor={`agency-${row.userId}`}
                 >
-                  担当代理店
+                  担当の管理アカウント
                   <span className="ml-2 font-normal text-muted">
-                    選んだ代理店の画面に、このお客様が出るようになります。
+                    選んだ管理アカウントの画面に、このお客様が出るようになります。
                   </span>
                 </label>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -322,24 +322,24 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
                       ))}
                     {orphan && (
                       <option value={row.agencyId as string}>
-                        解除済みの代理店（{row.agencyId}）
+                        解除済みの管理アカウント（{row.agencyId}）
                       </option>
                     )}
                   </Select>
                   {isAgency && (
                     <span className="text-[12px] text-muted">
-                      このアカウントは代理店です（代理店に担当は付けません）。
+                      このアカウントは管理アカウントです（管理アカウントに担当は付けません）。
                     </span>
                   )}
                   {orphan && !isAgency && (
                     <span className="text-[12px] text-warn">
-                      いまの担当は代理店ではありません（解除済み）。見えていない状態です。
+                      いまの担当は管理アカウントではありません（解除済み）。見えていない状態です。
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* 割引（スタンダード専用）。代理店画面からも同じものを設定できる */}
+              {/* 割引（スタンダード専用）。管理アカウント画面からも同じものを設定できる */}
               {!isAgency && <PromoSelect userId={row.userId} value={row.promo} endpoint="/api/admin/promo" subscribed={row.billing.status === "active" || row.billing.status === "trial"} />}
 
               {/* 機能の個別開放 */}

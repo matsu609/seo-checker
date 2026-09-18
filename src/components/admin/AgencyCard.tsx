@@ -53,7 +53,7 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
       setNotice(
         body.result?.kind === "invited"
           ? `${body.result.email} に招待メールを送りました。相手が登録を済ませると、この一覧に並びます。`
-          : `${body.result?.email ?? value} を代理店にしました。`,
+          : `${body.result?.email ?? value} を管理アカウントにしました。`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "追加できませんでした");
@@ -65,7 +65,7 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
   async function remove(row: AgencyRow) {
     // 解除はすぐ効く（相手の画面が閉じる）ので、押し間違いを 1 枚挟んで止める
     const label = row.email || row.name || row.userId;
-    if (!window.confirm(`${label} の代理店を解除します。この方からは登録者が見えなくなります。`)) {
+    if (!window.confirm(`${label} の管理アカウントを解除します。この方からは登録者が見えなくなります。`)) {
       return;
     }
     setBusy(true);
@@ -80,7 +80,7 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
       const body = (await res.json().catch(() => ({}))) as { agencies?: AgencyRow[]; error?: string };
       if (!res.ok) throw new Error(body.error ?? `解除できませんでした（HTTP ${res.status}）`);
       if (body.agencies) onChange(body.agencies);
-      setNotice(`${label} の代理店を解除しました。`);
+      setNotice(`${label} の管理アカウントを解除しました。`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "解除できませんでした");
     } finally {
@@ -90,8 +90,8 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
 
   return (
     <Card
-      title="代理店アカウント"
-      description="代理店には、担当として割り当てた登録者だけが見えます（表示のみ。プランの変更や機能の開放はできません）。担当の割り当ては下の顧客一覧で行います。"
+      title="管理アカウント（旧称: 代理店アカウント）"
+      description="管理アカウントには、担当として割り当てた登録者だけが見えます（契約状況の確認と割引の設定。プランの変更や機能の開放はできません）。担当の割り当ては下の顧客一覧で行います。"
     >
       <div className="space-y-5">
         {error && (
@@ -113,10 +113,10 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
           }}
         >
           <Field
-            label="代理店にするメールアドレス"
+            label="管理アカウントにするメールアドレス"
             htmlFor="agency-email"
             className="min-w-[16rem] flex-1"
-            hint="すでに登録済みの方はその場で代理店になります。未登録の方には Clerk から招待メールを送ります。"
+            hint="すでに登録済みの方はその場で管理アカウントになります。未登録の方には Clerk から招待メールを送ります。"
           >
             <Input
               id="agency-email"
@@ -129,12 +129,12 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
             />
           </Field>
           <Button type="submit" loading={busy} disabled={email.trim().length === 0}>
-            代理店として追加
+            管理アカウントとして追加
           </Button>
         </form>
 
         {agencies.length === 0 ? (
-          <p className="text-[13px] text-muted">代理店アカウントはまだありません。</p>
+          <p className="text-[13px] text-muted">管理アカウントはまだありません。</p>
         ) : (
           <ul className="divide-y divide-line rounded-sm border border-line">
             {agencies.map((row) => (

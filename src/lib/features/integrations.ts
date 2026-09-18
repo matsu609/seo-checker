@@ -8,9 +8,11 @@ export const INTEGRATION_KEYS = [
   "serpapi",
   "dataforseo",
   "pagespeed",
+  "crux",
   "ahrefs",
-  "openpagerank",
   "places",
+  "google-business",
+  "stripe",
   "supabase",
 ] as const;
 
@@ -41,6 +43,13 @@ export interface IntegrationMeta {
   links: readonly IntegrationLink[];
   /** キーに寿命がある連携だけ。マスター画面に残り日数を出す */
   keyLifetime?: KeyLifetime;
+  /**
+   * 鍵ではなく OAuth（Clerk の Google 連携）で動く連携。設定の有無は環境変数では分からないので、
+   * /api/integrations がログイン中の運用者自身の Google 接続の状態を返す
+   */
+  auth?: "oauth";
+  /** 状態の横に出す補足（OAuth の連携で「誰の接続か」を示す） */
+  statusNote?: string;
 }
 
 /** 料金・上限を確認した日（マスター画面に出す。単価は変わるので、古くなったら見直す） */
@@ -106,6 +115,20 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
       { label: "認証情報（API キー）", url: "https://console.cloud.google.com/apis/credentials" },
     ],
   },
+  crux: {
+    key: "crux",
+    label: "CrUX（Chrome UX Report。実ユーザーの表示速度）",
+    envVars: ["CRUX_API_KEY"],
+    description: "精密診断の「実ユーザーの速度」（Origin と主要 URL の Core Web Vitals の実測値と 25 週の推移）。PAGESPEED_API_KEY があればそれを使うので、この変数は省略できる（Google Cloud で Chrome UX Report API を有効にしておくこと）",
+    pricing: "無料（Google Cloud のキーがあれば請求は発生しない）",
+    limits: "1 日の割り当てあり（Google Cloud の割り当て画面で確認）。超えると「取得できず」になり報告書は続く。トラフィックの少ないサイトはデータが無い（CrUX 側の仕様）",
+    usage: "精密診断 1 回 = 8 回（URL 6 + Origin + 推移）",
+    links: [
+      { label: "CrUX API（公式）", url: "https://developer.chrome.com/docs/crux/api" },
+      { label: "割り当て（Google Cloud）", url: "https://console.cloud.google.com/apis/api/chromeuxreport.googleapis.com/quotas" },
+      { label: "API を有効にする", url: "https://console.cloud.google.com/apis/library/chromeuxreport.googleapis.com" },
+    ],
+  },
   ahrefs: {
     key: "ahrefs",
     label: "Ahrefs（Domain Rating）",
@@ -127,21 +150,6 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
       note: "Ahrefs の APIv3 キーは作成から 1 年で失効します。作り直しは無料（同じ画面で新しいキーを作って差し替えるだけ）。キーを作った日を AHREFS_API_KEY_ISSUED_AT に YYYY-MM-DD で入れると、ここに残り日数が出ます。",
     },
   },
-  openpagerank: {
-    key: "openpagerank",
-    label: "Open PageRank（ドメインの外部リンク評価）",
-    envVars: ["OPENPAGERANK_API_KEY"],
-    description: "精密診断のドメインパワー。外部からの被リンクを見た 0〜10 の評価（無料。Ahrefs の DR が取れていればそちらを優先し、無ければこれで採点）。旧 API が 2026-09-30 に終了するため、いまは新規に設定しないこと",
-    pricing: "無料。2026-09-30 に旧 API が終了し、Keywords Everywhere の新 API（無料枠 月 30,000 ドメイン）に移行する。このツールはまだ旧 API を呼んでいるので、使うなら先に移行の実装が要る（#86）",
-    limits: "旧 API: 1 日 1,000 リクエスト、1 リクエストに 100 ドメインまで。2026-09-30 で停止。新 API は基盤（openpagerank.keywordseverywhere.com）も認証（Bearer）も変わる",
-    usage: "精密診断 1 回 = 1 リクエスト（自社 + 競合をまとめて）。24 時間キャッシュ",
-    links: [
-      { label: "公式サイト", url: "https://www.domcop.com/openpagerank/" },
-      { label: "API ドキュメント", url: "https://www.domcop.com/openpagerank/documentation" },
-      { label: "ログイン（旧・API キー）", url: "https://www.domcop.com/openpagerank/auth/login" },
-      { label: "移行のお知らせ（2026-09-30 終了）", url: "https://www.domcop.com/openpagerank/keywords-everywhere-acquisition" },
-    ],
-  },
   places: {
     key: "places",
     label: "Google マップ（Places API）",
@@ -155,6 +163,42 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
       { label: "使用量と請求（公式）", url: "https://developers.google.com/maps/documentation/places/web-service/usage-and-billing" },
       { label: "予算とアラート（Google Cloud）", url: "https://console.cloud.google.com/billing/budgets" },
       { label: "Maps Platform のキー", url: "https://console.cloud.google.com/google/maps-apis/credentials" },
+    ],
+  },
+  "google-business": {
+    key: "google-business",
+    label: "Google ビジネス プロフィール（OAuth。口コミ返信・Google での見られ方）",
+    envVars: [],
+    auth: "oauth",
+    statusNote: "ログイン中のあなたの Google アカウントの接続状態です（お客様ごとに別。設定画面の「Google 連携」で接続し、business.manage の権限を許可すると接続済みになります）",
+    description: "お客様の Google アカウント（オーナー権限）で動く 4 つの API: ① My Business Account Management API v1（アカウント・店舗の一覧）② My Business Business Information API v1（店舗情報）③ Business Profile Performance API v1（Google での見られ方: 検索・マップの表示回数、電話・経路・サイトのクリック、検索語）④ Google My Business API v4（口コミの取得と返信。Google の承認が要る。2026-09-11 に申請）。鍵は無く、Clerk の Google SSO（独自のクレデンシャル + スコープ business.manage）で許可を受ける",
+    pricing: "無料（Google Cloud の請求は発生しない。Places API とは別）",
+    limits: "① ② ③ は Google Cloud で有効化済み（2026-09-18）。④ は Business Profile API の利用申請が承認されるまで API ライブラリに出ず、口コミの取得・返信が動かない（`/tools/replies` が「承認待ち」の案内を出す）。承認後に API を有効化する。割り当ては 1 分あたりの回数で、通常の利用では当たらない",
+    usage: "MEO の「Google での見られ方」1 回 = Performance API 2 回（日次指標 + 検索語。6 時間キャッシュ）。口コミ返信 = 口コミ一覧 1 回 + 返信 1 回",
+    links: [
+      { label: "OAuth（Google Auth Platform）", url: "https://console.cloud.google.com/auth/overview?project=seo-checker-508104" },
+      { label: "Account Management API", url: "https://console.cloud.google.com/apis/library/mybusinessaccountmanagement.googleapis.com?project=seo-checker-508104" },
+      { label: "Business Information API", url: "https://console.cloud.google.com/apis/library/mybusinessbusinessinformation.googleapis.com?project=seo-checker-508104" },
+      { label: "Performance API", url: "https://console.cloud.google.com/apis/library/businessprofileperformance.googleapis.com?project=seo-checker-508104" },
+      { label: "My Business API v4（承認後）", url: "https://console.cloud.google.com/apis/library/mybusiness.googleapis.com?project=seo-checker-508104" },
+      { label: "Business Profile API の利用申請", url: "https://developers.google.com/my-business/content/prereqs" },
+      { label: "Clerk → SSO Connections → Google", url: "https://dashboard.clerk.com/" },
+    ],
+  },
+  stripe: {
+    key: "stripe",
+    label: "Stripe（決済）",
+    envVars: ["STRIPE_SECRET_KEY", "STRIPE_PRICE_STANDARD", "STRIPE_PRICE_LIGHT", "STRIPE_WEBHOOK_SECRET"],
+    description: "料金プランの申し込み（Checkout）、お支払い方法の変更・請求書・解約（カスタマーポータル）、契約状態の反映（Webhook → Clerk）。割引はマスター画面・管理アカウント画面で顧客ごとに設定（クーポンは自動作成）。鍵が sk_test_ なら料金画面に「テストモード」と出る",
+    pricing: "決済手数料のみ（国内カード 3.6%。Stripe の料金表で確認）。月額は無し",
+    limits: "本人確認（アカウントの有効化）とセキュリティチェックリストが済んでいないと支払いが止まる（Stripe → 設定 → アカウントのステータス）。Webhook の署名シークレットが本番のものでないと、決済後に「契約中」にならない",
+    usage: "申し込み 1 回 = Checkout 1 セッション + Webhook 数件。料金画面の表示は Clerk の値を読むだけで Stripe を呼ばない",
+    links: [
+      { label: "料金", url: "https://stripe.com/jp/pricing" },
+      { label: "ダッシュボード（本番）", url: "https://dashboard.stripe.com/" },
+      { label: "Webhook", url: "https://dashboard.stripe.com/workbench/webhooks" },
+      { label: "アカウントのステータス", url: "https://dashboard.stripe.com/settings/account" },
+      { label: "API キー", url: "https://dashboard.stripe.com/apikeys" },
     ],
   },
   supabase: {
