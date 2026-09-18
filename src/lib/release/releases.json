@@ -574,6 +574,11 @@
       "commit": "819f5f6",
       "date": "2026-09-18",
       "summary": "重複していた共通処理（eq / looksLikeHtml / NO_STORE / 認証の前置き）を 1 か所に寄せる（動作は変えない）"
+    },
+    {
+      "commit": "280b659",
+      "date": "2026-09-18",
+      "summary": "使われていない barrel を削除し、API 入口の共通処理（UUID 判定・JSON 読み取り・認証）を 1 か所に寄せる"
     }
   ]
 }
