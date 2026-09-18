@@ -1004,6 +1004,35 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 ## セキュリティ上の注意（必読）
 
+### セキュリティ点検（2026-09-18。OWASP Top 10 / データフロー追跡 / 攻撃者視点 / 権限境界の 4 観点）
+
+利用者の指示で全 78 API ルート・全 DB 呼び出し・外部 URL 取得・権限境界を点検した。**深刻な設計上の穴は無く、テナント分離（IDOR）・SQL 相当の注入・XSS・シェル注入・認証の抜けは 1 件も見つからなかった。**残っているのは「費用を燃やされる」「容量を埋められる」「鍵が漏れている」の 3 系統。
+
+| # | 深刻度 | 内容 | 場所 | 直し方 |
+|---|---|---|---|---|
+| S-0 | **最優先（利用者の作業）** | **`CLERK_SECRET_KEY`（`sk_live_`）が会話に貼られたまま未ローテーション**（このメモの #9 / A-3）。この鍵があれば誰でも任意の利用者（運用者含む）のセッションを発行でき、下のすべての防御が無効になる。Google OAuth のクライアントシークレットも同様 | 環境変数 | Clerk → API keys → Regenerate → Vercel 更新 → Redeploy |
+| S-1 | 高 | **`/api/store` に 1 人あたりの行数・総量の上限が無い**（r111 の回帰）。`isSyncedStoreName` は `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/` に合う**任意の名前**を通し、1 行 2 MB まで書ける。登録は誰でもできるので、無料アカウント 1 つで 250 リクエスト ≒ 500 MB（Supabase Free の上限）を埋められ、**全顧客の書き込み（店舗登録・口コミ・報告書・精密診断）が止まる** | `src/app/api/store/route.ts:24,55`、`src/lib/store/sync-rules.ts:19` | 実在する 28 個のストア名の許可リストにする + 1 行の上限を 512 KB に下げる（許可リストなら行数は自動で上限になる） |
+| S-2 | 中〜高 | **`/api/faq` はログイン確認だけで、回数制限・プラン判定・レート制限が無い**。キャッシュは `url + 本文` のハッシュなので本文を 1 文字変えれば必ず外れる。無料アカウントから Anthropic を無制限に呼べる（無料診断の 2 回を使い切った後も可） | `src/app/api/faq/route.ts:20,46` | `consumeFreeRun()` か `takeDailyToken()` を足す |
+| S-3 | 中 | **無料診断の回数カウントに競合状態**。`consumeFreeRun()` は Clerk の値を読んで +1 する read-modify-write なので、**同時に N 本投げれば 2 回制限が N 回まで通る**。実費が出るのは `/api/meo/report`（Places）で、1 日の全体上限 500 回が唯一の歯止め | `src/lib/free/quota.ts:56-68` | 回数を Supabase に移して SQL の原子的インクリメントにする |
+| S-4 | 中 | **レート制限の IP 判定が偽装できる**。`clientKeyOf` は `x-forwarded-for` の**先頭**（= クライアントが足せる側）を採る。ヘッダーを回せば 1 時間あたりの上限を無限に回避できる（全体の 1 日上限は残る）。加えて上限はインスタンスごとのメモリなので実効値は台数倍 | `src/lib/free/ratelimit.ts:99-103` | 末尾の値か Vercel の `x-vercel-forwarded-for` を使う |
+| S-5 | 中 | **セキュリティヘッダーが 1 つも無い**（CSP / X-Frame-Options / Referrer-Policy / X-Content-Type-Options）。`dangerouslySetInnerHTML` は全体で 0 件なので XSS 自体は起きにくいが、`/admin` や `/r/<slug>` を iframe に埋めるクリックジャッキングが素通り | `next.config.ts`（headers 未設定） | `next.config.ts` に `headers()` を追加 |
+| S-6 | 中 | **SSRF: DNS リバインディング**。`assertPublicHost` が名前解決して私有 IP を弾いた**あと**、`fetch` がもう一度解決するので、TTL の短い DNS で検査時だけ公開 IP を返せば内部アドレスに到達できる。私有範囲の判定も `198.18/15`・`192.0.0/24`・マルチキャスト・NAT64（`64:ff9b::/96`）が漏れ、ポート制限も無い。※ 到達には無料アカウントのログインが必要 | `src/lib/analyzer/fetch.ts:75-99,136` | 解決済み IP に対して接続して Host ヘッダーを付ける（IP ピン留め）。判定範囲も追加 |
+| S-7 | 低 | **キャッシュがレート制限の前に返る**。`/api/meo/report` はキャッシュ命中時に IP 制限・1 日上限・回数消費のすべてを飛ばして返すので、回数を使い切った人が placeId を列挙して無制限に報告書を取れる（中身は Google の公開情報なので他人の非公開データは出ない） | `src/app/api/meo/report/route.ts:62-67` | キャッシュ判定をレート制限の後ろに移す |
+| S-8 | 低 | **AI ルート 12 本が完全に無計測**（`seo-analysis/comment`・`replies/draft`・`maps/commentary`・`improvement`・`writing/*` 5 本・`page-diagnosis/chat`・`aio-topics/coverage`・`listings/describe`）。契約者 1 人で Anthropic を無制限に呼べる。契約が要るぶん S-2 より軽い | 各 route.ts | 利用者ごとの 1 日上限を 1 か所に置く |
+| S-9 | 低 | **認証が無効だと全開放**（`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` か `CLERK_SECRET_KEY` が空のとき）。`currentUserId()` が全員 `"local"` を返すので**全顧客の行が 1 テナントに合流**し、プランは `premium` 扱いになる。止めるのは `console.warn` 1 行だけ | `src/lib/auth/user.ts:14`、`src/lib/plans/current.ts:35`、`src/lib/auth/config.ts:29` | 本番（`NODE_ENV=production`）で認証無効なら起動時に落とすか 503 を返す |
+| S-10 | 低 | `markRefreshed()` が `user_id` 抜きの `PATCH`（同じ place_id の**全テナントの行**を更新）。週次更新の順番がずれるだけで読み取りは起きない。コード全体で唯一テナント境界を越える書き込み | `src/lib/maps/stores.ts:133-139` | Cron 以外の呼び出しでは `user_id` を足す |
+| S-11 | 低 | `unsafeMetadata.lead`（ブラウザから書ける）を登録情報として読み、マスター画面に表示している。**権限は取れない**（plan / role / overrides / agencyId / promo / freeRuns はすべて `publicMetadata` / `privateMetadata` = サーバーのみ）が、運用者に見える会社名・電話は自己申告のまま | `src/lib/free/lead.ts:56-57`、`src/lib/admin/clients.ts:155,163` | 画面に「自己申告」と出す |
+| S-12 | 低 | `/api/billing/checkout` が失敗時に Stripe の生メッセージを全ログイン利用者に返す（r110 で追加）。Price ID やテスト / 本番の食い違いが漏れる | `src/app/api/billing/checkout/route.ts:60` | `detail` は運用者にだけ返す |
+
+**問題が無いと確認できたもの**（根拠つき）:
+
+- **テナント分離（IDOR）**: `[id]` / `[slug]` の全ルート（`maps/stores/[id]`・`owner`・`maps/history/[id]`・`reviews/forms/[id]` と配下 3 本・`reviews/responses/[id]`・`seo-analysis/[id]`・`r/[slug]` 4 本）で、他人の ID を渡すと 404 か 0 行更新。DB 呼び出しは全件 `user_id=eq.<ログイン中の本人>` で絞っている（S-10 を除く）。
+- **注入**: PostgREST のフィルタは全箇所 `eq()`（= `eq.${encodeURIComponent(v)}`）を通し、`&` `=` `,` が潰れるので `order=` / `limit=` / `select=` の注入は不可。`child_process` は 0 件、`fs` の使用も 0 件、`dangerouslySetInnerHTML` も 0 件。
+- **権限境界**: `/api/admin/*` 5 本は全部 `requireAdmin()`（**確認済みメール**のみ・失敗時は 404）。管理アカウントは担当の登録者以外に触れない（`/api/agency/promo:39`）。代理ログインは自分自身と運用者を弾き、代理中は `isAdmin()` が false になるので昇格できず、決済と `/api/store` の書き込みは塞がれている。
+- **公開 API**: Cron は `CRON_SECRET` を固定時間比較（未設定なら 503）。Stripe Webhook は署名検証 + イベント時刻で順序を判定。アンケートは 72 bit の slug + 回答の書き換えに 128 bit のトークン（いずれも `randomBytes`）。
+- **その他**: `npm audit`（本番依存）0 件。ログに鍵・トークンの出力なし。オープンリダイレクトは `//` を弾いて防止済み。状態を変える GET は無し（CSRF は Clerk の SameSite と合わせて成立しにくい）。ブラウザに出る環境変数は Clerk の公開鍵だけ。キャッシュは利用者ごとに分離（`maps/performance` は `userId|placeId|month`）。Clerk の `updateUserMetadata` は deep-merge なので `plan` や `stripe` が消える事故は起きない。
+
+
 - 2026-09-09〜10 の会話（Claude Code セッション）に、次の秘密の値が**貼られた／写った**。いずれも**ローテーション（再発行）が必要**。値はここに書かない。
   - Clerk Development の `sk_test_`（影響は小。Preview 用に使う前に再発行）
   - Clerk Production の `sk_live_`（本番の鍵。**最優先**でローテーション）
@@ -1022,6 +1051,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | 日付 | 判断 | 理由 |
 |---|---|---|
+| **セキュリティ点検の指摘への対応方針（2026-09-18）** | 下の「セキュリティ点検（2026-09-18）」の 8 件。**S-1（`/api/store` の上限欠落・r111 の回帰）と S-2（`/api/faq` の無制限 AI 費用）はコード修正、S-0（鍵のローテーション）は利用者の作業**。どこから直すか指示をください | 利用者の回答待ち |
 | Stripe 本番切替の残り: `STRIPE_SECRET_KEY`（`sk_live_`）と `STRIPE_WEBHOOK_SECRET`（本番 Webhook の `whsec_`）の差し替え → Redeploy（2026-09-18） | A で進行中。Price ID 2 つは本番と一致済み、`STRIPE_PRICE_PRO` 削除済み（Claude in Chrome、20:30 ごろ）。Webhook `elegant-bliss` が本番モードのものかは要確認（テストの whsec だと契約状態が書かれない） | 利用者の作業待ち |
 | 09-17 | **サイドバーは 3 つの並列タブではなく、「AIO 対策」（親）の中に SEO / MEO / サイテーション（柱）が入る入れ子にする**（r95） | 利用者の指示「独立しちゃっているので、くくり的には AI の中に MEO・SEO・サイテーションがあると分かる構成に」。柱は開閉式（開くのは 1 本。r94 の「押した柱が最優先」はそのまま）。AI 検索モニタリングは柱ではなく AIO 対策全体の成果をはかるものなので親の直下。柱の並びは 09-13 の指定（SEO → MEO → 基礎情報）のまま |
 | 09-18 | **無料診断はアカウント登録のあと、メールアドレスごとに 2 回まで（サイト + 店舗の合計）。契約済みには見せない。本番の `DEFAULT_PLAN` は `free` にする**（r98） | 利用者の要望と決定（a: 合計 2 回 = 既定案、b: 見せない、c: 切り替える）。見込み客の情報（担当者名・会社名・電話・店舗の種類）を先に集め、無料の体験を 2 回に限って料金プランへつなぐ。Clerk だけで作った（自前のフォーム + `useSignUp`。追加項目は `unsafeMetadata.lead`、回数は `privateMetadata.freeRuns`）。Supabase のテーブルは増やしていない |
@@ -3021,3 +3051,10 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 利用者の指示 3 件: ①代理店アカウントは今後「管理アカウント」と呼ぶ ②Open PageRank は使っていないのでマスター画面の一覧から消す ③Google の API で連携したのに表示されていないものを一覧に出して一元管理したい。
 - **r114**: ① `AgencyCard`（「管理アカウント（旧称: 代理店アカウント）」）・`ClientTable`（「担当の管理アカウント」）・サイドバー（「管理アカウント画面」）・`/agency` の見出し・マスター画面の説明・無料診断の文言・README。識別子は変えていない。② `src/lib/features/integrations.ts` / `src/lib/integrations.ts` から `openpagerank` を削除。③ 追加した行: **CrUX**（`CRUX_API_KEY`。無ければ `PAGESPEED_API_KEY` で動くので、PageSpeed が設定済みなら設定済み扱い）、**Google ビジネス プロフィール（OAuth）**（4 API の説明・承認状況・Google Cloud の各 API ライブラリへのリンク。`/api/integrations` が `getGoogleConnection()` で運用者自身の接続とスコープを見て `google-business` を true / false に）、**Stripe**（鍵・Price・Webhook がそろえば設定済み）。lint / tsc / test（1,565 件）/ build 通過。利用者の作業なし。
 - 補足: Google ビジネス プロフィールの行が「未接続」なら、それは**運用者自身のアカウント**が Google に接続していないだけ（お客様の接続状態は各自の設定画面）。接続して business.manage を許可すれば「接続済み」になる。
+
+### 2026-09-18（セキュリティ点検を 4 観点で実施。コード変更なし）
+
+- 利用者の指示: OWASP Top 10 のチェックリスト / ユーザー入力のデータフロー追跡 / 攻撃者視点の被害シナリオ / 認証・認可の境界。
+- 実施内容: 全 78 API ルート（98 ハンドラ）のガード確認、全 `supabaseRest` 呼び出しのテナント絞り込み確認、`[id]` / `[slug]` 13 本の所有チェック、外部 URL 取得（SSRF）9 ルート、シェル / ファイル / HTML / ヘッダー / LLM / キャッシュの各シンク、`npm audit`、ブラウザ露出の環境変数、Clerk metadata の書き込み意味論。
+- 結果: 上の「セキュリティ点検（2026-09-18）」に S-0〜S-12 として記録。**IDOR・注入・XSS・認証の抜けは 0 件。**最優先は S-0（Clerk の鍵のローテーション。利用者の作業）と S-1（`/api/store` の上限欠落。r111 の回帰）。
+- **コードは 1 行も変えていない**（点検の依頼だったため）。修正の順番は利用者の指示を待つ（上の「入力待ち」）。
