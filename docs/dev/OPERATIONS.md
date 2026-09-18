@@ -2785,3 +2785,6 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 申請の中身: ログインは `matsumatsu452@gmail.com`、ビジネスは `株式会社Wolf`（確認済み。60 日以上前かの質問は「はい」で送信。7/13 のオーナー通知が最古で、確認完了日は未確認 → 却下なら 10/1 以降に再申請）、サイト `https://seo-checker.tokyo/`、初回なので許可リスト済みのプロジェクト ID は「いいえ」。結果は `matsumatsu452@gmail.com` にメール。
 - 09-18 に `wolf@wolf-info.org` の受信箱を検索（ケース ID / Business Profile API / My Business API、直近 14 日）→ 該当なし。結果は `matsumatsu452@gmail.com` 宛なので、そちらの受信箱（迷惑メール含む）を見る。
 - ドキュメントのみの更新。
+- 続報（09-18）: 利用者「メールまだ来てない」（`matsumatsu452@gmail.com`）。09-11 申請の 5 営業日目で目安（7〜10 営業日 = 9/24〜9/25）の範囲内。**9/26（金）になっても無ければ督促**（文案は下）。督促文（英語。申請時の自動返信に返信する形で）:
+  > Subject: Follow-up on Business Profile API access request (Case 0-4126000041187)
+  > Hello, I submitted a Basic API access request on September 11, 2026 (Case ID 0-4126000041187) for Google Cloud project seo-checker-508104 (website: https://seo-checker.tokyo/). I have not received a response yet. Could you let me know the current status, or whether any additional information is needed from my side? Thank you.
