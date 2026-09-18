@@ -2778,3 +2778,10 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **有効化済み（利用者報告）**: Business Profile Performance API、My Business Account Management API、My Business Business Information API。
 - **Google My Business API（v4）は直リンクが開かない** → 承認されたプロジェクトにしか出ない扱いなので、承認メール後に同じ URL（https://console.cloud.google.com/apis/library/mybusiness.googleapis.com?project=seo-checker-508104 ）を開き直す。これが無いと口コミの取得・返信（`/tools/replies`）だけが動かない。Performance API（Google での見られ方）は承認が下りればこのまま動く。
 - ドキュメントのみの更新。
+
+### 2026-09-18（利用者の質問: v4 の審査をしてもらった覚えがない。どこまでやったか）
+
+- 回答: **申請は 1 回で済んでいる。** 09-11 20:52 に GBP API サポート（「基本の API アクセスの申請」フォーム）から送信し、ケース ID `0-4126000041187`。この 1 件が Business Profile API 全体（Account Management / Business Information / **v4** / Performance / Notifications）の許可リスト登録の申請で、v4 だけ別に審査を受ける必要は無い。承認されるとプロジェクトが許可リストに入り、v4 がライブラリに出て、全 API のクォータが付く。
+- 申請の中身: ログインは `matsumatsu452@gmail.com`、ビジネスは `株式会社Wolf`（確認済み。60 日以上前かの質問は「はい」で送信。7/13 のオーナー通知が最古で、確認完了日は未確認 → 却下なら 10/1 以降に再申請）、サイト `https://seo-checker.tokyo/`、初回なので許可リスト済みのプロジェクト ID は「いいえ」。結果は `matsumatsu452@gmail.com` にメール。
+- 09-18 に `wolf@wolf-info.org` の受信箱を検索（ケース ID / Business Profile API / My Business API、直近 14 日）→ 該当なし。結果は `matsumatsu452@gmail.com` 宛なので、そちらの受信箱（迷惑メール含む）を見る。
+- ドキュメントのみの更新。
