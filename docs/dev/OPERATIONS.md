@@ -753,7 +753,19 @@ create table if not exists geo_model_versions (
   version_to text not null,
   detected_at timestamptz not null default now()
 );
+
+-- 9. RLS を有効にする（ポリシーは作らない = anon キーからは読めず書けず、service_role だけが触れる）
+alter table geo_accounts enable row level security;
+alter table geo_brands enable row level security;
+alter table geo_keywords enable row level security;
+alter table geo_prompts enable row level security;
+alter table geo_measurements enable row level security;
+alter table geo_observations enable row level security;
+alter table geo_credit_ledger enable row level security;
+alter table geo_model_versions enable row level security;
 ```
+
+**RLS の考え方（利用者の質問 2026-09-18）**: ブラウザ用の anon キー（Publishable key）は誰でも見られる前提の鍵なので、RLS が無効のテーブルは URL と anon キーがあれば誰でも読み書きできる。**RLS を有効にしてポリシーを 1 つも作らない**と anon キーでは何もできず、アプリが使う service_role だけが通る。これが本サービスの全テーブル共通の設計（`user_id` の絞り込みはサーバーのコードで行う）。上の 8 テーブルの SQL には 2026-09-18 まで `enable row level security` が抜けていた（他のテーブルの SQL には全部入っていた）ので追記した。
 
 ### 入力待ち（利用者からの回答が要るもの）
 
@@ -3182,3 +3194,4 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 影響: `/tools/geo`（AI 検索モニタリング）は開いた時点でエラー、`vercel.json` の Cron `/api/cron/geo-run`（毎日 20:00 UTC = 5:00 JST）は毎回失敗、プロンプト拡張（D）も到達不能。DataForSEO の費用は発生していない（テーブルが無いので計測まで進まない）。
 - 対応: 上の「AI 検索モニタリングのテーブル」の SQL をそのまま会話に貼り、SQL Editor での実行をお願いした。コードの変更は不要（SQL は `create table if not exists` なので二重実行しても安全）。
 - 表の「AI 検索モニタリングが動いていない可能性」の行を「確定」に書き換え、#91 のチェックリスト 1 に確認日時を書いた。
+- 利用者の質問「RLS は設定しなくていいの？」→ **必要**。8 テーブルの SQL に `alter table … enable row level security` が抜けていた（他の 9 テーブルの SQL には全部入っている。本文の「RLS は有効のまま」と食い違っていた）。上の SQL に 9 番として 8 行を追記し、会話にも再掲。すでに 8 テーブルを作ってしまった場合は 9 番の 8 行だけ実行すればよい。あわせて既存 9 テーブルの RLS が Enabled になっているかを Database → Tables で確認するようお願いした（Table Editor の一覧アイコンからは判別しにくい）。無効のものがあれば同じ `alter table` で有効化する（何度実行しても安全）。
