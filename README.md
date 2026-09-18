@@ -149,7 +149,7 @@ npm run dev                  # http://localhost:3000
 |---|---:|---|
 | **クイック診断** | 0 円 | サイトのクイック診断（`/`、1 ページまたは代表 10 ページ）と店舗のクイック診断（`/meo`、店舗 1 件）。ログイン不要。プランではない（`free` = 未契約） |
 | **ライト**（`light`） | 38,000 円 | SEO・AIO・MEO の**診断と計測**のツールすべて。AI が成果物を作るツール（7 つ）は含まない |
-| **スタンダード**（`standard`・本命） | 50,000 円（定価） | ライトのすべて + **AI が成果物を作る**ツール（精密診断・HP 改修提案・AI ライティング・llms.txt 生成・口コミ支援・AI 返信案・NAP 一括掲載）。割引は Stripe のクーポン → プロモーションコードで（申し込み画面で入力。月額の値引きと初月無料の 2 種類を相手によって使い分ける。全員向けのトライアルは `STRIPE_TRIAL_DAYS`、既定 0 = なし） |
+| **スタンダード**（`standard`・本命） | 50,000 円（定価） | ライトのすべて + **AI が成果物を作る**ツール（精密診断・HP 改修提案・AI ライティング・llms.txt 生成・口コミ支援・AI 返信案・NAP 一括掲載）。割引は**割引コード**（`PROMO_CODES`。スタンダード専用・10 パターン: 月額 1〜5 万円引き（永続）／30 日無料／30 日無料 + 月額 1〜4 万円引き）。`/plans` で確認 → Checkout にトライアル日数 + Stripe のクーポン（自動作成）を付ける。全員向けのトライアルは `STRIPE_TRIAL_DAYS`、既定 0 = なし |
 | **プレミアム（伴走）**（`premium`） | 150,000 円〜（お見積り） | スタンダードのすべて + 人の作業（月 1 回の報告ミーティング・レポート代行・優先サポート）。**月 3 社まで**。**金額は下限だけを出し、実額はご依頼の範囲に応じて個別にお見積り**（`priceFrom: true`）。料金画面に「申し込む」を出さず、お見積りの依頼から受ける（受注後に Stripe の支払いリンク・請求書で契約を立て、その価格を `STRIPE_PRICE_PREMIUM` に入れる） |
 
 申し込みの入口は `https://app.seo-checker.tokyo/sign-up` です（新規登録 → `/start` → 未契約なので `/plans` → 申し込み）。紹介サイトの「申し込む」もここへ送ります。登録済みの人は `/plans` から申し込み・カードの変更・解約ができます。
@@ -176,12 +176,12 @@ npm run dev                  # http://localhost:3000
 
 準備は 1 回だけです（画面つきの手順は `docs/dev/OPERATIONS.md` の「Stripe を有効にする手順」）。
 
-1. Stripe ダッシュボードで商品「スタンダード」（月額 50,000 円・JPY・継続）と「ライト」（月額 38,000 円・JPY・継続）を作り、それぞれの **Price ID（`price_…`）** を控える。割引はクーポン → プロモーションコードで作る。プレミアム（伴走）は Stripe に作らない（お問い合わせから受ける）
+1. Stripe ダッシュボードで商品「スタンダード」（月額 50,000 円・JPY・継続）と「ライト」（月額 38,000 円・JPY・継続）を作り、それぞれの **Price ID（`price_…`）** を控える。割引のクーポンは作らなくてよい（`PROMO_CODES` のコードから自動で作られる）。プレミアム（伴走）は Stripe に作らない（お問い合わせから受ける）
 2. 開発者 → Webhook で `https://app.seo-checker.tokyo/api/billing/webhook` を登録し、イベント `checkout.session.completed` / `customer.subscription.created` / `customer.subscription.updated` / `customer.subscription.deleted` を選ぶ → **署名シークレット（`whsec_…`）** を控える
 3. 設定 → カスタマーポータルを有効にする（お支払い方法の更新・請求書・解約を許可）
 4. Vercel の環境変数に `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` を入れて Redeploy（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名として今も読みます）。プレミアムを受注して支払いリンク・請求書で契約を立てるときは、その価格を `STRIPE_PRICE_PREMIUM` にも入れます（入れないと、その契約がスタンダードとして記録されます）
 
-鍵・スタンダードの Price・Webhook がそろうと `/plans` の料金表に各プランの「申し込む」（契約前）が出て、契約後は「お支払い方法の変更・請求書・解約」が出ます（`src/components/plans/PlanCheckoutButton.tsx` と `src/components/plans/StripeBillingCard.tsx`）。`STRIPE_PRICE_LIGHT` が未設定ならライトの「申し込む」だけが出ません。テストキー（`sk_test_`）のときは画面に「テストモード」と出ます。未設定なら案内文が「プラン変更は運用者までご連絡ください」に変わり、上の 3（`publicMetadata.plan`）を手で割り当てる運用になります。申し込み画面では Stripe のプロモーションコード（クーポン）を入力できます。
+鍵・スタンダードの Price・Webhook がそろうと `/plans` の料金表に各プランの「申し込む」（契約前）が出て、契約後は「お支払い方法の変更・請求書・解約」が出ます（`src/components/plans/PlanCheckoutButton.tsx` と `src/components/plans/StripeBillingCard.tsx`）。`STRIPE_PRICE_LIGHT` が未設定ならライトの「申し込む」だけが出ません。テストキー（`sk_test_`）のときは画面に「テストモード」と出ます。未設定なら案内文が「プラン変更は運用者までご連絡ください」に変わり、上の 3（`publicMetadata.plan`）を手で割り当てる運用になります。割引コード（`PROMO_CODES`）が設定してあれば、料金表の上に「割引コードをお持ちの方」の入力欄が出ます（`src/components/plans/PromoCodeField.tsx`、`src/lib/billing/promo.ts`）。
 
 `NEXT_PUBLIC_CLERK_BILLING_ENABLED=1` の Clerk Billing の料金表（`BillingTable.tsx`）は残してありますが、Stripe が設定されているときは出しません。
 
@@ -357,7 +357,8 @@ Google Cloud・Clerk・アプリの分担は [docs/dev/services.md](docs/dev/ser
 | `FREE_DIAGNOSIS_LIMIT` | クイック診断の回数（登録したメールアドレスごと。サイト + 店舗の合計）。既定 2 |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・スタンダードとライトの Price ID・Webhook の署名シークレット。鍵・スタンダードの Price・Webhook がそろうと `/plans` に申し込みとお支払いの管理が出る（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名） |
 | `STRIPE_PRICE_PREMIUM` | 任意。プレミアム（伴走）の Price ID。料金画面には出ないが、支払いリンク・請求書で立てた契約をプレミアムとして記録するために使う |
-| `STRIPE_TRIAL_DAYS` | 全員に付ける無料期間の日数（既定 `0` = トライアルなし。2026-09-18 に初月無料の自動付与をやめ、初月無料はクーポンで相手ごとに渡す）。正の数にすると特商法ページと料金画面の文面もその日数に従う |
+| `PROMO_CODES` | 割引コードの一覧。`CODE=pattern` をカンマまたは改行で区切る。pattern は `off10` `off20` `off30` `off40` `off50`（月額 1〜5 万円引き・永続。`off50` = ずっと無料）／`free`（30 日無料）／`free-off10` `free-off20` `free-off30` `free-off40`（30 日無料 + 月額の値引き）。スタンダード専用。未設定なら入力欄が出ない。コードは推測されにくい長さ（8 文字以上）にする |
+| `STRIPE_TRIAL_DAYS` | 全員に付ける無料期間の日数（既定 `0` = トライアルなし。無料期間は割引コードの `free` 系で相手ごとに渡す）。正の数にすると特商法ページと料金画面の文面もその日数に従う |
 | `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（ドルのみ）の料金表を出す。Stripe が設定されていれば出さない |
 | `ADMIN_EMAILS` | マスター画面（`/admin`）を開けるメールアドレス。未設定なら誰も入れない |
 | `SITE_MAX_PAGES` | クロール上限（既定 300、最大 1000） |

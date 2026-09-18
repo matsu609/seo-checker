@@ -9,7 +9,9 @@
  */
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { PROMO_PLAN } from "@/lib/billing/promo";
 import type { PlanId } from "@/lib/plans/catalog";
+import { promoCodeStore } from "@/lib/store/promo";
 
 export interface PlanCheckoutButtonProps {
   plan: PlanId;
@@ -30,7 +32,8 @@ export function PlanCheckoutButton({ plan, label, variant = "primary", className
         method: "POST",
         cache: "no-store",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plan }),
+        // 確認済みの割引コード（PromoCodeField）。スタンダード専用なので他のプランには付けない
+        body: JSON.stringify({ plan, ...(plan === PROMO_PLAN && promoCodeStore.get().code ? { code: promoCodeStore.get().code } : {}) }),
       });
       const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!res.ok || !body.url) throw new Error(body.error || `リクエストに失敗しました（HTTP ${res.status}）`);

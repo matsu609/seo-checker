@@ -55,7 +55,7 @@ export function UpgradeCta({ kind, note = null, className = "" }: UpgradeCtaProp
       </div>
       <p className="mt-3 text-[12px] leading-relaxed text-muted">
         月額 {main.priceYen.toLocaleString("ja-JP")} 円（税込）。AI が改修案・原稿を作らない{light.label}は{" "}
-        {light.priceYen.toLocaleString("ja-JP")} 円。いつでも解約できます。割引コードをお持ちの方は申し込み画面で入力してください。
+        {light.priceYen.toLocaleString("ja-JP")} 円。いつでも解約できます。割引コードをお持ちの方は料金プランの画面で入力してください。
         <Link href={PLANS_PATH} className="ml-1 text-accent underline underline-offset-2">
           料金の詳細
         </Link>

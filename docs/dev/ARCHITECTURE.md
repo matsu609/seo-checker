@@ -139,7 +139,8 @@ src/
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（Places API (New)） | 任意 |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗（`meo_stores`）と診断報告書の履歴（`meo_reports`）、口コミ支援（`review_forms` / `review_channels` / `review_responses`）、基本情報掲載（`listing_profiles`）。`src/lib/db/supabase.ts` が PostgREST を fetch で叩く。service_role は RLS を素通りするので行は必ず user_id で絞る | MEO に必須 |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。`src/lib/billing/`。Checkout → Webhook → Clerk の `publicMetadata.stripe`。3 つそろうと `/plans` に申し込みとお支払いの管理が出る | 有料販売に必須 |
-| `STRIPE_TRIAL_DAYS` | 全員に付ける無料期間の日数（`src/lib/billing/trial.ts`。既定 0 = なし。初月無料はクーポンで相手ごとに） | 任意 |
+| `PROMO_CODES` | 割引コードの一覧（`src/lib/billing/promo.ts`。`CODE=pattern`。スタンダード専用・10 パターン。クーポンは `coupons.ts` が Stripe に自動で作る） | 任意 |
+| `STRIPE_TRIAL_DAYS` | 全員に付ける無料期間の日数（`src/lib/billing/trial.ts`。既定 0 = なし。無料期間は割引コードで相手ごとに） | 任意 |
 | `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きと質問文の訳のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援の回数制限（アンケートごとの 1 日の回答数 500 / AI 下書きの 1 日の全体上限 2,000） | 任意 |

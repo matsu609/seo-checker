@@ -10,22 +10,26 @@
  *   STRIPE_WEBHOOK_SECRET  … Webhook エンドポイントの署名シークレット（whsec_…）
  * 鍵・スタンダードの Price・Webhook の 3 つがそろって初めて料金画面に「申し込む」が出る（isStripeConfigured）。
  *   STRIPE_TRIAL_DAYS      … 全員に付ける無料期間の日数（任意。既定 0 = トライアルなし。緊急時の逃げ道）。
- *                            初月無料は全員に自動で付けず、クーポン（100% 割引・1 回）のプロモーションコードで相手ごとに渡す。
+ *                            無料期間は割引コード（PROMO_CODES の free 系）で相手ごとに渡す。
+ *   PROMO_CODES            … 割引コードの一覧（promo.ts）。
  *
  * プレミアム（伴走・月 3 社まで）は料金画面に「申し込む」を出さない（枠の確認が要るのでお問い合わせから受ける）。
  * 受注が決まった相手には Stripe の支払いリンク・請求書で契約を立てるので、その価格を
  * STRIPE_PRICE_PREMIUM に入れておくと、契約がプレミアムとして記録される。
  *
- * 割引は Stripe のクーポン → プロモーションコードで行う（利用者の決定 2026-09-13）。
- * 申し込み画面でコードを入力した人だけに適用されるので、コードを持たない人の支払額は定価のまま。
- * 初月無料も同じ仕組み（100% 割引・期間「1 回」のクーポン）で相手ごとに渡す（利用者の決定 2026-09-18）。
- * どちらのコードを渡すかは相手によって使い分ける（月額の値引き / 初月無料）。
+ * 割引は「割引コード」（アプリ側で受け付ける。src/lib/billing/promo.ts、環境変数 PROMO_CODES）で行う
+ * （利用者の決定 2026-09-18。スタンダード専用・10 パターン）。コードごとに Stripe のトライアル日数と
+ * クーポン（coupons.ts が自動で作る）を組み合わせて Checkout を作る。Stripe 側のプロモーションコード欄は
+ * 出さない（入口を 1 つにする。Stripe は discounts とコード欄を同時に指定できない）。
+ * コードを持たない人の支払額は定価のまま。
  * ただし「高いので下げてほしい」にはクーポンではなくライトを案内する（2026-09-15 の 3 段階化の趣旨）。
  *
  * カードの変更・解約・請求書の閲覧は Stripe のカスタマーポータルに任せる（自前でカード番号を扱わない）。
  */
 import Stripe from "stripe";
 import { PLANS, STRIPE_PLANS, type PlanId } from "@/lib/plans/catalog";
+import { ensureCoupon, productIdOfPrice } from "./coupons";
+import { FIRST_MONTH_FREE_DAYS, type PromoPattern } from "./promo";
 import { trialDays } from "./trial";
 
 export { DEFAULT_TRIAL_DAYS, trialDays } from "./trial";
@@ -100,6 +104,8 @@ export interface CheckoutInput {
   customerId: string | null;
   /** https://app.seo-checker.tokyo のような origin。戻り先に使う */
   origin: string;
+  /** 確認済みの割引コードのパターン（無ければ定価） */
+  promo?: PromoPattern | null;
 }
 
 /** 申し込み画面（Stripe Checkout）。返る URL に遷移させる */
@@ -107,21 +113,24 @@ export async function createCheckoutSession(input: CheckoutInput): Promise<strin
   const price = priceIdOf(input.plan);
   if (!price) throw new Error(`${input.plan} の Price ID が未設定です`);
   const stripe = getStripe();
-  const days = trialDays();
+  const promo = input.promo ?? null;
+  // 割引コードの無料期間が優先。無ければ全員向けの STRIPE_TRIAL_DAYS（既定 0）
+  const days = promo?.firstMonthFree ? FIRST_MONTH_FREE_DAYS : trialDays();
+  const coupon = promo ? await ensureCoupon(stripe, promo, await productIdOfPrice(stripe, price)) : null;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price, quantity: 1 }],
     // Webhook で Clerk のユーザーに結びつけるための手がかり（両方に入れる）
     client_reference_id: input.userId,
-    metadata: { userId: input.userId, plan: input.plan },
+    metadata: { userId: input.userId, plan: input.plan, ...(promo ? { promo: promo.id } : {}) },
     subscription_data: {
-      metadata: { userId: input.userId, plan: input.plan },
-      // STRIPE_TRIAL_DAYS が正のときだけ全員にトライアルが付く（既定は 0 = なし。初月無料はクーポンで相手ごとに）
+      metadata: { userId: input.userId, plan: input.plan, ...(promo ? { promo: promo.id } : {}) },
+      // 無料期間（割引コードの free 系、または STRIPE_TRIAL_DAYS）。カードは登録され、この日数を過ぎてから初回の請求が立つ
       ...(days > 0 ? { trial_period_days: days } : {}),
     },
     ...(input.customerId ? { customer: input.customerId } : input.email ? { customer_email: input.email } : {}),
-    // クーポンコード（Stripe のプロモーションコード）を入力できるようにする
-    allow_promotion_codes: true,
+    // 割引コードの値引き（Stripe のクーポン）。Stripe のプロモーションコード欄は出さない（入口はアプリの割引コードだけ）
+    ...(coupon ? { discounts: [{ coupon }] } : {}),
     locale: "ja",
     success_url: `${input.origin}/plans?checkout=success`,
     cancel_url: `${input.origin}/plans?checkout=cancel`,

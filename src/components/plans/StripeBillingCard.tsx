@@ -146,7 +146,7 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, tr
         </div>
       )}
       <p className="mt-3 text-[12px] leading-relaxed text-muted">
-        割引コードをお持ちの場合は、申し込み画面の「プロモーションコードを追加」から入力してください。コードを入力しない場合は定価で決済されます。プランの変更（ライト ⇄ スタンダード）と解約は、上のボタンから開く Stripe の画面で行えます。解約は次回の更新日まで利用でき、日割りの返金はありません。詳しくは
+        割引コードをお持ちの場合は、上の料金プランの「割引コードをお持ちの方」で確認してからスタンダードにお申し込みください。コードを入力しない場合は定価で決済されます。プランの変更（ライト ⇄ スタンダード）と解約は、上のボタンから開く Stripe の画面で行えます。解約は次回の更新日まで利用でき、日割りの返金はありません。詳しくは
         <a href="/legal/tokushoho" className="underline">
           特定商取引法に基づく表記
         </a>

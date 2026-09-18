@@ -4,11 +4,13 @@ import { connection } from "next/server";
 import { BillingTable } from "@/components/plans/BillingTable";
 import { GettingStarted } from "@/components/onboarding/GettingStarted";
 import { PlanTable } from "@/components/plans/PlanTable";
+import { PromoCodeField } from "@/components/plans/PromoCodeField";
 import { StripeBillingCard } from "@/components/plans/StripeBillingCard";
 import { PageHeader } from "@/components/ui";
 import { Callout } from "@/components/ui/Callout";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { hasStripeSubscription, STRIPE_CUSTOMER_KEY, stripeStateFromMetadata, type StripeState } from "@/lib/billing/state";
+import { hasPromoCodes } from "@/lib/billing/promo";
 import { isStripeConfigured, isStripeLive, purchasablePlanIds, trialDays } from "@/lib/billing/stripe";
 import { FIRST_TOOL_PATH } from "@/lib/auth/landing";
 import { requireFeature } from "@/lib/features/registry";
@@ -59,6 +61,9 @@ export default async function Page({ searchParams }: Props) {
       <Callout tone="info" title={`現在のプラン: ${planLabel(plan)}`} className="mb-6">
         {SOURCE_NOTE[source] ?? ""}
       </Callout>
+
+      {/* 割引コード（スタンダード専用）。コードが設定してあり、まだ契約していない人にだけ出す */}
+      {stripe && !hasStripeSubscription(stripeState) && hasPromoCodes() && <PromoCodeField className="mb-4" />}
 
       <PlanTable current={plan} purchasable={stripe ? purchasablePlanIds() : []} />
 
