@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Callout, Card, EmptyState, Field, Input, Select, Textarea } from "@/components/ui";
 import type { AuditResult } from "@/lib/audit/types";
 import type { AnalysisRecord } from "@/lib/seo-analysis/ai/schema";
-import { MAX_COMPETITORS, MAX_KEYWORDS, PAGE_LIMITS } from "@/lib/seo-analysis/input";
+import { CRAWL_PAGE_LIMIT, MAX_COMPETITORS, MAX_KEYWORDS } from "@/lib/seo-analysis/input";
 import { MAX_ANALYSES_PER_RUN } from "@/lib/seo-analysis/limits";
 import type { RunSummary } from "@/lib/seo-analysis/runs";
 import { GOAL_LABELS, type AnalysisGoal, type AnalysisInput, type SeoFactSheet } from "@/lib/seo-analysis/sheet/types";
@@ -124,7 +124,7 @@ export function SeoAnalysisView() {
       region: form.region.trim(),
       competitors: splitLines(form.competitors, MAX_COMPETITORS),
       brand: form.brand.trim(),
-      maxPages: form.maxPages,
+      maxPages: CRAWL_PAGE_LIMIT,
     };
     controller.current?.abort();
     const ac = new AbortController();
@@ -215,7 +215,7 @@ export function SeoAnalysisView() {
         actions={
           quota ? (
             <Badge tone={exhausted ? "fail" : "neutral"} icon={false}>
-              {quota.unlimited ? `今月 ${quota.used} 回（運営者: 無制限）` : `今月 ${quota.used} / ${quota.limit} 回`}
+              {quota.unlimited ? `運営者: 回数制限なし（今月 ${quota.used} 回実行）` : `今月の残り ${Math.max(0, quota.limit - quota.used)} 回（${quota.limit} 回まで）`}
             </Badge>
           ) : null
         }
@@ -228,17 +228,7 @@ export function SeoAnalysisView() {
           }}
         >
           <SiteTargetNotice what="精密診断" />
-          <div className="grid gap-3 @2xl:grid-cols-[10rem_1fr]">
-            <Field label="クロールの上限" htmlFor="sa-max" hint="多いほど時間がかかります">
-              <Select id="sa-max" value={String(form.maxPages)} disabled={busy} onChange={(e) => setForm({ ...form, maxPages: Number(e.target.value) })}>
-                {PAGE_LIMITS.map((n) => (
-                  <option key={n} value={n}>
-                    {n} ページ
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
+          <p className="text-[12px] text-muted">クロールは最大 {CRAWL_PAGE_LIMIT} ページまで（固定）。それを超えるサイトは、サイトマップとリンクの順に {CRAWL_PAGE_LIMIT} ページを取ります。</p>
           <div className="grid gap-3 @2xl:grid-cols-3">
             <Field label={`対策キーワード（最大 ${MAX_KEYWORDS}・任意）`} htmlFor="sa-kw" hint="1 行に 1 つ。順位と検索結果の特徴を取ります（SerpApi）">
               <Textarea id="sa-kw" rows={4} value={form.keywords} disabled={busy} placeholder={"世田谷区 歯医者\n歯科 矯正 費用"} onChange={(e) => setForm({ ...form, keywords: e.target.value })} />

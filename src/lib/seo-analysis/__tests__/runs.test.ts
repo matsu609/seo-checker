@@ -32,7 +32,8 @@ describe("回数制限と入力", () => {
     expect(input.keywords).toEqual(["a", "b", "c", "d"]);
     expect(input.competitors).toEqual(["x"]);
     expect(input.goal).toBe("other");
-    expect(input.maxPages).toBe(100);
+    // クロールの上限は入力に関係なく 200 固定（利用者の決定 2026-09-18）
+    expect(input.maxPages).toBe(200);
     expect(AnalysisInputSchema.safeParse({ url: "" }).success).toBe(false);
     expect(AnalysisInputSchema.safeParse({ url: "x", keywords: ["1", "2", "3", "4", "5", "6"] }).success).toBe(false);
   });

@@ -267,7 +267,7 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
                 <div>
                   <dt className="text-[11px] text-muted">無料診断</dt>
                   <dd className="mt-1 text-sm text-ink tabular-nums">
-                    {row.freeRuns} / {freeRunLimit} 回{row.freeRuns >= freeRunLimit && row.plan === "free" && <span className="ml-1 text-[11px] text-warn">使い切り</span>}
+                    残り {Math.max(0, freeRunLimit - row.freeRuns)} 回（{freeRunLimit} 回まで・{row.freeRuns} 回使用）{row.freeRuns >= freeRunLimit && row.plan === "free" && <span className="ml-1 text-[11px] text-warn">使い切り</span>}
                   </dd>
                 </div>
               </dl>

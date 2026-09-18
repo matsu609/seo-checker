@@ -14,6 +14,7 @@ const FormSchema = z.object({
   region: z.string(),
   competitors: z.string(),
   brand: z.string(),
+  /** 旧: クロールの上限。2026-09-18 から 200 固定なので使わない（古い保存値を読めるように残す） */
   maxPages: z.number().int().positive(),
 });
 
@@ -30,7 +31,7 @@ export const seoAnalysisFormStore = createStore<SeoAnalysisForm>("seoAnalysisFor
   region: "",
   competitors: "",
   brand: "",
-  maxPages: 100,
+  maxPages: 200,
 });
 
 /** 改行・カンマ区切りの文字列を配列に（空行は捨てる） */
