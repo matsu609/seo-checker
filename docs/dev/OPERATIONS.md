@@ -190,7 +190,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 114 | **口コミ返信をツール内で完結させるための「API 以外」の作業**: ① プライバシーポリシー第 5 条に「この権限で行う 3 つの操作」「自動投稿しない」「口コミは保存しない」「解除でトークン削除」を追記 → **完了（r96）** ② 用途説明文（日 / 英）とデモ動画の台本 → **完了（[google-oauth-verification.md](./google-oauth-verification.md) §2・§3）** ③ Clerk のアプリ名 `My Application` → `SEO Checker`（#7）、ブランディングに規約 / ポリシーの URL（#8） ④ 承認後: Google My Business API（v4）の有効化 → `/tools/replies` で接続 → 自分のプロフィールで投稿まで通す → 撮影 → OAuth 審査申請 ⑤ 任意: 新着口コミの通知（Notifications API + Pub/Sub）と Performance API（#113） | 利用者（③④・撮影・申請） | ①② 完了。③④ 未 |
 | 115 | **MEO の月次レポート（競合ツールの帳票の再現。2026-09-17 利用者が PDF を共有）**: 審査なし（Places API + 毎週の保存）で作れる部分を先に作る = 新規口コミ数・平均評価（前月比）／ 口コミの成長（月別件数 + 累計平均評価。登録日以降）／ 星別分布（当月。最新 5 件から）／ キーワード順位変動（月初 / 月末。毎週の順位から）／ 口コミの傾向。オーナー権限が要る欄（表示回数・マップ / 検索表示・電話 / サイト / ルート・流入キーワード・返信数と返信率・投稿数）は「接続すると表示」の枠にして、#113 / #114 のあと Performance API と v4 で埋める。PDF 出力は既存の仕組み。目安 3 日 | 利用者（判断）→ Claude | 未 |
 | 116 | **Performance API を承認当日に動かすための利用者の作業**: 下の「Business Profile Performance API を使えるようにする手順（#116）」の表 | 利用者 | **09-18: API 3 本を有効化済み。v4 は承認待ち。スコープ完了（非機密）。テストユーザー完了。**残り: Clerk の名前（7）・ブランディング（8）・ケースの督促（6。9/26 以降） |
-| 117 | **無料診断の前にユーザー登録、メールアドレスごとに 2 回まで**（2026-09-18 利用者の要望 → GO） | Claude → 利用者 | **コードは完了（r98）**。残りは利用者の作業 = 下の「登録つき無料診断を本番で開く手順（#117）」（Vercel の `DEFAULT_PLAN=free`、既存の契約者の個別開放、Clerk の設定確認、本番で 1 回通す） |
+| 117 | **無料診断の前にユーザー登録、メールアドレスごとに 2 回まで**（2026-09-18 利用者の要望 → GO） | Claude → 利用者 | **本番で登録 → 確認コード → 無料診断まで通った（09-18 利用者報告。r98〜r104）**。`DEFAULT_PLAN=free`・`NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `SIGN_UP_URL` 登録済み。残り: 無料診断を 2 回使って「使い切り」が出ること、`/admin` に登録情報が出ること、Clerk の Account Portal の転送先（アカウントポータルを通らせない設定の表の 2）、既存契約者の個別開放（まだなら） |
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports`~~ → ~~Vercel に環境変数 2 つ~~ → ~~`meo_stores`~~（09-10 17:03 作成、Table Editor で 2 テーブル確認）→ 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: 動作確認のみ |
@@ -2868,3 +2868,8 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **r102**: 確認後は `clerk.client.signUp`（クライアント側の最新のリソース）から `status` と `createdSessionId` を読み、`clerk.setActive({ session })` でログイン状態にしてから `/start` へ。`create` に `legalAccepted: true` を付ける（フォームに同意文があるので、Clerk の「規約への同意」が必須でも止まらない）。それでも完了しないときは **状態・不足している項目・未確認の項目を画面に出す**ので、その表示を見れば次の原因が分かる。
 - 続報（09-18）: Clerk のエラー「Passwords must be 15 characters or more.」= Clerk の最小文字数は **15**。r103 で登録フォームの表記とチェックを 15 文字に合わせた（`PASSWORD_MIN`）。Clerk 側の値を変えたらここも変える。
 - 続報（09-18）: 利用者が Clerk の Minimum length を 15 → **8** に変更。r104 でフォームの表記とチェックも 8 に戻した。
+
+### 2026-09-18（利用者報告: 登録から無料診断のページまで通った）
+
+- r104 のあと、本番で登録 → 確認コード → 無料診断（`/`）に着いた（利用者報告「無事行けました」）。#117 の本線は完了。
+- 残りの確認: 2 回使って「使い切り」の表示 → `/admin` の登録情報と回数 → Clerk の Account Portal の転送先 → 既存契約者の個別開放。
