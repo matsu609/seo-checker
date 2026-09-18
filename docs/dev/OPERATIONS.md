@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r115 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r116 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -1002,6 +1002,47 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 ---
 
+### 機能の棚卸し（2026-09-18。カニバリと動いていない機能）
+
+利用者の指示「機能がカニバってたり、機能しなかったりするものは報告して。統合または削除を指示する」。全 API ルートの呼び出し元と、レジストリの全機能の到達性を実測した。
+
+**レジストリで `hidden: true` の 4 機能の実態**（サイドバーから外したが、コードは残っている）
+
+| # | 機能 | いまの状態（実測） | 消せる範囲 | 消せない理由 |
+|---|---|---|---|---|
+| A | **サイト診断**（site-audit） | `/tools/site-audit` は精密診断へ転送。`SiteAuditView` を**描画しているファイルが 0 件**＝ UI は完全に死んでいる。`/api/site-audit` と `/api/site-audit/summary` は生きているが、呼ぶのは死んだ UI だけ | `src/components/site-audit/`（10 ファイル）+ API 2 本 = **約 1,441 行** | **エンジン `src/lib/audit/` は残す**（精密診断の collect / sheet / structure / trust が使う） |
+| B | **ページ最適化レポート**（page-report） | `/tools/page-report` は HP 改修提案へ転送。**`/api/page-report` の呼び出し元は 0 件** | API 1 本 + `src/lib/page-report/`（11 ファイル）= **約 2,028 行** | `src/lib/page-report/` を **HP 改修提案・PSI・llms.txt が使っている**（`improvement/generate.ts`・`improvement/prompt.ts`・`psi/client.ts`・`llms-txt/render.ts`）。共有部分を切り出さないと消せない |
+| C | **AIO 頻出トピック**（aio-topics） | `/tools/aio-topics` は AI 検索モニタリングへ転送。**API 2 本の呼び出し元は 0 件**（3 件の参照はすべてコメント）。`src/lib/aio-topics/` は**完全に自己完結** | API 2 本 + `src/lib/aio-topics/`（13 ファイル）= **約 1,921 行** | なし（`src/lib/store/all.ts` の 1 行を消すだけ）。**今すぐ消せる** |
+| D | **プロンプト拡張**（prompt-expansion） | **非表示なのに生きている。**ページは転送せず本体を描画し、**AI 検索モニタリングの設定パネルのボタン**（`src/components/geo/SetupPanel.tsx:173`）から到達できる | — | 判断が要る: ①GEO の下位ツールとして正式に出す（`hidden` を外すか、GEO の中のタブにする）②消す（約 1,116 行）。**いまは「サイドバーに無いのに使える」ちぐはぐな状態** |
+
+**機能の重複（カニバリ）**
+
+| 重複 | 実測した中身 | 提案 |
+|---|---|---|
+| サイト診断 ⊂ 精密診断 | 同じ `runAudit`（48 ルール）を精密診断が中で実行し、課題一覧・ページ一覧・CSV も報告書の「詳細」に出している。**完全に内包**している | A のとおり UI と API を消す |
+| ページ最適化レポート ≒ HP 改修提案 | HP 改修提案が同じ `src/lib/page-report/` の診断を走らせたうえで改修案まで作る。**上位互換** | B のとおり。共有部分を `src/lib/page-report/` から HP 改修提案側へ移す |
+| AIO 頻出トピック ≒ AI 検索モニタリング | 「AI が自社について何を語っているか」を、前者は 1 回の検索で、後者は毎週の定点観測で測る。**後者が上位互換** | C のとおり消す |
+| **配点表が 2 か所にある** | `src/lib/report/weights.ts` の `CHECK_WEIGHTS` は `src/lib/analyzer/*` の各 `check()` に渡す配点の**写し**（ファイル自身のコメントにも「写し」と書いてある）。テスト `report/__tests__/weights.test.ts` が一致を担保している | **配点の変更が必ず 2 か所になる。**今日の llms.txt の採点追加でも 2 か所直した。`check()` が ID から配点を引く形にして 1 か所にすべき（テストが等価性を保証しているので安全に寄せられる。ただし `check()` の呼び出し 50 か所以上に触るため、指示があれば別便で） |
+
+**動いていない・使われていないもの（機能ではなく部品）**
+
+| 内容 | 場所 | 状態 |
+|---|---|---|
+| 参照 0 件の barrel 5 本 | `src/lib/{audit,crawl,llms-txt,page-report,psi}/index.ts` | **r116 で削除済み** |
+| 未実装ツール用のプレースホルダ | `src/components/ui/ToolPlaceholder.tsx`（43 行）+ `ui/index.ts` の再 export | 参照 0 件。消せる |
+| 使われていないアイコン 5 個 | `src/components/free/Icons.tsx` の `CheckCircle` / `WarnTriangle` / `FailCircle` / `InfoCircle` / `Book` | ファイル自体は使用中（`Download` 等）。この 5 個だけ未使用 |
+| `domhandler` が package.json に無い | `src/lib/audit/extras.ts:9`、`src/lib/analyzer/sentences.ts:17` が `import type` で使用 | 型だけなので実行時は壊れないが、cheerio の依存が変わると型チェックが落ちる。`devDependencies` に明記すべき |
+| 撤去済み機能の SQL がメモに残存 | このメモの `tracking_events` / `tracking_sites`（r90 で取り下げた自前アクセス解析） | 実行不要。消してよい |
+
+**コーディングのミス（実測で確認したもの）**
+
+| 内容 | 場所 | 深刻度 |
+|---|---|---|
+| SSRF の私有アドレス判定が到達不能な死んだコード（`new URL()` の正規化で正規表現が一致しない） | `src/lib/analyzer/fetch.ts:63-65` | **高**（セキュリティ点検の S-6。未修正） |
+| 一括置換で `gte` が自分を呼ぶ無限再帰になっていた | `src/lib/db/filters.ts` | **修正済み**（r115。安全網のテストが捕まえた） |
+| 日本時間の境界計算（`monthStartJst`・`monthKey`・GEO の日付）は全 11 か所を確認して**正しい** | — | 問題なし |
+| 問い合わせるテーブル 17 個すべてメモの SQL で作成済み。**未作成のテーブルは無い** | — | 問題なし |
+
 ## セキュリティ上の注意（必読）
 
 ### セキュリティ点検（2026-09-18。OWASP Top 10 / データフロー追跡 / 攻撃者視点 / 権限境界の 4 観点）
@@ -1010,6 +1051,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | # | 深刻度 | 内容 | 場所 | 直し方 |
 |---|---|---|---|---|
+| **機能の統廃合の判断（2026-09-18）** | 下の「機能の棚卸し（2026-09-18）」の A〜E。**削除で約 5,400 行（src の 6%）が消える**。A（サイト診断の UI）と C（AIO 頻出トピック）は今すぐ消せる。B（ページ最適化レポート）は共有部分の切り出しが要る。D（プロンプト拡張）は**非表示なのに生きている**ので「出す / 消す」の判断が要る | 利用者の回答待ち |
 | S-0 | **最優先（利用者の作業）** | **`CLERK_SECRET_KEY`（`sk_live_`）が会話に貼られたまま未ローテーション**（このメモの #9 / A-3）。この鍵があれば誰でも任意の利用者（運用者含む）のセッションを発行でき、下のすべての防御が無効になる。Google OAuth のクライアントシークレットも同様 | 環境変数 | Clerk → API keys → Regenerate → Vercel 更新 → Redeploy |
 | S-1 | **高** | **`/api/store` に 1 人あたりの行数・総量の上限が無い**（r111 の回帰）。`isSyncedStoreName` は `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/` に合う**任意の名前**を通し、1 行 2 MB まで書ける。登録は誰でもできるので、無料アカウント 1 つで 250 リクエスト ≒ 500 MB（Supabase Free の上限）を埋められ、**全顧客の書き込み（店舗登録・口コミ・報告書・精密診断）が止まる** | `src/app/api/store/route.ts:24,55`、`src/lib/store/sync-rules.ts:19` | 実在する 28 個のストア名の許可リストにする + 1 行の上限を 512 KB に下げる（許可リストなら行数は自動で上限になる） |
 | S-2 | **高** | **`/api/faq` はログイン確認だけで、回数制限・プラン判定・レート制限が無い**。キャッシュは `url + 本文` のハッシュなので本文を 1 文字変えれば必ず外れる。無料アカウントから Anthropic を無制限に呼べる（無料診断の 2 回を使い切った後も可） | `src/app/api/faq/route.ts:20,46` | `consumeFreeRun()` か `takeDailyToken()` を足す |
@@ -3086,3 +3128,10 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **作業中に安全網が 1 件バグを捕まえた**: `gte` の一括置換が新設した `filters.ts` 自身にも当たり、`gte` が自分を呼ぶ無限再帰になっていた。tsc では見つからない種類の壊れ方で、テストを先に書いていたから止められた。
 - 検証: lint / tsc / test **1,579 件**（1,565 + 安全網 14）/ build すべて通過。差分 44 ファイル・+123 / −152 行。差分に応答の文面・状態コード・ヘッダーの変更は無し（`git diff` で確認）。
 - 残っている重複（今回は手を付けていない。やるなら次）: ルートごとの `UUID` 正規表現（4 か所）、`badRequest` / `readJson` が `reviews/api.ts` と `listings/api.ts` に別々にある、`import` の並び順が未統一。
+
+### 2026-09-18（大規模リファクタリングの第 1 便と機能の棚卸し、r116）
+
+- 利用者の指示「大規模なリファクタリングをして。コーディングのミス・カニバっている機能・機能しないものは報告して。統合または削除を指示する」。
+- **やったこと（動作は変えない。r116）**: 参照 0 件の barrel 5 本を削除。UUID の正規表現 7 か所 → `src/lib/api/ids.ts`。`readJson` / `badRequest` の二重定義 → `src/lib/api/request.ts`。`requireReviewsUser` / `requireListingsUser` を r115 の `requireUser()` に委譲（中身が同一だった）。差分 15 ファイル・+58 / −121 行。lint / tsc / test 1,579 件 / build 通過。
+- **報告したこと**: 上の「機能の棚卸し（2026-09-18）」。`knip` で未使用ファイルを機械的に洗い、動的ルートの誤検知（`/api/reviews/forms/[id]/qr` など 6 本は実際には呼ばれている）と `playwright` の誤検知は手で除いた。
+- **判断待ち**: A（サイト診断の UI 削除）・B（ページ最適化レポートの共有部分の切り出し）・C（AIO 頻出トピックの削除）・D（プロンプト拡張を出すか消すか）・E（配点表の一元化）。削除だけで約 5,400 行（src の 6%）。
