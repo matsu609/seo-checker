@@ -395,7 +395,7 @@ SerpApi の実費が出るのは精密診断（1 回 ≤ 7 検索）・順位計
 **消し込み用のチェックリスト**（終わったら `[x]` にして、この行を更新して push する）
 
 - [x] 1. Supabase で 8 テーブルの SQL を実行した（2026-09-18 23:49 に未作成を確認 → **2026-09-19 0:07 の Database → Tables で `geo_accounts`（2 行）`geo_brands` `geo_credit_ledger` を確認 = 作成済み**）
-- [ ] 1b. 8 テーブルの RLS が有効か確認した（下の「RLS の確認クエリ」。Database → Tables の「Disabled」列は **REALTIME** の列で RLS ではない）
+- [x] 1b. 8 テーブルの RLS が有効か確認した（**2026-09-19 に確認クエリで public の全テーブルが true**。Database → Tables の「Disabled」列は **REALTIME** の列で RLS ではない）
 - [ ] 2. DataForSEO に登録して入金した
 - [ ] 3. API 用のログインとパスワードを控えた（**会話には貼らない**）
 - [ ] 4. Vercel に `DATAFORSEO_LOGIN` を追加した（Sensitive）
@@ -1103,7 +1103,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 | # | 深刻度 | 内容 | 場所 | 直し方 |
 |---|---|---|---|---|
 | **機能の統廃合の判断（2026-09-18）** | 下の「機能の棚卸し（2026-09-18）」の A〜H。**削除で約 5,400 行（src の 6%）**。A（サイト診断の UI と API）と C（AIO 頻出トピック）は今すぐ消せる。F（順位計測 × AI 検索モニタリングの二重払い）は毎月の実費に効く | 利用者の回答待ち |
-| ~~AI 検索モニタリングが動いていない~~ → **2026-09-19 0:07 に 8 テーブルの作成を確認（`geo_accounts` に 2 行 = アプリが既に書き込んでいる）。残りは RLS の確認だけ** | 利用者が Supabase の Table Editor を確認 → **`geo_*` 8 テーブルは 1 つも無い**（存在するのは `analysis_runs` / `listing_profiles` / `meo_owner_inputs` / `meo_reports` / `meo_stores` / `review_channels` / `review_forms` / `review_responses` / `user_stores` の 9 つ = コードが使う geo 以外の全テーブル）。`/tools/geo` は赤いエラーだけ、毎日 5:00 JST の Cron `/api/cron/geo-run` も毎回失敗している。直し方は「AI 検索モニタリングを有効にする手順（#91）」の 1（SQL を SQL Editor で実行）。SQL は会話に再掲した | 利用者の SQL 実行待ち |
+| ~~AI 検索モニタリングが動いていない~~ → **解決（2026-09-19）**。8 テーブルの作成と、public の全テーブルの RLS 有効を確認済み | 利用者が Supabase の Table Editor を確認 → **`geo_*` 8 テーブルは 1 つも無い**（存在するのは `analysis_runs` / `listing_profiles` / `meo_owner_inputs` / `meo_reports` / `meo_stores` / `review_channels` / `review_forms` / `review_responses` / `user_stores` の 9 つ = コードが使う geo 以外の全テーブル）。`/tools/geo` は赤いエラーだけ、毎日 5:00 JST の Cron `/api/cron/geo-run` も毎回失敗している。直し方は「AI 検索モニタリングを有効にする手順（#91）」の 1（SQL を SQL Editor で実行）。SQL は会話に再掲した | 利用者の SQL 実行待ち |
 | S-0 | **最優先（利用者の作業）** | **`CLERK_SECRET_KEY`（`sk_live_`）が会話に貼られたまま未ローテーション**（このメモの #9 / A-3）。この鍵があれば誰でも任意の利用者（運用者含む）のセッションを発行でき、下のすべての防御が無効になる。Google OAuth のクライアントシークレットも同様 | 環境変数 | Clerk → API keys → Regenerate → Vercel 更新 → Redeploy |
 | S-1 | **高** | **`/api/store` に 1 人あたりの行数・総量の上限が無い**（r111 の回帰）。`isSyncedStoreName` は `/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/` に合う**任意の名前**を通し、1 行 2 MB まで書ける。登録は誰でもできるので、無料アカウント 1 つで 250 リクエスト ≒ 500 MB（Supabase Free の上限）を埋められ、**全顧客の書き込み（店舗登録・口コミ・報告書・精密診断）が止まる** | `src/app/api/store/route.ts:24,55`、`src/lib/store/sync-rules.ts:19` | 実在する 28 個のストア名の許可リストにする + 1 行の上限を 512 KB に下げる（許可リストなら行数は自動で上限になる） |
 | S-2 | **高** | **`/api/faq` はログイン確認だけで、回数制限・プラン判定・レート制限が無い**。キャッシュは `url + 本文` のハッシュなので本文を 1 文字変えれば必ず外れる。無料アカウントから Anthropic を無制限に呼べる（無料診断の 2 回を使い切った後も可） | `src/app/api/faq/route.ts:20,46` | `consumeFreeRun()` か `takeDailyToken()` を足す |
@@ -3212,4 +3212,5 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - この画面の「Disabled」列は **REALTIME**（変更のリアルタイム配信）の列で、RLS の有効・無効ではない。RLS の状態はこの画面には出ないので、上の「RLS の確認クエリ」（`pg_class.relrowsecurity`）で確かめる形にした。
 - 画面上部の「Automatically enable RLS on new tables → Set up trigger」は、今後作るテーブルに RLS を自動で付ける Supabase の機能。押しておくと SQL に書き忘れても守られるので推奨した（任意）。
 - チェックリスト #91 の 1 を `[x]`、1b（RLS の確認）を追加。
+- 利用者「（RLS の確認クエリ）全部 true でした」→ public スキーマの全テーブル（geo の 8 個 + 既存 9 個）で RLS 有効を確認。**AI 検索モニタリングのテーブルまわりは完了**。#91 の残りは DataForSEO の登録と環境変数（チェックリスト 2〜9）。
 
