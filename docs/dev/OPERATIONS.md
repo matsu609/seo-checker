@@ -547,6 +547,7 @@ Open PageRank を入れなくてもドメインパワーは 8 指標すべてが
 - **解除**: 「割引なし（定価）」を選ぶ。既に契約した人の割引は Stripe 側に付いているので影響しない。
 - 順番: 設定済みの割引（publicMetadata） > 割引コード（`PROMO_CODES`、任意・未設定でよい） > 定価。全員向けに無料期間を戻したいときだけ `STRIPE_TRIAL_DAYS`（正の数）。通常は未設定。
 - 特商法ページ（`/legal/tokushoho`）の「お支払い時期」に、コードの条件で 0 円の月がある場合と 30 日の無料期間が付く場合の書き方を入れてある（r107）。
+- **何が Stripe で何が Clerk か**: 「割引」の選択と保存は Clerk（`publicMetadata.promo`）。適用は申し込みの瞬間に Stripe API（`checkout.sessions.create` の `subscription_data.trial_period_days` と `discounts[0].coupon`、クーポンは `coupons.create` で自動作成）。Stripe・Supabase の画面での設定は不要。**Stripe の API 呼び出しは開発環境に鍵が無いため実機で未確認（2026-09-18 時点）**。確認手順: ① `/admin` でテスト用アカウントに「30 日無料 + 月額 20,000 円引き」を設定 → ② そのアカウントで `/plans` に「割引が設定されています」が出る → スタンダードの「申し込む」→ ③ Checkout に「30 日間無料」と「月額 20,000 円引き」の行、今日 0 円・30 日後から 30,000 円 → テストカード 4242 → ④ Stripe（テスト）→ クーポン に `seo-checker-off20000-prod_…` が自動作成されている https://dashboard.stripe.com/test/coupons → ⑤ 顧客のサブスクリプションがトライアル中 + 割引付き。代理ログインでは決済を塞いでいるので直接ログインして確認する。
 
 ### 本番公開までに残っていること（決済まわり）
 
@@ -2929,3 +2930,7 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 利用者「割引はマスターアカウントと代理店アカウントで入力が可能になっている仕組みにしてほしい。複雑にならない？可能？簡単にできる？」→ 可能・小さく足せると回答し、そのまま実装。
 - **r108**: `publicMetadata.promo = { pattern, by, at }`（`src/lib/billing/promo.ts` に `assignedPromoFromMetadata` / `withAssignedPromo` / `patternShortLabel`）、`assignClientPromo`（`src/lib/admin/clients.ts`。`ClientRow.promo` 追加）、`POST /api/admin/promo`（運用者）、`POST /api/agency/promo`（担当の代理店だけ。担当外・代理店アカウント宛は 404）、`PromoSelect`（`src/components/admin/PromoSelect.tsx`。10 パターン + 割引なし。契約中の人には「今の請求は変わらない」の注意）をマスター画面の顧客一覧（代理店アカウントの行には出さない）と代理店画面のカードに配置。`/plans` は設定済みなら「割引が設定されています」の Callout（コード入力欄は出さない）。`/api/billing/checkout` は 設定済み > コード の順で採用し、ライトには付けない。代理店画面の説明文を更新。テスト 2 件追加（1,551 件）。lint / tsc / test / build 通過。
 - **利用者の作業**: 無し（Vercel の設定も Stripe のクーポン作成も不要）。本番に反映されたら `/admin` の顧客の行に「割引」が出る。決済を本番で通す残り（#58 の 8b〜8f、#84）は前回のまま。
+
+### 2026-09-18（利用者の確認: 「本当に反映されているのか。Stripe の API でここまでできるのか。登録した記憶が無い」）
+
+- 回答: 割引の選択・保存は Clerk（設定済みの鍵で今すでに動く）。適用は申し込み時に Stripe API が行い、クーポンもアプリが自動作成する。新しい登録（Supabase・Stripe の画面）は不要で、こちらも何も設定していない。**ただし Stripe API を呼ぶ部分は実機で未確認**（開発環境に鍵が無い。自動テストは保存と条件の判定まで）。本番の Vercel にはサンドボックスの鍵が入っているので、上の「割引の運用」の確認手順（①〜⑤）で実際に通してもらう。決済画面に割引が出なければ表示を送ってもらい修正する。
