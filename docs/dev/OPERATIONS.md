@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r125 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r126 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -3586,3 +3586,49 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 
 **Claude の提案（実装の第 1 弾）**: 照会の答えを待たずにできるのは C 層の骨格。媒体マスタに `integration` と `tosNote` を足し、掲載タブに「この媒体は何ができるか（API / シート / 手動）」と「証跡 URL・最終確認日」を出す。**指示があれば着手する。**
 
+---
+
+### 2026-09-19（掲載の一括登録と llms.txt の非表示、r126）
+
+利用者の指示:「llms.txt は顧客にやらせるべきではないので外してください。3. 掲載（サイテーション）だけ実装を早めたいです。**API 連携してボタンで一括登録をしたい**」
+
+#### やったこと
+
+| # | 内容 | 触ったところ |
+|---|---|---|
+| 1 | **llms.txt 生成をサイドバーから外した**（`hidden: true`。ページと API は残る） | `src/lib/features/registry.ts`。サイテーションの柱の説明文からも llms.txt を消し、掲載タブの中の llms.txt へのリンクも外した |
+| 2 | **媒体マスタ（30 媒体）に登録経路 `integration` と `tosNote` を足した** | `src/lib/listings/media.ts`。`api` / `file` / `manual` / `monitor` の 4 値。ラベルと説明、`mediaOfIntegration()` も追加 |
+| 3 | **一括登録の中身を純粋関数にした** | `src/lib/listings/publish.ts`（新）。対象の絞り込み・必須項目・入稿 CSV の組み立て・結果の型・状況の進め方 |
+| 4 | **`POST /api/listings/publish` を追加** | `src/app/api/listings/publish/route.ts`（新）。自社店舗の確認 → 保存済みの基本情報 → 媒体ごとに送信 / ファイル生成 / 手順 → 送れた媒体だけ「申請中」に保存 |
+| 5 | **Google ビジネス プロフィールへの書き込みを実装** | `src/lib/google/business-profile.ts` に `updateLocationNap()` / `toLocationPatch()` / `toInformationName()` / `toTimeOfDay()` |
+| 6 | **掲載タブに「3. 一括登録」カードを足した** | `src/components/listings/ListingsTool.tsx`。ボタン 1 つ → 結果の一覧（送れた / ファイル / 画面で入力 / 自動反映 / 失敗）＋ 入稿ファイルのダウンロード |
+
+#### 登録経路（`integration`）の割り当て
+
+| 値 | 媒体数 | 媒体 | 一括登録で起きること |
+|---|---|---|---|
+| `api` | 1 | Google マップ（ビジネス プロフィール） | サーバーが Business Information API に PATCH で送る |
+| `file` | 2 | Yahoo!プレイス、Bing Places | 入稿用の CSV を作る（BOM 付き UTF-8。公式テンプレートに貼ってアップロード） |
+| `manual` | 13 | Apple / Foursquare / HERE / TomTom / Waze / OSM / Facebook / Yelp / Petal / Hotfrog ほか | 登録画面の URL と貼り付け用の基本情報を出すところまで |
+| `monitor` | 14 | Siri・カーナビ各社・Navmii・Uber・Acompio・Opendi | こちらから登録できない。元の媒体に載せて反映を見る |
+
+#### 決めた線（次のセッションが崩さないこと）
+
+- **ブラウザ自動化（RPA・ヘッドレス）でフォームに代理入力しない。**全媒体の規約違反で、アカウント停止のもと（09-19 の調査どおり）。
+- **お客様の ID / パスワードは預からない。**Google へは、本人が接続した Google アカウントの権限（`business.manage`）で送る。
+- **Google に住所は送らない。**日本語の住所 1 行を構造化住所に機械的に割るのは危ういうえ、住所を書き換えると再審査（はがき）になって掲載が止まる。住所のずれは「表記ゆれの確認」で気付いてもらい、ビジネス プロフィールで直してもらう。送るのは**店名・電話・サイト・説明文・営業時間**だけ。
+- **空の項目は `updateMask` に入れない**（Google 側にある値を空で上書きしない）。
+- **送れなかった媒体を「送った」と書かない。**失敗はそのまま理由を画面に出す。状況を「申請中」に進めるのは API で送れた媒体だけ。
+
+#### いまの動作（本番）
+
+Google への送信は **Business Profile API の利用申請（#5、ケース ID `0-4126000041187`）が承認されるまで 403 で失敗する。**その場合、画面には「Business Profile API の利用申請が承認され、3 つの API が有効になっているか、接続した Google アカウントがそのビジネスの管理者かをご確認ください」と出る（既存の 403 の案内をそのまま使っている）。承認が下りれば**コードの変更なしで動き出す**。
+
+Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま使える**。
+
+#### 残っている手（この機能の続き）
+
+1. 掲載レコードに `evidence_url` / `last_checked_at` / `next_check_at`（「今も正しく出ている」の証明。09-19 の調査で「商品価値そのもの」と結論した部分）
+2. Facebook ページの API 連携（App Review が要る）
+3. Yahoo!プレイス / Apple の API 連携（下の照会の答え次第）
+4. 一括登録の履歴（いつ何を送ったか）
