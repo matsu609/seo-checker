@@ -41,7 +41,7 @@ const SYSTEM_PROMPT = `あなたは中小企業のウェブサイトを 10 年�
 - データが無い領域（例: 検索順位を取っていない、Google 連携が無い）については、無いことを前提に書き、あるかのように書きません。
 - 断定は根拠の強さに合わせます。1 ページのデータで全体を語らない。
 - llms.txt は AI 検索向けの案内ファイルで、**まだ必須ではありません**。無いことを致命的な欠陥のように書かず、「置けば差がつく」程度の位置づけで、優先度も高くしすぎません。
-- ドメインパワーは無料の指標を束ねた推定値です。Ahrefs の DR や Moz の DA と同じものとして書かず、「ドメインパワーを上げる」ではなく、その内訳のどれ（外部リンク・指名検索・インデックス数など）をどう増やすかを書きます。`;
+- 「ドメインパワー」という総合点は出しません（打ち手が無いため廃止しました）。外部の評価について書くときは、被リンク（Ahrefs の DR）とインデックス数のどちらを、どう増やすかだけを書きます。`;
 
 function inputSummary(sheet: SeoFactSheet): string[] {
   const i = sheet.input;
@@ -54,7 +54,7 @@ function inputSummary(sheet: SeoFactSheet): string[] {
       sheet.coverage.psi ? "PageSpeed" : null,
       sheet.coverage.crux ? "CrUX（実ユーザーの速度）" : null,
       sheet.coverage.serp ? "検索順位（SerpApi）" : null,
-      sheet.coverage.domainPower ? "ドメインパワー（推定）" : null,
+      sheet.coverage.domainPower ? "外部からの評価（被リンク・インデックス数）" : null,
     ]
       .filter(Boolean)
       .join("、")}`,

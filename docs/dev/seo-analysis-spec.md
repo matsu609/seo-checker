@@ -55,7 +55,7 @@
   無料診断の採点（既存の 5 カテゴリ）
   PSI（トップ + 被リンクの多い 5 ページ）/ CrUX Origin + History
   SerpApi（対策キーワード 5 つ + site: + ブランド名）/ サジェスト
-  ドメインパワー（Ahrefs の DR + Open PageRank + RDAP の登録日。自社と競合 2 件）
+  外部からの評価（Ahrefs の DR + Open PageRank。インデックス数。自社と競合 2 件。2026-09-19 に総合点を廃止）
   llms.txt / llms-full.txt の有無と中身
   （連携済みなら）GSC の上位クエリ・ページ、GA4 の自然検索 × ランディングページ
   ↓

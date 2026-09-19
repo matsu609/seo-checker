@@ -9,7 +9,7 @@ import { pct } from "@/lib/report/format";
 import type { AuditResult, AuditPageRow } from "@/lib/audit/types";
 import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId, type CruxRecord } from "@/lib/crux/types";
 import { cwvVerdict, formatCrux, trendOf } from "@/lib/crux/parse";
-import { GRADE_LABELS, SIGNAL_SOURCES, SIGNAL_STATUS_LABELS } from "@/lib/domain-power/types";
+import { SIGNAL_ACTIONS, SIGNAL_SOURCES, SIGNAL_STATUS_LABELS } from "@/lib/domain-power/types";
 import { CRUX_LABELS } from "@/lib/psi/types";
 import { SERP_FEATURE_LABELS } from "@/lib/serp/types";
 import { PAGE_KIND_LABELS } from "../types";
@@ -275,14 +275,11 @@ export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
   if (search.brand) f.add("search", `ブランド名検索「${search.brand.query}」での自社の順位`, search.brand.rank === null ? "100 位以内に無し" : `${search.brand.rank} 位`, { url: search.brand.url ?? undefined });
   for (const n of search.notes) f.add("search", "注記", n);
 
-  // --- ドメインパワー ----------------------------------------------------------
+  // --- 外部からの評価（旧・ドメインパワー） --------------------------------------
   if (domain) {
-    f.add("domain", "ドメインパワー（推定）", domain.score === null ? "判定できず" : `${domain.score} 点 / 100（${domain.grade ? GRADE_LABELS[domain.grade] : "—"}）`, {
-      note: `対象ドメイン ${domain.host}。無料で取れる指標だけを束ねた推定値で、Ahrefs の DR や Moz の DA とは別物。採点に使えた配点は ${domain.measuredMax} 点分`,
-    });
     for (const sig of domain.signals) {
-      f.add("domain", `ドメインパワーの内訳: ${sig.label}`, `${sig.value}（${SIGNAL_STATUS_LABELS[sig.status]}・${sig.status === "unknown" ? `配点 ${sig.max} 点は未採点` : `${sig.score} / ${sig.max} 点`}）`, {
-        note: `${sig.detail}。出どころ: ${SIGNAL_SOURCES[sig.id]}`,
+      f.add("domain", `外部からの評価: ${sig.label}`, `${sig.value}（${SIGNAL_STATUS_LABELS[sig.status]}）`, {
+        note: `${sig.detail}。出どころ: ${SIGNAL_SOURCES[sig.id]}${sig.status === "unknown" ? "" : `。打ち手: ${SIGNAL_ACTIONS[sig.id]}`}`,
       });
     }
     if (domain.ahrefsDr !== null) {

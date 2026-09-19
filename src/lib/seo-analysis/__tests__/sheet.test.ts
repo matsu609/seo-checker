@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ORIGIN, html, pageFrom } from "@/lib/audit/__tests__/fixtures";
 import { applyDepths, buildResult } from "@/lib/audit/run";
 import type { AuditResult } from "@/lib/audit/types";
-import { scoreDomainPower } from "@/lib/domain-power";
+import { buildExternalEvaluation } from "@/lib/domain-power";
 import { buildFactSheet, factsFromAudit, factsToLines, pickKeyPages } from "../sheet/build";
 import type { AnalysisInput, SheetGoogle, SheetSearch, SheetSpeed } from "../sheet/types";
 
@@ -44,23 +44,16 @@ const speed: SheetSpeed = {
 };
 const search: SheetSearch = { keywords: [{ keyword: "ウェブ制作 世田谷", rank: 12, url: `${ORIGIN}/service`, topDomains: ["a.jp", "b.jp", "c.jp"], features: ["ai_overview", "local_pack"], aiOverview: true, ownCited: false, competitors: [] }], siteCount: 38, brand: { query: "サンプル工房", rank: 1, url: `${ORIGIN}/` }, notes: [] };
 const google: SheetGoogle = { searchConsole: null, ga4: null, notes: ["Search Console は連携していません"] };
-const domain = scoreDomainPower({
+const domain = buildExternalEvaluation({
   host: "example.com",
   ahrefsDr: 18,
   openPageRank: 3.4,
   openPageRankWorldRank: 1_234_567,
   registeredAt: "2015-04-01T00:00:00.000Z",
   indexedPages: 38,
-  brandRank: 1,
-  brandMeasured: true,
-  keywordRanks: [12],
-  cruxCoverage: "origin",
   crawledPages: 4,
-  internalLinks: 5,
-  trust: { pass: 3, total: 9 },
-  https: false,
   peers: [{ host: "competitor.jp", ahrefsDr: 34, openPageRank: 4.1, registeredAt: "2010-01-01T00:00:00.000Z", ageYears: 16.7 }],
-  sources: { ahrefs: true, openPageRank: true, rdap: true, serp: true, crux: true },
+  sources: { ahrefs: true, openPageRank: true, rdap: true, serp: true },
   now: new Date("2026-09-14T00:00:00.000Z"),
 });
 
@@ -121,12 +114,15 @@ describe("事実シート", () => {
     expect(lines.filter((l) => l.includes("llms.txt の有無")).length).toBe(1);
   });
 
-  it("ドメインパワーを内訳つきで事実にする", () => {
+  it("外部からの評価は、打ち手のある 2 指標と競合比較だけを事実にする（2026-09-19）", () => {
     const lines = factsToLines(sheet.facts);
-    expect(lines.some((l) => l.includes("ドメインパワー（推定）") && l.includes("点 / 100"))).toBe(true);
-    expect(lines.some((l) => l.includes("外部からのリンクの評価") && l.includes("DR 18 / 100"))).toBe(true);
-    expect(lines.some((l) => l.includes("ドメインの年数") && l.includes("11.5 年"))).toBe(true);
+    expect(lines.some((l) => l.includes("外部からの評価: 外部からのリンクの評価") && l.includes("DR 18 / 100") && l.includes("打ち手:"))).toBe(true);
+    expect(lines.some((l) => l.includes("外部からの評価: Google に登録されているページ数"))).toBe(true);
     expect(lines.some((l) => l.includes("競合のドメイン: competitor.jp"))).toBe(true);
+    // 総合点と、打ち手の無い指標は事実シートに載せない（AI にも渡らない）
+    expect(lines.some((l) => l.includes("ドメインパワー（推定）"))).toBe(false);
+    expect(lines.some((l) => l.includes("ドメインの年数"))).toBe(false);
+    expect(lines.some((l) => l.includes("実ユーザーの規模"))).toBe(false);
   });
 
   it("ページ一覧は落とし、上位・弱いページだけ残す", () => {

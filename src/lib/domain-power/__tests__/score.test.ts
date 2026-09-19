@@ -1,152 +1,65 @@
+/**
+ * 外部からの評価（旧・ドメインパワー）。
+ * 利用者の決定（2026-09-19）「打ち手のある項目だけを採点する」を固定する:
+ * 判定するのは被リンクとインデックス数の 2 つだけで、総合点は出さない。
+ */
 import { describe, expect, it } from "vitest";
-import { scoreAge, scoreBrand, scoreDomainPower, scoreIndex, scoreKeyword, scoreLinks, scoreTraffic, type ScoreDomainPowerInput } from "../score";
+import { buildExternalEvaluation, scoreIndex, scoreLinks } from "../score";
+import { SIGNAL_ACTIONS, type DomainPowerSignalId } from "../types";
 
-const NOW = new Date("2026-09-15T00:00:00.000Z");
+const SOURCES = { ahrefs: true, openPageRank: false, rdap: true, serp: true };
 
-const base: ScoreDomainPowerInput = {
-  host: "example.com",
-  ahrefsDr: null,
-  openPageRank: null,
-  registeredAt: null,
-  indexedPages: null,
-  brandRank: null,
-  brandMeasured: false,
-  keywordRanks: [],
-  cruxCoverage: "unknown",
-  crawledPages: null,
-  internalLinks: null,
-  trust: null,
-  https: true,
-  sources: { ahrefs: false, openPageRank: false, rdap: false, serp: false, crux: false },
-  now: NOW,
-};
-
-describe("指標ごとの採点", () => {
-  it("外部リンクの評価は Ahrefs の DR を優先する（無料ツールと同じ数値）", () => {
-    expect(scoreLinks(62, null, null).score).toBe(25);
-    expect(scoreLinks(35, null, null).status).toBe("good");
-    expect(scoreLinks(12, 2.0, null).status).toBe("fair");
-    expect(scoreLinks(1, null, null).score).toBe(0);
-    expect(scoreLinks(18, 3.4, null).value).toBe("DR 18 / 100");
-    expect(scoreLinks(18, 3.4, null).detail).toContain("Open PageRank は 3.40");
+describe("打ち手のある 2 指標だけを出す", () => {
+  it("判定は被リンクとインデックス数のみ。年数・順位・実ユーザー規模は含めない", () => {
+    const r = buildExternalEvaluation({
+      host: "example.jp",
+      ahrefsDr: 12,
+      openPageRank: null,
+      registeredAt: "2015-03-24T00:00:00.000Z",
+      indexedPages: 66,
+      crawledPages: 63,
+      sources: SOURCES,
+      now: new Date("2026-09-19T00:00:00Z"),
+    });
+    expect(r.signals.map((s) => s.id)).toEqual<DomainPowerSignalId[]>(["links", "index"]);
+    // 総合点・グレードは存在しない（型にもレスポンスにも無い）
+    expect(r).not.toHaveProperty("score");
+    expect(r).not.toHaveProperty("grade");
+    // 年数は採点しないが、競合比較の文脈として残す
+    expect(r.ageYears).toBeCloseTo(11.5, 0);
   });
 
-  it("DR が取れなければ Open PageRank で代用する", () => {
-    expect(scoreLinks(null, 6.2, null).score).toBe(25);
-    expect(scoreLinks(null, 3.0, null).status).toBe("fair");
-    expect(scoreLinks(null, 0.4, null).score).toBe(0);
-    expect(scoreLinks(null, 4.5, 120_000).detail).toContain("120,000 位");
-    expect(scoreLinks(null, 2.5, null).value).toBe("OPR 2.50 / 10");
-    expect(scoreLinks(null, null, null).status).toBe("unknown");
-  });
-
-  it("ドメインの年数は 10 年で満点", () => {
-    expect(scoreAge("2010-01-01T00:00:00.000Z", NOW).score).toBe(15);
-    expect(scoreAge("2024-01-01T00:00:00.000Z", NOW).status).toBe("fair");
-    expect(scoreAge("2026-06-01T00:00:00.000Z", NOW).status).toBe("poor");
-    expect(scoreAge(null, NOW).status).toBe("unknown");
-  });
-
-  it("インデックス数はクロール結果と比べる文を添える", () => {
-    expect(scoreIndex(1200, 300).score).toBe(15);
-    expect(scoreIndex(12, 40).status).toBe("fair");
-    expect(scoreIndex(0, 40).score).toBe(0);
-    expect(scoreIndex(80, 100).detail).toContain("100 ページ");
-    expect(scoreIndex(null, 100).status).toBe("unknown");
-  });
-
-  it("対策キーワードは順位の良さの平均で決まる", () => {
-    expect(scoreKeyword([1, 2, 3]).score).toBe(15);
-    expect(scoreKeyword([null, null, null]).score).toBe(0);
-    expect(scoreKeyword([5, null]).value).toBe("1 / 2 語が 10 位以内");
-    expect(scoreKeyword([]).status).toBe("unknown");
-  });
-
-  it("ブランド名検索は 1 位で満点、未計測は分母から外す", () => {
-    expect(scoreBrand(1, true).score).toBe(10);
-    expect(scoreBrand(null, true).score).toBe(0);
-    expect(scoreBrand(null, false).status).toBe("unknown");
-  });
-
-  it("CrUX にデータがあること自体を規模の目安にする", () => {
-    expect(scoreTraffic("url").score).toBe(10);
-    expect(scoreTraffic("origin").score).toBe(7);
-    expect(scoreTraffic("none").status).toBe("poor");
-    expect(scoreTraffic("unknown").status).toBe("unknown");
+  it("すべての指標に「次にやること」がある", () => {
+    for (const id of ["links", "index"] as DomainPowerSignalId[]) {
+      expect(SIGNAL_ACTIONS[id].length).toBeGreaterThan(10);
+    }
   });
 });
 
-describe("合計点", () => {
-  it("未取得の指標は分母から外す（キーが無くても不当に低く出ない）", () => {
-    const result = scoreDomainPower({
-      ...base,
-      registeredAt: "2010-01-01T00:00:00.000Z",
-      cruxCoverage: "origin",
-      crawledPages: 120,
-      internalLinks: 400,
-      trust: { pass: 8, total: 9 },
-      https: true,
-    });
-    // 採点できたのは年数（15）・実ユーザー（10）・規模（5）・信頼（5）だけ
-    expect(result.measuredMax).toBe(35);
-    expect(result.score).toBe(Math.round(((15 + 7 + 4 + 5) / 35) * 100));
-    expect(result.signals.filter((s) => s.status === "unknown")).toHaveLength(4);
-    expect(result.notes.join()).toContain("未取得の指標");
+describe("被リンクの評価", () => {
+  it("DR があれば DR、無ければ Open PageRank。どちらも無ければ未取得", () => {
+    expect(scoreLinks(35, 3, null).status).toBe("good");
+    expect(scoreLinks(12, null, null).status).toBe("fair");
+    // 中小企業では DR 0 が普通なので、赤ではなく「これから」に寄せる
+    expect(scoreLinks(0, null, null).status).toBe("poor");
+    expect(scoreLinks(0, null, null).value).toBe("DR 0 / 100");
+    expect(scoreLinks(null, 4.2, 900_000).status).toBe("good");
+    expect(scoreLinks(null, 4.2, 900_000).detail).toContain("世界順位 900,000 位");
+    expect(scoreLinks(null, null, null).status).toBe("unknown");
+  });
+});
+
+describe("インデックス数", () => {
+  it("クロールで見つけた数と比べて、載っていないページがあるかで判定する", () => {
+    expect(scoreIndex(60, 63).status).toBe("good");
+    expect(scoreIndex(45, 63).status).toBe("fair");
+    expect(scoreIndex(5, 63).status).toBe("poor");
+    expect(scoreIndex(5, 63).detail).toContain("載っていないページがある可能性");
+    expect(scoreIndex(null, 63).status).toBe("unknown");
   });
 
-  it("指標が少なすぎるときは合計点を出さない", () => {
-    const result = scoreDomainPower({ ...base, crawledPages: 120, internalLinks: 400, trust: { pass: 8, total: 9 }, https: true });
-    expect(result.measuredMax).toBe(10);
-    expect(result.score).toBeNull();
-    expect(result.notes.join()).toContain("採点に使える指標が足りない");
-  });
-
-  it("すべて取れていれば 100 点満点で採点する", () => {
-    const result = scoreDomainPower({
-      ...base,
-      ahrefsDr: 72,
-      openPageRank: 6.5,
-      registeredAt: "2010-01-01T00:00:00.000Z",
-      indexedPages: 5000,
-      brandRank: 1,
-      brandMeasured: true,
-      keywordRanks: [1, 2, 3],
-      cruxCoverage: "url",
-      crawledPages: 300,
-      internalLinks: 2000,
-      trust: { pass: 9, total: 9 },
-      https: true,
-    });
-    expect(result.measuredMax).toBe(100);
-    expect(result.score).toBe(100);
-    expect(result.grade).toBe("very-strong");
-    expect(result.notes).toHaveLength(0);
-  });
-
-  it("何も取れなければ点は付けない", () => {
-    const result = scoreDomainPower(base);
-    expect(result.score).toBeNull();
-    expect(result.grade).toBeNull();
-    expect(result.measuredMax).toBe(0);
-  });
-
-  it("弱いサイトは低く出る", () => {
-    const result = scoreDomainPower({
-      ...base,
-      ahrefsDr: 1,
-      openPageRank: 0.5,
-      registeredAt: "2026-06-01T00:00:00.000Z",
-      indexedPages: 3,
-      brandRank: null,
-      brandMeasured: true,
-      keywordRanks: [null, null],
-      cruxCoverage: "none",
-      crawledPages: 6,
-      internalLinks: 12,
-      trust: { pass: 1, total: 9 },
-      https: true,
-    });
-    expect(result.score).toBeLessThan(20);
-    expect(result.grade).toBe("very-weak");
+  it("クロール数が無ければ件数だけで判定する", () => {
+    expect(scoreIndex(200, null).status).toBe("good");
+    expect(scoreIndex(2, null).status).toBe("poor");
   });
 });

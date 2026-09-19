@@ -21,7 +21,6 @@ import { Donut, HBar, Sparkline } from "@/components/charts";
 import { Badge, Button, Callout, Card, StatCard } from "@/components/ui";
 import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId } from "@/lib/crux/types";
 import { cwvVerdict, formatCrux } from "@/lib/crux/parse";
-import { GRADE_LABELS } from "@/lib/domain-power/types";
 import { downloadPdf } from "@/lib/pdf/download";
 import type { AnalysisRecord } from "@/lib/seo-analysis/ai/schema";
 import { GOAL_LABELS, type Fact, type SeoFactSheet } from "@/lib/seo-analysis/sheet/types";
@@ -93,7 +92,7 @@ export function ReportView(props: ReportViewProps) {
       <div ref={sheetRef} className="space-y-6">
         <SummaryCard sheet={sheet} headline={a?.headline ?? null} analyzing={props.analyzing} />
 
-        <div className={`grid gap-3 ${domain ? "@2xl:grid-cols-5" : "@2xl:grid-cols-4"}`}>
+        <div className="grid gap-3 @2xl:grid-cols-4">
           <StatCard label="対象サイト" value={<span className="text-base break-all">{hostOf(site.origin)}</span>} hint={`${fmt(site.crawl.analyzed)} ページを診断`} />
           <StatCard label="検出した課題" value={fmt(issueTotal)} unit="件" hint={`重大 ${site.bySeverity.error} / 警告 ${site.bySeverity.warning} / 情報 ${site.bySeverity.info}`} />
           <StatCard
@@ -107,14 +106,6 @@ export function ReportView(props: ReportViewProps) {
             unit={sheet.search.keywords.length > 0 ? "語が 100 位以内" : undefined}
             hint={sheet.coverage.serp ? (sheet.search.brand ? `ブランド名検索: ${sheet.search.brand.rank === null ? "圏外" : `${sheet.search.brand.rank} 位`}` : "") : "検索順位は未取得（SerpApi）"}
           />
-          {domain && (
-            <StatCard
-              label="ドメインパワー（推定）"
-              value={domain.score === null ? "判定できず" : domain.score}
-              unit={domain.score === null ? undefined : "/ 100"}
-              hint={[domain.score === null ? `採点できた配点 ${domain.measuredMax} / 100` : `${domain.grade ? GRADE_LABELS[domain.grade] : ""}（採点できた配点 ${domain.measuredMax} / 100）`, domain.ahrefsDr === null ? null : `Ahrefs DR ${domain.ahrefsDr.toFixed(0)}`].filter(Boolean).join(" ／ ")}
-            />
-          )}
         </div>
 
         {props.errors.analysis && (

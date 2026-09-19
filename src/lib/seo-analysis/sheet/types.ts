@@ -55,7 +55,7 @@ export const FACT_AREA_LABELS: Record<FactArea, string> = {
   trust: "信頼",
   speed: "速度（実ユーザー・診断）",
   search: "検索での見え方",
-  domain: "ドメインパワー",
+  domain: "外部からの評価",
   llms: "llms.txt（AI 向けの案内ファイル）",
   google: "Google 連携（使わない。案内のみ）",
 };
@@ -191,7 +191,7 @@ export interface SeoFactSheet {
   site: SheetSite;
   speed: SheetSpeed;
   search: SheetSearch;
-  /** ドメインパワー（無料で取れる指標からの推定）。古い保存分には無い */
+  /** 外部からの評価（被リンクとインデックス数）。古い保存分には無い / 旧形式（総合点つき）のことがある */
   domain?: SheetDomain | null;
   /** llms.txt の有無と中身の評価。古い保存分には無い */
   llms?: SheetLlmsTxt | null;

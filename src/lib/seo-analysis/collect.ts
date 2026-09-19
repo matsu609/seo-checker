@@ -12,7 +12,10 @@ import { runAudit, type AuditProgress } from "@/lib/audit/run";
 import type { AuditResult } from "@/lib/audit/types";
 import { canonicalizeUrl } from "@/lib/crawl/url";
 import { fetchCruxHistory, fetchCruxRecord, fetchCruxWithFallback, isCruxEnabled } from "@/lib/crux";
-import { fetchDomainFacts, scoreDomainPower, type CruxCoverage, type DomainPowerResult } from "@/lib/domain-power";
+
+/** CrUX にデータがあったか（url = ページ単位、origin = サイト単位、none = データ不足） */
+type CruxCoverage = "url" | "origin" | "none" | "unknown";
+import { buildExternalEvaluation, fetchDomainFacts } from "@/lib/domain-power";
 import { fetchPsi } from "@/lib/psi/client";
 import { collectLlmsTxt } from "./llms";
 import { unusedGoogleOutcome } from "./google";
@@ -89,13 +92,17 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     (async () => unusedGoogleOutcome())(),
   ]);
 
-  const domain = buildDomainPower({
-    origin: audit.origin,
-    facts: domainFacts,
-    search: searchOutcome.search,
-    serpEnabled: searchOutcome.enabled,
-    audit,
-    cruxCoverage: speed.cruxCoverage,
+  const domain = buildExternalEvaluation({
+    host: domainFacts.host,
+    ahrefsDr: domainFacts.ahrefsDr,
+    openPageRank: domainFacts.openPageRank,
+    openPageRankWorldRank: domainFacts.openPageRankWorldRank,
+    registeredAt: domainFacts.registeredAt,
+    indexedPages: searchOutcome.search.siteCount,
+    crawledPages: audit.crawl.analyzed,
+    peers: domainFacts.peers,
+    notes: domainFacts.notes,
+    sources: { ahrefs: domainFacts.sources.ahrefs, openPageRank: domainFacts.sources.openPageRank, rdap: domainFacts.sources.rdap, serp: searchOutcome.enabled },
   });
 
   emit("sheet", "事実シートを組み立てています");
@@ -112,7 +119,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
       psi: speed.psi,
       crux: speed.crux,
       serp: searchOutcome.enabled,
-      domainPower: domain.score !== null,
+      domainPower: domain.signals.some((x) => x.status !== "unknown"),
     },
   });
   return { sheet, audit };
@@ -184,40 +191,4 @@ async function collectSpeed(
           ? "origin"
           : "none",
   };
-}
-
-/**
- * ドメインパワーの採点。RDAP / Open PageRank の取得結果に、すでに集めた
- * 検索・CrUX・クロールの数値を合わせて 100 点満点にする（採点は純関数）。
- */
-function buildDomainPower(args: {
-  origin: string;
-  facts: Awaited<ReturnType<typeof fetchDomainFacts>>;
-  search: Awaited<ReturnType<typeof collectSearch>>["search"];
-  serpEnabled: boolean;
-  audit: AuditResult;
-  cruxCoverage: CruxCoverage;
-}): DomainPowerResult {
-  const { facts, search, audit } = args;
-  const trustChecks = audit.trust?.checks ?? [];
-  const judged = trustChecks.filter((c) => c.status !== "info");
-  return scoreDomainPower({
-    host: facts.host,
-    ahrefsDr: facts.ahrefsDr,
-    openPageRank: facts.openPageRank,
-    openPageRankWorldRank: facts.openPageRankWorldRank,
-    registeredAt: facts.registeredAt,
-    indexedPages: search.siteCount,
-    brandRank: search.brand?.rank ?? null,
-    brandMeasured: search.brand !== null,
-    keywordRanks: args.serpEnabled ? search.keywords.map((k) => k.rank) : [],
-    cruxCoverage: args.cruxCoverage,
-    crawledPages: audit.crawl.analyzed,
-    internalLinks: audit.structure?.links.total ?? null,
-    trust: judged.length > 0 ? { pass: judged.filter((c) => c.status === "pass").length, total: judged.length } : null,
-    https: args.origin.startsWith("https://"),
-    peers: facts.peers,
-    notes: facts.notes,
-    sources: { ahrefs: facts.sources.ahrefs, openPageRank: facts.sources.openPageRank, rdap: facts.sources.rdap, serp: args.serpEnabled, crux: args.cruxCoverage !== "unknown" },
-  });
 }
