@@ -102,9 +102,14 @@ export async function supabaseRest<T = unknown>(path: string, options: RestOptio
     const hint = res.status === 404 ? "テーブルが見つかりません（SQL の実行を確認してください）" : `データベースがエラーを返しました（HTTP ${res.status}）`;
     throw new DbError("upstream", hint, res.status);
   }
-  if (res.status === 204) return undefined as T;
+  // 本文が無い応答（204 No Content と、Prefer: return=minimal の 200 / 201）は undefined
+  // PostgREST は return=minimal の POST に 201 Created + 空本文を返すので、
+  // status だけで判断すると res.json() が必ず失敗する（2026-09-19 の不具合）
+  if (res.status === 204 || res.status === 205) return undefined as T;
+  const text = await res.text();
+  if (text.trim() === "") return undefined as T;
   try {
-    return (await res.json()) as T;
+    return JSON.parse(text) as T;
   } catch {
     throw new DbError("upstream", "データベースの応答を読めませんでした");
   }

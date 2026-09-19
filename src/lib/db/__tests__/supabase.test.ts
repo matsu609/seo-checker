@@ -95,6 +95,30 @@ describe("リクエストの形", () => {
   });
 });
 
+describe("応答の読み取り", () => {
+  it("Prefer: return=minimal の 201（本文なし）は undefined。PostgREST は 204 を返さない", async () => {
+    configure();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 201 })));
+    await expect(supabaseRest("geo_prompts", { method: "POST", body: {}, prefer: "return=minimal" })).resolves.toBeUndefined();
+  });
+
+  it("204 と、空白だけの本文も undefined", async () => {
+    configure();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
+    await expect(supabaseRest("geo_prompts", { method: "DELETE" })).resolves.toBeUndefined();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("  \n", { status: 200 })));
+    await expect(supabaseRest("geo_prompts")).resolves.toBeUndefined();
+  });
+
+  it("本文があれば JSON にして返し、壊れていれば upstream", async () => {
+    configure();
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json([{ id: "a" }])));
+    await expect(supabaseRest("geo_prompts")).resolves.toEqual([{ id: "a" }]);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{壊れた", { status: 200 })));
+    await expect(supabaseRest("geo_prompts")).rejects.toMatchObject({ code: "upstream" });
+  });
+});
+
 describe("エラー", () => {
   it("HTTP エラーは upstream。本文（SQL やテーブル名）は流さない", async () => {
     configure();
