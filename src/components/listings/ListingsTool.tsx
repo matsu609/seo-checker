@@ -9,6 +9,10 @@
  * 4. 媒体一覧: 媒体ごとに状況（未登録 / 申請中 / 掲載済み / 対象外）・掲載 URL・メモを控える
  * 5. サイトに貼る構造化データ（LocalBusiness）
  *
+ * **既定で出すのは 7 媒体だけ**（media.ts の tier: "core"）。利用者の指示 2026-09-19
+ * 「手順が多くて顧客にやらせるには無理がある」。残り 25 媒体は「上級」に畳み、
+ * 開いたときだけ出す（代理店・運用者が代行するときに使う）。
+ *
  * 全媒体をワンクリックで登録できる仕組みは存在しない（配信代行の Uberall / Yext は有料の契約）。
  * 送れるところは API で送り、送れないところは入稿ファイルと手順に落とす。
  * ブラウザ自動化による代理入力はしない（各媒体の規約違反・アカウント停止のもと）。
@@ -34,8 +38,8 @@ import {
   MEDIA_KIND_DESCRIPTIONS,
   MEDIA_KIND_LABELS,
   mediaById,
-  mediaOfIntegration,
   mediaOfKind,
+  mediaOfTier,
   type ListingMedia,
   type MediaIntegration,
   type MediaKind,
@@ -97,6 +101,10 @@ async function copyText(text: string): Promise<boolean> {
 
 const KINDS: readonly MediaKind[] = ["self", "fed", "aggregator"];
 
+/** 既定で出す媒体と、畳む媒体（media.ts の tier） */
+const CORE = mediaOfTier("core");
+const ADVANCED = mediaOfTier("advanced");
+
 const STATUS_TONE: Record<ListingStatus, "neutral" | "warn" | "pass" | "info"> = { todo: "neutral", submitted: "warn", live: "pass", skip: "info" };
 
 /** 一括登録の結果。並べる順（送れた → ファイル → 手入力 → 自動反映 → 失敗） */
@@ -145,6 +153,8 @@ export function ListingsTool() {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publish, setPublish] = useState<{ results: PublishResult[]; files: PublishFile[] } | null>(null);
+  /** 上級の媒体（残り 25 件）も対象にするか。既定は off（利用者の指示 2026-09-19） */
+  const [withAdvanced, setWithAdvanced] = useState(false);
 
   /** 選んだ店舗の記録を画面に読み込む */
   function selectStore(item: ListingsStoreItem | null) {
@@ -187,13 +197,21 @@ export function ListingsTool() {
 
   const store = useMemo(() => data?.stores.find((s) => s.placeId === placeId) ?? null, [data, placeId]);
   const mismatches = useMemo(() => (store?.google ? compareNap(profile, store.google) : []), [profile, store]);
-  const summary = useMemo(() => summarizeStates(states), [states]);
+  /** 集計は既定の 7 媒体だけ（上級も見たいときはチェックを入れる） */
+  const summary = useMemo(() => summarizeStates(states, withAdvanced ? LISTING_MEDIA : CORE), [states, withAdvanced]);
   const text = useMemo(() => profileToText(profile), [profile]);
   const jsonLd = useMemo(() => jsonLdScript(profile), [profile]);
   /** 一括登録に足りない必須項目と、今回の対象になる媒体 */
   const missing = useMemo(() => missingRequired(profile), [profile]);
-  const targets = useMemo(() => publishTargets(states), [states]);
+  const targets = useMemo(() => publishTargets(states, { tier: withAdvanced ? "all" : "core" }), [states, withAdvanced]);
   const publishCounts = useMemo(() => (publish ? summarizeResults(publish.results) : null), [publish]);
+  /** 「何が起きるか」に出す内訳。いまの対象（既定 = 7 媒体）に出てくる登録経路だけを並べる */
+  const scopeIntegrations = useMemo(() => {
+    const scope = withAdvanced ? LISTING_MEDIA : CORE;
+    return (["api", "file", "manual", "monitor"] as const)
+      .map((k) => [k, scope.filter((m) => m.integration === k).length] as const)
+      .filter(([, count]) => count > 0);
+  }, [withAdvanced]);
 
   function update<K extends keyof ListingProfile>(key: K, value: ListingProfile[K]) {
     if (key === "website") setWebsiteTouched(true);
@@ -263,7 +281,7 @@ export function ListingsTool() {
     setPublishError(null);
     setPublish(null);
     try {
-      const res = await request<ListingsPublishResponse>("/api/listings/publish", { method: "POST", body: JSON.stringify({ placeId: store.placeId }) });
+      const res = await request<ListingsPublishResponse>("/api/listings/publish", { method: "POST", body: JSON.stringify({ placeId: store.placeId, scope: withAdvanced ? "all" : "core" }) });
       setPublish({ results: res.results, files: res.files });
       setStates(res.record.states);
       setSavedAt(res.record.updatedAt);
@@ -296,7 +314,8 @@ export function ListingsTool() {
             店名・住所・電話・営業時間・説明文を 1 か所で決め、各媒体に同じ内容で載せます（表記ゆれが無いことが、地図・検索・生成 AI に正しく認識される条件です）。
           </li>
           <li>
-            <strong>無料で自分で登録できる媒体</strong>（Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap など）は、登録画面へ直接進み、下の基本情報をコピーして貼り付けます。
+            <strong>進めるのは日本で効く {CORE.length} 媒体だけです。</strong>
+            （{CORE.map((x) => x.name).join(" / ")}）。海外ディレクトリやカーナビ各社は「上級」に畳んであり、必要な店舗だけ開けば出ます。
           </li>
           <li>
             <strong>「一括登録」で API に送れるのは Google ビジネス プロフィールだけです。</strong>Yahoo!プレイスと Bing は公式の一括入稿ファイル（CSV）を作り、残りの媒体は登録画面と貼り付け用の基本情報を出します。全媒体をワンクリックで登録できる仕組みは存在せず、「一括同期」ができるのは Uberall や Yext などの配信代行サービス（有料。店舗ごとに月額）だけです。Siri やカーナビ各社は Apple / HERE / TomTom に載せると自動で流れます。
@@ -486,14 +505,14 @@ export function ListingsTool() {
           <Card
             number={3}
             title="一括登録"
-            description="保存した基本情報を、送れる媒体にまとめて送ります。送れない媒体は入稿ファイルと手順に落とします。"
+            description={`保存した基本情報を、日本で効く ${CORE.length} 媒体にまとめて送ります。送れない媒体は入稿ファイルと手順に落とします。`}
           >
             <Callout tone="info" title="何が起きるか" className="mb-4">
               <ul className="list-disc space-y-1 pl-5">
-                {(["api", "file", "manual", "monitor"] as const).map((k) => (
+                {scopeIntegrations.map(([k, count]) => (
                   <li key={k}>
                     <strong>
-                      {MEDIA_INTEGRATION_LABELS[k]}（{mediaOfIntegration(k).length} 媒体）
+                      {MEDIA_INTEGRATION_LABELS[k]}（{count} 媒体）
                     </strong>
                     : {MEDIA_INTEGRATION_DESCRIPTIONS[k]}
                   </li>
@@ -522,6 +541,10 @@ export function ListingsTool() {
               <Button type="button" onClick={runPublish} loading={publishing} disabled={dirty || missing.length > 0 || targets.length === 0}>
                 {targets.length} 媒体に一括登録する
               </Button>
+              <label className="inline-flex items-center gap-1.5 text-[13px] text-ink">
+                <input type="checkbox" checked={withAdvanced} onChange={(e) => setWithAdvanced(e.target.checked)} />
+                上級の媒体（海外ディレクトリ・カーナビなど {ADVANCED.length} 件）も含める
+              </label>
               <span className="text-[13px] text-muted">「掲載済み」と「対象外」にした媒体は送りません。</span>
             </div>
 
@@ -578,7 +601,7 @@ export function ListingsTool() {
             )}
           </Card>
 
-          <Card number={4} title="媒体一覧" description="上から順に進めてください。各媒体で「登録画面を開く」→ 基本情報を貼り付け → 状況を控える。保存ボタンは上のカードにあります。">
+          <Card number={4} title="媒体一覧" description={`日本で効く ${CORE.length} 媒体を上から順に進めてください。各媒体で「登録画面を開く」→ 基本情報を貼り付け → 状況を控える。保存ボタンは上のカードにあります。`}>
             <div className="mb-4 flex flex-wrap gap-2">
               {(
                 [
@@ -596,19 +619,34 @@ export function ListingsTool() {
                 </Button>
               ))}
             </div>
-            <div className="space-y-6">
-              {KINDS.map((kind) => (
-                <section key={kind}>
-                  <h3 className="text-[13px] font-bold text-ink">{MEDIA_KIND_LABELS[kind]}</h3>
-                  <p className="mt-1 text-[12px] text-muted">{MEDIA_KIND_DESCRIPTIONS[kind]}</p>
-                  <ul className="mt-3 divide-y divide-line border-y border-line">
-                    {mediaOfKind(kind).map((x) => (
-                      <MediaRow key={x.id} media={x} status={stateOf(states, x.id)} onChange={(patch) => updateState(x.id, patch)} />
-                    ))}
-                  </ul>
-                </section>
+            <ul className="divide-y divide-line border-y border-line">
+              {CORE.map((x) => (
+                <MediaRow key={x.id} media={x} status={stateOf(states, x.id)} onChange={(patch) => updateState(x.id, patch)} />
               ))}
-            </div>
+            </ul>
+            <details className="mt-5 rounded-sm border border-line bg-surface p-3">
+              <summary className="cursor-pointer text-[13px] font-bold text-ink">上級: 残り {ADVANCED.length} 媒体（海外ディレクトリ・カーナビ・配信代行）</summary>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                日本の店舗への効き方は小さく、多くは手作業です。<strong>お客様ご自身で進める必要はありません</strong>（掲載代行をご利用の場合は当社が進めます）。海外からの来訪が多い店舗、カーナビでの検索を取りたい店舗だけ開いてください。
+              </p>
+              <div className="mt-4 space-y-6">
+                {KINDS.map((kind) => {
+                  const list = mediaOfKind(kind).filter((x) => x.tier !== "core");
+                  if (list.length === 0) return null;
+                  return (
+                    <section key={kind}>
+                      <h3 className="text-[13px] font-bold text-ink">{MEDIA_KIND_LABELS[kind]}</h3>
+                      <p className="mt-1 text-[12px] text-muted">{MEDIA_KIND_DESCRIPTIONS[kind]}</p>
+                      <ul className="mt-3 divide-y divide-line border-y border-line">
+                        {list.map((x) => (
+                          <MediaRow key={x.id} media={x} status={stateOf(states, x.id)} onChange={(patch) => updateState(x.id, patch)} />
+                        ))}
+                      </ul>
+                    </section>
+                  );
+                })}
+              </div>
+            </details>
           </Card>
 
           <Card
@@ -627,7 +665,9 @@ export function ListingsTool() {
         </>
       )}
       <p className="text-[12px] text-muted">
-        媒体は {LISTING_MEDIA.length} 件（自分で登録 {mediaOfKind("self").length}・自動で反映 {mediaOfKind("fed").length}・配信代行のみ {mediaOfKind("aggregator").length}）。 うち API で送れる {mediaOfIntegration("api").length}・入稿ファイル {mediaOfIntegration("file").length}・画面で入力 {mediaOfIntegration("manual").length}・自動反映 {mediaOfIntegration("monitor").length}。
+        既定で進めるのは日本で効く {CORE.length} 媒体（{CORE.map((x) => x.name).join("・")}）。うち API で送れる {CORE.filter((x) => x.integration === "api").length}・入稿ファイル{" "}
+        {CORE.filter((x) => x.integration === "file").length}・画面で入力 {CORE.filter((x) => x.integration === "manual").length}。 このほかに上級として {ADVANCED.length}{" "}
+        媒体（海外ディレクトリ・カーナビ・配信代行）を持っています（全 {LISTING_MEDIA.length} 件）。
       </p>
     </div>
   );

@@ -2,7 +2,7 @@
  * 配信先の一覧: 配信代行の画面にあった 26 媒体をすべて含み、種類（自分で登録 / 自動で反映 / 配信代行のみ）と URL が揃っている。
  */
 import { describe, expect, it } from "vitest";
-import { AGGREGATOR_SCREEN_CODES, LISTING_MEDIA, MEDIA_KIND_LABELS, mediaById, mediaOfKind, sortedMedia } from "../media";
+import { AGGREGATOR_SCREEN_CODES, CORE_MEDIA_IDS, LISTING_MEDIA, MEDIA_KIND_LABELS, mediaById, mediaOfKind, mediaOfTier, sortedMedia, tierOf } from "../media";
 
 describe("配信先の一覧", () => {
   it("id は一意で、URL は https、fed は元の媒体が存在する", () => {
@@ -32,6 +32,26 @@ describe("配信先の一覧", () => {
     }
     expect(mediaById("ACOMPIO")?.kind).toBe("aggregator");
     expect(mediaById("SIRI")?.fedBy).toEqual(["APPLE_MAPS"]);
+  });
+
+  /**
+   * お客様の画面に何を出すかを 1 か所で固定する（利用者の指示 2026-09-19
+   * 「手順が多くて顧客にやらせるには無理がある」）。
+   * tier: "core" を足すだけ／CORE_MEDIA_IDS に足すだけ、のどちらかだけをやると落ちる。
+   */
+  it("お客様に出すのは日本で効く 7 媒体だけ", () => {
+    expect(CORE_MEDIA_IDS).toHaveLength(7);
+    expect(mediaOfTier("core").map((m) => m.id).sort()).toEqual([...CORE_MEDIA_IDS].sort());
+    for (const id of CORE_MEDIA_IDS) expect(mediaById(id), id).not.toBeNull();
+    // 日本の 2 媒体（紙のタウンページと 104 は 2026-03 で終了し i タウンページに集約された）
+    expect(CORE_MEDIA_IDS).toContain("I_TOWNPAGE");
+    expect(CORE_MEDIA_IDS).toContain("EKITEN");
+  });
+
+  it("tier を書いていない媒体は上級（畳む側）になる", () => {
+    expect(tierOf(mediaById("YELP")!)).toBe("advanced");
+    expect(tierOf(mediaById("GOOGLE_MAPS")!)).toBe("core");
+    expect(mediaOfTier("core").length + mediaOfTier("advanced").length).toBe(LISTING_MEDIA.length);
   });
 
   it("並びは 自分で登録 → 自動 → 配信代行、その中で重要度の高い順", () => {

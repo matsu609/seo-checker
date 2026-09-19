@@ -2,6 +2,7 @@
  * サイテーションの判定（純関数）。ネットワークには出ない。
  */
 import { describe, expect, it } from "vitest";
+import { SEARCHABLE_MEDIA_IDS } from "../sources";
 import {
   addressCore,
   addressPhrase,
@@ -155,7 +156,7 @@ describe("集計", () => {
     const report = buildReport(INPUT, buildQueries(INPUT), outcomes, "2026-09-17T00:00:00.000Z");
     expect(report.queries.find((q) => q.id === "address")).toMatchObject({ results: null, error: outcomes[2]!.error });
     expect(report.queries.find((q) => q.id === "phone")).toMatchObject({ results: 3, error: null });
-    expect(report.summary).toEqual({ sites: 3, phoneMatch: 1, phoneMismatch: 1, addressMatch: 1, ownFound: true, mediaFound: 1, mediaTotal: 8 });
+    expect(report.summary).toEqual({ sites: 3, phoneMatch: 1, phoneMismatch: 1, addressMatch: 1, ownFound: true, mediaFound: 1, mediaTotal: SEARCHABLE_MEDIA_IDS.length });
     const yahoo = report.coverage.find((c) => c.mediaId === "YAHOO_PLACE");
     expect(yahoo?.found).toBe(true);
     expect(yahoo?.url).toBe("https://loco.yahoo.co.jp/place/1/");

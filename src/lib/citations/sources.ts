@@ -50,7 +50,7 @@ export const KNOWN_SOURCES: readonly KnownSource[] = [
   s({ host: "navitime.co.jp", label: "NAVITIME", kind: "map" }),
   s({ host: "its-mo.com", label: "いつもNAVI", kind: "map" }),
   s({ host: "mapfan.com", label: "MapFan", kind: "map" }),
-  s({ host: "itp.ne.jp", label: "iタウンページ", kind: "directory" }),
+  s({ host: "itp.ne.jp", label: "iタウンページ", kind: "directory", mediaId: "I_TOWNPAGE" }),
   s({ host: "gnavi.co.jp", label: "ぐるなび", kind: "directory" }),
   s({ host: "hotpepper.jp", label: "ホットペッパー", kind: "directory" }),
   s({ host: "jalan.net", label: "じゃらん", kind: "directory" }),
@@ -64,7 +64,7 @@ export const KNOWN_SOURCES: readonly KnownSource[] = [
   // ── 口コミ ──
   s({ host: "tabelog.com", label: "食べログ", kind: "review" }),
   s({ host: "retty.me", label: "Retty", kind: "review" }),
-  s({ host: "ekiten.jp", label: "エキテン", kind: "review" }),
+  s({ host: "ekiten.jp", label: "エキテン", kind: "review", mediaId: "EKITEN" }),
   s({ host: "tripadvisor.com", label: "トリップアドバイザー", kind: "review" }),
   s({ host: "tripadvisor.jp", label: "トリップアドバイザー", kind: "review" }),
   s({ host: "caloo.jp", label: "Caloo", kind: "review" }),
@@ -88,7 +88,7 @@ export const KNOWN_SOURCES: readonly KnownSource[] = [
  * 地図アプリ（Google / Apple / Bing / HERE / TomTom / Waze / OSM / Petal）は登録していても
  * 検索結果にほとんど出ないので、ここで「見つからない」と出すと誤解を招く。掲載状況は基本情報掲載で管理する。
  */
-export const SEARCHABLE_MEDIA_IDS: readonly string[] = ["YAHOO_PLACE", "FOURSQUARE", "FACEBOOK", "YELP", "HOTFROG", "SHOWMELOCAL", "TUPALO", "I_GLOBAL"];
+export const SEARCHABLE_MEDIA_IDS: readonly string[] = ["YAHOO_PLACE", "I_TOWNPAGE", "EKITEN", "FOURSQUARE", "FACEBOOK", "YELP", "HOTFROG", "SHOWMELOCAL", "TUPALO", "I_GLOBAL"];
 
 /** ホスト名（www. 抜き）とパスから、分かっている媒体を引く。無ければ null */
 export function findKnownSource(host: string, path: string): KnownSource | null {

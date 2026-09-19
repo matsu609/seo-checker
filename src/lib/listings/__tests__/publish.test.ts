@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LISTING_MEDIA, mediaById, mediaOfIntegration } from "../media";
+import { CORE_MEDIA_IDS, LISTING_MEDIA, mediaById, mediaOfIntegration, mediaOfTier } from "../media";
 import { ListingProfileSchema, type ListingStates } from "../profile";
 import {
   bingPlacesCsv,
@@ -49,11 +49,22 @@ describe("publishTargets", () => {
     expect(ids).not.toContain("GOOGLE_MAPS");
     expect(ids).not.toContain("BING");
     expect(ids).toContain("YAHOO_PLACE");
-    expect(ids).toHaveLength(LISTING_MEDIA.length - 2);
+    expect(ids).toHaveLength(CORE_MEDIA_IDS.length - 2);
   });
 
-  it("mediaIds を渡すとその中だけ", () => {
-    expect(publishTargets({}, ["YAHOO_PLACE", "BING"]).map((m) => m.id)).toEqual(["BING", "YAHOO_PLACE"]);
+  // 利用者の指示 2026-09-19「手順が多くて顧客にやらせるには無理がある」。
+  // 既定で 30 媒体を対象にすると、お客様の画面に 27 件の手作業が並ぶ
+  it("既定はお客様に出す 7 媒体だけ", () => {
+    expect(publishTargets({}).map((m) => m.id).sort()).toEqual([...CORE_MEDIA_IDS].sort());
+  });
+
+  it("tier: all で上級の媒体も含める", () => {
+    expect(publishTargets({}, { tier: "all" })).toHaveLength(LISTING_MEDIA.length);
+  });
+
+  it("mediaIds を渡すとその中だけ（上級の媒体も名指しなら送る）", () => {
+    expect(publishTargets({}, { mediaIds: ["YAHOO_PLACE", "BING"] }).map((m) => m.id)).toEqual(["BING", "YAHOO_PLACE"]);
+    expect(publishTargets({}, { mediaIds: ["YELP"] }).map((m) => m.id)).toEqual(["YELP"]);
   });
 });
 
@@ -169,5 +180,14 @@ describe("media の integration", () => {
 
   it("すべての媒体が integration を持つ", () => {
     expect(LISTING_MEDIA.every((m) => ["api", "file", "manual", "monitor"].includes(m.integration))).toBe(true);
+  });
+
+  // お客様に出す媒体に monitor（こちらから登録できない媒体）が混ざると、
+  // 「できません」だけの行が並んで手順が増えたように見える
+  it("お客様に出す媒体は自分で登録できるものだけ", () => {
+    for (const m of mediaOfTier("core")) {
+      expect(m.kind, m.id).toBe("self");
+      expect(m.integration, m.id).not.toBe("monitor");
+    }
   });
 });

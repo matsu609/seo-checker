@@ -19,6 +19,12 @@
  *   manual  … 公式の窓口は画面入力だけ。基本情報のコピーと手順を出すところまで
  *   monitor … こちらから登録できない（自動で流れる媒体・配信代行専用）。元の媒体に載せて反映を見る
  *
+ * さらに **お客様の画面に出すか**（tier）を持つ。利用者の指示 2026-09-19「手順が多くて顧客に
+ * やらせるには無理がある」を受けて、30 媒体を全部並べるのをやめた（09-17 の原則「お客様側の
+ * 作業が要る機能はそもそも置かない」と同じ理由）:
+ *   core     … お客様の画面に出す。日本で効く 7 媒体だけ（CORE_MEDIA_IDS）
+ *   advanced … 既定では畳む。我々（代理店・運用者）が必要なときに開く
+ *
  * 約束（利用者の決定 2026-09-19）: **ブラウザ自動化（RPA・ヘッドレス）でフォームに代理入力しない。**
  * 各媒体の利用規約が禁じており、アカウントの停止につながるため。お客様の ID / パスワードも預からない。
  */
@@ -26,6 +32,7 @@
 export type MediaKind = "self" | "fed" | "aggregator";
 export type MediaRegion = "jp" | "global" | "eu";
 export type MediaIntegration = "api" | "file" | "manual" | "monitor";
+export type MediaTier = "core" | "advanced";
 
 export interface ListingMedia {
   /** 配信代行の画面と同じコード（例: APPLE_MAPS） */
@@ -45,6 +52,11 @@ export interface ListingMedia {
   integration: MediaIntegration;
   /** 規約・契約の但し書き（画面にそのまま出す。無ければ省く） */
   tosNote?: string;
+  /**
+   * お客様の画面に出す媒体だけ "core"。省略は "advanced"（既定では畳む）。
+   * 増やすときは CORE_MEDIA_IDS のテストも一緒に直す（何を出しているかを 1 か所で固定するため）。
+   */
+  tier?: MediaTier;
 }
 
 export const MEDIA_INTEGRATION_LABELS: Record<MediaIntegration, string> = {
@@ -77,17 +89,19 @@ const m = (media: ListingMedia): ListingMedia => media;
 
 export const LISTING_MEDIA: readonly ListingMedia[] = [
   // ── 日本の店舗にとっての必須（self） ──
-  m({ id: "GOOGLE_MAPS", name: "Google マップ（ビジネス プロフィール）", kind: "self", region: "global", priority: 3, url: "https://business.google.com/", howTo: "ビジネス プロフィールでオーナー確認。住所・電話・営業時間・説明文をここと同じ内容にする（MEO の診断と連動）。", integration: "api", tosNote: "Google Business Profile API の利用申請（承認制）が要ります。承認されるまではボタンから送れません。" }),
-  m({ id: "APPLE_MAPS", name: "Apple マップ（Apple Business Connect）", kind: "self", region: "global", priority: 3, url: "https://businessconnect.apple.com/", howTo: "Apple ID でサインイン →「場所を追加」→ 店舗を検索して申請。反映すると iPhone のマップと Siri に載る。", integration: "manual", tosNote: "一括連携（Apple Business Connect の API / フィード）は Apple との Third-Party Partner 契約が要ります。当社は未契約のため、画面から登録します。" }),
-  m({ id: "BING", name: "Bing（Bing Places for Business）", kind: "self", region: "global", priority: 3, url: "https://www.bingplaces.com/", howTo: "Microsoft アカウントでサインイン。Google ビジネス プロフィールからの取り込み（インポート）が使えるので、先に Google を整える。Copilot / ChatGPT の検索結果にも影響する。", integration: "file", tosNote: "Bing Places は一括インポート用の CSV を受け付けます（Google ビジネス プロフィールからの取り込みも使えます）。" }),
-  m({ id: "YAHOO_PLACE", name: "Yahoo!プレイス", kind: "self", region: "jp", priority: 3, url: "https://business-place.yahoo.co.jp/", howTo: "Yahoo! JAPAN ID で登録。Yahoo!検索・Yahoo!マップ・Yahoo!ロコに載る（日本では Google の次に大きい）。", integration: "file", tosNote: "Yahoo!プレイスの API 連携は LINEヤフーとの契約が要ります。当社は未契約のため、一括登録用のシートを作ります。" }),
+  m({ id: "GOOGLE_MAPS", name: "Google マップ（ビジネス プロフィール）", kind: "self", region: "global", priority: 3, url: "https://business.google.com/", howTo: "ビジネス プロフィールでオーナー確認。住所・電話・営業時間・説明文をここと同じ内容にする（MEO の診断と連動）。", integration: "api", tosNote: "Google Business Profile API の利用申請（承認制）が要ります。承認されるまではボタンから送れません。" , tier: "core" }),
+  m({ id: "APPLE_MAPS", name: "Apple マップ（Apple Business Connect）", kind: "self", region: "global", priority: 3, url: "https://businessconnect.apple.com/", howTo: "Apple ID でサインイン →「場所を追加」→ 店舗を検索して申請。反映すると iPhone のマップと Siri に載る。", integration: "manual", tosNote: "一括連携（Apple Business Connect の API / フィード）は Apple との Third-Party Partner 契約が要ります。当社は未契約のため、画面から登録します。" , tier: "core" }),
+  m({ id: "BING", name: "Bing（Bing Places for Business）", kind: "self", region: "global", priority: 3, url: "https://www.bingplaces.com/", howTo: "Microsoft アカウントでサインイン。Google ビジネス プロフィールからの取り込み（インポート）が使えるので、先に Google を整える。Copilot / ChatGPT の検索結果にも影響する。", integration: "file", tosNote: "Bing Places は一括インポート用の CSV を受け付けます（Google ビジネス プロフィールからの取り込みも使えます）。" , tier: "core" }),
+  m({ id: "YAHOO_PLACE", name: "Yahoo!プレイス", kind: "self", region: "jp", priority: 3, url: "https://business-place.yahoo.co.jp/", howTo: "Yahoo! JAPAN ID で登録。Yahoo!検索・Yahoo!マップ・Yahoo!ロコに載る（日本では Google の次に大きい）。", integration: "file", tosNote: "Yahoo!プレイスの API 連携は LINEヤフーとの契約が要ります。当社は未契約のため、一括登録用のシートを作ります。" , tier: "core" }),
   // ── 推奨（self） ──
+  m({ id: "I_TOWNPAGE", name: "i タウンページ", kind: "self", region: "jp", priority: 3, url: "https://itp.ne.jp/", howTo: "NTT タウンページの無料掲載。サイト内の「掲載のお申し込み」から会社・店舗を登録する。紙のタウンページと 104 番号案内が 2026 年 3 月末で終了し、日本の電話帳情報はここに集約された。", integration: "manual", tier: "core" }),
+  m({ id: "EKITEN", name: "エキテン", kind: "self", region: "jp", priority: 2, url: "https://www.ekiten.jp/", howTo: "国内最大級の店舗口コミサイト。無料プランで店舗ページを作り、店名・住所・電話・営業時間を載せる。指名検索の受け皿と口コミの基盤になる。", integration: "manual", tier: "core" }),
   m({ id: "FOURSQUARE", name: "Foursquare", kind: "self", region: "global", priority: 2, url: "https://business.foursquare.com/", howTo: "「Claim your business」で店舗を検索して申請。Foursquare の場所データは多くのアプリ（Uber の一部、Snapchat、X など）に配信される。", integration: "manual" }),
   m({ id: "NOKIA_HERE", name: "HERE（HERE WeGo）", kind: "self", region: "global", priority: 2, url: "https://wego.here.com/", howTo: "HERE WeGo で店舗を検索 → 無ければ「場所を追加」、あれば「問題を報告」から情報の修正を送る。HERE の地図はカーナビ各社（Audi / BMW / メルセデス / VW / トヨタなど）に使われる。", integration: "manual" }),
   m({ id: "TOMTOM", name: "TomTom", kind: "self", region: "global", priority: 2, url: "https://www.tomtom.com/mapshare/tools/", howTo: "Map Share Reporter で「場所を追加 / 編集」。TomTom の地図はカーナビ各社と Uber の一部地域に使われる。", integration: "manual" }),
   m({ id: "WAZE", name: "Waze", kind: "self", region: "global", priority: 2, url: "https://www.waze.com/editor", howTo: "Waze Map Editor（Google アカウント）で場所を追加。Google ビジネス プロフィールと一致していれば承認されやすい。", integration: "manual" }),
   m({ id: "OSM", name: "OpenStreetMap", kind: "self", region: "global", priority: 2, url: "https://www.openstreetmap.org/", howTo: "アカウントを作って店舗の地点を編集（名前・住所・電話・営業時間・サイト）。Navmii・Petal マップ・Uber・多くのアプリの元データになる。", integration: "manual", tosNote: "OpenStreetMap への自動投稿はコミュニティのルール（自動編集の事前合意）が要ります。手で編集してください。" }),
-  m({ id: "FACEBOOK", name: "Facebook ページ / Instagram", kind: "self", region: "global", priority: 2, url: "https://www.facebook.com/pages/create", howTo: "ページの「基本データ」に住所・電話・営業時間・サイトを入れる。Instagram のプロフィールもここと同じ店名・住所にする。", integration: "manual" }),
+  m({ id: "FACEBOOK", name: "Facebook ページ / Instagram", kind: "self", region: "global", priority: 2, url: "https://www.facebook.com/pages/create", howTo: "ページの「基本データ」に住所・電話・営業時間・サイトを入れる。Instagram のプロフィールもここと同じ店名・住所にする。", integration: "manual" , tier: "core" }),
   m({ id: "YELP", name: "Yelp", kind: "self", region: "global", priority: 2, url: "https://biz.yelp.com/", howTo: "Yelp for Business で店舗を検索して申請。訪日客と Apple マップ（口コミ）に効く。", integration: "manual", tosNote: "Yelp のデータ連携は Yelp Knowledge / パートナー契約が要ります。当社は未契約のため、画面から申請します。" }),
   m({ id: "HUAWEI", name: "HUAWEI Petal マップ", kind: "self", region: "global", priority: 1, url: "https://www.petalmaps.com/", howTo: "Petal マップの店舗情報は主に OpenStreetMap と提携データから作られる。まず OpenStreetMap に載せ、Petal マップ上で「情報を修正」を送る。", integration: "manual" }),
   m({ id: "HOTFROG", name: "Hotfrog", kind: "self", region: "global", priority: 1, url: "https://www.hotfrog.jp/", howTo: "Hotfrog Japan に会社を無料登録（店名・住所・電話・サイト・説明文）。", integration: "manual" }),
@@ -131,6 +145,21 @@ export function mediaOfKind(kind: MediaKind): ListingMedia[] {
 export function mediaOfIntegration(integration: MediaIntegration): ListingMedia[] {
   return sortedMedia(LISTING_MEDIA.filter((x) => x.integration === integration));
 }
+
+/** 既定（core）か、畳むほう（advanced）か。tier を書いていない媒体は advanced */
+export function tierOf(media: ListingMedia): MediaTier {
+  return media.tier ?? "advanced";
+}
+
+export function mediaOfTier(tier: MediaTier): ListingMedia[] {
+  return sortedMedia(LISTING_MEDIA.filter((x) => tierOf(x) === tier));
+}
+
+/**
+ * お客様の画面に出す媒体（利用者の指示 2026-09-19）。
+ * 日本で効く順に 7 つ。ここを増やすと、そのぶんお客様の作業が増えることを忘れない。
+ */
+export const CORE_MEDIA_IDS: readonly string[] = ["GOOGLE_MAPS", "YAHOO_PLACE", "BING", "APPLE_MAPS", "I_TOWNPAGE", "EKITEN", "FACEBOOK"];
 
 /** 「配信代行の画面」に出ていた 26 媒体のコード（すべてこの一覧に含めていることをテストで固定） */
 export const AGGREGATOR_SCREEN_CODES: readonly string[] = [

@@ -9,7 +9,10 @@
  *
  * ブラウザ自動化による代理入力はしない（各媒体の規約違反）。送れなかったものは理由をそのまま返す。
  *
- * 本文: { placeId, mediaIds? }
+ * 既定の対象は「お客様の画面に出す 7 媒体」だけ（scope: "core"）。30 媒体を既定にすると
+ * お客様の画面に 27 件の手作業が並ぶため（利用者の指示 2026-09-19）。
+ *
+ * 本文: { placeId, mediaIds?, scope? }
  * 応答: { results, files, record }
  */
 import { z } from "zod";
@@ -36,8 +39,10 @@ export const maxDuration = 60;
 
 const BodySchema = z.object({
   placeId: z.string().regex(PLACE_ID, "店舗の ID が正しくありません"),
-  /** 省略時は「対象外」「掲載済み」以外のすべて */
+  /** 媒体を名指しするとき（渡すと scope は見ない） */
   mediaIds: z.array(z.string().max(64)).max(60).optional(),
+  /** "core"（既定）= お客様に出す 7 媒体だけ。"all" = 上級の媒体も含める */
+  scope: z.enum(["core", "all"]).default("core"),
 });
 
 export interface ListingsPublishResponse {
@@ -91,7 +96,7 @@ export async function POST(request: Request) {
   if (raw instanceof Response) return raw;
   const parsed = BodySchema.safeParse(raw);
   if (!parsed.success) return badRequest(parsed.error.issues[0]?.message ?? "入力が正しくありません");
-  const { placeId, mediaIds } = parsed.data;
+  const { placeId, mediaIds, scope } = parsed.data;
 
   try {
     const own = (await listStores(userId)).some((s) => s.role === "own" && s.placeId === placeId);
@@ -101,7 +106,7 @@ export async function POST(request: Request) {
     const missing = missingRequired(record.profile);
     if (missing.length > 0) return badRequest(`${missing.join("・")}を入力して保存してから実行してください`);
 
-    const targets = publishTargets(record.states, mediaIds);
+    const targets = publishTargets(record.states, { mediaIds, tier: scope });
     if (targets.length === 0) return badRequest("送る先がありません（すべて掲載済み、または対象外です）");
 
     const results: PublishResult[] = [];

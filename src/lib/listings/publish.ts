@@ -12,7 +12,7 @@
  *   - お客様の ID / パスワードは預からない。API は本人が接続したアカウントの権限で送る
  *   - 送れなかった媒体を「送った」と書かない。理由をそのまま画面に出す
  */
-import { LISTING_MEDIA, mediaById, type ListingMedia, type MediaIntegration } from "./media";
+import { LISTING_MEDIA, mediaById, tierOf, type ListingMedia, type MediaIntegration } from "./media";
 import { parseHoursLine, stateOf, type ListingProfile, type ListingStates } from "./profile";
 
 /** 一括登録に最低限そろっていないといけない項目 */
@@ -27,14 +27,27 @@ export function missingRequired(profile: ListingProfile): string[] {
   return REQUIRED_FIELDS.filter((f) => !profile[f.key].trim()).map((f) => f.label);
 }
 
+/** どこまでを一括登録の対象にするか */
+export interface PublishScope {
+  /** 明示した媒体だけに絞る（渡したときは tier を見ない。上級の媒体も名指しなら送る） */
+  mediaIds?: readonly string[];
+  /** "core" = お客様の画面に出す 7 媒体だけ（既定）。"all" = 上級も含める */
+  tier?: "core" | "all";
+}
+
 /**
  * 一括登録の対象にする媒体。
- * 「対象外」と「掲載済み」は外す（もう一度送らない）。mediaIds を渡すとその中だけに絞る。
+ * 「対象外」と「掲載済み」は外す（もう一度送らない）。
+ *
+ * **既定は core だけ**（利用者の指示 2026-09-19「手順が多くて顧客にやらせるには無理がある」）。
+ * 30 媒体を既定にすると、お客様の画面に 27 件の手作業が並ぶ。上級は明示的に選んだときだけ。
  */
-export function publishTargets(states: ListingStates, mediaIds?: readonly string[]): ListingMedia[] {
-  const only = mediaIds && mediaIds.length > 0 ? new Set(mediaIds) : null;
+export function publishTargets(states: ListingStates, scope: PublishScope = {}): ListingMedia[] {
+  const only = scope.mediaIds && scope.mediaIds.length > 0 ? new Set(scope.mediaIds) : null;
+  const coreOnly = !only && (scope.tier ?? "core") === "core";
   return LISTING_MEDIA.filter((m) => {
     if (only && !only.has(m.id)) return false;
+    if (coreOnly && tierOf(m) !== "core") return false;
     const s = stateOf(states, m.id).status;
     return s !== "skip" && s !== "live";
   });
