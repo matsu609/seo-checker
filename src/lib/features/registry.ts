@@ -81,6 +81,7 @@ export type FeatureIcon =
   | "qr"
   | "reply"
   | "broadcast"
+  | "megaphone"
   | "quote";
 
 export interface Feature {
@@ -525,6 +526,28 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["supabase"],
     optional: ["anthropic", "places"],
+    group: "improve",
+    category: "meo",
+    plan: "standard",
+  },
+  {
+    id: "posts",
+    path: "/tools/posts",
+    label: "ビジネス プロフィールへの投稿",
+    shortLabel: "投稿（最新情報）",
+    description:
+      "Google ビジネス プロフィールの「最新情報」を、AI が作った下書きを編集してそのまま投稿します。投稿の有無と頻度は MEO の診断（投稿カテゴリ）で採点している項目で、ここがその打ち手です。",
+    details: [
+      "掲載タブで決めた基本情報（店名・業種・説明文）を材料に、AI が投稿の下書きを作る",
+      "編集して Google に投稿（ボタン: 詳細 / 予約 / オンライン注文 / 購入 / 登録 / 今すぐ電話）",
+      "これまでの投稿の一覧と状態（掲載中 / 処理中 / 非承認）、Google 上の投稿へのリンク、削除",
+      "口コミ返信と同じ権限（business.manage）で送るので、追加の連携は要らない",
+    ],
+    featureIds: [],
+    icon: "megaphone",
+    status: "beta",
+    requires: [],
+    optional: ["anthropic", "supabase"],
     group: "improve",
     category: "meo",
     plan: "standard",

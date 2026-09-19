@@ -96,7 +96,7 @@ describe("機能とプランの対応", () => {
    */
   it("AI が成果物を作る機能はスタンダード", () => {
     const standard = features.filter((f) => f.plan === "standard").map((f) => f.id).sort();
-    expect(standard).toEqual(["geo", "improvement", "listings", "llms-txt", "replies", "reviews", "seo-analysis", "writing"]);
+    expect(standard).toEqual(["geo", "improvement", "listings", "llms-txt", "posts", "replies", "reviews", "seo-analysis", "writing"]);
   });
 
   it("読む・測る系はライト", () => {

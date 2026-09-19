@@ -91,6 +91,7 @@ flowchart LR
 | キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |
 | AI ライティング | `/tools/writing` | standard | 必須 | ● | ○ ※4 | − | − | − | − | − | − |
 | 口コミへの返信 | `/tools/replies` | standard | 必須 | ○ | − | − | − | ○ | ○ | − | ◍ BP ※5 |
+| 投稿（最新情報） | `/tools/posts` | standard | 必須 | ○ | − | − | − | − | ○ | − | ◍ BP ※5 |
 | サイテーション（DataForSEO ※8） | `/tools/citations` | light | 必須 | − | − | − | − | − | − | − | − |
 | 基本情報掲載（NAP） | `/tools/listings` | standard | 必須 | ○ | − | − | − | ○ | ● | − | − |
 | llms.txt 生成 | `/tools/llms-txt` | standard | 必須 | − | − | − | − | − | − | − | − |
@@ -196,6 +197,7 @@ flowchart LR
   ST --> REV["口コミ支援（QR）<br/>/tools/reviews"]
   ST --> LST["基本情報掲載（NAP）<br/>/tools/listings"]
   ST --> REP["口コミへの返信<br/>/tools/replies"]
+  ST --> PST["投稿（最新情報）<br/>/tools/posts"]
   REV --> RF["review_forms / review_channels"]
   RF --> QR["来店客のアンケート /r/&lt;slug&gt;"]
   QR --> RR["review_responses"]

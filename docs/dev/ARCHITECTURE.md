@@ -32,6 +32,7 @@
 | 計測 | `/tools/maps` | Google マップ・店舗情報（MEO）。「Google での見られ方」カード（表示回数・電話・ルート・流入キーワード）は Business Profile Performance API（オーナー権限、`business.manage`）で、接続した店舗だけ | — | Places API (New)。インサイトは Google 連携（任意） |
 | 計測 | `/tools/reviews` | 口コミ支援（アンケート QR） | — | Supabase（AI 下書きは Anthropic 任意） |
 | 生成 | `/tools/replies` | 口コミへの返信（AI 返信案） | — | Google 連携（Business Profile API、`business.manage`）。返信案は Anthropic 任意 |
+| 生成 | `/tools/posts` | ビジネス プロフィールへの投稿（最新情報）。My Business v4 の `localPosts` に送る。口コミ返信と同じ `business.manage` スコープなので追加の申請は要らない | — | Google 連携（Business Profile API、`business.manage`）。下書きは Anthropic 任意 |
 | 調査 | `/tools/keywords` | キーワード調査 | C1 | なし（意図分類は Anthropic 任意） |
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
 | 基礎対策 | `/tools/citations` | サイテーション（店名・電話・住所で Google を検索し、ウェブ上の掲載・言及と NAP の食い違いを一覧に。サイテーションの柱） | — | DataForSEO |
