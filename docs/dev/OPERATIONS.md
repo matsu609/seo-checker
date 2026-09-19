@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r118 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r119 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -3239,4 +3239,12 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - **やったこと（r118）**: 上の「基本設定の集約（r118）」のとおり。設定に 3 カード（会社・店舗の基本情報 / 対策キーワード / Google マップの店舗）を追加し、AI 検索モニタリングのブランド・競合・キーワード入力を廃止して設定からの自動同期に置き換えた。6 ツールの入力欄を設定の値で自動で埋める。差分 22 ファイル。lint / tsc / test 1,591 件（+12: 設定の読み取り 8・同期計画 5 のうち新規）/ build 通過。
 - 決めたこと: ①同期は「設定 → geo」の一方向。AI 検索モニタリング側では直せない（直すなら設定）。②設定から消した競合・キーワードは geo からも消す（観測の履歴は残る）。③所在地・地域は登録フォームでは聞かず、設定でだけ足す任意項目（`LeadProfileSchema` に `.default("")` で追加。既存の登録データはそのまま読める）。④MEO の店舗登録は Google マップから探す操作が要るので設定には一覧と導線だけ置き、登録・削除は MEO の画面のまま。
 - 触っていないもの（次の指示があれば）: 口コミ支援の店名・業種（アンケートごとに違いうるので初期値だけでも入れるか要判断）、MEO オーナー申告の対策キーワード（店舗ごと）、ページ診断の「地域」（SerpApi の `Tokyo, Japan` 形式なので設定の日本語の地域とは別物）。
+
+### 2026-09-19（プロンプトの登録が必ず失敗していた不具合、r119）
+
+- 利用者から画面のスクリーンショット: AI 検索モニタリングの「計測するプロンプト」で **「データベースの応答を読めませんでした」**（r118 の反映後、設定からの取り込み自体は成功していて「検索キーワード（設定から自動で取り込み）」のカードは出ていた）。
+- 原因: `supabaseRest`（`src/lib/db/supabase.ts`）が**本文の無い応答を 204 のときだけ**そう扱っていた。PostgREST は `Prefer: return=minimal` の POST に **201 Created + 空本文**を返すので、`res.json()` が必ず失敗して upstream エラーになっていた。**書き込み自体は成功している**（行は入るが、画面にはエラーが出る）。
+- 影響していた場所: AI 検索モニタリングのプロンプト登録（`savePrompt`）・キーワードの同期（`saveKeyword`）・観測（`saveObservations`）・クレジット台帳（`recordCredit`）・アカウントの更新、そして**ブラウザ側データの同期**（`saveUserStore`。`PUT /api/store` が毎回 502 を返していた。行は入るので同期は見かけ上動いていた）。DELETE は 204 なので無事だった。
+- 直し方（r119）: 204 / 205 に加えて**本文が空なら undefined を返す**ようにした（`res.text()` を読んでから `JSON.parse`）。壊れた JSON のときだけ従来どおり upstream。テスト 3 件を追加（201 + 空本文 / 204 と空白だけ / 正常な JSON と壊れた JSON）。lint / tsc / test 1,594 件 / build 通過。
+- 教訓: PostgREST の `return=minimal` は 204 ではなく 201 を返す。ステータスだけで本文の有無を判断しない。
 
