@@ -629,6 +629,11 @@
       "commit": "b4eed0c",
       "date": "2026-09-19",
       "summary": "掲載に一括登録を追加（Google へ API 送信 / Yahoo!・Bing の入稿 CSV / 残りは手順）。llms.txt をサイドバーから外した"
+    },
+    {
+      "commit": "3ce6166",
+      "date": "2026-09-19",
+      "summary": "掲載を 7 媒体に絞り、ビジネス プロフィールへの投稿を追加"
     }
   ]
 }
