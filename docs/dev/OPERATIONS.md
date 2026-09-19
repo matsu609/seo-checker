@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r121 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r122 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -3306,4 +3306,21 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 | 5 | （踏み込む案）文章生成をやめ、無料診断と同じルールベースの講評を土台にして、AI は改善案の上位 3 件だけ書く | 10 秒・数円 | 「専門家のアドバイス」感は薄れる |
 
 1〜3 を合わせると **3〜8 分 → 1〜2 分、費用は 1/3 程度**の見込み。
+
+### 2026-09-19（アドバイス生成の軽量化、r122）
+
+利用者の指示「1 から 3 をやって」（前項の提案表）。
+
+| # | やったこと | 場所 |
+|---|---|---|
+| 1 | **全文書き直しをやめた**（`retries` 既定 1 → 0）。AI が比率を自分で計算すると `unverifiedNumbers` に必ず引っかかり、ほぼ毎回 2 回生成していた。残った食い違いは今までどおり画面に注意として出す。あわせて指示に「比率や平均を自分で計算しない。シートの数字をそのまま使う」を追加 | `ai/analyze.ts` |
+| 2 | **出力を約 3 分の 1 に**。改善案 15 → 6 件、現状 6 → 3 段落、強み 5 → 3、弱み 8 → 4、注意 6 → 3、根拠 ID 8 → 3、見出し 200 → 120 字、段落 1,000 → 600 字。**`consultant.typical`（普通のコンサルが言いそうなこと）を廃止**し、`consultant.real` だけに（画面のカード名は「この数字を見たからこそ言えること」）。件数・文字数は **`.describe()` と SYSTEM_PROMPT の両方**で伝える（zod の max は API に届かないため） | `ai/schema.ts`・`ai/analyze.ts`・`ReportView.tsx` |
+| 3 | **思考の深さを `effort: "medium"` に指定**（未指定 = 既定 high で長考していた） | `ai/analyze.ts` |
+
+- 保存しうる最大の文字数は **57,600 → 17,100**。増やし過ぎの歯止めとして「20,000 文字以下」を固定するテストを追加した（`__tests__/schema.test.ts`）。
+- 進捗メーターの見込み時間も 150 秒 → 75 秒に合わせた（`progress.ts`）。
+- 見込み: **3〜8 分 → 1〜2 分、費用は 1 回 50〜200 円 → 20〜60 円**。実測は利用者の次の 1 回で確認する。
+- 古い保存分（`consultant.typical` を含む JSON）は、型から外しただけなので表示には出ない。壊れない。
+- 未実施の案: ④モデルを Sonnet 5 に（費用 1/2.5。利用者の判断待ち）、⑤ルールベースの講評 + AI は改善案 3 件だけ（10 秒・数円。性格が変わる）。
+- lint / tsc / test 1,611 件 / build 通過。
 
