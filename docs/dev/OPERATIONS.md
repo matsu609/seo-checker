@@ -3477,3 +3477,22 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - llms.txt は動かさなかった（サイテーションの柱が 1 つだけになると、AIO = SEO + MEO + サイテーションの売り方が崩れるため）。
 - lint / tsc / test 1,604 件 / build 通過。戻すときは `hidden: true` を消すだけ。
 
+### 2026-09-19（自社（wolf-g.jp）のサイテーション対策の進め方）
+
+利用者「いい感じでした。サイテーションもやりたいです」→ **タブの統合は r125 で完了済み**なので、「自社でサイテーション対策をやる」と読んで手順を出した。違っていたら次の指示で戻す。
+
+**前提**: 掲載の「登録する」タブは**店舗（Google の Place）にひもづく**（`listing_profiles.place_id`）。先に MEO で自社の店舗を登録しておく必要がある。wolf-g.jp は営業代行なので、店舗が無ければ Google ビジネス プロフィールを**サービス提供地域型**（住所非公開）で作れる。
+
+**手順（利用者の作業）**
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | 本番 / 設定 | https://app.seo-checker.tokyo/settings | 会社・店舗の基本情報（会社名・電話・所在地）を埋める。ここが掲載の全媒体で使う NAP の正本になる |
+| 2 | Google ビジネス プロフィール | https://business.google.com/ | 自社のプロフィールを作る / オーナー確認。店舗を持たないならサービス提供地域型 |
+| 3 | 本番 / MEO | https://app.seo-checker.tokyo/tools/maps | 自社の店舗を検索して登録（掲載タブがこの店舗を使う） |
+| 4 | 本番 / 掲載 →「どこに載っているか調べる」 | https://app.seo-checker.tokyo/tools/citations | いまどこに載っているか、電話・住所の食い違いが無いかを確認 |
+| 5 | 本番 / 掲載 →「掲載先に登録する」 | 同上 | 優先度の高い 4 つ（Google / Apple / Bing / Yahoo!プレイス）から登録 |
+| 6 | 同上 | 同上 | 次の 7 つ（Foursquare / HERE / TomTom / Waze / OpenStreetMap / Facebook / Yelp）。カーナビ各社（Audi・BMW・トヨタほか）は HERE と TomTom から自動で流れるので個別作業は不要 |
+
+**正直に書いておくこと**: これらの掲載の多くは `nofollow` なので、**Ahrefs の DR が上がる効果は限定的**。効くのは ①指名検索の受け皿が増える ②NAP の一貫性（MEO の評価に効く）③AI 検索が拾う事実の裏づけが増える、の 3 つ。DR を上げたいなら別に「取引先・業界団体・プレス」からのリンクが要る。
+
