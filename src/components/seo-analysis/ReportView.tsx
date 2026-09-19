@@ -17,7 +17,7 @@ import { TrustCard } from "./TrustCard";
 import { Sparkline } from "@/components/charts";
 import { Badge, Button, Callout, Card, StatCard } from "@/components/ui";
 import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId } from "@/lib/crux/types";
-import { formatCrux } from "@/lib/crux/parse";
+import { cwvVerdict, formatCrux } from "@/lib/crux/parse";
 import { GRADE_LABELS } from "@/lib/domain-power/types";
 import { downloadPdf } from "@/lib/pdf/download";
 import type { AnalysisRecord } from "@/lib/seo-analysis/ai/schema";
@@ -50,6 +50,7 @@ export function ReportView(props: ReportViewProps) {
 
   const a = analysis?.analysis ?? null;
   const cwv = sheet.speed.crux.origin;
+  const verdict = cwvVerdict(cwv);
   const site = sheet.site;
   const issueTotal = site.bySeverity.error + site.bySeverity.warning + site.bySeverity.info;
   const rankedKeywords = sheet.search.keywords.filter((k) => k.rank !== null).length;
@@ -91,8 +92,8 @@ export function ReportView(props: ReportViewProps) {
           <StatCard label="検出した課題" value={fmt(issueTotal)} unit="件" hint={`重大 ${site.bySeverity.error} / 警告 ${site.bySeverity.warning} / 情報 ${site.bySeverity.info}`} />
           <StatCard
             label="実ユーザーの速度（Core Web Vitals）"
-            value={cwv ? (cwv.passesCoreWebVitals === null ? "判定不能" : cwv.passesCoreWebVitals ? "合格" : "不合格") : "データなし"}
-            hint={cwv?.metrics.lcp ? `LCP ${formatCrux("lcp", cwv.metrics.lcp.p75)}（${CRUX_STATUS_LABELS[cwv.metrics.lcp.status]}）` : sheet.coverage.crux ? "サイト全体のデータ不足" : "CrUX 未取得"}
+            value={cwv ? verdict.label : "データなし"}
+            hint={cwv ? [cwv.metrics.lcp ? `LCP ${formatCrux("lcp", cwv.metrics.lcp.p75)}` : null, verdict.complete ? null : verdict.note].filter(Boolean).join("。") : sheet.coverage.crux ? "Chrome の利用者が少なく、サイト全体のデータがありません" : "CrUX 未取得"}
           />
           <StatCard
             label="対策キーワードの順位"
@@ -114,12 +115,6 @@ export function ReportView(props: ReportViewProps) {
           <Callout tone="fail" title="AI 分析に失敗しました">
             {props.errors.analysis}
           </Callout>
-        )}
-
-        {props.analyzing && !a && (
-          <Card title="AI が分析しています">
-            <p className="text-sm text-muted">事実シート（{sheet.facts.length} 行）を読んで、現状分析と改善案を書いています。1〜3 分かかります。</p>
-          </Card>
         )}
 
         {a && (

@@ -102,7 +102,7 @@ describe("事実シート", () => {
 
   it("速度・検索・信頼の事実を文章にする", () => {
     const lines = factsToLines(sheet.facts);
-    expect(lines.some((l) => l.includes("LCP 2.8 秒（改善が必要）") && l.includes("Core Web Vitals 不合格"))).toBe(true);
+    expect(lines.some((l) => l.includes("LCP 2.8 秒（改善が必要）") && l.includes("Core Web Vitals: 改善が必要"))).toBe(true);
     expect(lines.some((l) => l.includes("LCP") && l.includes("3.1 秒 → 2.8 秒（改善）"))).toBe(true);
     expect(lines.some((l) => l.includes("順位: 「ウェブ制作 世田谷」: 12 位") && l.includes("AI Overviews あり（自社の引用 なし）"))).toBe(true);
     expect(lines.some((l) => l.includes("site: 検索") && l.includes("約 38 件"))).toBe(true);

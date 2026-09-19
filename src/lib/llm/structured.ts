@@ -21,6 +21,11 @@ export interface StructuredOptions<S extends z.ZodType> {
   tools?: Anthropic.Messages.ToolUnion[];
   /** 打ち切り */
   signal?: AbortSignal;
+  /**
+   * 出力の進み（累計文字数）を受け取る。渡すとストリーミングで生成する
+   * （長い生成でも接続が切れず、進捗を画面に出せる。結果の形は同じ）
+   */
+  onProgress?: (progress: { outputChars: number }) => void;
 }
 
 export interface StructuredResult<T> {
@@ -47,18 +52,30 @@ export async function generateStructured<S extends z.ZodType>(
   const messages: Anthropic.Messages.MessageParam[] =
     typeof options.prompt === "string" ? [{ role: "user", content: options.prompt }] : options.prompt;
 
-  const response = await client.messages.parse(
-    {
-      model: resolveModel(options.model),
-      max_tokens: options.maxTokens ?? 4096,
-      ...(options.system ? { system: options.system } : {}),
-      ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
-      ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {}),
-      messages,
-      output_config: { format: zodOutputFormat(options.schema) },
-    },
-    options.signal ? { signal: options.signal } : undefined,
-  );
+  const params = {
+    model: resolveModel(options.model),
+    max_tokens: options.maxTokens ?? 4096,
+    ...(options.system ? { system: options.system } : {}),
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {}),
+    messages,
+    output_config: { format: zodOutputFormat(options.schema) },
+  };
+  const requestOptions = options.signal ? { signal: options.signal } : undefined;
+
+  let response: Awaited<ReturnType<typeof client.messages.parse<typeof params>>>;
+  if (options.onProgress) {
+    const onProgress = options.onProgress;
+    let outputChars = 0;
+    const stream = client.messages.stream(params, requestOptions);
+    stream.on("text", (delta: string) => {
+      outputChars += delta.length;
+      onProgress({ outputChars });
+    });
+    response = await stream.finalMessage();
+  } else {
+    response = await client.messages.parse(params, requestOptions);
+  }
 
   if (response.stop_reason === "refusal") {
     throw new StructuredOutputError("AI がこの内容の生成を断りました");

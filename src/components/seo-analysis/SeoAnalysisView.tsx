@@ -8,14 +8,15 @@
  * 同じ事実シートで AI 分析だけをやり直せるようにするため。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge, Button, Callout, Card, EmptyState, Field, Input, Select, Textarea } from "@/components/ui";
+import { Badge, Button, Callout, Card, EmptyState, Field, Input, ProgressBar, Select } from "@/components/ui";
 import type { AuditResult } from "@/lib/audit/types";
 import type { AnalysisRecord } from "@/lib/seo-analysis/ai/schema";
 import { CRAWL_PAGE_LIMIT, MAX_COMPETITORS, MAX_KEYWORDS } from "@/lib/seo-analysis/input";
 import { MAX_ANALYSES_PER_RUN } from "@/lib/seo-analysis/limits";
 import type { RunSummary } from "@/lib/seo-analysis/runs";
 import { GOAL_LABELS, type AnalysisGoal, type AnalysisInput, type SeoFactSheet } from "@/lib/seo-analysis/sheet/types";
-import { seoAnalysisFormStore, splitLines } from "@/lib/seo-analysis/store";
+import { diagnosisProgress, stageOfStep, stageStates, type DiagnosisStageId } from "@/lib/seo-analysis/progress";
+import { filledSlots, seoAnalysisFormStore, toSlots, withSlot } from "@/lib/seo-analysis/store";
 import { SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
 import { useSharedSettings } from "@/lib/settings/client";
 import { formatDateTime, hostOf } from "@/lib/report";
@@ -28,22 +29,12 @@ import {
   requestAnalyze,
   requestCollect,
   SeoAnalysisError,
+  type AnalyzeProgressEvent,
   type CollectProgressEvent,
   type RunsResponse,
 } from "./client";
 
 type Phase = "idle" | "collecting" | "analyzing" | "done" | "error";
-
-const STEP_LABELS: Record<string, string> = {
-  crawl: "1/4 クロール",
-  quick: "2/4 トップページの採点",
-  speed: "3/4 速度・検索・ドメイン・llms.txt",
-  search: "3/4 速度・検索・ドメイン・llms.txt",
-  domain: "3/4 速度・検索・ドメイン・llms.txt",
-  llms: "3/4 速度・検索・ドメイン・llms.txt",
-  google: "3/4 速度・検索・ドメイン・llms.txt",
-  sheet: "4/4 事実シート",
-};
 
 interface Loaded {
   runId: string;
@@ -61,17 +52,20 @@ export function SeoAnalysisView() {
   const shared = useSharedSettings();
   useEffect(() => {
     const defaults = {
-      keywords: shared.keywords.join("\n"),
-      competitors: (shared.project?.competitors ?? []).flatMap((c) => c.domains).join("\n"),
       brand: shared.project?.name.trim() || shared.lead?.company || "",
       industry: shared.lead?.storeType ?? "",
       region: shared.lead?.region ?? "",
     };
+    const keywordDefaults = toSlots(shared.keywords, MAX_KEYWORDS);
+    const competitorDefaults = toSlots((shared.project?.competitors ?? []).flatMap((c) => c.domains), MAX_COMPETITORS);
     seoAnalysisFormStore.update((prev) => {
       let next = prev;
-      for (const key of ["keywords", "competitors", "brand", "industry", "region"] as const) {
+      for (const key of ["brand", "industry", "region"] as const) {
         if (!prev[key].trim() && defaults[key]) next = { ...next, [key]: defaults[key] };
       }
+      // 枠が全部空のときだけ設定の値を入れる（1 つでも入れてあれば触らない）
+      if (filledSlots(prev.keywords, MAX_KEYWORDS).length === 0 && filledSlots(keywordDefaults, MAX_KEYWORDS).length > 0) next = { ...next, keywords: keywordDefaults };
+      if (filledSlots(prev.competitors, MAX_COMPETITORS).length === 0 && filledSlots(competitorDefaults, MAX_COMPETITORS).length > 0) next = { ...next, competitors: competitorDefaults };
       return next;
     });
   }, [shared.keywords, shared.project, shared.lead]);
@@ -80,6 +74,7 @@ export function SeoAnalysisView() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<CollectProgressEvent | null>(null);
+  const [analyzeProgress, setAnalyzeProgress] = useState<AnalyzeProgressEvent | null>(null);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
@@ -115,14 +110,23 @@ export function SeoAnalysisView() {
     async (runId: string) => {
       setPhase("analyzing");
       setAnalysisError(null);
+      setAnalyzeProgress({ elapsedMs: 0, outputChars: 0, attempt: 1 });
+      // 収集から続けて呼ばれたときは収集の controller を引き継ぐ。履歴から開いたときは新しく作る（「中止」で止められるように）
+      const ac = controller.current ?? new AbortController();
+      controller.current = ac;
       try {
-        const { analysis, analysisCount } = await requestAnalyze(runId);
+        const { analysis, analysisCount } = await requestAnalyze(runId, { signal: ac.signal, onProgress: setAnalyzeProgress });
+        if (ac.signal.aborted) return;
         setLoaded((prev) => (prev && prev.runId === runId ? { ...prev, analysis, analysisCount } : prev));
         setPhase("done");
         void reloadMeta();
       } catch (err) {
+        if (ac.signal.aborted) return;
         setAnalysisError(err instanceof Error ? err.message : "AI 分析に失敗しました");
         setPhase("done");
+      } finally {
+        setAnalyzeProgress(null);
+        if (controller.current === ac) controller.current = null;
       }
     },
     [reloadMeta],
@@ -137,11 +141,11 @@ export function SeoAnalysisView() {
     }
     const input: AnalysisInput = {
       url,
-      keywords: splitLines(form.keywords, MAX_KEYWORDS),
+      keywords: filledSlots(form.keywords, MAX_KEYWORDS),
       industry: form.industry.trim(),
       goal: form.goal,
       region: form.region.trim(),
-      competitors: splitLines(form.competitors, MAX_COMPETITORS),
+      competitors: filledSlots(form.competitors, MAX_COMPETITORS),
       brand: form.brand.trim(),
       maxPages: CRAWL_PAGE_LIMIT,
     };
@@ -171,8 +175,9 @@ export function SeoAnalysisView() {
   const abort = useCallback(() => {
     controller.current?.abort();
     controller.current = null;
-    setPhase("idle");
+    setPhase((p) => (p === "analyzing" ? "done" : "idle"));
     setProgress(null);
+    setAnalyzeProgress(null);
   }, []);
 
   const open = useCallback(
@@ -210,6 +215,8 @@ export function SeoAnalysisView() {
   );
 
   const busy = phase === "collecting" || phase === "analyzing";
+  const keywordSlots = toSlots(form.keywords, MAX_KEYWORDS);
+  const competitorSlots = toSlots(form.competitors, MAX_COMPETITORS);
   const quota = meta?.quota ?? null;
   const exhausted = quota ? !quota.unlimited && quota.used >= quota.limit : false;
 
@@ -229,8 +236,8 @@ export function SeoAnalysisView() {
 
       <Card
         className="mb-6"
-        title="分析するサイト"
-        description="設定に登録したホームページを対象にします。サイト全体のクロール（旧・サイト診断: 48 ルールの課題一覧・ページ一覧・CSV は報告書の「詳細」に出ます）に、速度・検索順位・Google 連携の数字を足して AI が分析します。キーワード・業種・目的・競合を入れると、その分だけ分析が具体的になります。"
+        title="分析する"
+        description="設定に登録したホームページを対象に、サイト全体のクロール・主要ページの速度・検索順位・ドメインの情報を集め、AI が現状分析と改善案を書きます。入力はすべて任意です（入れた分だけ分析が具体的になります）。"
         actions={
           quota ? (
             <Badge tone={exhausted ? "fail" : "neutral"} icon={false}>
@@ -240,18 +247,32 @@ export function SeoAnalysisView() {
         }
       >
         <form
-          className="grid gap-4"
+          className="grid gap-5"
           onSubmit={(e) => {
             e.preventDefault();
             void start();
           }}
         >
           <SiteTargetNotice what="精密診断" />
-          <p className="text-[12px] text-muted">クロールは最大 {CRAWL_PAGE_LIMIT} ページまで（固定）。それを超えるサイトは、サイトマップとリンクの順に {CRAWL_PAGE_LIMIT} ページを取ります。</p>
-          <div className="grid gap-3 @2xl:grid-cols-3">
-            <Field label={`対策キーワード（最大 ${MAX_KEYWORDS}・任意）`} htmlFor="sa-kw" hint="設定の対策キーワードが初期値。1 行に 1 つ。順位と検索結果の特徴を取ります（SerpApi）">
-              <Textarea id="sa-kw" rows={4} value={form.keywords} disabled={busy} placeholder={"世田谷区 歯医者\n歯科 矯正 費用"} onChange={(e) => setForm({ ...form, keywords: e.target.value })} />
-            </Field>
+
+          <div className="grid gap-5 @2xl:grid-cols-2">
+            <fieldset className="grid gap-2">
+              <legend className="mb-1 text-[13px] font-bold text-ink">
+                対策キーワード <span className="font-normal text-muted">（最大 {MAX_KEYWORDS} つ。設定の対策キーワードが入ります）</span>
+              </legend>
+              {keywordSlots.map((value, i) => (
+                <Input
+                  key={i}
+                  id={`sa-kw-${i + 1}`}
+                  aria-label={`対策キーワード ${i + 1}`}
+                  value={value}
+                  disabled={busy}
+                  placeholder={`キーワード ${i + 1}`}
+                  onChange={(e) => setForm({ ...form, keywords: withSlot(form.keywords, i, e.target.value, MAX_KEYWORDS) })}
+                />
+              ))}
+            </fieldset>
+
             <div className="grid gap-3">
               <Field label="サイトの目的" htmlFor="sa-goal">
                 <Select id="sa-goal" value={form.goal} disabled={busy} onChange={(e) => setForm({ ...form, goal: e.target.value as AnalysisGoal })}>
@@ -262,22 +283,37 @@ export function SeoAnalysisView() {
                   ))}
                 </Select>
               </Field>
-              <Field label="業種（任意）" htmlFor="sa-industry" hint="設定の店舗の種類が初期値">
-                <Input id="sa-industry" value={form.industry} disabled={busy} placeholder="例: 歯科医院、税理士事務所、EC（アパレル）" onChange={(e) => setForm({ ...form, industry: e.target.value })} />
-              </Field>
-            </div>
-            <div className="grid gap-3">
-              <Field label="地域（任意）" htmlFor="sa-region" hint="設定の地域・商圏が初期値">
-                <Input id="sa-region" value={form.region} disabled={busy} placeholder="例: 東京都世田谷区" onChange={(e) => setForm({ ...form, region: e.target.value })} />
-              </Field>
-              <Field label="ブランド名（任意）" htmlFor="sa-brand" hint="設定のサイト名（無ければ会社名）が初期値。空ならトップページの title から推定">
+              <div className="grid gap-3 @md:grid-cols-2">
+                <Field label="業種" htmlFor="sa-industry">
+                  <Input id="sa-industry" value={form.industry} disabled={busy} placeholder="例: 歯科医院" onChange={(e) => setForm({ ...form, industry: e.target.value })} />
+                </Field>
+                <Field label="地域" htmlFor="sa-region">
+                  <Input id="sa-region" value={form.region} disabled={busy} placeholder="例: 東京都世田谷区" onChange={(e) => setForm({ ...form, region: e.target.value })} />
+                </Field>
+              </div>
+              <Field label="ブランド名" htmlFor="sa-brand" hint="空ならトップページの title から推定します">
                 <Input id="sa-brand" value={form.brand} disabled={busy} placeholder="例: サンプル工房" onChange={(e) => setForm({ ...form, brand: e.target.value })} />
               </Field>
-              <Field label={`競合サイトの URL（最大 ${MAX_COMPETITORS}・任意）`} htmlFor="sa-comp" hint="設定の競合サイトが初期値。1 行に 1 つ。キーワードごとの順位を並べます">
-                <Textarea id="sa-comp" rows={2} value={form.competitors} disabled={busy} onChange={(e) => setForm({ ...form, competitors: e.target.value })} />
-              </Field>
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-[13px] font-bold text-ink">
+                  競合サイトの URL <span className="font-normal text-muted">（最大 {MAX_COMPETITORS} つ。設定の競合サイトが入ります）</span>
+                </legend>
+                {competitorSlots.map((value, i) => (
+                  <Input
+                    key={i}
+                    id={`sa-comp-${i + 1}`}
+                    aria-label={`競合サイト ${i + 1}`}
+                    value={value}
+                    disabled={busy}
+                    inputMode="url"
+                    placeholder={`https://example.co.jp/（競合 ${i + 1}）`}
+                    onChange={(e) => setForm({ ...form, competitors: withSlot(form.competitors, i, e.target.value, MAX_COMPETITORS) })}
+                  />
+                ))}
+              </fieldset>
             </div>
           </div>
+
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" size="lg" loading={busy} disabled={!site.registered || exhausted || (meta !== null && !meta.enabled)}>
               分析する
@@ -287,24 +323,12 @@ export function SeoAnalysisView() {
                 中止
               </Button>
             )}
-            <span className="text-[12px] text-muted">収集に 1〜5 分、AI 分析に 1〜3 分かかります。1 回で今月の回数を 1 つ使います。</span>
+            <span className="text-[12px] text-muted">全体で 3〜8 分。クロールは最大 {CRAWL_PAGE_LIMIT} ページ。1 回で今月の回数を 1 つ使います。</span>
           </div>
         </form>
       </Card>
 
-      {phase === "collecting" && (
-        <Card className="mb-6" title="収集しています">
-          <p className="text-sm text-ink">
-            {progress ? `${STEP_LABELS[progress.step] ?? progress.step}: ${progress.message}` : "開始しています"}
-          </p>
-          {progress?.audit && (
-            <p className="mt-1 text-[12px] tabular-nums text-muted">
-              取得 {progress.audit.fetched} / 発見 {progress.audit.discovered} / 待ち {progress.audit.queued}
-              {progress.audit.url ? ` ／ ${progress.audit.url}` : ""}
-            </p>
-          )}
-        </Card>
-      )}
+      {busy && <DiagnosisMeter phase={phase === "collecting" ? "collecting" : "analyzing"} progress={progress} analyze={analyzeProgress} onAbort={abort} />}
 
       {phase === "error" && error && (
         <Callout tone="fail" title="分析できませんでした" className="mb-6">
@@ -356,3 +380,79 @@ export function SeoAnalysisView() {
     </>
   );
 }
+
+/* ───────────────────── 進捗メーター ───────────────────── */
+
+interface DiagnosisMeterProps {
+  phase: "collecting" | "analyzing";
+  progress: CollectProgressEvent | null;
+  analyze: AnalyzeProgressEvent | null;
+  onAbort: () => void;
+}
+
+/**
+ * 診断全体（収集 4 段階 + AI 分析）を 1 本のメーターで見せる（利用者の指示 2026-09-19）。
+ * ステージが変わった時刻を覚えておき、時間で進むステージ（速度取得・AI 分析）は 1 秒ごとに描き直す。
+ */
+function DiagnosisMeter({ phase, progress, analyze, onAbort }: DiagnosisMeterProps) {
+  const stage: DiagnosisStageId = phase === "analyzing" ? "analyze" : progress ? stageOfStep(progress.step) : "crawl";
+  // ステージが変わった時刻（props から導く state。描画中に setState する React 公式のパターン）
+  const [startedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  const [stageStart, setStageStart] = useState<{ stage: DiagnosisStageId; at: number }>({ stage, at: startedAt });
+  if (stageStart.stage !== stage) setStageStart({ stage, at: now });
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const stageElapsedMs = phase === "analyzing" && analyze ? analyze.elapsedMs : Math.max(0, now - stageStart.at);
+  const p = diagnosisProgress({
+    phase,
+    step: progress?.step ?? null,
+    audit: progress?.audit ? { fetched: progress.audit.fetched, queued: progress.audit.queued } : null,
+    maxPages: CRAWL_PAGE_LIMIT,
+    stageElapsedMs,
+    outputChars: analyze?.outputChars,
+  });
+  const totalSec = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const states = stageStates(p.stage, false);
+
+  return (
+    <Card className="mb-6" title="診断しています" actions={<span className="text-[12px] tabular-nums text-muted">経過 {Math.floor(totalSec / 60)} 分 {String(totalSec % 60).padStart(2, "0")} 秒</span>}>
+      <div className="flex items-baseline gap-3">
+        <span className="text-[28px] font-bold tabular-nums text-ink">{p.percent}%</span>
+        <span className="text-[13px] text-muted">{p.detail}</span>
+      </div>
+      <ProgressBar value={p.percent} max={100} className="mt-2" />
+      <ol className="mt-4 grid gap-1 text-[13px] @2xl:grid-cols-5">
+        {states.map(({ stage: st, state }, i) => (
+          <li key={st.id} className={`flex items-center gap-2 ${state === "todo" ? "text-muted" : "text-ink"}`}>
+            <span
+              aria-hidden
+              className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                state === "done" ? "bg-pass text-white" : state === "active" ? "bg-accent text-white" : "border border-line text-muted"
+              }`}
+            >
+              {state === "done" ? "✓" : i + 1}
+            </span>
+            <span>{st.label}</span>
+            {state === "active" && <span className="sr-only">（進行中）</span>}
+          </li>
+        ))}
+      </ol>
+      {phase === "analyzing" && analyze && analyze.attempt > 1 && (
+        <p className="mt-3 text-[12px] text-muted">数値の照合で食い違いがあったため、書き直しています（{analyze.attempt} 回目）。</p>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button type="button" size="sm" variant="secondary" onClick={onAbort}>
+          中止
+        </Button>
+        <span className="text-[12px] text-muted">
+          {phase === "analyzing" ? "画面を閉じても分析はサーバーで続き、履歴から開けます。" : "収集中に中止すると、今月の回数は戻りません。"}
+        </span>
+      </div>
+    </Card>
+  );
+}
+

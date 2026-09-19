@@ -8,7 +8,7 @@ import { pct } from "@/lib/report/format";
  */
 import type { AuditResult, AuditPageRow } from "@/lib/audit/types";
 import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId, type CruxRecord } from "@/lib/crux/types";
-import { formatCrux, trendOf } from "@/lib/crux/parse";
+import { cwvVerdict, formatCrux, trendOf } from "@/lib/crux/parse";
 import { GRADE_LABELS, SIGNAL_SOURCES, SIGNAL_STATUS_LABELS } from "@/lib/domain-power/types";
 import { CRUX_LABELS } from "@/lib/psi/types";
 import { SERP_FEATURE_LABELS } from "@/lib/serp/types";
@@ -364,7 +364,7 @@ function addCruxFacts(f: FactList, label: string, record: CruxRecord, url?: stri
     })
     .filter(Boolean);
   f.add("speed", `実ユーザーの速度（75 パーセンタイル）: ${label}`, parts.join(" / ") || "指標なし", {
-    note: `${record.passesCoreWebVitals === null ? "Core Web Vitals の合否は判定不能" : record.passesCoreWebVitals ? "Core Web Vitals 合格" : "Core Web Vitals 不合格"}。集計期間 ${record.period.firstDate} 〜 ${record.period.lastDate}`,
+    note: `Core Web Vitals: ${cwvVerdict(record).label}（${cwvVerdict(record).note}）。集計期間 ${record.period.firstDate} 〜 ${record.period.lastDate}`,
     url,
   });
 }

@@ -1,5 +1,5 @@
 export * from "./types";
-export { parseCruxRecord, parseCruxHistory, statusOf, trendOf, formatCrux } from "./parse";
+export { parseCruxRecord, parseCruxHistory, statusOf, trendOf, formatCrux, cwvVerdict, type CwvVerdict } from "./parse";
 export {
   fetchCruxRecord,
   fetchCruxHistory,

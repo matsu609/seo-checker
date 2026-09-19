@@ -69,6 +69,8 @@ export interface GenerateAnalysisOptions {
   signal?: AbortSignal;
   /** 数値の照合で作り直す回数（既定 1） */
   retries?: number;
+  /** 進捗（何回目の生成か・出力の累計文字数）。渡すとストリーミングで生成する */
+  onProgress?: (progress: { attempt: number; outputChars: number }) => void;
 }
 
 export async function generateAnalysis(sheet: SeoFactSheet, options: GenerateAnalysisOptions = {}): Promise<AnalysisRecord> {
@@ -86,6 +88,7 @@ export async function generateAnalysis(sheet: SeoFactSheet, options: GenerateAna
   let last: { data: Analysis; usage: { inputTokens: number; outputTokens: number }; model: string } | null = null;
   const retries = options.retries ?? 1;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const onProgress = options.onProgress;
     const { data, usage } = await generateStructured({
       schema: AnalysisSchema,
       system: SYSTEM_PROMPT,
@@ -93,6 +96,7 @@ export async function generateAnalysis(sheet: SeoFactSheet, options: GenerateAna
       model: "default",
       maxTokens: 8192,
       signal: options.signal,
+      ...(onProgress ? { onProgress: (p) => onProgress({ attempt: attempt + 1, outputChars: p.outputChars }) } : {}),
     });
     last = { data: tidyAnalysis(data), usage, model: MODELS.default };
     const bad = unverifiedNumbers(collectTexts(last.data), facts);

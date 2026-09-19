@@ -10,7 +10,8 @@
 import { fetchAhrefsDr } from "./ahrefs";
 import { ageYearsFrom, registrableDomain } from "./domain";
 import { fetchOpenPageRank } from "./openpagerank";
-import { fetchRdapDomain } from "./rdap";
+import { fetchRdapDomain, type RdapOutcome } from "./rdap";
+import { fetchJpRegisteredAt, isJpDomain } from "./whois-jp";
 import type { DomainPowerPeer } from "./types";
 
 export interface DomainFacts {
@@ -49,8 +50,8 @@ export async function fetchDomainFacts(
     fetchOpenPageRank([host, ...peerHosts], options),
     fetchAhrefsDr(host, options),
     Promise.all(peerHosts.map((h) => fetchAhrefsDr(h, options))),
-    fetchRdapDomain(host, options),
-    Promise.all(peerHosts.map((h) => fetchRdapDomain(h, options))),
+    fetchRegistration(host, options),
+    Promise.all(peerHosts.map((h) => fetchRegistration(h, options))),
   ]);
 
   if (dr.failure && dr.message) notes.push(dr.message);
@@ -81,3 +82,19 @@ export async function fetchDomainFacts(
     sources: { ahrefs: dr.result?.rating != null, rdap: rdap.result?.registeredAt != null, openPageRank: own.rank !== null },
   };
 }
+
+/**
+ * 登録日の取得。RDAP を先に見て、.jp で RDAP に無ければ JPRS の WHOIS で補う（2026-09-19）。
+ * 戻りの形は RDAP と同じにして、呼び出し側の分岐を増やさない。
+ */
+async function fetchRegistration(domain: string, options: FetchDomainFactsOptions): Promise<RdapOutcome> {
+  const rdap = await fetchRdapDomain(domain, options);
+  if (rdap.result?.registeredAt || !isJpDomain(domain)) return rdap;
+  const whois = await fetchJpRegisteredAt(domain, { signal: options.signal });
+  if (whois.registeredAt) {
+    return { result: { domain, registeredAt: whois.registeredAt, updatedAt: null, expiresAt: null, registrar: rdap.result?.registrar ?? null }, failure: null, message: null };
+  }
+  const failure: RdapOutcome["failure"] = rdap.failure ?? (whois.failure === "network" ? "network" : whois.failure ? "not-found" : null);
+  return { result: rdap.result, failure, message: whois.message ?? rdap.message };
+}
+

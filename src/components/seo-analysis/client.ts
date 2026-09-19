@@ -71,15 +71,57 @@ export async function requestCollect(
   return done;
 }
 
-export async function requestAnalyze(runId: string, signal?: AbortSignal): Promise<{ analysis: AnalysisRecord; analysisCount: number }> {
-  const res = await fetch("/api/seo-analysis/analyze", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ runId }),
-    signal,
-  });
-  if (!res.ok) throw await errorOf(res, "AI 分析に失敗しました");
-  return (await res.json()) as { analysis: AnalysisRecord; analysisCount: number };
+export interface AnalyzeProgressEvent {
+  elapsedMs: number;
+  outputChars: number;
+  attempt: number;
+}
+
+/** サーバー側の打ち切り（270 秒）より少し長く待つ。それでも来なければ通信が切れたとみなす */
+export const ANALYZE_CLIENT_TIMEOUT_MS = 290_000;
+
+export async function requestAnalyze(
+  runId: string,
+  options: { signal?: AbortSignal; onProgress?: (p: AnalyzeProgressEvent) => void } = {},
+): Promise<{ analysis: AnalysisRecord; analysisCount: number }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ANALYZE_CLIENT_TIMEOUT_MS);
+  const onAbort = () => controller.abort();
+  options.signal?.addEventListener("abort", onAbort, { once: true });
+  try {
+    const res = await fetch("/api/seo-analysis/analyze", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ runId }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw await errorOf(res, "AI 分析に失敗しました");
+
+    let done: { analysis: AnalysisRecord; analysisCount: number } | undefined;
+    let failure: { error: string; code?: string } | undefined;
+    await readNdjson(res, (obj) => {
+      if (!obj || typeof obj !== "object") return;
+      const ev = obj as { type?: string } & Record<string, unknown>;
+      if (ev.type === "progress") {
+        options.onProgress?.({ elapsedMs: Number(ev.elapsedMs ?? 0), outputChars: Number(ev.outputChars ?? 0), attempt: Number(ev.attempt ?? 1) });
+      } else if (ev.type === "result") {
+        done = { analysis: ev.analysis as AnalysisRecord, analysisCount: Number(ev.analysisCount ?? 0) };
+      } else if (ev.type === "error") {
+        failure = { error: String(ev.error ?? "AI 分析に失敗しました"), code: typeof ev.code === "string" ? ev.code : undefined };
+      }
+    });
+    if (failure) throw new SeoAnalysisError(failure.error, failure.code);
+    if (!done) throw new SeoAnalysisError("AI 分析の結果を受信できませんでした（通信が途中で切れた可能性があります）。「AI 分析をやり直す」を押すか、履歴から開き直してください");
+    return done;
+  } catch (err) {
+    if (controller.signal.aborted && !options.signal?.aborted) {
+      throw new SeoAnalysisError("AI 分析の応答が届きませんでした。分析はサーバーで続いていることがあるので、しばらくして履歴から開き直してください", "timeout");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 /** 無効（503）なら null */

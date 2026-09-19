@@ -2,6 +2,7 @@
  * CrUX API の応答 → アプリ側の型（純関数）。
  */
 import {
+  CRUX_STATUS_LABELS,
   CRUX_THRESHOLDS,
   type CruxHistory,
   type CruxHistoryPoint,
@@ -121,3 +122,38 @@ export function formatCrux(metric: CruxMetricId, value: number): string {
   if (metric === "cls") return value.toFixed(2);
   return `${(value / 1000).toFixed(1)} 秒`;
 }
+
+export interface CwvVerdict {
+  /** 良好 / 改善が必要 / 不良 / 判定不能 */
+  label: string;
+  /** 3 指標がそろって判定できたか */
+  complete: boolean;
+  /** 判定に使えた指標 */
+  used: CruxMetricId[];
+  /** 無かった指標 */
+  missing: CruxMetricId[];
+  /** 画面に添える 1 行（例: "INP・CLS はデータ不足のため LCP で判定"） */
+  note: string;
+}
+
+/**
+ * Core Web Vitals の合否を「取れた指標だけ」で判定する（2026-09-19）。
+ * 3 指標がそろわないサイト（Chrome の利用者が少ない）で「判定不能」ばかりにならないよう、
+ * 取れた指標のうち最も悪い状態を判定にし、足りない指標は note で明示する。
+ */
+export function cwvVerdict(record: CruxRecord | null): CwvVerdict {
+  const ids: CruxMetricId[] = ["lcp", "inp", "cls"];
+  if (!record) return { label: "判定不能", complete: false, used: [], missing: ids, note: "実ユーザーのデータがありません" };
+  const used = ids.filter((id) => record.metrics[id]);
+  const missing = ids.filter((id) => !record.metrics[id]);
+  if (used.length === 0) return { label: "判定不能", complete: false, used, missing, note: "LCP・INP・CLS のデータがありません" };
+  const rank: Record<CruxStatus, number> = { good: 0, "needs-improvement": 1, poor: 2 };
+  const worst = used.reduce<CruxStatus>((acc, id) => {
+    const st = record.metrics[id]!.status;
+    return rank[st] > rank[acc] ? st : acc;
+  }, "good");
+  const label = CRUX_STATUS_LABELS[worst];
+  const note = missing.length === 0 ? "LCP・INP・CLS の 3 指標で判定" : `${missing.map((id) => id.toUpperCase()).join("・")} はデータ不足のため ${used.map((id) => id.toUpperCase()).join("・")} で判定`;
+  return { label, complete: missing.length === 0, used, missing, note };
+}
+
