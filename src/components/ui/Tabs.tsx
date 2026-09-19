@@ -48,7 +48,9 @@ export function Tabs<K extends string = string>({ tabs, value, onChange, ariaLab
       role="tablist"
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
-      className={`no-print flex gap-1 overflow-x-auto border-b border-line ${className}`}
+      // overflow-y-hidden が要る: overflow-x だけを auto にすると CSS の規定で overflow-y も auto になり、
+      // 各タブの -mb-px（1px）が縦のはみ出しになって Windows では縦スクロールバー（▲▼）が出る
+      className={`no-print flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line ${className}`}
     >
       {tabs.map((t) => {
         const selected = t.id === value;
