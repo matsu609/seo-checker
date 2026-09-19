@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r124 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r125 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -3451,4 +3451,29 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 
 - 手間: 2 件で 2〜3 時間（`TabPanels` は r124 で作ったので使い回せる）。
 - やらない理由も成立する: 3 つなら一覧性は保たれており、**SEO のように「どれを開けばいいか分からない」状態ではない**。急ぎではない。
+
+### 2026-09-19（口コミと掲載の統合、r125）
+
+利用者の指示「やって」（前項の提案）。**タブは全体で 10 → 8** になった。
+
+| 新 | タブ | 旧の扱い |
+|---|---|---|
+| **口コミ**（`/tools/reviews`） | 集める（アンケート QR）／ 返す（返信案） | `replies` を `hidden: true`。ページは `/tools/reviews` へ転送 |
+| **掲載**（`/tools/citations`） | どこに載っているか調べる ／ 掲載先に登録する | `listings` を `hidden: true`。ページは `/tools/citations` へ転送 |
+
+- **プランの線は変えていない**。口コミは 2 つともスタンダードなので画面のゲート 1 つ。掲載は「調べる」がライト、「登録する」がスタンダードなので、ページ改善と同じくタブごとに旧 ID で `PlanGate` を通す。
+- API のゲート（`requireAuth({ feature: "replies" })` など）は旧 ID のままなので、隠しただけでは素通りにならない。
+- `/tools/reviews` は返信タブが Google 連携の状態を見るので `dynamic = "force-dynamic"`（旧 replies ページの設定を引き継いだ）。
+- サイテーションの画面内にあった「基本情報掲載を開く」ボタンは、同じ画面のタブになったので文言だけに変えた。
+- 柱ごとの並び（2026-09-19 時点の確定形）:
+
+| 柱 | 並び |
+|---|---|
+| SEO | 精密診断 → ページ改善 → AI ライティング → 順位計測 |
+| MEO | マップ診断 → 口コミ |
+| サイテーション | 掲載 → llms.txt |
+| AIO（親の直下） | AI 検索モニタリング |
+
+- llms.txt は動かさなかった（サイテーションの柱が 1 つだけになると、AIO = SEO + MEO + サイテーションの売り方が崩れるため）。
+- lint / tsc / test 1,604 件 / build 通過。戻すときは `hidden: true` を消すだけ。
 
