@@ -32,8 +32,9 @@ describe("AIO 対策（親）の中の 3 本の柱", () => {
   it("サイドバーの木: 親の直下に AI 検索モニタリング、柱の中に各ツール、共通に料金・設定", () => {
     const tree = sidebarTree();
     expect(tree.umbrella.map((f) => f.id)).toEqual(["geo"]);
+    // 並びは「診断 → やること → 成果」（利用者の決定 2026-09-19）
     expect(tree.pillars.map((p) => [p.category.id, p.features.map((f) => f.id)])).toEqual([
-      ["seo", ["seo-analysis", "page-diagnosis", "improvement", "rank", "search-estimate", "keywords", "writing"]],
+      ["seo", ["seo-analysis", "page-improve", "writing", "rank"]],
       ["meo", ["maps", "reviews", "replies"]],
       ["citation", ["citations", "listings", "llms-txt"]],
     ]);

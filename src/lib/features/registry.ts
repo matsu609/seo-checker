@@ -9,7 +9,12 @@
 import type { PlanId } from "@/lib/plans/catalog";
 import type { IntegrationKey } from "./integrations";
 
-export type FeatureGroupId = "free" | "foundation" | "diagnosis" | "measure" | "research" | "generate" | "settings";
+/**
+ * サイドバーの並び = お客様の仕事の順番（利用者の決定 2026-09-19）。
+ * 診断（いまの状態を知る）→ やること（直す・作る）→ 成果（効果を見る）。
+ * 旧: foundation / research / generate は、この 3 つに割り振って廃止した。
+ */
+export type FeatureGroupId = "free" | "diagnosis" | "improve" | "measure" | "settings";
 
 /**
  * サイドバーの分類。
@@ -278,6 +283,8 @@ const DIAGNOSIS: readonly Feature[] = [
     requiresAny: ["serpapi", "anthropic"],
     group: "diagnosis",
     category: "seo",
+    // 2026-09-19: 「ページ改善」に統合。プランのゲートと API はこの ID のまま使う
+    hidden: true,
     plan: "light",
   },
   {
@@ -320,10 +327,35 @@ const DIAGNOSIS: readonly Feature[] = [
     icon: "pen",
     status: "beta",
     requires: ["anthropic"],
-    group: "diagnosis",
+    group: "improve",
     // お客様のホームページそのものを直す機能なので SEO タブ（利用者の指示 2026-09-17。AIO から移動）
     category: "seo",
+    // 2026-09-19: 「ページ改善」に統合。プランのゲートと API はこの ID のまま使う
+    hidden: true,
     plan: "standard",
+  },
+  {
+    id: "page-improve",
+    path: "/tools/page-improve",
+    label: "ページ改善（競合と比べて、貼れる改修案まで）",
+    shortLabel: "ページ改善",
+    description:
+      "1 ページをよくするための画面です。対策キーワードを入れると Google の上位 10 件と比べて「何が足りないか」を出し、そのままボタン 1 つで、貼って使える改修案（タイトル・説明文・見出し・本文）を AI が作ります。",
+    details: [
+      "競合と比べる: 上位 10 件の傾向・検索意図・不足している要素・title / description 案（旧「ページ診断」）",
+      "改修案を作る: before → after の書き換え案を、なぜ直すか・期待できること・優先度つきで（旧「HP 改修提案」）",
+      "対象ページは設定のホームページから選ぶ。空欄ならトップページ",
+    ],
+    featureIds: ["A4", "A2", "D2"],
+    icon: "pen",
+    status: "beta",
+    requires: [],
+    requiresAny: ["serpapi", "anthropic"],
+    group: "improve",
+    category: "seo",
+    // 2026-09-19 にページ診断（ライト）と HP 改修提案（スタンダード）を 1 画面 2 タブに統合した。
+    // 入口はライトで開け、タブごとに旧 ID（page-diagnosis / improvement）でプランを確かめる
+    plan: "light",
   },
 ];
 
@@ -350,7 +382,7 @@ const FOUNDATION: readonly Feature[] = [
     icon: "quote",
     status: "beta",
     requires: ["dataforseo"],
-    group: "foundation",
+    group: "diagnosis",
     category: "citation",
     // 読む・測る系なのでライト。1 回 = DataForSEO の検索 3 回（数円）
     plan: "light",
@@ -375,7 +407,7 @@ const FOUNDATION: readonly Feature[] = [
     requires: ["supabase"],
     optional: ["anthropic", "places"],
     // NAP 登録は AIO の土台（サイテーションの隣）
-    group: "foundation",
+    group: "improve",
     category: "citation",
     plan: "standard",
   },
@@ -395,7 +427,7 @@ const FOUNDATION: readonly Feature[] = [
     status: "beta",
     requires: [],
     // AI クローラに読ませる土台なので基礎対策（生成 → 移動。2026-09-17）
-    group: "foundation",
+    group: "improve",
     category: "citation",
     plan: "standard",
   },
@@ -405,19 +437,22 @@ const MEASURE: readonly Feature[] = [
   {
     id: "rank",
     path: "/tools/rank",
-    label: "順位計測・AI Overviews 引用",
+    label: "順位計測（順位・AI Overviews・検索の推定・キーワード調査）",
     shortLabel: "順位計測",
     description:
-      "登録キーワードの Google 順位とランディング URL を取得し、AI Overviews に自社・競合が引用されているかを確認します。",
+      "「どの語で何位か」をまとめて見る画面です。登録キーワードの順位と AI Overviews の引用に加えて、まだ登録していない語の洗い出し（検索の推定）と、これから狙う語探し（キーワード調査）を同じ画面のタブで行います。",
     details: [
       "キーワードごとの順位・変化・ランディング URL・圏外（デバイス / 地域を指定）",
       "その場で順位を取得するリアルタイム計測",
       "AI Overviews の有無と引用サイト一覧、自社のみ / 競合のみ / 両方 / なし の 5 区分",
+      "検索の推定: そのドメインがすでに順位を持っている語と、推定の表示回数・クリック数（旧「検索パフォーマンス（推定）」）",
+      "キーワード調査: サジェスト・関連キーワードの展開と検索意図の分類（旧「キーワード調査」）",
     ],
-    featureIds: ["B1", "B2", "B3"],
+    featureIds: ["B1", "B2", "B3", "C1"],
     icon: "rank",
     status: "beta",
     requires: ["serpapi"],
+    optional: ["dataforseo"],
     group: "measure",
     category: "seo",
     plan: "light",
@@ -441,6 +476,8 @@ const MEASURE: readonly Feature[] = [
     requires: ["dataforseo"],
     group: "measure",
     category: "seo",
+    // 2026-09-19: 「順位計測」のタブに統合。プランのゲートと API はこの ID のまま使う
+    hidden: true,
     plan: "light",
   },
   {
@@ -462,7 +499,7 @@ const MEASURE: readonly Feature[] = [
     icon: "map",
     status: "beta",
     requires: ["places", "supabase"],
-    group: "measure",
+    group: "diagnosis",
     category: "meo",
     plan: "light",
   },
@@ -486,7 +523,7 @@ const MEASURE: readonly Feature[] = [
     status: "beta",
     requires: ["supabase"],
     optional: ["anthropic", "places"],
-    group: "measure",
+    group: "improve",
     category: "meo",
     plan: "standard",
   },
@@ -560,8 +597,10 @@ const RESEARCH: readonly Feature[] = [
     status: "beta",
     requires: [],
     optional: ["anthropic"],
-    group: "research",
+    group: "improve",
     category: "seo",
+    // 2026-09-19: 「順位計測」のタブに統合。プランのゲートと API はこの ID のまま使う
+    hidden: true,
     plan: "light",
   },
 ];
@@ -584,7 +623,7 @@ const GENERATE: readonly Feature[] = [
     icon: "pen",
     status: "beta",
     requires: ["anthropic"],
-    group: "generate",
+    group: "improve",
     category: "seo",
     plan: "standard",
   },
@@ -606,7 +645,7 @@ const GENERATE: readonly Feature[] = [
     status: "beta",
     requires: [],
     optional: ["anthropic", "supabase", "places"],
-    group: "generate",
+    group: "improve",
     category: "meo",
     plan: "standard",
   },
@@ -655,15 +694,22 @@ const SETTINGS: readonly Feature[] = [
   },
 ];
 
-/** サイドバーに出す順で並べたグループ */
+/**
+ * サイドバーに出す順で並べたグループ。
+ *
+ * 並び = お客様の仕事の順番（利用者の決定 2026-09-19）:
+ * 診断（いまの状態を知る）→ やること（直す・作る）→ 成果（効果を見る）。
+ * 各機能の `group` から組み立てるので、機能を足すときは `group` を決めるだけでよい。
+ */
+const ALL_TOOLS: readonly Feature[] = [...DIAGNOSIS, ...FOUNDATION, ...MEASURE, ...RESEARCH, ...GENERATE, ...SETTINGS];
+const inGroup = (id: FeatureGroupId) => ALL_TOOLS.filter((f) => f.group === id);
+
 export const FEATURE_GROUPS: readonly FeatureGroup[] = [
   { id: "free", label: FREE_SUITE_LABEL, features: [FREE_FEATURE, FREE_MEO_FEATURE] },
-  { id: "foundation", label: "基礎対策", features: FOUNDATION },
-  { id: "diagnosis", label: "診断", features: DIAGNOSIS },
-  { id: "measure", label: "計測", features: MEASURE },
-  { id: "research", label: "調査", features: RESEARCH },
-  { id: "generate", label: "生成", features: GENERATE },
-  { id: "settings", label: "設定", features: SETTINGS },
+  { id: "diagnosis", label: "診断（いまの状態を知る）", features: inGroup("diagnosis") },
+  { id: "improve", label: "やること（直す・作る）", features: inGroup("improve") },
+  { id: "measure", label: "成果（効果を見る）", features: inGroup("measure") },
+  { id: "settings", label: "設定", features: inGroup("settings") },
 ];
 
 /** 全機能のフラットな一覧（サイドバー順） */

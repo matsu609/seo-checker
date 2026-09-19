@@ -134,9 +134,13 @@ describe("機能とプランの対応", () => {
   it("Search Console の代替（推定）はライトで、連携を必要としない", () => {
     const estimate = features.find((f) => f.id === "search-estimate");
     expect(estimate?.plan).toBe("light");
-    expect(estimate?.hidden).toBeUndefined();
+    // 2026-09-19 に「順位計測」のタブへ統合したのでサイドバーには出さない。
+    // プランのゲート（/api/search-estimate）はこの ID のままなので、定義は残す
+    expect(estimate?.hidden).toBe(true);
     // お客様の Google 連携ではなく、運営者の DataForSEO だけで動く
     expect(estimate?.requires).toEqual(["dataforseo"]);
+    // 入口になった順位計測も同じライト（タブを開いた先で急に鍵がかからない）
+    expect(features.find((f) => f.id === "rank")?.plan).toBe("light");
   });
 
   it("プラン一覧のハイライトが実態と矛盾しない", () => {

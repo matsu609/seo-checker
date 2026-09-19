@@ -25,6 +25,8 @@ import {
 } from "@/lib/rank/store";
 import type { RankMeasureFailure, RankMeasureResponse } from "@/lib/rank/types";
 import { useCurrentProject, useStore } from "@/lib/store/hooks";
+import { KeywordsTool } from "@/components/keywords/KeywordsTool";
+import { SearchEstimateTool } from "@/components/search-estimate/SearchEstimateTool";
 import { useIntegrations } from "@/lib/store/useIntegrations";
 import { useToolRun } from "@/lib/tools/run";
 import { AioPanel } from "./AioPanel";
@@ -32,7 +34,7 @@ import { KeywordRegistry } from "./KeywordRegistry";
 import { RankTable } from "./RankTable";
 import { RealtimePanel } from "./RealtimePanel";
 
-type TabId = "keywords" | "realtime" | "aio";
+type TabId = "keywords" | "realtime" | "aio" | "estimate" | "research";
 
 const CSV_COLUMNS: CsvColumn<RankRow>[] = [
   { header: "キーワード", value: (r) => r.keyword.keyword },
@@ -141,10 +143,14 @@ export function RankTool() {
     setPreviousDate("");
   }
 
+  // 2026-09-19: 「検索の推定」と「キーワード調査」を別タブから取り込んだ（利用者の決定）。
+  // どれも「どの語で何位か」を扱う仕事で、画面が分かれている必要がなかった
   const tabs = [
     { id: "keywords" as const, label: "キーワード", count: scoped.length },
     { id: "realtime" as const, label: "リアルタイム計測" },
     { id: "aio" as const, label: "AI Overviews" },
+    { id: "estimate" as const, label: "検索の推定" },
+    { id: "research" as const, label: "キーワード調査" },
   ];
 
   return (
@@ -341,6 +347,24 @@ export function RankTool() {
           selectedId={selectedId}
           onSelect={setSelectedId}
         />
+      )}
+
+      {tab === "estimate" && (
+        <div className="space-y-4">
+          <Callout tone="info" title="登録していない語も含めて、いま順位がある語を洗い出します">
+            上の「キーワード」タブは登録した語の定点観測です。こちらは、そのドメインが**すでに順位を持っている語**を自動で集めて、推定の表示回数・クリック数を出します。育てる語を見つけたら「キーワード」タブに登録してください。
+          </Callout>
+          <SearchEstimateTool />
+        </div>
+      )}
+
+      {tab === "research" && (
+        <div className="space-y-4">
+          <Callout tone="info" title="これから狙う語を探します">
+            種になる語から Google サジェスト・関連キーワードを広げ、検索意図で分類します。良さそうな語はそのまま「キーワード」タブに登録できます。
+          </Callout>
+          <KeywordsTool />
+        </div>
       )}
     </div>
   );
