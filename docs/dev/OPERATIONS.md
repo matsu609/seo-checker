@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r123 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r124 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -3401,4 +3401,30 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - サイドバーの並びも「診断 → やること → 成果」に。いまは 診断 / 計測 / 調査 / 生成 で、お客様の仕事の順番と合っていない。
 - **削除はしない。**`hidden: true` で隠すだけなら 1 行で戻せるので、まず隠して様子を見る。コードは残るので、必要になったら出せる。
 - 手間の目安: 統合 3 件で 1〜2 日。並び替えだけなら 1 時間。
+
+### 2026-09-19（サイドバーの並び替えとタブの統合、r124）
+
+利用者の指示「全部やって、並び替えも統合も」（前項の提案）。
+
+**並び**: グループを **診断（いまの状態を知る）→ やること（直す・作る）→ 成果（効果を見る）** の 3 つにした（旧: 基礎対策 / 診断 / 計測 / 調査 / 生成）。`FeatureGroupId` も `"diagnosis" | "improve" | "measure"` に整理し、`FEATURE_GROUPS` は各機能の `group` から組み立てる形にしたので、機能を足すときは `group` を決めるだけでよい。
+
+| 柱 | 並び（左が上） |
+|---|---|
+| SEO | 精密診断 → ページ改善 → AI ライティング → 順位計測 |
+| MEO | マップ診断 → 口コミ支援 → 口コミへの返信 |
+| サイテーション | サイテーション → 基本情報掲載 → llms.txt |
+
+**統合**:
+
+| 新 | 中身 | 旧の扱い |
+|---|---|---|
+| **ページ改善**（`/tools/page-improve`） | タブ「競合と比べる」＝旧ページ診断、タブ「改修案を作る」＝旧 HP 改修提案 | `page-diagnosis` / `improvement` を `hidden: true`。ページは転送 |
+| **順位計測**（`/tools/rank`） | タブ「検索の推定」「キーワード調査」を追加（既存の キーワード / リアルタイム / AI Overviews に並ぶ） | `search-estimate` / `keywords` を `hidden: true`。ページは転送 |
+
+- **プランの線は変えていない**。ページ改善は入口がライト（旧ページ診断と同じ）で、「改修案を作る」タブだけ旧 `improvement` の ID でスタンダードのゲートを通す（`PlanGate` をタブごとに置いた）。順位計測に入れた 2 つはどちらもライトなので画面のゲートは 1 つ。
+- API のゲート（`requireAuth({ feature: ... })`）は旧 ID のままなので、**隠しただけでは素通りにならない**。
+- 古いリンク: `/tools/page-diagnosis`・`/tools/improvement` → `/tools/page-improve`、`/tools/search-estimate`・`/tools/keywords`・`/tools/ai-traffic`・`/tools/site-report`・`/tools/search-performance` → `/tools/rank`。
+- 新しい部品 `TabPanels`（`src/components/ui/TabPanels.tsx`）: タブとサーバー側で描いたパネル（PlanGate 入り）を組み合わせる。選んでいないパネルは `hidden` にするだけなので、タブを行き来しても入力が消えない。
+- テストを更新: サイドバーの木（SEO は 4 つ）、`search-estimate` は hidden でライトのまま。lint / tsc / test 1,604 件 / build 通過。
+- 戻し方: `hidden: true` を消せば元のタブが戻る（コードは消していない）。
 
