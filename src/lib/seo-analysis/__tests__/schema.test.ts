@@ -21,7 +21,7 @@ describe("AI 出力の形", () => {
         before: null,
         after: long,
       })),
-      consultant: { typical: Array.from({ length: 8 }, () => long), real: [] },
+      consultant: { real: Array.from({ length: 8 }, () => long) },
       cautions: [],
     };
     // SDK は API 側で長さを縛らないので、この形でも parse は通らなければならない
@@ -34,12 +34,26 @@ describe("AI 出力の形", () => {
     expect(t.recommendations).toHaveLength(LIMITS.recommendations);
     expect(t.recommendations[0].priority).toBe(3);
     expect(t.recommendations[0].what.length).toBeLessThanOrEqual(LIMITS.long);
-    expect(t.consultant.typical).toHaveLength(LIMITS.consultant);
+    expect(t.consultant.real).toHaveLength(LIMITS.consultant);
   });
 
   it("priority は 1〜3 に丸める", () => {
-    const base: Analysis = { headline: "x", situation: ["a", "b"], strengths: [], weaknesses: [], recommendations: [{ priority: 0, title: "t", what: "w", why: "y", expected: "e", effort: "medium", factIds: [], before: null, after: null }], consultant: { typical: [], real: [] }, cautions: [] };
+    const base: Analysis = { headline: "x", situation: ["a", "b"], strengths: [], weaknesses: [], recommendations: [{ priority: 0, title: "t", what: "w", why: "y", expected: "e", effort: "medium", factIds: [], before: null, after: null }], consultant: { real: [] }, cautions: [] };
     expect(tidyAnalysis(base).recommendations[0].priority).toBe(1);
+  });
+
+  it("保存しうる最大の文字数を小さく保つ（出力を増やし過ぎない歯止め。2026-09-19）", () => {
+    const rec = 80 + LIMITS.long + LIMITS.short * 4;
+    const ceiling =
+      LIMITS.headline +
+      LIMITS.situation * LIMITS.paragraph +
+      LIMITS.strengths * LIMITS.short +
+      LIMITS.weaknesses * LIMITS.short +
+      LIMITS.recommendations * rec +
+      LIMITS.consultant * LIMITS.long +
+      LIMITS.cautions * LIMITS.short;
+    // 2026-09-19 以前は 57,600 文字。利用者の指示で約 3 分の 1 に絞った
+    expect(ceiling).toBeLessThanOrEqual(20_000);
   });
 
   it("SDK の出力形式に変換できる", () => {

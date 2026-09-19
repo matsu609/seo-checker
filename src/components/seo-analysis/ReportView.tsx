@@ -211,29 +211,15 @@ export function ReportView(props: ReportViewProps) {
               </Card>
             </div>
 
-            <Card title="コンサルタントの視点" description="左は数字を見ずに言われがちなこと、右はこのサイトの数字を見たうえで本当に言うべきこと。" printCard>
-              <div className="grid gap-5 @3xl:grid-cols-2">
-                <div>
-                  <h3 className="mb-2 text-sm font-bold text-muted">普通のコンサルが言いそうなこと</h3>
-                  <ul className="space-y-1.5 text-[13px] leading-relaxed text-muted">
-                    {a.consultant.typical.map((t, i) => (
-                      <li key={i} className="border-l-2 border-line pl-3">
-                        {t}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="mb-2 text-sm font-bold text-ink">数字を見て本当に言うべきこと</h3>
-                  <ul className="space-y-1.5 text-[13px] leading-relaxed text-ink">
-                    {a.consultant.real.map((t, i) => (
-                      <li key={i} className="border-l-2 border-accent pl-3">
-                        {t}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+            <Card title="この数字を見たからこそ言えること" description="一般論ではなく、このサイトの数字から言えることだけを書いています。" printCard>
+              <ul className="space-y-1.5 text-[13px] leading-relaxed text-ink">
+                {a.consultant.real.map((t, i) => (
+                  <li key={i} className="border-l-2 border-accent pl-3">
+                    {t}
+                  </li>
+                ))}
+                {a.consultant.real.length === 0 && <li className="text-muted">特筆すべき点は挙がりませんでした。</li>}
+              </ul>
               {a.cautions.length > 0 && (
                 <div className="mt-4 rounded-sm border border-line bg-surface p-3 text-[12px] leading-relaxed text-muted">
                   <span className="font-bold">断定できない点: </span>

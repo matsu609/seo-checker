@@ -56,9 +56,9 @@ export interface ProgressInput {
 /** 速度・検索・ドメインの取得に見込む時間（PSI 6 ページが遅い） */
 export const SIGNALS_EXPECTED_MS = 75_000;
 /** アドバイスの作成に見込む時間 */
-export const ANALYZE_EXPECTED_MS = 150_000;
+export const ANALYZE_EXPECTED_MS = 75_000;
 /** 出力の見込み文字数（JSON 込み。これに達したら時間より先に進める） */
-export const ANALYZE_EXPECTED_CHARS = 12_000;
+export const ANALYZE_EXPECTED_CHARS = 5_000;
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));

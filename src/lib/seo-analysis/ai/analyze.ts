@@ -34,8 +34,10 @@ const SYSTEM_PROMPT = `あなたは中小企業のウェブサイトを 10 年�
 - 主張には必ず事実 ID（例: S-03）を factIds に入れます。ID はシートにあるものだけ。
 - 数値はシートにある数値だけを使います。期待効果に「◯% 改善」のような数字を作りません。
 - 「SEO を強化しましょう」「コンテンツを充実させましょう」のような、何をどうするか分からない言い方は禁止です。どのページの、何を、どう変えるかまで書きます。
-- 改善案は優先度 1（今すぐ・効果が大きい）から 3 まで。手間（effort）は担当者の作業量の目安です。
-- consultant.typical には「この数字を見ずに普通のコンサルが言いそうなこと」を、consultant.real には「数字を見たうえで本当に言うべきこと」を書きます。両者の違いが、この分析の価値です。
+- 改善案は**5〜6 件だけ**。効果の大きい順に絞り、細かいものは捨てます。優先度 1（今すぐ・効果が大きい）から 3 まで。手間（effort）は担当者の作業量の目安です。
+- **短く書きます。**読むのは忙しい経営者です。同じことを言い換えない。前置きを書かない。各項目の文字数の目安はスキーマの説明に従います。
+- 比率や平均を自分で計算して書かないでください（シートに無い数字になります）。「◯ 件中 ◯ 件」のようにシートの数字をそのまま使います。
+- consultant.real には「この数字を見たからこそ言えること」を最大 3 つ書きます。一般論はここに書きません。
 - データが無い領域（例: 検索順位を取っていない、Google 連携が無い）については、無いことを前提に書き、あるかのように書きません。
 - 断定は根拠の強さに合わせます。1 ページのデータで全体を語らない。
 - llms.txt は AI 検索向けの案内ファイルで、**まだ必須ではありません**。無いことを致命的な欠陥のように書かず、「置けば差がつく」程度の位置づけで、優先度も高くしすぎません。
@@ -66,7 +68,6 @@ function collectTexts(a: Analysis): string[] {
     ...a.strengths.map((s) => s.text),
     ...a.weaknesses.map((w) => w.text),
     ...a.recommendations.flatMap((r) => [r.title, r.what, r.why, r.expected]),
-    ...a.consultant.typical,
     ...a.consultant.real,
   ];
 }
@@ -77,7 +78,13 @@ function collectFactIds(a: Analysis): string[] {
 
 export interface GenerateAnalysisOptions {
   signal?: AbortSignal;
-  /** 数値の照合で作り直す回数（既定 1） */
+  /**
+   * 数値の照合が合わないときに作り直す回数（既定 0 = 作り直さない）。
+   *
+   * 2026-09-19 まで既定 1 だった。AI が比率を自分で計算すると必ず照合に落ちるため
+   * ほぼ毎回 2 回生成しており、時間と費用が 2 倍になっていた。残った食い違いは
+   * `unverifiedNumbers` として画面に注意表示するので、作り直しの見返りが小さい。
+   */
   retries?: number;
   /** 進捗（何回目の生成か・出力の累計文字数）。渡すとストリーミングで生成する */
   onProgress?: (progress: { attempt: number; outputChars: number }) => void;
@@ -96,7 +103,7 @@ export async function generateAnalysis(sheet: SeoFactSheet, options: GenerateAna
 
   let extra: string[] = [];
   let last: { data: Analysis; usage: { inputTokens: number; outputTokens: number }; model: string } | null = null;
-  const retries = options.retries ?? 1;
+  const retries = options.retries ?? 0;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const onProgress = options.onProgress;
     const { data, usage } = await generateStructured({
@@ -105,6 +112,8 @@ export async function generateAnalysis(sheet: SeoFactSheet, options: GenerateAna
       prompt: [...base, ...extra].join("\n"),
       model: "default",
       maxTokens: ANALYSIS_MAX_TOKENS,
+      // 思考の深さ。既定（high）は長考して 3 分以上かかる。medium で十分な品質が出る
+      effort: "medium",
       signal: options.signal,
       ...(onProgress ? { onProgress: (p) => onProgress({ attempt: attempt + 1, outputChars: p.outputChars }) } : {}),
     });

@@ -5,6 +5,11 @@
  * 注意: 文字数・件数の上限（max / min）は SDK が API に送らず、説明文のヒントにしか
  * ならない。AI が 1 件でも超えると zod の検証で例外になるため、ここでは上限を書かず、
  * 受け取ったあとに `tidyAnalysis` / `tidyComment` で切り詰める（2026-09-15 の本番エラーの対策）。
+ * **件数と長さの指示は `.describe()` と SYSTEM_PROMPT で伝える**（これは API に届く）。
+ *
+ * 2026-09-19（利用者の指示「トークンを使いすぎ・文章が長すぎ」）: 出力量を約 3 分の 1 にした。
+ * 改善案 15 → 6 件、現状 6 → 3 段落、注意 6 → 3、「普通のコンサルが言いそうなこと」
+ * （consultant.typical）は読まれないわりに生成量が大きいので**廃止**した。
  */
 import { z } from "zod";
 
@@ -12,19 +17,16 @@ const FactIds = z.array(z.string());
 
 export const RecommendationSchema = z.object({
   /** 1 = 最優先（1〜3。範囲外はコード側で丸める） */
-  priority: z.number().int(),
-  title: z.string(),
-  /** 何を、どう変えるか（具体的に） */
-  what: z.string(),
-  /** なぜ（事実に基づく理由） */
-  why: z.string(),
-  /** 期待できること（数字を作らない。方向と根拠） */
-  expected: z.string(),
+  priority: z.number().int().describe("1〜3。1 = 今すぐ・効果が大きい"),
+  title: z.string().describe("40 文字以内の見出し"),
+  what: z.string().describe("何をどう変えるか。どのページの何を、を 200 文字以内で"),
+  why: z.string().describe("事実に基づく理由。100 文字以内"),
+  expected: z.string().describe("期待できること。数字を作らない。80 文字以内"),
   effort: z.enum(["low", "medium", "high"]),
-  factIds: FactIds,
+  factIds: FactIds.describe("根拠の事実 ID。1〜3 個"),
   /** 書き換え案があるとき（title / description / 見出しなど）。無ければ null */
-  before: z.string().nullable(),
-  after: z.string().nullable(),
+  before: z.string().nullable().describe("書き換え前の実物。無ければ null"),
+  after: z.string().nullable().describe("書き換え案。無ければ null"),
 });
 
 export const ClaimSchema = z.object({
@@ -33,22 +35,16 @@ export const ClaimSchema = z.object({
 });
 
 export const AnalysisSchema = z.object({
-  /** 1 文の結論 */
-  headline: z.string(),
-  /** 現状分析（段落。2〜6 段落） */
-  situation: z.array(z.string()),
-  strengths: z.array(ClaimSchema),
-  weaknesses: z.array(ClaimSchema),
-  /** 改善案（5〜15 件） */
-  recommendations: z.array(RecommendationSchema),
+  headline: z.string().describe("1 文の結論。60 文字以内"),
+  situation: z.array(z.string()).describe("現状。2〜3 段落、1 段落 200 文字以内"),
+  strengths: z.array(ClaimSchema).describe("強み。最大 3 件、1 件 80 文字以内"),
+  weaknesses: z.array(ClaimSchema).describe("弱み。最大 4 件、1 件 80 文字以内"),
+  recommendations: z.array(RecommendationSchema).describe("改善案。5〜6 件（多く出さない）"),
   consultant: z.object({
-    /** この状況で「普通のコンサル」が言いそうなこと */
-    typical: z.array(z.string()),
-    /** 数字を見たうえで本当に言うべきこと */
-    real: z.array(z.string()),
+    /** 数字を見たうえで本当に言うべきこと（2026-09-19: typical は廃止） */
+    real: z.array(z.string()).describe("この数字を見たからこそ言えること。最大 3 件、1 件 150 文字以内"),
   }),
-  /** 推測・データ不足で断定できない点 */
-  cautions: z.array(z.string()),
+  cautions: z.array(z.string()).describe("データ不足で断定できない点。最大 3 件、1 件 80 文字以内"),
 });
 
 export type Analysis = z.infer<typeof AnalysisSchema>;
@@ -67,18 +63,18 @@ export type Comment = z.infer<typeof CommentSchema>;
 /* ───────────── 受け取ったあとの切り詰め（保存する量を縛る） ───────────── */
 
 export const LIMITS = {
-  headline: 200,
-  paragraph: 1000,
-  short: 400,
-  long: 800,
+  headline: 120,
+  paragraph: 600,
+  short: 300,
+  long: 500,
   factId: 12,
-  factIds: 8,
-  situation: 6,
-  strengths: 5,
-  weaknesses: 8,
-  recommendations: 15,
-  consultant: 5,
-  cautions: 6,
+  factIds: 3,
+  situation: 3,
+  strengths: 3,
+  weaknesses: 4,
+  recommendations: 6,
+  consultant: 3,
+  cautions: 3,
   points: 6,
   actions: 5,
   disagreements: 6,
@@ -99,7 +95,7 @@ export function tidyAnalysis(a: Analysis): Analysis {
     weaknesses: list(a.weaknesses, LIMITS.weaknesses).map((w) => ({ text: cut(w.text, LIMITS.short), factIds: ids(w.factIds) })),
     recommendations: list(a.recommendations, LIMITS.recommendations).map((r) => ({
       priority: Math.min(3, Math.max(1, Math.round(r.priority))) as 1 | 2 | 3,
-      title: cut(r.title, 120),
+      title: cut(r.title, 80),
       what: cut(r.what, LIMITS.long),
       why: cut(r.why, LIMITS.short),
       expected: cut(r.expected, LIMITS.short),
@@ -108,10 +104,7 @@ export function tidyAnalysis(a: Analysis): Analysis {
       before: r.before ? cut(r.before, LIMITS.short) : null,
       after: r.after ? cut(r.after, LIMITS.short) : null,
     })),
-    consultant: {
-      typical: strs(a.consultant.typical, LIMITS.consultant, LIMITS.short),
-      real: strs(a.consultant.real, LIMITS.consultant, LIMITS.long),
-    },
+    consultant: { real: strs(a.consultant.real, LIMITS.consultant, LIMITS.long) },
     cautions: strs(a.cautions, LIMITS.cautions, LIMITS.short),
   };
 }
