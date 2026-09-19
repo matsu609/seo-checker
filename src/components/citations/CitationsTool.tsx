@@ -16,7 +16,6 @@ import { useSharedSettings } from "@/lib/settings/client";
 import {
   Badge,
   Button,
-  ButtonLink,
   Callout,
   Card,
   DataTable,
@@ -222,12 +221,7 @@ export function CitationsTool() {
 
           <Card
             title="主要媒体の掲載状況"
-            description="通常の検索結果に出てくる媒体だけを数えています。地図アプリ（Google / Apple / Bing など）は登録していても検索結果にほとんど出ないので、ここには出しません。掲載状況は基本情報掲載で管理してください。"
-            actions={
-              <ButtonLink href="/tools/listings" size="sm" variant="secondary">
-                基本情報掲載を開く
-              </ButtonLink>
-            }
+            description="通常の検索結果に出てくる媒体だけを数えています。地図アプリ（Google / Apple / Bing など）は登録していても検索結果にほとんど出ないので、ここには出しません。掲載状況の管理と登録は、上の「掲載先に登録する」タブで行います。"
           >
             <ul className="divide-y divide-line border-y border-line">
               {data.coverage.map((c) => (

@@ -173,7 +173,7 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
     statusNote: "ログイン中のあなたの Google アカウントの接続状態です（お客様ごとに別。設定画面の「Google 連携」で接続し、business.manage の権限を許可すると接続済みになります）",
     description: "お客様の Google アカウント（オーナー権限）で動く 4 つの API: ① My Business Account Management API v1（アカウント・店舗の一覧）② My Business Business Information API v1（店舗情報）③ Business Profile Performance API v1（Google での見られ方: 検索・マップの表示回数、電話・経路・サイトのクリック、検索語）④ Google My Business API v4（口コミの取得と返信。Google の承認が要る。2026-09-11 に申請）。鍵は無く、Clerk の Google SSO（独自のクレデンシャル + スコープ business.manage）で許可を受ける",
     pricing: "無料（Google Cloud の請求は発生しない。Places API とは別）",
-    limits: "① ② ③ は Google Cloud で有効化済み（2026-09-18）。④ は Business Profile API の利用申請が承認されるまで API ライブラリに出ず、口コミの取得・返信が動かない（`/tools/replies` が「承認待ち」の案内を出す）。承認後に API を有効化する。割り当ては 1 分あたりの回数で、通常の利用では当たらない",
+    limits: "① ② ③ は Google Cloud で有効化済み（2026-09-18）。④ は Business Profile API の利用申請が承認されるまで API ライブラリに出ず、口コミの取得・返信が動かない（口コミの「返す」タブが「承認待ち」の案内を出す）。承認後に API を有効化する。割り当ては 1 分あたりの回数で、通常の利用では当たらない",
     usage: "MEO の「Google での見られ方」1 回 = Performance API 2 回（日次指標 + 検索語。6 時間キャッシュ）。口コミ返信 = 口コミ一覧 1 回 + 返信 1 回",
     links: [
       { label: "OAuth（Google Auth Platform）", url: "https://console.cloud.google.com/auth/overview?project=seo-checker-508104" },

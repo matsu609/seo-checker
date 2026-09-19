@@ -35,8 +35,8 @@ describe("AIO 対策（親）の中の 3 本の柱", () => {
     // 並びは「診断 → やること → 成果」（利用者の決定 2026-09-19）
     expect(tree.pillars.map((p) => [p.category.id, p.features.map((f) => f.id)])).toEqual([
       ["seo", ["seo-analysis", "page-improve", "writing", "rank"]],
-      ["meo", ["maps", "reviews", "replies"]],
-      ["citation", ["citations", "listings", "llms-txt"]],
+      ["meo", ["maps", "reviews"]],
+      ["citation", ["citations", "llms-txt"]],
     ]);
     expect(tree.common.map((f) => f.id)).toEqual(["plans", "settings"]);
     // 木に出るのは hidden でないツールの全部（漏れも重複も無い）
