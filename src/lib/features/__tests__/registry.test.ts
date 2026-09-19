@@ -36,7 +36,7 @@ describe("AIO 対策（親）の中の 3 本の柱", () => {
     expect(tree.pillars.map((p) => [p.category.id, p.features.map((f) => f.id)])).toEqual([
       ["seo", ["seo-analysis", "page-improve", "writing", "rank"]],
       ["meo", ["maps", "reviews"]],
-      ["citation", ["citations", "llms-txt"]],
+      ["citation", ["citations"]],
     ]);
     expect(tree.common.map((f) => f.id)).toEqual(["plans", "settings"]);
     // 木に出るのは hidden でないツールの全部（漏れも重複も無い）

@@ -5,17 +5,18 @@
  *
  * 1. 店舗を選ぶ（MEO の自社店舗）。掲載状況の集計
  * 2. 基本情報（正）を決める: Google マップの公開情報から取り込み → 表記ゆれの確認 → AI で説明文 → 保存
- * 3. 媒体一覧: 無料で自分で登録できる媒体は登録画面へ。自動で流れる媒体・配信代行のみの媒体は区別して表示。
- *    媒体ごとに状況（未登録 / 申請中 / 掲載済み / 対象外）・掲載 URL・メモを控える
- * 4. サイトに貼る構造化データ（LocalBusiness）
+ * 3. 一括登録: API で送れる媒体にまとめて送り、入稿ファイルを作り、残りは手順を出す（利用者の指示 2026-09-19）
+ * 4. 媒体一覧: 媒体ごとに状況（未登録 / 申請中 / 掲載済み / 対象外）・掲載 URL・メモを控える
+ * 5. サイトに貼る構造化データ（LocalBusiness）
  *
- * 無料で全媒体に一斉登録できる API は存在しない（Uberall / Yext などの配信代行は有料）。
- * このツールは「1 か所で決めた内容を、各媒体にそのまま貼る」手間を最小にし、掲載状況を管理する。
+ * 全媒体をワンクリックで登録できる仕組みは存在しない（配信代行の Uberall / Yext は有料の契約）。
+ * 送れるところは API で送り、送れないところは入稿ファイルと手順に落とす。
+ * ブラウザ自動化による代理入力はしない（各媒体の規約違反・アカウント停止のもと）。
  */
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { ListingsDescribeResponse } from "@/app/api/listings/describe/route";
 import type { ListingsProfileResponse } from "@/app/api/listings/profile/route";
+import type { ListingsPublishResponse } from "@/app/api/listings/publish/route";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
 import { useSharedSettings } from "@/lib/settings/client";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
@@ -26,7 +27,20 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { HINT_MAX } from "@/lib/listings/constants";
-import { LISTING_MEDIA, MEDIA_KIND_DESCRIPTIONS, MEDIA_KIND_LABELS, mediaById, mediaOfKind, type ListingMedia, type MediaKind } from "@/lib/listings/media";
+import {
+  LISTING_MEDIA,
+  MEDIA_INTEGRATION_DESCRIPTIONS,
+  MEDIA_INTEGRATION_LABELS,
+  MEDIA_KIND_DESCRIPTIONS,
+  MEDIA_KIND_LABELS,
+  mediaById,
+  mediaOfIntegration,
+  mediaOfKind,
+  type ListingMedia,
+  type MediaIntegration,
+  type MediaKind,
+} from "@/lib/listings/media";
+import { missingRequired, publishTargets, summarizeResults, type PublishFile, type PublishOutcome, type PublishResult } from "@/lib/listings/publish";
 import {
   ADDRESS_MAX,
   CATEGORY_MAX,
@@ -85,6 +99,30 @@ const KINDS: readonly MediaKind[] = ["self", "fed", "aggregator"];
 
 const STATUS_TONE: Record<ListingStatus, "neutral" | "warn" | "pass" | "info"> = { todo: "neutral", submitted: "warn", live: "pass", skip: "info" };
 
+/** 一括登録の結果。並べる順（送れた → ファイル → 手入力 → 自動反映 → 失敗） */
+const OUTCOMES: readonly PublishOutcome[] = ["sent", "file", "manual", "monitor", "failed"];
+const OUTCOME_LABELS: Record<PublishOutcome, string> = {
+  sent: "送りました",
+  file: "入稿ファイルを作りました",
+  manual: "画面で入力してください",
+  monitor: "自動反映を待ちます",
+  failed: "送れませんでした",
+};
+const OUTCOME_TONE: Record<PublishOutcome, "pass" | "info" | "neutral" | "warn" | "fail"> = {
+  sent: "pass", file: "info", manual: "neutral", monitor: "neutral", failed: "fail",
+};
+const INTEGRATION_TONE: Record<MediaIntegration, "pass" | "info" | "neutral"> = { api: "pass", file: "info", manual: "neutral", monitor: "neutral" };
+
+/** 入稿ファイルを保存する（CSV。Excel で開けるよう BOM 付き） */
+function downloadFile(file: PublishFile) {
+  const url = URL.createObjectURL(new Blob([file.content], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function ListingsTool() {
   // 「サイト」欄は設定に登録したホームページを初期値にする（各タブで URL を打ち直させない）
   const site = useRegisteredSite();
@@ -104,6 +142,9 @@ export function ListingsTool() {
   const [describing, setDescribing] = useState(false);
   const [describeError, setDescribeError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publish, setPublish] = useState<{ results: PublishResult[]; files: PublishFile[] } | null>(null);
 
   /** 選んだ店舗の記録を画面に読み込む */
   function selectStore(item: ListingsStoreItem | null) {
@@ -115,6 +156,8 @@ export function ListingsTool() {
     setDirty(false);
     setSaveError(null);
     setSaveMessage(null);
+    setPublish(null);
+    setPublishError(null);
   }
 
   useEffect(() => {
@@ -147,6 +190,10 @@ export function ListingsTool() {
   const summary = useMemo(() => summarizeStates(states), [states]);
   const text = useMemo(() => profileToText(profile), [profile]);
   const jsonLd = useMemo(() => jsonLdScript(profile), [profile]);
+  /** 一括登録に足りない必須項目と、今回の対象になる媒体 */
+  const missing = useMemo(() => missingRequired(profile), [profile]);
+  const targets = useMemo(() => publishTargets(states), [states]);
+  const publishCounts = useMemo(() => (publish ? summarizeResults(publish.results) : null), [publish]);
 
   function update<K extends keyof ListingProfile>(key: K, value: ListingProfile[K]) {
     if (key === "website") setWebsiteTouched(true);
@@ -210,6 +257,24 @@ export function ListingsTool() {
     }
   }
 
+  async function runPublish() {
+    if (!store) return;
+    setPublishing(true);
+    setPublishError(null);
+    setPublish(null);
+    try {
+      const res = await request<ListingsPublishResponse>("/api/listings/publish", { method: "POST", body: JSON.stringify({ placeId: store.placeId }) });
+      setPublish({ results: res.results, files: res.files });
+      setStates(res.record.states);
+      setSavedAt(res.record.updatedAt);
+      setData((d) => (d ? { ...d, stores: d.stores.map((x) => (x.placeId === store.placeId ? { ...x, record: res.record } : x)) } : d));
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : "一括登録に失敗しました");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   async function copy(key: string, value: string) {
     setCopied((await copyText(value)) ? key : null);
     window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
@@ -234,7 +299,7 @@ export function ListingsTool() {
             <strong>無料で自分で登録できる媒体</strong>（Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap など）は、登録画面へ直接進み、下の基本情報をコピーして貼り付けます。
           </li>
           <li>
-            <strong>無料で全媒体にワンクリック登録できる仕組みはありません。</strong>「一括同期」ができるのは Uberall や Yext などの配信代行サービス（有料。店舗ごとに月額）だけで、Acompio や Opendi などはその経由でしか載りません。Siri やカーナビ各社は Apple / HERE / TomTom に載せると自動で流れます。
+            <strong>「一括登録」で API に送れるのは Google ビジネス プロフィールだけです。</strong>Yahoo!プレイスと Bing は公式の一括入稿ファイル（CSV）を作り、残りの媒体は登録画面と貼り付け用の基本情報を出します。全媒体をワンクリックで登録できる仕組みは存在せず、「一括同期」ができるのは Uberall や Yext などの配信代行サービス（有料。店舗ごとに月額）だけです。Siri やカーナビ各社は Apple / HERE / TomTom に載せると自動で流れます。
           </li>
         </ul>
       </Callout>
@@ -254,7 +319,7 @@ export function ListingsTool() {
             <strong>説明文は「何の店か」を AI に教える唯一の文章です。</strong>1 文目に店名・業種・地名を入れ、同じ文面を Google / Apple / Yahoo! / Bing に載せると、AI の要約がぶれません。
           </li>
           <li>
-            <strong>自社サイトの構造化データと llms.txt</strong> は、AI クローラが基本情報を読む入口です。媒体の情報とサイトの情報が一致していることが、引用される条件になります。
+            <strong>自社サイトの構造化データ</strong>は、AI クローラが基本情報を読む入口です。媒体の情報とサイトの情報が一致していることが、引用される条件になります。
           </li>
         </ul>
         <p className="mt-3 text-[12px] text-muted">効果の出方: 各媒体の反映に数日〜数週間、AI の回答への反映はさらに数週間〜数か月かかります。掲載後は MEO の診断と Google マップの検索順位で変化を追ってください。</p>
@@ -418,7 +483,102 @@ export function ListingsTool() {
             </div>
           </Card>
 
-          <Card number={3} title="媒体一覧" description="上から順に進めてください。各媒体で「登録画面を開く」→ 基本情報を貼り付け → 状況を控える。保存ボタンは上のカードにあります。">
+          <Card
+            number={3}
+            title="一括登録"
+            description="保存した基本情報を、送れる媒体にまとめて送ります。送れない媒体は入稿ファイルと手順に落とします。"
+          >
+            <Callout tone="info" title="何が起きるか" className="mb-4">
+              <ul className="list-disc space-y-1 pl-5">
+                {(["api", "file", "manual", "monitor"] as const).map((k) => (
+                  <li key={k}>
+                    <strong>
+                      {MEDIA_INTEGRATION_LABELS[k]}（{mediaOfIntegration(k).length} 媒体）
+                    </strong>
+                    : {MEDIA_INTEGRATION_DESCRIPTIONS[k]}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2">
+                お客様の ID / パスワードは預かりません。フォームの自動入力（ブラウザ自動化）も行いません（各媒体の規約で禁じられており、アカウント停止につながるためです）。
+              </p>
+            </Callout>
+            {missing.length > 0 && (
+              <Callout tone="warn" className="mb-4">
+                {missing.join("・")}が空です。上のカードで入力して保存すると実行できます。
+              </Callout>
+            )}
+            {dirty && (
+              <Callout tone="warn" className="mb-4">
+                未保存の変更があります。先に「保存する」を押してください（送るのは保存済みの内容です）。
+              </Callout>
+            )}
+            {publishError && (
+              <Callout tone="fail" className="mb-4">
+                {publishError}
+              </Callout>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" onClick={runPublish} loading={publishing} disabled={dirty || missing.length > 0 || targets.length === 0}>
+                {targets.length} 媒体に一括登録する
+              </Button>
+              <span className="text-[13px] text-muted">「掲載済み」と「対象外」にした媒体は送りません。</span>
+            </div>
+
+            {publish && publishCounts && (
+              <div className="mt-5 space-y-5">
+                <dl className="flex flex-wrap gap-x-6 gap-y-1 text-[13px]">
+                  {OUTCOMES.filter((o) => publishCounts[o] > 0).map((o) => (
+                    <div key={o}>
+                      <dt className="text-muted">{OUTCOME_LABELS[o]}</dt>
+                      <dd className="font-bold text-ink">{publishCounts[o]} 媒体</dd>
+                    </div>
+                  ))}
+                </dl>
+                {publish.files.length > 0 && (
+                  <section>
+                    <h3 className="text-[13px] font-bold text-ink">入稿ファイル</h3>
+                    <ul className="mt-2 space-y-3">
+                      {publish.files.map((f) => (
+                        <li key={f.id} className="flex flex-wrap items-start gap-3 rounded-sm border border-line bg-surface p-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-ink">{f.label}</p>
+                            <p className="mt-1 text-[12px] leading-relaxed text-muted">{f.howTo}</p>
+                          </div>
+                          <Button type="button" size="sm" variant="secondary" onClick={() => downloadFile(f)}>
+                            ダウンロード（{f.filename}）
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                <section>
+                  <h3 className="text-[13px] font-bold text-ink">媒体ごとの結果</h3>
+                  <ul className="mt-2 divide-y divide-line border-y border-line">
+                    {OUTCOMES.flatMap((o) => publish.results.filter((r) => r.outcome === o)).map((r) => (
+                      <li key={r.mediaId} className="flex flex-wrap items-start gap-x-3 gap-y-2 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-bold text-ink">{r.mediaName}</span>
+                            <Badge tone={OUTCOME_TONE[r.outcome]}>{OUTCOME_LABELS[r.outcome]}</Badge>
+                          </div>
+                          <p className="mt-1 text-[12px] leading-relaxed text-muted">{r.message}</p>
+                        </div>
+                        {r.url && (
+                          <ButtonLink href={r.url} external size="sm" variant="ghost">
+                            媒体を開く
+                          </ButtonLink>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </div>
+            )}
+          </Card>
+
+          <Card number={4} title="媒体一覧" description="上から順に進めてください。各媒体で「登録画面を開く」→ 基本情報を貼り付け → 状況を控える。保存ボタンは上のカードにあります。">
             <div className="mb-4 flex flex-wrap gap-2">
               {(
                 [
@@ -452,7 +612,7 @@ export function ListingsTool() {
           </Card>
 
           <Card
-            number={4}
+            number={5}
             title="サイトに貼る構造化データ"
             description="自社サイトの <head> か本文の末尾に貼ると、検索エンジンと生成 AI が基本情報（店名・住所・電話・営業時間）を読み取れます。"
             actions={
@@ -462,18 +622,12 @@ export function ListingsTool() {
             }
           >
             <Textarea aria-label="構造化データ" rows={12} readOnly value={jsonLd} className="font-mono text-[12px]" />
-            <p className="mt-2 text-[12px] text-muted">
-              営業時間は「月曜日: 10:00〜19:00」の形の行だけ変換されます。llms.txt も合わせて置くなら
-              <Link href="/tools/llms-txt" className="underline">
-                llms.txt 生成
-              </Link>
-              へ。
-            </p>
+            <p className="mt-2 text-[12px] text-muted">営業時間は「月曜日: 10:00〜19:00」の形の行だけ変換されます。</p>
           </Card>
         </>
       )}
       <p className="text-[12px] text-muted">
-        媒体は {LISTING_MEDIA.length} 件（自分で登録 {mediaOfKind("self").length}・自動で反映 {mediaOfKind("fed").length}・配信代行のみ {mediaOfKind("aggregator").length}）。
+        媒体は {LISTING_MEDIA.length} 件（自分で登録 {mediaOfKind("self").length}・自動で反映 {mediaOfKind("fed").length}・配信代行のみ {mediaOfKind("aggregator").length}）。 うち API で送れる {mediaOfIntegration("api").length}・入稿ファイル {mediaOfIntegration("file").length}・画面で入力 {mediaOfIntegration("manual").length}・自動反映 {mediaOfIntegration("monitor").length}。
       </p>
     </div>
   );
@@ -491,12 +645,14 @@ function MediaRow({ media, status, onChange }: { media: ListingMedia; status: Re
             <span className="font-mono text-[11px] text-muted">{media.id}</span>
             {media.priority === 3 && <Badge tone="info">必須</Badge>}
             {media.priority === 2 && <Badge tone="neutral">推奨</Badge>}
+            <Badge tone={INTEGRATION_TONE[media.integration]}>{MEDIA_INTEGRATION_LABELS[media.integration]}</Badge>
             <Badge tone={STATUS_TONE[status.status]}>{LISTING_STATUS_LABELS[status.status]}</Badge>
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-muted">
             {media.howTo}
             {fedBy.length > 0 && <span> 元の媒体: {fedBy.join("・")}。</span>}
           </p>
+          {media.tosNote && <p className="mt-1 text-[12px] leading-relaxed text-muted">※ {media.tosNote}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {media.kind === "self" ? (

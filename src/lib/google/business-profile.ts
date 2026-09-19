@@ -244,3 +244,97 @@ export async function deleteReply(reviewName: string, options: BusinessProfileOp
   const base = options.reviewsEndpoint ?? REVIEWS_ENDPOINT;
   await callApi(`${base}/${reviewName}/reply`, { method: "DELETE" }, options);
 }
+
+/* ───────────── 基本情報（NAP）の更新 ───────────── */
+
+/**
+ * 掲載（サイテーション）の「一括登録」で Google に送る内容。
+ *
+ * 住所は送らない（更新マスクに入れない）。日本語の住所 1 行を Google の構造化住所
+ * （administrativeArea / locality / addressLines）に機械的に割るのは危うく、
+ * 住所を書き換えると再審査（はがき）になって掲載が止まることがあるため。
+ * 住所は表記ゆれの確認で気付いてもらい、ビジネス プロフィールで直してもらう。
+ */
+export interface NapUpdate {
+  title: string;
+  phone: string;
+  website: string;
+  description: string;
+  hours: readonly { dayOfWeek: string; opens: string; closes: string }[];
+}
+
+const DAY_ENUM: Record<string, string> = {
+  Monday: "MONDAY", Tuesday: "TUESDAY", Wednesday: "WEDNESDAY", Thursday: "THURSDAY",
+  Friday: "FRIDAY", Saturday: "SATURDAY", Sunday: "SUNDAY",
+};
+
+/** "10:30" → { hours: 10, minutes: 30 }。読めなければ null */
+export function toTimeOfDay(value: string): { hours: number; minutes: number } | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!m) return null;
+  const hours = Number(m[1]);
+  const minutes = Number(m[2]);
+  if (hours > 24 || minutes > 59) return null;
+  return { hours, minutes };
+}
+
+/**
+ * 送る本文と updateMask を組み立てる（純粋関数）。
+ * 空の項目はマスクに入れない = 消さない（Google 側にある値を空で上書きしないため）。
+ */
+export function toLocationPatch(nap: NapUpdate): { body: Record<string, unknown>; updateMask: string } {
+  const body: Record<string, unknown> = {};
+  const mask: string[] = [];
+  if (nap.title.trim()) {
+    body.title = nap.title.trim();
+    mask.push("title");
+  }
+  if (nap.phone.trim()) {
+    body.phoneNumbers = { primaryPhone: nap.phone.trim() };
+    mask.push("phoneNumbers");
+  }
+  if (nap.website.trim()) {
+    body.websiteUri = nap.website.trim();
+    mask.push("websiteUri");
+  }
+  if (nap.description.trim()) {
+    body.profile = { description: nap.description.trim() };
+    mask.push("profile");
+  }
+  const periods = nap.hours
+    .map((h) => {
+      const day = DAY_ENUM[h.dayOfWeek];
+      const openTime = toTimeOfDay(h.opens);
+      const closeTime = toTimeOfDay(h.closes);
+      return day && openTime && closeTime ? { openDay: day, openTime, closeDay: day, closeTime } : null;
+    })
+    .filter((x): x is { openDay: string; openTime: { hours: number; minutes: number }; closeDay: string; closeTime: { hours: number; minutes: number } } => x !== null);
+  if (periods.length > 0) {
+    body.regularHours = { periods };
+    mask.push("regularHours");
+  }
+  return { body, updateMask: mask.join(",") };
+}
+
+/** "accounts/123/locations/456" → "locations/456"（Business Information v1 のリソース名） */
+export function toInformationName(locationName: string): string {
+  const id = locationName.split("/").pop() ?? "";
+  return `locations/${id}`;
+}
+
+/**
+ * ビジネスの基本情報を更新する。送るものが無ければ false を返す（呼び出しを起こさない）。
+ * 承認前・権限なしは mapError() が 403 の案内に変える。
+ */
+export async function updateLocationNap(locationName: string, nap: NapUpdate, options: BusinessProfileOptions = {}): Promise<boolean> {
+  if (!isLocationName(locationName)) throw new GoogleLinkError("ビジネスの指定が正しくありません。", "not_selected");
+  const { body, updateMask } = toLocationPatch(nap);
+  if (!updateMask) return false;
+  const base = options.informationEndpoint ?? INFORMATION_ENDPOINT;
+  await callApi(
+    `${base}/${toInformationName(locationName)}?updateMask=${encodeURIComponent(updateMask)}`,
+    { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) },
+    options,
+  );
+  return true;
+}

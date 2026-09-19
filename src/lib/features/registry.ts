@@ -54,7 +54,7 @@ export const AIO_CATEGORY: FeatureCategory = {
 export const FEATURE_CATEGORIES: readonly (FeatureCategory & { id: FeaturePillarId })[] = [
   { id: "seo", label: "SEO", description: "お持ちのホームページの最適化。診断・改修案・順位・キーワード・原稿" },
   { id: "meo", label: "MEO", description: "Google マップ・ビジネス プロフィールの改善、口コミ、競合比較" },
-  { id: "citation", label: "サイテーション", description: "基礎情報（店名・住所・電話）をウェブに揃えて載せる。掲載チェック・NAP 登録・llms.txt" },
+  { id: "citation", label: "サイテーション", description: "基礎情報（店名・住所・電話）をウェブに揃えて載せる。掲載チェック・NAP の一括登録" },
 ];
 
 /** 最初に開いたときに開いている柱（先頭） */
@@ -430,6 +430,10 @@ const FOUNDATION: readonly Feature[] = [
     // AI クローラに読ませる土台なので基礎対策（生成 → 移動。2026-09-17）
     group: "improve",
     category: "citation",
+    // 2026-09-19 サイドバーから外した（利用者の決定「llms.txt は顧客にやらせるべきではない」）。
+    // 生成したファイルをサーバーの / に置く作業がお客様側に発生し、専門的すぎる。
+    // 精密診断が llms.txt の有無と中身を見て、必要なら運用者が用意する。ページと API は残す
+    hidden: true,
     plan: "standard",
   },
 ];

@@ -13,6 +13,10 @@ import {
   parseReviews,
   replyToReview,
   starToNumber,
+  toInformationName,
+  toLocationPatch,
+  toTimeOfDay,
+  updateLocationNap,
 } from "../business-profile";
 import { GoogleLinkError } from "../errors";
 import { BUSINESS_PROFILE_SCOPE, canUse, missingScopes } from "../scopes";
@@ -117,5 +121,94 @@ describe("呼び出し", () => {
   it("403 は「API の承認・有効化」を案内する", async () => {
     const fetchImpl = vi.fn(async () => new Response("{}", { status: 403 })) as unknown as typeof fetch;
     await expect(listReviews("accounts/1/locations/2", null, { fetchImpl, getToken })).rejects.toMatchObject({ code: "forbidden", message: expect.stringContaining("利用申請") });
+  });
+});
+
+describe("toTimeOfDay", () => {
+  it("HH:MM を数値に分ける", () => {
+    expect(toTimeOfDay("10:30")).toEqual({ hours: 10, minutes: 30 });
+    expect(toTimeOfDay(" 9:05 ")).toEqual({ hours: 9, minutes: 5 });
+  });
+
+  it("読めない値は null", () => {
+    expect(toTimeOfDay("25:00")).toBeNull();
+    expect(toTimeOfDay("10:99")).toBeNull();
+    expect(toTimeOfDay("10時")).toBeNull();
+  });
+});
+
+describe("toLocationPatch", () => {
+  const nap = {
+    title: "テスト商会",
+    phone: "03-1234-5678",
+    website: "https://example.com",
+    description: "説明",
+    hours: [{ dayOfWeek: "Monday", opens: "10:00", closes: "19:00" }],
+  };
+
+  it("送る項目だけを updateMask に入れる", () => {
+    const { body, updateMask } = toLocationPatch(nap);
+    expect(updateMask).toBe("title,phoneNumbers,websiteUri,profile,regularHours");
+    expect(body.title).toBe("テスト商会");
+    expect(body.phoneNumbers).toEqual({ primaryPhone: "03-1234-5678" });
+    expect(body.regularHours).toEqual({
+      periods: [{ openDay: "MONDAY", openTime: { hours: 10, minutes: 0 }, closeDay: "MONDAY", closeTime: { hours: 19, minutes: 0 } }],
+    });
+  });
+
+  it("住所は決して送らない（再審査になるため）", () => {
+    expect(Object.keys(toLocationPatch(nap).body)).not.toContain("storefrontAddress");
+  });
+
+  it("空の項目は消さない（マスクに入れない）", () => {
+    const { body, updateMask } = toLocationPatch({ title: "", phone: " ", website: "", description: "", hours: [] });
+    expect(updateMask).toBe("");
+    expect(body).toEqual({});
+  });
+
+  it("読めない営業時間は落とす", () => {
+    const { updateMask } = toLocationPatch({ ...nap, hours: [{ dayOfWeek: "Funday", opens: "10:00", closes: "19:00" }] });
+    expect(updateMask).not.toContain("regularHours");
+  });
+});
+
+describe("toInformationName", () => {
+  it("accounts/… を locations/… に直す（Business Information v1 の形）", () => {
+    expect(toInformationName("accounts/123/locations/456")).toBe("locations/456");
+  });
+});
+
+describe("updateLocationNap", () => {
+  it("送るものが無ければ呼び出さない", async () => {
+    const fetchImpl = vi.fn();
+    const sent = await updateLocationNap(
+      "accounts/1/locations/2",
+      { title: "", phone: "", website: "", description: "", hours: [] },
+      { fetchImpl: fetchImpl as unknown as typeof fetch, getToken: async () => "t" },
+    );
+    expect(sent).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("PATCH を updateMask つきで送る", async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return Response.json({});
+    });
+    const sent = await updateLocationNap(
+      "accounts/1/locations/2",
+      { title: "テスト商会", phone: "", website: "", description: "", hours: [] },
+      { fetchImpl: fetchImpl as unknown as typeof fetch, getToken: async () => "t", informationEndpoint: "https://info.test/v1" },
+    );
+    expect(sent).toBe(true);
+    expect(calls[0]?.url).toBe("https://info.test/v1/locations/2?updateMask=title");
+    expect(calls[0]?.init?.method).toBe("PATCH");
+  });
+
+  it("ビジネスの指定が正しくなければ例外", async () => {
+    await expect(
+      updateLocationNap("locations/2", { title: "a", phone: "", website: "", description: "", hours: [] }, { getToken: async () => "t" }),
+    ).rejects.toThrow(GoogleLinkError);
   });
 });
