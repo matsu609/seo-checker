@@ -81,7 +81,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r119 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r120 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -3247,4 +3247,17 @@ git diff --quiet HEAD^ HEAD -- . ':(exclude)docs' ':(exclude)marketing' && exit 
 - 影響していた場所: AI 検索モニタリングのプロンプト登録（`savePrompt`）・キーワードの同期（`saveKeyword`）・観測（`saveObservations`）・クレジット台帳（`recordCredit`）・アカウントの更新、そして**ブラウザ側データの同期**（`saveUserStore`。`PUT /api/store` が毎回 502 を返していた。行は入るので同期は見かけ上動いていた）。DELETE は 204 なので無事だった。
 - 直し方（r119）: 204 / 205 に加えて**本文が空なら undefined を返す**ようにした（`res.text()` を読んでから `JSON.parse`）。壊れた JSON のときだけ従来どおり upstream。テスト 3 件を追加（201 + 空本文 / 204 と空白だけ / 正常な JSON と壊れた JSON）。lint / tsc / test 1,594 件 / build 通過。
 - 教訓: PostgREST の `return=minimal` は 204 ではなく 201 を返す。ステータスだけで本文の有無を判断しない。
+
+### 2026-09-19（精密診断: 止まって見える・入力欄・判定不能の 3 点、r120）
+
+- 利用者からスクリーンショット 3 枚と指示: ①「分析中のまま止まっている（壊れている）」②「メーターを付けて、いまどれくらい診断が終わったか表示して」③「入力ページの UI が分かりづらい。入力欄の大きさを変えたりせず、キーワードが 5 つまでなら枠を 5 つ設ける作りに」④「判定不能な項目が多い。これでは無料診断のほうが分かりやすい」。
+- 調べたこと: ①は壊れていたのではなく、**AI 分析（1〜3 分）のあいだ画面に何も出ない**設計だった（収集 11:30 → 画面 11:31〜32 で「AI が分析しています」の文だけ）。ただし AI 分析は 1 リクエストで最大 8,192 トークンを非ストリーミングで待つ形で、Vercel の 300 秒で無言で切られる可能性があり、そのときも画面は止まったままだった。④は CrUX の合否が LCP・INP・CLS の 3 指標がそろわないと「判定不能」になる設計（Chrome の利用者が少ないサイトは INP / CLS が載らない）と、`.jp` の登録日が RDAP（rdap.org）で 404 になること（JPRS は RDAP 未提供）が原因。
+- **やったこと（r120）**:
+  - AI 分析（`/api/seo-analysis/analyze`）を NDJSON に変更。2 秒ごとに `{type:"progress", elapsedMs, outputChars, attempt}` を流し（Anthropic SDK の `messages.stream` で出力文字数を数える）、最後に `result`。**270 秒で自分から打ち切って `error`（code: timeout）**。生成は画面を閉じても続けて保存する（`request.signal` に結ばない）。ブラウザ側は 290 秒で待ち切りにして「履歴から開き直して」と案内。
+  - メーター（`src/lib/seo-analysis/progress.ts`。純粋関数 + テスト）: クロール 0〜45%（取得ページ数 ÷ 見つかったページ数、上限 200）→ 採点 45〜50 → 速度・検索・ドメイン・llms.txt 50〜70（経過時間）→ 事実シート 70〜75 → AI 分析 75〜99（経過時間と出力文字数の大きいほう）。結果が来るまで 100 にしない。画面には % ・1 行の説明・5 段階のチェックリスト・経過時間・中止ボタン（`DiagnosisMeter`）。
+  - 入力欄: `seoAnalysisFormStore` の keywords / competitors を**固定枠の配列**（5 / 2）に。古い保存値（改行区切りの文字列）は `toSlots` で読める。テキストエリアを廃止し、Input 5 つ + 2 つ。左にキーワード 5 枠、右に目的・業種・地域・ブランド名・競合 2 枠。設定の値は「枠が全部空のとき」だけ入れる。
+  - 判定不能: `cwvVerdict()`（`src/lib/crux/parse.ts`）で**取れた指標だけで判定**し（最も悪い状態を採用）、足りない指標を「INP・CLS はデータ不足のため LCP で判定」と明記。報告書の KPI と事実シートの両方に反映。`.jp` の登録日は `src/lib/domain-power/whois-jp.ts`（`whois.jprs.jp` の TCP 43 番、`[Registered Date]` / `[登録年月日]` / `[Created on]` を解析）で補う。**この環境は外向きの TCP が無く本番でしか確かめられない**（失敗しても「未取得」に戻るだけ）。
+  - lint / tsc / test 1,610 件（+16）/ build 通過。
+- 残る「未取得」で直せないもの: Ahrefs の DR 0（外部リンクが本当に少ないサイトは 0 が実測値。無料 API の仕様）、対策キーワードの順位 0/3（実測）。Open PageRank は #86 で保留のまま。
+- 本番で確認してほしいこと: 精密診断を 1 回回して、①メーターが 0 → 100 まで動くか ②AI 分析が結果まで届くか（届かなければ画面のエラー文を教えてください）③ドメインパワーの「ドメインの年数」が取れるようになったか（wolf-g.jp）。
 
