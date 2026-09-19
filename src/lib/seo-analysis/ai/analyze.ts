@@ -17,6 +17,16 @@ import { unknownFactIds, unverifiedNumbers } from "./verify";
 /** プロンプトに載せる facts の上限（1 行 100 字前後 × 400 行 ≒ 40,000 字） */
 const MAX_FACT_LINES = 400;
 
+/**
+ * 出力の上限。**思考（adaptive thinking）もこの枠を使う**ので、報告書の JSON だけを見て
+ * 決めると足りなくなり、`stop_reason: "max_tokens"` で「出力が長すぎて途中で切れました」に
+ * なる（2026-09-19 の不具合。8,192 では毎回足りなかった）。ストリーミングなので大きくしても
+ * 接続は切れない。実際に使った分だけ課金される。
+ */
+const ANALYSIS_MAX_TOKENS = 32_000;
+/** 画面ごとの短い講評。こちらも思考の分を見込む */
+const COMMENT_MAX_TOKENS = 8_000;
+
 const SYSTEM_PROMPT = `あなたは中小企業のウェブサイトを 10 年以上改善してきた SEO コンサルタントです。日本語で書きます。
 
 守ること:
@@ -94,7 +104,7 @@ export async function generateAnalysis(sheet: SeoFactSheet, options: GenerateAna
       system: SYSTEM_PROMPT,
       prompt: [...base, ...extra].join("\n"),
       model: "default",
-      maxTokens: 8192,
+      maxTokens: ANALYSIS_MAX_TOKENS,
       signal: options.signal,
       ...(onProgress ? { onProgress: (p) => onProgress({ attempt: attempt + 1, outputChars: p.outputChars }) } : {}),
     });
@@ -151,7 +161,8 @@ export async function generateComment(title: string, facts: readonly Fact[], opt
     system: COMMENT_SYSTEM,
     prompt: [`次は「${title}」の事実です。この数字から言えること（要約 1 段落・ポイント・次にやること）を書いてください。`, "", ...untrustedLines(factsToLines(trimmed))].join("\n"),
     model: "default",
-    maxTokens: 2048,
+    maxTokens: COMMENT_MAX_TOKENS,
+    effort: "medium",
     signal: options.signal,
   });
   const known = new Set(trimmed.map((f) => f.id));

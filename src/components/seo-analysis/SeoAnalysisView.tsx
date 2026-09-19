@@ -3,9 +3,10 @@
 /**
  * 精密診断の画面。
  *
- * 流れ: 入力 → 収集（NDJSON で進捗）→ AI 分析（別リクエスト）→ セカンドオピニオン（任意）→ 報告書。
- * 収集と分析を分けているのは、サーバーの実行時間の上限に収めるためと、
- * 同じ事実シートで AI 分析だけをやり直せるようにするため。
+ * 流れ: 入力 → 収集（NDJSON で進捗）→ 専門家のアドバイス（別リクエスト）→ 報告書。
+ * 収集とアドバイスを分けているのは、サーバーの実行時間の上限に収めるためと、
+ * 同じ事実シートでアドバイスだけを作り直せるようにするため。
+ * 画面では「AI 分析」と呼ばず「専門家のアドバイス」で統一する（利用者の指示 2026-09-19）。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Callout, Card, EmptyState, Field, Input, ProgressBar, Select } from "@/components/ui";
@@ -122,7 +123,7 @@ export function SeoAnalysisView() {
         void reloadMeta();
       } catch (err) {
         if (ac.signal.aborted) return;
-        setAnalysisError(err instanceof Error ? err.message : "AI 分析に失敗しました");
+        setAnalysisError(err instanceof Error ? err.message : "専門家のアドバイスを作れませんでした");
         setPhase("done");
       } finally {
         setAnalyzeProgress(null);
@@ -225,7 +226,7 @@ export function SeoAnalysisView() {
       {meta && !meta.enabled && (
         <Callout tone="warn" title="サーバーの設定が足りません" className="mb-6">
           精密診断には <code className="font-mono">SUPABASE_URL</code> / <code className="font-mono">SUPABASE_SERVICE_ROLE_KEY</code>（保存と回数制限）と{" "}
-          <code className="font-mono">ANTHROPIC_API_KEY</code>（AI 分析）が必要です。
+          <code className="font-mono">ANTHROPIC_API_KEY</code>（専門家のアドバイス）が必要です。
         </Callout>
       )}
       {metaError && (
@@ -330,6 +331,36 @@ export function SeoAnalysisView() {
 
       {busy && <DiagnosisMeter phase={phase === "collecting" ? "collecting" : "analyzing"} progress={progress} analyze={analyzeProgress} onAbort={abort} />}
 
+      {meta && meta.runs.length > 0 && (
+        <Card
+          className="mb-6"
+          title="診断の履歴"
+          description="保存されている診断です。開くと報告書をそのまま読み直せます（アドバイスだけを作り直すこともできます）。"
+        >
+          <ul className="divide-y divide-line border-y border-line text-[13px]">
+            {meta.runs.map((r: RunSummary) => {
+              const current = loaded?.runId === r.id;
+              return (
+                <li key={r.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 py-2 ${current ? "bg-accent-soft px-2" : ""}`}>
+                  <span className="tabular-nums text-muted">{formatDateTime(r.createdAt)}</span>
+                  <button type="button" className="font-bold text-accent underline-offset-2 hover:underline" onClick={() => void open(r.id)} disabled={busy}>
+                    {hostOf(r.origin)}
+                  </button>
+                  <Badge tone={r.status === "analyzed" ? "pass" : r.status === "failed" ? "fail" : "neutral"} icon={false}>
+                    {r.status === "analyzed" ? "アドバイスあり" : r.status === "failed" ? "失敗" : "診断のみ"}
+                  </Badge>
+                  {current && <Badge tone="info" icon={false}>表示中</Badge>}
+                  {r.headline && <span className="min-w-0 flex-1 truncate text-muted">{r.headline}</span>}
+                  <button type="button" className="ml-auto text-[12px] text-muted underline-offset-2 hover:underline" onClick={() => void remove(r.id)}>
+                    削除
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+
       {phase === "error" && error && (
         <Callout tone="fail" title="分析できませんでした" className="mb-6">
           {error}
@@ -351,32 +382,11 @@ export function SeoAnalysisView() {
         phase !== "collecting" && (
           <EmptyState
             title="まだ分析していません"
-            description="「分析する」を押すと、設定に登録したホームページについて、サイト全体のクロール・主要ページの速度・検索順位・Google 連携の数字を事実シートにまとめ、AI が現状分析と改善案を書きます。"
+            description="「分析する」を押すと、サイト全体をクロールして課題・速度・検索順位・ドメインの情報を集め、その数字だけを根拠に専門家のアドバイス（現状と改善案）を作ります。"
           />
         )
       )}
 
-      {meta && meta.runs.length > 0 && (
-        <Card className="mt-6" title="分析の履歴" description="保存されている分析です。開くと報告書を再表示します（AI 分析はやり直せます）。">
-          <ul className="divide-y divide-line border-y border-line text-[13px]">
-            {meta.runs.map((r: RunSummary) => (
-              <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
-                <button type="button" className="text-accent underline-offset-2 hover:underline" onClick={() => void open(r.id)}>
-                  {hostOf(r.origin)}
-                </button>
-                <span className="tabular-nums text-muted">{formatDateTime(r.createdAt)}</span>
-                <Badge tone={r.status === "analyzed" ? "pass" : r.status === "failed" ? "fail" : "neutral"} icon={false}>
-                  {r.status === "analyzed" ? "分析済み" : r.status === "failed" ? "失敗" : "収集のみ"}
-                </Badge>
-                {r.headline && <span className="min-w-0 flex-1 truncate text-muted">{r.headline}</span>}
-                <button type="button" className="text-[12px] text-muted underline-offset-2 hover:underline" onClick={() => void remove(r.id)}>
-                  削除
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
     </>
   );
 }
@@ -391,8 +401,8 @@ interface DiagnosisMeterProps {
 }
 
 /**
- * 診断全体（収集 4 段階 + AI 分析）を 1 本のメーターで見せる（利用者の指示 2026-09-19）。
- * ステージが変わった時刻を覚えておき、時間で進むステージ（速度取得・AI 分析）は 1 秒ごとに描き直す。
+ * 診断全体（収集 4 段階 + 専門家のアドバイス）を 1 本のメーターで見せる（利用者の指示 2026-09-19）。
+ * ステージが変わった時刻を覚えておき、時間で進むステージ（速度取得・アドバイス）は 1 秒ごとに描き直す。
  */
 function DiagnosisMeter({ phase, progress, analyze, onAbort }: DiagnosisMeterProps) {
   const stage: DiagnosisStageId = phase === "analyzing" ? "analyze" : progress ? stageOfStep(progress.step) : "crawl";

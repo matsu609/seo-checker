@@ -16,6 +16,8 @@ export interface StructuredOptions<S extends z.ZodType> {
   /** MODELS のキー、または直接モデル ID。既定 "default" */
   model?: ModelKind | (string & {});
   maxTokens?: number;
+  /** 思考の深さ（低いほど速くて安い）。既定はモデル既定（high） */
+  effort?: "low" | "medium" | "high";
   temperature?: number;
   /** Web 検索などのサーバーツール */
   tools?: Anthropic.Messages.ToolUnion[];
@@ -59,7 +61,7 @@ export async function generateStructured<S extends z.ZodType>(
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {}),
     messages,
-    output_config: { format: zodOutputFormat(options.schema) },
+    output_config: { format: zodOutputFormat(options.schema), ...(options.effort ? { effort: options.effort } : {}) },
   };
   const requestOptions = options.signal ? { signal: options.signal } : undefined;
 

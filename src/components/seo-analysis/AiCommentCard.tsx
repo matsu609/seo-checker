@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 画面ごとの AI 分析（利用者の指示: 個々の分析結果ごとに AI の分析を見られるように）。
+ * カードごとの短い講評（利用者の指示: 個々の結果ごとに読み解きを見られるように）。
  * 渡された facts だけを AI に読ませ、要約・ポイント・次にやることを出す。
  */
 import { useMemo, useState } from "react";
@@ -36,12 +36,12 @@ export function AiCommentCard({
     try {
       const out = await requestComment(title, facts);
       if (!out) {
-        setState({ loading: false, error: "ANTHROPIC_API_KEY が未設定のため AI 分析はできません", result: null });
+        setState({ loading: false, error: "ANTHROPIC_API_KEY が未設定のため講評は作れません", result: null });
         return;
       }
       setState({ loading: false, error: null, result: out });
     } catch (err) {
-      setState({ loading: false, error: err instanceof Error ? err.message : "AI 分析に失敗しました", result: null });
+      setState({ loading: false, error: err instanceof Error ? err.message : "講評を作れませんでした", result: null });
     }
   }
 
@@ -59,7 +59,7 @@ export function AiCommentCard({
     >
       {aiEnabled === false && (
         <p className="text-[13px] text-muted">
-          AI 分析には <code className="font-mono">ANTHROPIC_API_KEY</code> の設定が必要です。
+          講評には <code className="font-mono">ANTHROPIC_API_KEY</code> の設定が必要です。
         </p>
       )}
       {state.error && (

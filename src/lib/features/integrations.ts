@@ -60,10 +60,10 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
     key: "anthropic",
     label: "Anthropic（Claude）",
     envVars: ["ANTHROPIC_API_KEY"],
-    description: "FAQ 生成・LLM サマリー・LLMO（Claude）・プロンプト拡張・AI ライティング・精密診断の AI 分析",
+    description: "FAQ 生成・LLM サマリー・LLMO（Claude）・プロンプト拡張・AI ライティング・精密診断の専門家アドバイス",
     pricing: "従量制（Console で前払いクレジットを買う。Claude Pro / Max の定額プランでは使えない）。100 万トークンあたり Claude Opus 5 = 入力 $5 / 出力 $25、Claude Haiku 4.5 = 入力 $1 / 出力 $5。プロンプトキャッシュの読み取りは入力の約 1/10",
     limits: "組織の利用階層（Tier）ごとに 1 分あたりのリクエスト数・トークン数の上限があり、超えると 429。クレジット残高が 0 になると全機能の AI が止まる（Console の Billing で自動チャージを設定できる）",
-    usage: "精密診断の AI 分析 1 回 = Opus 5 で数万トークン（事実シートの量で変わる。数十〜数百円）。MEO の AI 総評 1 回 ≈ 5 円。FAQ 生成・判定・分類は Haiku 4.5（`LLM_FAST_MODEL`）",
+    usage: "精密診断の専門家アドバイス 1 回 = Opus 5 で数万トークン（事実シートの量で変わる。数十〜数百円）。MEO の AI 総評 1 回 ≈ 5 円。FAQ 生成・判定・分類は Haiku 4.5（`LLM_FAST_MODEL`）",
     links: [
       { label: "料金", url: "https://docs.claude.com/en/docs/about-claude/pricing" },
       { label: "レート制限", url: "https://docs.claude.com/en/api/rate-limits" },

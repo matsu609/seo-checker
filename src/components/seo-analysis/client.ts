@@ -95,7 +95,7 @@ export async function requestAnalyze(
       body: JSON.stringify({ runId }),
       signal: controller.signal,
     });
-    if (!res.ok) throw await errorOf(res, "AI 分析に失敗しました");
+    if (!res.ok) throw await errorOf(res, "専門家のアドバイスを作れませんでした");
 
     let done: { analysis: AnalysisRecord; analysisCount: number } | undefined;
     let failure: { error: string; code?: string } | undefined;
@@ -107,15 +107,15 @@ export async function requestAnalyze(
       } else if (ev.type === "result") {
         done = { analysis: ev.analysis as AnalysisRecord, analysisCount: Number(ev.analysisCount ?? 0) };
       } else if (ev.type === "error") {
-        failure = { error: String(ev.error ?? "AI 分析に失敗しました"), code: typeof ev.code === "string" ? ev.code : undefined };
+        failure = { error: String(ev.error ?? "専門家のアドバイスを作れませんでした"), code: typeof ev.code === "string" ? ev.code : undefined };
       }
     });
     if (failure) throw new SeoAnalysisError(failure.error, failure.code);
-    if (!done) throw new SeoAnalysisError("AI 分析の結果を受信できませんでした（通信が途中で切れた可能性があります）。「AI 分析をやり直す」を押すか、履歴から開き直してください");
+    if (!done) throw new SeoAnalysisError("アドバイスの結果を受信できませんでした（通信が途中で切れた可能性があります）。「アドバイスを作り直す」を押すか、履歴から開き直してください");
     return done;
   } catch (err) {
     if (controller.signal.aborted && !options.signal?.aborted) {
-      throw new SeoAnalysisError("AI 分析の応答が届きませんでした。分析はサーバーで続いていることがあるので、しばらくして履歴から開き直してください", "timeout");
+      throw new SeoAnalysisError("アドバイスの応答が届きませんでした。作成はサーバーで続いていることがあるので、しばらくして履歴から開き直してください", "timeout");
     }
     throw err;
   } finally {
@@ -149,7 +149,7 @@ export async function deleteRunRequest(id: string): Promise<void> {
   if (!res.ok && res.status !== 204) throw await errorOf(res, "削除できませんでした");
 }
 
-/** 画面ごとの AI 分析。未設定（503）なら null */
+/** 画面ごとの短い講評。未設定（503）なら null */
 export async function requestComment(title: string, facts: Fact[], signal?: AbortSignal): Promise<{ comment: Comment; model: string } | null> {
   const res = await fetch("/api/seo-analysis/comment", {
     method: "POST",
@@ -158,6 +158,6 @@ export async function requestComment(title: string, facts: Fact[], signal?: Abor
     signal,
   });
   if (res.status === 503) return null;
-  if (!res.ok) throw await errorOf(res, "AI 分析に失敗しました");
+  if (!res.ok) throw await errorOf(res, "専門家のアドバイスを作れませんでした");
   return (await res.json()) as { comment: Comment; model: string };
 }

@@ -1,5 +1,5 @@
 /**
- * POST /api/seo-analysis/analyze { runId } — 保存済みの事実シートを Claude に分析させる。
+ * POST /api/seo-analysis/analyze { runId } — 保存済みの事実シートから「専門家のアドバイス」を作る（Claude）。
  * 1 回の収集につき MAX_ANALYSES_PER_RUN 回までやり直せる（回数制限は消費しない）。
  *
  * 応答は NDJSON（2026-09-19）:
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   }
   if (!run) return Response.json({ error: "分析が見つかりません" }, { status: 404 });
   if (run.analysisCount >= MAX_ANALYSES_PER_RUN) {
-    return Response.json({ error: `この収集結果に対する AI 分析は ${MAX_ANALYSES_PER_RUN} 回までです。新しく収集してください`, code: "limit" }, { status: 429 });
+    return Response.json({ error: `この診断結果に対するアドバイスの作り直しは ${MAX_ANALYSES_PER_RUN} 回までです。新しく診断してください`, code: "limit" }, { status: 429 });
   }
   const sheet = run.sheet;
   const runId = run.id;
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         send({ type: "result", analysis: record, analysisCount: nextCount });
       } catch (err) {
         if (deadline.signal.aborted) {
-          send({ type: "error", error: `AI 分析が ${Math.round(DEADLINE_MS / 60_000)} 分以内に終わりませんでした。「AI 分析をやり直す」を押してください`, code: "timeout" });
+          send({ type: "error", error: `アドバイスの作成が ${Math.round(DEADLINE_MS / 60_000)} 分以内に終わりませんでした。「アドバイスを作り直す」を押してください`, code: "timeout" });
         } else if (err instanceof DbError) {
           send({ type: "error", error: err.message, code: err.code });
         } else {

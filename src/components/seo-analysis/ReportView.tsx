@@ -2,8 +2,11 @@
 
 /**
  * 精密診断の報告書。
- * 上から: KPI → 結論と現状分析 → 改善案 → 強み・弱み → コンサルの視点 → 速度 → 付録。
- * すべての主張に事実 ID のチップが付く。
+ * 上から: まとめ（総合スコア・ひとこと・要点）→ KPI → 専門家のアドバイス（結論・改善案・強み弱み）
+ * → 速度 → 付録。すべての主張に事実 ID のチップが付く。
+ *
+ * 「AI 分析」という言い方はやめ、画面では「専門家のアドバイス」で統一する（利用者の指示 2026-09-19）。
+ * 中身が AI の生成物であることは、アドバイスのカードの末尾に 1 行だけ書く。
  */
 import { useMemo, useRef, useState } from "react";
 import { AuditCategoryTable } from "@/components/site-audit/AuditCategoryTable";
@@ -14,7 +17,7 @@ import { DomainPowerCard } from "./DomainPowerCard";
 import { LlmsTxtCard } from "./LlmsTxtCard";
 import { StructureCard } from "./StructureCard";
 import { TrustCard } from "./TrustCard";
-import { Sparkline } from "@/components/charts";
+import { Donut, HBar, Sparkline } from "@/components/charts";
 import { Badge, Button, Callout, Card, StatCard } from "@/components/ui";
 import { CRUX_METRIC_LABELS, CRUX_STATUS_LABELS, type CruxMetricId } from "@/lib/crux/types";
 import { cwvVerdict, formatCrux } from "@/lib/crux/parse";
@@ -23,6 +26,7 @@ import { downloadPdf } from "@/lib/pdf/download";
 import type { AnalysisRecord } from "@/lib/seo-analysis/ai/schema";
 import { GOAL_LABELS, type Fact, type SeoFactSheet } from "@/lib/seo-analysis/sheet/types";
 import { fmt, formatDateTime, hostOf } from "@/lib/report";
+import { gradeOf } from "@/lib/ui/grade";
 import { FactChips, FactsAppendix } from "./FactsAppendix";
 
 const EFFORT_LABELS = { low: "小", medium: "中", high: "大" } as const;
@@ -77,7 +81,7 @@ export function ReportView(props: ReportViewProps) {
         <div className="flex flex-wrap gap-2">
           {props.onReanalyze && (
             <Button variant="secondary" size="sm" loading={props.analyzing} disabled={props.analysisCount >= props.maxAnalyses} onClick={props.onReanalyze}>
-              AI 分析をやり直す（{props.analysisCount} / {props.maxAnalyses}）
+              アドバイスを作り直す（{props.analysisCount} / {props.maxAnalyses}）
             </Button>
           )}
           <Button variant="secondary" size="sm" loading={pdfBusy} disabled={!a} onClick={() => void toPdf()}>
@@ -87,6 +91,8 @@ export function ReportView(props: ReportViewProps) {
       </div>
 
       <div ref={sheetRef} className="space-y-6">
+        <SummaryCard sheet={sheet} headline={a?.headline ?? null} analyzing={props.analyzing} />
+
         <div className={`grid gap-3 ${domain ? "@2xl:grid-cols-5" : "@2xl:grid-cols-4"}`}>
           <StatCard label="対象サイト" value={<span className="text-base break-all">{hostOf(site.origin)}</span>} hint={`${fmt(site.crawl.analyzed)} ページを診断`} />
           <StatCard label="検出した課題" value={fmt(issueTotal)} unit="件" hint={`重大 ${site.bySeverity.error} / 警告 ${site.bySeverity.warning} / 情報 ${site.bySeverity.info}`} />
@@ -112,14 +118,22 @@ export function ReportView(props: ReportViewProps) {
         </div>
 
         {props.errors.analysis && (
-          <Callout tone="fail" title="AI 分析に失敗しました">
-            {props.errors.analysis}
+          <Callout tone="warn" title="専門家のアドバイスを作れませんでした">
+            <p>{props.errors.analysis}</p>
+            <p className="mt-2 text-[12px] text-muted">
+              下の診断結果（スコア・課題・速度・順位）はすべて保存済みです。アドバイスだけを作り直せます。
+            </p>
+            {props.onReanalyze && (
+              <Button className="mt-3" size="sm" loading={props.analyzing} disabled={props.analysisCount >= props.maxAnalyses} onClick={props.onReanalyze}>
+                アドバイスを作り直す
+              </Button>
+            )}
           </Callout>
         )}
 
         {a && (
           <>
-            <Card title="結論と現状分析" printCard>
+            <Card title="専門家のアドバイス: 結論と現状" printCard>
               <p className="text-base font-bold leading-relaxed text-ink">{a.headline}</p>
               <div className="mt-4 space-y-3 text-sm leading-relaxed text-ink">
                 {a.situation.map((p, i) => (
@@ -132,11 +146,11 @@ export function ReportView(props: ReportViewProps) {
                 </Callout>
               )}
               <p className="mt-4 text-[11px] text-muted">
-                生成: {analysis?.model} ／ {analysis ? formatDateTime(analysis.generatedAt) : ""}。AI は事実シートの数字だけを根拠にしています。
+                この文章は、上の診断結果（付録の事実シート）だけを根拠に AI が書いています。数字の裏付けは各文の ID から確かめられます。作成 {analysis ? formatDateTime(analysis.generatedAt) : ""}（{analysis?.model}）。
               </p>
             </Card>
 
-            <Card title="改善案（優先順）" description="優先度 1 = 今すぐ・効果が大きい。手間は担当者の作業量の目安。ID は付録の事実シートの行です。" printCard>
+            <Card title="専門家のアドバイス: 改善案（優先順）" description="優先度 1 = 今すぐ・効果が大きい。手間は担当者の作業量の目安。ID は付録の事実シートの行です。" printCard>
               <ol className="space-y-4">
                 {[...a.recommendations]
                   .sort((x, y) => x.priority - y.priority)
@@ -359,3 +373,65 @@ function SpeedCard({ sheet }: { sheet: SeoFactSheet }) {
     </Card>
   );
 }
+
+/**
+ * いちばん上の「まとめ」。無料のクイック診断と同じ見た目（ドーナツ + 判定 + 内訳の帯）にして、
+ * 開いた瞬間に状態が分かるようにする（利用者の指示 2026-09-19）。
+ * トップページの採点が無い古い保存分では、課題の件数だけを出す。
+ */
+function SummaryCard({ sheet, headline, analyzing }: { sheet: SeoFactSheet; headline: string | null; analyzing: boolean }) {
+  const site = sheet.site;
+  const quick = site.quick;
+  const grade = quick ? gradeOf(quick.score) : null;
+  const issueTotal = site.bySeverity.error + site.bySeverity.warning + site.bySeverity.info;
+  const rows = (quick?.categories ?? []).map((c) => ({ label: c.label, value: c.score }));
+
+  return (
+    <Card title="まとめ" printCard>
+      <div className="grid gap-6 @2xl:grid-cols-[11rem_1fr]">
+        <div className="min-w-0">
+          {quick && grade ? (
+            <>
+              <Donut value={quick.score} ariaLabel={`トップページの総合スコア ${quick.score} / 100（${grade.grade}・${grade.label}）`} />
+              <p className="mt-3 text-center text-[13px] font-bold text-ink">
+                トップページの総合スコア
+              </p>
+              <p className="mt-1 text-center text-[12px] text-muted">
+                判定 {grade.grade}（{grade.label}）
+              </p>
+            </>
+          ) : (
+            <div className="text-[13px] text-muted">トップページの採点はありません。</div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-base font-bold leading-relaxed text-ink">
+            {headline ?? (analyzing ? "専門家のアドバイスを書いています（1〜3 分）。下の診断結果は今すぐ読めます。" : "専門家のアドバイスはまだありません。")}
+          </p>
+          <dl className="mt-4 grid gap-x-6 gap-y-2 text-[13px] @xl:grid-cols-3">
+            <div>
+              <dt className="text-muted">診断したページ</dt>
+              <dd className="text-[20px] font-bold tabular-nums text-ink">{fmt(site.crawl.analyzed)} <span className="text-[12px] font-normal text-muted">ページ</span></dd>
+            </div>
+            <div>
+              <dt className="text-muted">見つかった課題</dt>
+              <dd className="text-[20px] font-bold tabular-nums text-ink">{fmt(issueTotal)} <span className="text-[12px] font-normal text-muted">件</span></dd>
+            </div>
+            <div>
+              <dt className="text-muted">うち重大</dt>
+              <dd className="text-[20px] font-bold tabular-nums text-ink">{fmt(site.bySeverity.error)} <span className="text-[12px] font-normal text-muted">件</span></dd>
+            </div>
+          </dl>
+          {rows.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-1 text-[12px] text-muted">トップページの内訳（100 点満点）</p>
+              <HBar rows={rows} ariaLabel="トップページのカテゴリ別スコア" legend />
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+

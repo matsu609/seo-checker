@@ -1,5 +1,5 @@
 /**
- * POST /api/seo-analysis/comment { title, facts } — 画面ごとの短い AI 分析。
+ * POST /api/seo-analysis/comment { title, facts } — 画面ごとの短い講評。
  *
  * サイト診断など各ツールの結果から作った事実（Fact[]）を渡すと、その数字だけを
  * 根拠にした要約・ポイント・次にやることを返す（利用者の指示: 個々の分析結果ごとに
@@ -35,7 +35,7 @@ const cache = globalCache<{ comment: Comment; model: string }>("seo-analysis-com
 export async function POST(request: NextRequest) {
   const denied = await requireAuth({ feature: "seo-analysis" });
   if (denied) return denied;
-  if (!isAnthropicEnabled()) return Response.json({ error: "AI 分析には ANTHROPIC_API_KEY の設定が必要です" }, { status: 503 });
+  if (!isAnthropicEnabled()) return Response.json({ error: "この講評には ANTHROPIC_API_KEY の設定が必要です" }, { status: 503 });
 
   let raw: unknown;
   try {

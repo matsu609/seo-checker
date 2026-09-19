@@ -2,7 +2,7 @@
  * 精密診断の進捗メーター（純粋関数。ブラウザでも読む）。
  *
  * 利用者の指示（2026-09-19）: 「いまどれくらい診断が終わったか」を 1 本のメーターで見せる。
- * 収集（NDJSON の進捗）と AI 分析（出力量と経過時間）を 5 段階に並べ、0〜100 に落とす。
+ * 収集（NDJSON の進捗）と専門家のアドバイス（出力量と経過時間）を 5 段階に並べ、0〜100 に落とす。
  * 最後の 1% は結果を受け取ってから 100 にする（99 で止まって見えないよう、経過時間でも少しずつ進める）。
  */
 import type { CollectStep } from "./collect";
@@ -22,7 +22,7 @@ export const DIAGNOSIS_STAGES: readonly DiagnosisStage[] = [
   { id: "quick", label: "トップページを採点", from: 45, to: 50 },
   { id: "signals", label: "速度・検索順位・ドメイン・llms.txt を取得", from: 50, to: 70 },
   { id: "sheet", label: "事実シートを保存", from: 70, to: 75 },
-  { id: "analyze", label: "AI が現状分析と改善案を書く", from: 75, to: 100 },
+  { id: "analyze", label: "専門家のアドバイスを作る", from: 75, to: 100 },
 ];
 
 /** 収集の step → ステージ */
@@ -47,17 +47,17 @@ export interface ProgressInput {
   audit?: { fetched: number; queued: number } | null;
   /** クロールの上限ページ数 */
   maxPages: number;
-  /** そのステージに入ってからの経過（ms）。速度取得と AI 分析は時間で進める */
+  /** そのステージに入ってからの経過（ms）。速度取得とアドバイスは時間で進める */
   stageElapsedMs: number;
-  /** AI 分析の出力文字数（ストリーミングで増える） */
+  /** アドバイスの出力文字数（ストリーミングで増える） */
   outputChars?: number;
 }
 
 /** 速度・検索・ドメインの取得に見込む時間（PSI 6 ページが遅い） */
 export const SIGNALS_EXPECTED_MS = 75_000;
-/** AI 分析に見込む時間 */
+/** アドバイスの作成に見込む時間 */
 export const ANALYZE_EXPECTED_MS = 150_000;
-/** AI 分析の出力の見込み文字数（JSON 込み。これに達したら時間より先に進める） */
+/** 出力の見込み文字数（JSON 込み。これに達したら時間より先に進める） */
 export const ANALYZE_EXPECTED_CHARS = 12_000;
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -96,7 +96,7 @@ export function diagnosisProgress(input: ProgressInput): DiagnosisProgress {
     const byChars = clamp((input.outputChars ?? 0) / ANALYZE_EXPECTED_CHARS, 0, 0.97);
     const percent = Math.min(99, Math.floor(within(stage, Math.max(byTime, byChars))));
     const sec = Math.floor(input.stageElapsedMs / 1000);
-    const detail = input.outputChars ? `AI が書いています（${input.outputChars.toLocaleString("ja-JP")} 文字・${sec} 秒）` : `AI が事実シートを読んでいます（${sec} 秒）`;
+    const detail = input.outputChars ? `アドバイスを書いています（${input.outputChars.toLocaleString("ja-JP")} 文字・${sec} 秒）` : `診断結果を読み込んでいます（${sec} 秒）`;
     return { percent, stage: "analyze", detail };
   }
 
