@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef } from "react";
+import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 import { FeatureIdChips } from "@/components/ui/Badge";
 import type { Feature } from "@/lib/features/registry";
 import { AuthMenu } from "./AuthMenu";
@@ -18,7 +19,8 @@ export interface TopBarProps {
 
 /**
  * 白いトップバー（sticky）。左 = ハンバーガー（md 未満）+ 現在ページのラベル。
- * PDF / 印刷ボタンはレポート内に置くので、右側はログイン状態だけ。
+ * PDF / 印刷ボタンはレポート内に置くので、右側は「ご意見・不具合」（運営者への報告。
+ * どの画面からでも同じ場所から送れるようにここに置く。利用者の指示 2026-09-20）とログイン状態だけ。
  * 無料診断（/ と /meo）はこのトップバーを通らない（FreeShell が別のヘッダーを出す）。
  */
 export const TopBar = forwardRef<HTMLButtonElement, TopBarProps>(function TopBar(
@@ -40,11 +42,10 @@ export const TopBar = forwardRef<HTMLButtonElement, TopBarProps>(function TopBar
       </button>
       <span className="truncate text-sm font-bold text-ink">{feature?.label ?? "SEO Checker"}</span>
       {feature && <FeatureIdChips ids={feature.featureIds} className="hidden sm:inline-flex" />}
-      {authEnabled && (
-        <div className="ml-auto flex shrink-0 items-center">
-          <AuthMenu />
-        </div>
-      )}
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <FeedbackDialog />
+        {authEnabled && <AuthMenu />}
+      </div>
     </div>
   );
 });

@@ -10,8 +10,12 @@
  * 利用者の指示（2026-09-19）: SEO・MEO・AIO の共通の基本設定はぜんぶここに集約する。
  * 会社・店舗の基本情報（登録時のデータ）・対策キーワード・Google マップの店舗のカードを足した
  * （SharedCards.tsx）。各ツールは細かい変更だけを持つ。
+ *
+ * 「ご意見の履歴」（FeedbackHistoryCard）は、右上の「ご意見・不具合」から送ったものと運営者の返答
+ * （利用者の指示 2026-09-20。返答はメールではなくここに出す）。
  */
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { FeedbackHistoryCard } from "@/components/feedback/FeedbackHistoryCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
@@ -54,6 +58,7 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
         <KeywordsCard />
         <StoresCard />
         {googleSection}
+        <FeedbackHistoryCard />
         <DataCard />
       </div>
     </div>
