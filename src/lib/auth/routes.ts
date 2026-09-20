@@ -38,10 +38,10 @@ const PUBLIC_PAGE_PREFIXES = ["/r/"] as const;
  * 2026-09-18 からログイン必須（登録したメールアドレスごとに回数制限。src/lib/free/quota.ts）。
  * 画面（`/` `/meo`）は公開のままにして、ページ側が未ログインを登録フォームへ送る
  * （Proxy に任せると Clerk のログイン画面へ飛び、見込み客が登録にたどり着かないため）。
- * `/api/cron/maps-refresh` と `/api/cron/geo-run` は Vercel の Cron が叩く（ログインは無い）。
+ * `/api/cron/*`（maps-refresh / geo-run / listings-check）は Vercel の Cron が叩く（ログインは無い）。
  * ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
  */
-const PUBLIC_APIS = new Set(["/api/cron/maps-refresh", "/api/cron/geo-run", "/api/billing/webhook"]);
+const PUBLIC_APIS = new Set(["/api/cron/maps-refresh", "/api/cron/geo-run", "/api/cron/listings-check", "/api/billing/webhook"]);
 
 /**
  * ログイン不要で叩ける API の前方一致。`/api/r/<slug>/...` は来店客のアンケート

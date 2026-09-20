@@ -67,10 +67,20 @@ export const LISTING_STATUS_LABELS: Record<ListingStatus, string> = {
 
 export const ListingStateSchema = z.object({
   status: z.enum(LISTING_STATUSES).default("todo"),
-  /** 掲載ページの URL（掲載後に控える） */
+  /**
+   * 掲載ページの URL（掲載後に控える）。
+   * 「登録した」ではなく「**今も正しく出ている**」を証明するための出典で、生存監視はここを見に行く
+   */
   url: z.string().trim().max(LISTING_URL_MAX).default(""),
   note: z.string().trim().max(LISTING_NOTE_MAX).default(""),
   updatedAt: z.string().nullable().default(null),
+  /** 生存監視（src/lib/listings/monitor.ts）。最後に見に行った時刻と、次に見に行く時刻 */
+  lastCheckedAt: z.string().nullable().default(null),
+  nextCheckAt: z.string().nullable().default(null),
+  /** 最後の確認の結果（live / changed / unknown / gone / unreachable） */
+  checkResult: z.enum(["live", "changed", "unknown", "gone", "unreachable"]).nullable().default(null),
+  /** 画面に出す 1 文 */
+  checkNote: z.string().trim().max(LISTING_NOTE_MAX).default(""),
 });
 export type ListingState = z.infer<typeof ListingStateSchema>;
 

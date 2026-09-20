@@ -154,6 +154,8 @@ describe("公開パスの一覧", () => {
     expect(PUBLIC_PATHS.apis).toEqual([
       "/api/cron/maps-refresh",
       "/api/cron/geo-run",
+      // 掲載の生存監視（2026-09-20 に追加）。Cron が叩くのでログインは無く、CRON_SECRET で守る
+      "/api/cron/listings-check",
       "/api/billing/webhook",
     ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);

@@ -2,7 +2,7 @@
  * 基本情報: 取り込み・表記ゆれの比較・貼り付け用の文・営業時間の解釈・構造化データ・掲載状況の集計。
  */
 import { describe, expect, it } from "vitest";
-import { buildSameAs, compareNap, emptyProfile, jsonLdScript, ListingProfileSchema, normalizeForCompare, parseHoursLine, prefillFromGoogle, profileToText, summarizeStates, toJsonLd, type ListingStates } from "../profile";
+import { buildSameAs, compareNap, emptyProfile, jsonLdScript, ListingProfileSchema, ListingStateSchema, normalizeForCompare, parseHoursLine, prefillFromGoogle, profileToText, summarizeStates, toJsonLd, type ListingStates } from "../profile";
 
 const GOOGLE = { name: "テスト食堂 駅前店", address: "日本、〒160-0021 東京都新宿区歌舞伎町1-1-1", phone: "03-1234-5678", website: "https://example.com/", hours: ["月曜日: 10時00分～19時00分", "火曜日: 定休日"], category: "食堂" };
 
@@ -55,7 +55,7 @@ describe("営業時間と構造化データ", () => {
 
 describe("掲載状況", () => {
   it("集計は対象外を除き、自分で登録できる媒体を別に数える", () => {
-    const s = summarizeStates({ GOOGLE_MAPS: { status: "live", url: "", note: "", updatedAt: null }, SIRI: { status: "live", url: "", note: "", updatedAt: null }, ACOMPIO: { status: "skip", url: "", note: "", updatedAt: null }, BING: { status: "submitted", url: "", note: "", updatedAt: null } });
+    const s = summarizeStates({ GOOGLE_MAPS: ListingStateSchema.parse({ status: "live", url: "", note: "", updatedAt: null }), SIRI: ListingStateSchema.parse({ status: "live", url: "", note: "", updatedAt: null }), ACOMPIO: ListingStateSchema.parse({ status: "skip", url: "", note: "", updatedAt: null }), BING: ListingStateSchema.parse({ status: "submitted", url: "", note: "", updatedAt: null }) });
     expect(s.live).toBe(2);
     expect(s.submitted).toBe(1);
     expect(s.selfLive).toBe(1);
@@ -78,11 +78,11 @@ describe("sameAs（構造化データ）", () => {
     phone: "03-1234-5678",
   });
   const states: ListingStates = {
-    YAHOO_PLACE: { status: "live", url: "https://loco.yahoo.co.jp/place/1/", note: "", updatedAt: null },
+    YAHOO_PLACE: ListingStateSchema.parse({ status: "live", url: "https://loco.yahoo.co.jp/place/1/", note: "", updatedAt: null }),
     // 掲載済みでない媒体の URL は入れない（まだ載っていないものを「同じ会社だ」と言わない）
-    EKITEN: { status: "submitted", url: "https://www.ekiten.jp/shop/1/", note: "", updatedAt: null },
+    EKITEN: ListingStateSchema.parse({ status: "submitted", url: "https://www.ekiten.jp/shop/1/", note: "", updatedAt: null }),
     // 掲載済みでも URL を控えていなければ入れようがない
-    BING: { status: "live", url: "", note: "", updatedAt: null },
+    BING: ListingStateSchema.parse({ status: "live", url: "", note: "", updatedAt: null }),
   };
 
   it("法人番号の公的な URL・掲載済みの媒体・利用者の入力を集める", () => {

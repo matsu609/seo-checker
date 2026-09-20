@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CORE_MEDIA_IDS, LISTING_MEDIA, mediaById, mediaOfIntegration, mediaOfTier } from "../media";
-import { ListingProfileSchema, type ListingStates } from "../profile";
+import { ListingProfileSchema, ListingStateSchema, type ListingStates } from "../profile";
 import {
   bingPlacesCsv,
   buildFiles,
@@ -42,8 +42,8 @@ describe("missingRequired", () => {
 describe("publishTargets", () => {
   it("掲載済みと対象外は送らない", () => {
     const states: ListingStates = {
-      GOOGLE_MAPS: { status: "live", url: "", note: "", updatedAt: null },
-      BING: { status: "skip", url: "", note: "", updatedAt: null },
+      GOOGLE_MAPS: ListingStateSchema.parse({ status: "live", url: "", note: "", updatedAt: null }),
+      BING: ListingStateSchema.parse({ status: "skip", url: "", note: "", updatedAt: null }),
     };
     const ids = publishTargets(states).map((m) => m.id);
     expect(ids).not.toContain("GOOGLE_MAPS");
@@ -148,7 +148,7 @@ describe("statesAfterPublish", () => {
   });
 
   it("控えた URL とメモは消さない", () => {
-    const before: ListingStates = { GOOGLE_MAPS: { status: "todo", url: "https://maps.example", note: "担当: 山田", updatedAt: null } };
+    const before: ListingStates = { GOOGLE_MAPS: ListingStateSchema.parse({ status: "todo", url: "https://maps.example", note: "担当: 山田", updatedAt: null }) };
     const next = statesAfterPublish(before, results, at);
     expect(next.GOOGLE_MAPS?.url).toBe("https://maps.example");
     expect(next.GOOGLE_MAPS?.note).toBe("担当: 山田");

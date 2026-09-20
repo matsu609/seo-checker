@@ -56,6 +56,25 @@ export async function getListing(userId: string, placeId: string): Promise<Listi
   return parseRows(rows)[0] ?? null;
 }
 
+/** 生存監視の一斉確認で使う 1 行（誰の記録かが要る） */
+export interface ListingRow extends ListingRecord {
+  userId: string;
+}
+
+/**
+ * 全利用者の記録を新しい順に読む（生存監視の Cron 用）。
+ *
+ * `states` は JSON なので「次に見に行く時刻を過ぎた行」だけを SQL で絞るのは難しい。
+ * 行数はお客様 × 自社店舗なので多くなく、読んでから monitor.ts の isDue で絞る。
+ * 1 回で読む行数は呼び出し側が limit で抑える。
+ */
+export async function listAllListings(limit = 500): Promise<ListingRow[]> {
+  const rows = await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&order=updated_at.desc&limit=${limit}`);
+  const parsed = z.array(RowSchema).safeParse(rows);
+  if (!parsed.success) throw new Error("基本情報の応答を読めませんでした");
+  return parsed.data.map((row) => ({ ...fromListingRow(row), userId: row.user_id }));
+}
+
 /** 保存（上書き）。保存後の記録を返す */
 export async function putListing(userId: string, placeId: string, profile: ListingProfile, states: ListingStates, at = new Date()): Promise<ListingRecord> {
   const rows = await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&on_conflict=user_id,place_id`, {

@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/geo-run",
       "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/listings-check",
+      "schedule": "0 20 * * 1"
     }
   ]
 }
