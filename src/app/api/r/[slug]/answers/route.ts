@@ -24,10 +24,11 @@ import {
   takeDailyToken,
 } from "@/lib/free/ratelimit";
 import { generateReviewDraft } from "@/lib/reviews/draft";
-import { findChannelByCode, getPublicForm, isValidSlug, resolveStore } from "@/lib/reviews/forms";
+import { getFormOwner, findChannelByCode, getPublicForm, isValidSlug, resolveStore } from "@/lib/reviews/forms";
 import { DEFAULT_LOCALE, localeFromParam } from "@/lib/reviews/i18n";
 import { isLowRating, RawAnswersSchema, validateAnswers } from "@/lib/reviews/questions";
 import { insertResponse, newEditToken, type DraftSource } from "@/lib/reviews/responses";
+import { notifyUser } from "@/lib/notifications/notify";
 import { NO_STORE } from "@/lib/api/headers";
 
 export const runtime = "nodejs";
@@ -104,6 +105,23 @@ export async function POST(request: Request, context: Ctx) {
       editToken: token,
       lang: locale,
     });
+    // 低評価は店舗にすぐ知らせる（画面のお知らせ + 設定でメール）。失敗しても回答の保存は成功のまま
+    if (isLow) {
+      try {
+        const owner = await getFormOwner(form.id);
+        if (owner) {
+          await notifyUser(owner, {
+            kind: "review_low",
+            title: `${store.storeName} に低評価（${validated.rating ?? "評価なし"}）の回答がありました`,
+            body: `アンケート「${form.title}」に低い評価の回答が届きました。回答の内容と「お店に直接伝える」の有無を、口コミの画面で確認してください。`,
+            link: "/tools/reviews",
+            channel: "alert",
+          });
+        }
+      } catch (err) {
+        console.error("[reviews] 低評価の知らせに失敗", err instanceof Error ? err.message : err);
+      }
+    }
     const body: PublicAnswerResponse = {
       responseId: saved.id,
       token,

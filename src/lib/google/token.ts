@@ -101,3 +101,24 @@ export async function getGoogleConnection(): Promise<GoogleConnection> {
     return { connected: false, scopes: [], missingScopes: [...missingScopes([])] };
   }
 }
+
+/**
+ * ログイン中ではない利用者（定期処理が回す相手）の Google アクセストークン。
+ * Clerk が保持・更新しているものを userId で引く。接続が無ければ not_connected、
+ * スコープが足りなければ insufficient_scope（画面の文言と同じ）。
+ */
+export async function getGoogleTokenForUser(userId: string, service: GoogleService): Promise<string> {
+  const client = await clerkClient();
+  let tokens;
+  try {
+    tokens = await client.users.getUserOauthAccessToken(userId, "google");
+  } catch {
+    throw new GoogleLinkError("Google アカウントの接続情報を取得できませんでした。設定画面で接続し直してください。", "not_connected");
+  }
+  const first = tokens.data[0];
+  if (!first?.token) throw new GoogleLinkError("Google アカウントが接続されていません。設定画面から接続してください。", "not_connected");
+  if (!canUse(first.scopes ?? [], service)) {
+    throw new GoogleLinkError(`${SERVICE_LABELS[service]} の権限が許可されていません。口コミの画面の「Google に口コミ返信の権限を追加する」から接続し直してください。`, "insufficient_scope");
+  }
+  return first.token;
+}

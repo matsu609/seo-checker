@@ -579,6 +579,47 @@ const MEASURE: readonly Feature[] = [
     // AI 検索モニタリングの設定画面からリンクで開く。ページと API はそのまま
     hidden: true,
   },
+  {
+    id: "monitor",
+    path: "/tools/monitor",
+    label: "サイトの事故監視",
+    shortLabel: "サイト監視",
+    description:
+      "ホームページの主要ページを毎週確認し、放っておくと検索からの流入が止まる事故（noindex の混入・robots.txt の全拒否・エラー・別サイトへの転送・SSL 証明書の期限・リンク切れ・構造化データの崩れ）が起きたときに知らせます。",
+    details: [
+      "毎週水曜 5:00 に自動で確認（トップ + 精密診断で重要度の高いページ + トップからの内部リンク）",
+      "前回は無かった事故だけを「お知らせ」とメールで知らせる（同じ事故を毎週知らせない）",
+      "SSL 証明書の残り日数、サイトマップと robots.txt の状態、ページごとの HTTP 状態と取得時間",
+    ],
+    featureIds: [],
+    icon: "dashboard",
+    status: "beta",
+    requires: ["supabase"],
+    group: "measure",
+    category: "seo",
+    plan: "light",
+  },
+  {
+    id: "reports",
+    path: "/tools/reports",
+    label: "月次レポートとお知らせ",
+    shortLabel: "月次レポート",
+    description:
+      "毎月 1 日に、前月の数字（検索順位・Google マップ・AI 検索・精密診断・掲載・口コミ）と、その月に起きたこと、来月やることを 1 枚にまとめます。順位の急落・サイトの事故・掲載の消失などの「お知らせ」もここに残ります。",
+    details: [
+      "前月との比較（上がった語・下がった語、MEO のスコアと口コミ、AI 検索の引用率、掲載の状況）",
+      "来月やること（数字の変化から自動で組み立てた優先順位）",
+      "メールでも受け取れる（設定で ON / OFF）。PDF でダウンロード",
+    ],
+    featureIds: [],
+    icon: "file-report",
+    status: "beta",
+    requires: ["supabase"],
+    optional: ["resend"],
+    group: "measure",
+    category: "aio",
+    plan: "light",
+  },
 ];
 
 const RESEARCH: readonly Feature[] = [
@@ -651,6 +692,27 @@ const GENERATE: readonly Feature[] = [
     category: "meo",
     // 2026-09-19: 「口コミ」に統合。プランのゲートと API はこの ID のまま使う
     hidden: true,
+    plan: "standard",
+  },
+  {
+    id: "posts",
+    path: "/tools/posts",
+    label: "Google ビジネス プロフィールの投稿（AI 下書き・予約投稿）",
+    shortLabel: "投稿",
+    description:
+      "Google マップに出る「最新情報・イベント・クーポン」の投稿を、店舗の情報と対策キーワードから AI が下書きし、承認した分を予約日時に自動で投稿します。週 1 回の投稿を続けることが MEO の理想状態です。",
+    details: [
+      "4 週分の下書きを一度に作る（季節・対策キーワード・店舗のカテゴリを踏まえる）",
+      "本文を直して「承認して予約」。毎日 5:00 の定期処理が予定時刻を過ぎた分を投稿",
+      "投稿の履歴と失敗の理由（Business Profile API の承認前は失敗として残る）",
+    ],
+    featureIds: [],
+    icon: "broadcast",
+    status: "beta",
+    requires: ["supabase", "google-business"],
+    optional: ["anthropic"],
+    group: "improve",
+    category: "meo",
     plan: "standard",
   },
 ];

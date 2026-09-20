@@ -10,6 +10,7 @@ import "@/lib/audit/store";
 import "@/lib/keywords/store";
 import "@/lib/llmo/expansion/store";
 import "@/lib/llms-txt/store";
+import "@/lib/notifications/settings";
 import "@/lib/page-diagnosis/store";
 import "@/lib/page-report/store";
 import "@/lib/rank/store";

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { AdminConsole } from "@/components/admin/AdminConsole";
 import { IntegrationsCard } from "@/components/admin/IntegrationsCard";
+import { JobsCard } from "@/components/admin/JobsCard";
 import { VersionCard } from "@/components/admin/VersionCard";
 import { Callout } from "@/components/ui/Callout";
 import { loadAgencies } from "@/lib/admin/agencies";
@@ -57,6 +58,10 @@ export default async function Page() {
 
       <div className="mb-6">
         <IntegrationsCard />
+      </div>
+
+      <div className="mb-6">
+        <JobsCard />
       </div>
 
       <AdminConsole

@@ -55,6 +55,17 @@ export const ListingStateSchema = z.object({
   url: z.string().trim().max(LISTING_URL_MAX).default(""),
   note: z.string().trim().max(LISTING_NOTE_MAX).default(""),
   updatedAt: z.string().nullable().default(null),
+  /** 掲載の再チェック（r127）。掲載済みで URL がある媒体だけ、月 1 回ページを開いて確かめる */
+  lastCheckedAt: z.string().nullable().optional(),
+  nextCheckAt: z.string().nullable().optional(),
+  check: z
+    .object({
+      result: z.enum(["ok", "mismatch", "missing", "error"]),
+      detail: z.string().max(300),
+      found: z.object({ name: z.boolean(), phone: z.boolean(), address: z.boolean() }),
+    })
+    .nullable()
+    .optional(),
 });
 export type ListingState = z.infer<typeof ListingStateSchema>;
 

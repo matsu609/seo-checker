@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/maps-refresh",
-      "schedule": "0 20 * * 0"
+      "path": "/api/cron/daily",
+      "schedule": "0 20 * * *"
     },
     {
       "path": "/api/cron/geo-run",

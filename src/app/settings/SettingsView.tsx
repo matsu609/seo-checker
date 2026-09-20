@@ -24,6 +24,7 @@ import { displayUrl, toSiteUrl } from "@/lib/site/target";
 import { exportAll, importAll, newId, resetAll, splitList, type Competitor, type Project } from "@/lib/store";
 import { useCurrentProject, useProjects } from "@/lib/store/hooks";
 import { useLeadProfile } from "@/lib/account/lead-client";
+import { NotificationsCard } from "@/components/settings/NotificationsCard";
 import { BusinessCard, KeywordsCard, StoresCard } from "./SharedCards";
 
 const feature = requireFeature("settings");
@@ -54,6 +55,7 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
         <KeywordsCard />
         <StoresCard />
         {googleSection}
+        <NotificationsCard />
         <DataCard />
       </div>
     </div>

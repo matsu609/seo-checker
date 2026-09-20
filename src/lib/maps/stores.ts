@@ -135,3 +135,11 @@ export async function markRefreshed(placeId: string, at: Date): Promise<void> {
     prefer: "return=minimal",
   });
 }
+
+/** 自社店舗を登録している利用者の ID（重複なし。月次レポートの対象を集めるときに使う） */
+export async function listOwnStoreUserIds(limit = 2000): Promise<string[]> {
+  const rows = await supabaseRest<unknown>(`${TABLE}?select=user_id&own_place_id=eq.&limit=${limit}`);
+  const parsed = z.array(z.object({ user_id: z.string() })).safeParse(rows);
+  if (!parsed.success) return [];
+  return [...new Set(parsed.data.map((r) => r.user_id))];
+}

@@ -22,6 +22,9 @@
 | 診断 | `/tools/aio-topics` | （サイドバーから外した 2026-09-17。AI 検索モニタリングへ転送のみ。`hidden: true`。API は残る） | A5 | — |
 | 計測 | `/tools/rank` | 順位計測・AI Overviews 引用 | B1, B2, B3 | SERP |
 | 計測 | `/tools/geo` | AI 検索モニタリング（引用・参照の定点観測） | — | DataForSEO + Supabase（Anthropic は任意） |
+| 計測 | `/tools/reports` | 月次レポートとお知らせ（毎月 1 日に前月の数字をまとめる。順位の急落・サイトの事故などの知らせもここ。r127） | — | Supabase（メールは Resend 任意） |
+| 計測 | `/tools/monitor` | サイトの事故監視（毎週水曜に主要ページを確認。noindex・エラー・転送・SSL・リンク切れ。r127） | — | Supabase |
+| 生成 | `/tools/posts` | Google ビジネス プロフィールの投稿（AI 下書き → 承認して予約 → 毎日 5:00 に送信。r127） | — | Supabase + Google 連携（Business Profile API、要承認）。下書きは Anthropic |
 | 計測 | `/tools/llmo` | （提供終了 2026-09-17。AI 検索モニタリングへ転送のみ。API は 410） | B4, B8 | — |
 | 計測 | `/tools/prompt-expansion` | プロンプト拡張（サイドバーには出さない `hidden: true`。AI 検索モニタリングの設定画面からリンクで開く） | B7 | Anthropic |
 | 計測 | `/tools/search-estimate` | 検索パフォーマンス（推定。Search Console の連携なしで数字を出す） | — | DataForSEO |
@@ -146,7 +149,9 @@ src/
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援の回数制限（アンケートごとの 1 日の回答数 500 / AI 下書きの 1 日の全体上限 2,000） | 任意 |
 | `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | AI 検索モニタリング（`src/lib/geo/`）。ChatGPT / Gemini / AI Overviews の定期計測 | この機能に必須 |
 | `GEO_USD_JPY` / `GEO_PRICE_*` / `GEO_LOCALE` / `GEO_CHARGE_ON_CACHE_HIT` | 同上の為替・単価・ロケール・キャッシュ時の課金。**単価はコードに直書きせず、ここだけで変える** | 任意 |
-| `CRON_SECRET` | Vercel Cron（`vercel.json`）が `/api/cron/maps-refresh` を叩くときの Bearer。`src/lib/auth/cron.ts` で検証。未設定なら Cron は何もしない | MEO の一斉更新に必須 |
+| `CRON_SECRET` | Vercel Cron（`vercel.json`）が `/api/cron/daily`（日次の定期処理。曜日・日付でジョブを振り分ける `src/lib/jobs/`）と `/api/cron/geo-run` を叩くときの Bearer。`src/lib/auth/cron.ts` で検証。未設定なら Cron は何もしない | 定期処理（MEO の一斉更新・順位の自動計測・サイト監視・月次レポート・掲載の再チェック・投稿の送信・自動再診断）に必須 |
+| `RESEND_API_KEY` + `MAIL_FROM` | メール送信（Resend の REST API。`src/lib/mail/`）。月次レポートと変化の知らせ（順位の急落・サイトの事故・掲載の消失・低評価の回答・投稿の失敗）。`MAIL_FROM` は Resend で DNS 認証した送信ドメインのアドレス（例: `SEO Checker <noreply@seo-checker.tokyo>`）。無ければ画面の「お知らせ」にだけ残る | メール通知に必須 |
+| `POST_DRAFT_MODEL` | Google ビジネス プロフィールの投稿の下書き（`src/lib/posts/draft.ts`）のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `SITE_MAX_PAGES` | サイト診断（精密診断）のクロール上限（既定 300、上限 1000） | 任意 |
 | `FREE_SITE_MAX_PAGES` | クイック診断のサイト全体のページ数（既定 10、上限 50） | 任意 |
 | `ALLOW_PRIVATE_HOSTS` | 開発時のみ | 任意 |
@@ -170,6 +175,8 @@ src/
 - Route Handler は入力を zod で検証し、エラーは `{ error: string }` と適切な HTTP ステータスで返す（既存の analyze/site と同じ形）。
 - クロールを伴う API（`/api/site`）は同時実行を制限する。1 回の呼び出しが対象サイトへ最大 60（サイトマップ）+ ページ数上限（クイック診断は `FREE_SITE_MAX_PAGES`＝既定 10）回のリクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になる。現状はプロセス内で「同時 2 本まで・同一クライアント（`x-forwarded-for` の先頭 IP）1 本まで」、超過は `429` と `{ code: "busy" }`（`src/app/api/site/route.ts`）。複数インスタンスで動かすときは共有ストアの制限に置き換える。
 - Cron の入口（`/api/cron/*`）はログインが無いので `src/lib/auth/routes.ts` の公開 API に 1 本ずつ完全一致で入れ、ハンドラは `CRON_SECRET` で守る。MEO の数字は利用者が取り直せない（Google に問い合わせるのは店舗の登録直後と週 1 回の一斉更新だけ。`src/lib/maps/refresh.ts`）。
+- **定期処理は日次の 1 本（`/api/cron/daily`）にまとめる（r127）。**Vercel の Hobby プランは Cron が 2 本まで・1 日 1 回なので、`src/lib/jobs/schedule.ts` が曜日・日付でジョブを振り分ける（月: マップ診断の一斉更新 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断）。ジョブを足すときは `JOB_IDS`・`JOB_SCHEDULE`・`registry.ts` の 3 か所。実行記録は `cron_runs`（マスター画面の「定期処理の状況」）。利用者ごとのプランは `src/lib/plans/user.ts` で引き、契約の無い人のために実費の出る処理を走らせない。
+- **利用者への知らせは `notifyUser()`（`src/lib/notifications/notify.ts`）だけを通す。**画面の「お知らせ」（`notifications` テーブル）に必ず残し、設定（`notificationSettings` ストア）とメール（Resend）がそろっているときだけメールも送る。送れなかったものを「送った」と見せない。
 - 来店客向けアンケート（`/r/<slug>`、`/api/r/<slug>/*`）はログインが無い。`src/lib/auth/routes.ts` の公開接頭辞（`/r/`、`/api/r/`。接頭辞そのものは公開しない）で通し、ハンドラは IP ごとの回数制限とアンケートごとの 1 日の上限で守る（`src/lib/free/ratelimit.ts`）。来店客側の更新（投稿ボタンの押下、お店に直接伝える）は回答時に発行した `edit_token` を持つ人だけ。店舗側の管理 API（`/api/reviews/*`）は `review_responses` に user_id が無いので、必ず `review_forms` の所有（user_id）を確かめてから form_id で触る（`src/lib/reviews/api.ts` の `ownedForm`）。来店客に返すのは `PublicReviewForm`（質問と店名だけ。トーン・キーワード・投稿 URL・所有者は返さない）。来店客の画面は `Accept-Language` / `?lang=` で 5 言語に切り替わる（`src/lib/reviews/i18n.ts`、質問文の訳は `translate.ts`。選択肢は表示だけ訳し、送る値は日本語の原文）。
 - サイト診断の結果はキャッシュ 1 件で 1 MB 近い。`globalCache` の `maxEntries` を小さく（10 件）し、`SiteCheckSummary.affected` はサーバー側で 50 件までに間引く（件数は `counts` が持つ）。
 

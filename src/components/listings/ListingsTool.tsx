@@ -17,6 +17,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { ListingsDescribeResponse } from "@/app/api/listings/describe/route";
 import type { ListingsProfileResponse } from "@/app/api/listings/profile/route";
 import type { ListingsPublishResponse } from "@/app/api/listings/publish/route";
+import type { ListingsRecheckResponse } from "@/app/api/listings/recheck/route";
+import { RECHECK_LABELS, RECHECK_TONE, type RecheckLine } from "@/lib/listings/recheck-labels";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
 import { useSharedSettings } from "@/lib/settings/client";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
@@ -145,6 +147,9 @@ export function ListingsTool() {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publish, setPublish] = useState<{ results: PublishResult[]; files: PublishFile[] } | null>(null);
+  const [rechecking, setRechecking] = useState(false);
+  const [recheckError, setRecheckError] = useState<string | null>(null);
+  const [recheck, setRecheck] = useState<RecheckLine[] | null>(null);
 
   /** 選んだ店舗の記録を画面に読み込む */
   function selectStore(item: ListingsStoreItem | null) {
@@ -254,6 +259,24 @@ export function ListingsTool() {
       setDescribeError(err instanceof Error ? err.message : "説明文を作れませんでした");
     } finally {
       setDescribing(false);
+    }
+  }
+
+  /** 掲載済みで URL を控えた媒体のページを開き、店名・電話・住所が今も出ているかを確かめる（毎月 2 日の自動確認と同じ） */
+  async function runRecheck() {
+    if (!store) return;
+    setRechecking(true);
+    setRecheckError(null);
+    setRecheck(null);
+    try {
+      const res = await request<ListingsRecheckResponse>("/api/listings/recheck", { method: "POST", body: JSON.stringify({ placeId: store.placeId }) });
+      setRecheck(res.lines);
+      setStates(res.record.states);
+      setSavedAt(res.record.updatedAt);
+    } catch (err) {
+      setRecheckError(err instanceof Error ? err.message : "確認できませんでした");
+    } finally {
+      setRechecking(false);
     }
   }
 
@@ -578,7 +601,37 @@ export function ListingsTool() {
             )}
           </Card>
 
-          <Card number={4} title="媒体一覧" description="上から順に進めてください。各媒体で「登録画面を開く」→ 基本情報を貼り付け → 状況を控える。保存ボタンは上のカードにあります。">
+          <Card
+            number={4}
+            title="媒体一覧"
+            description="上から順に進めてください。各媒体で「登録画面を開く」→ 基本情報を貼り付け → 状況を控える。保存ボタンは上のカードにあります。状況を「掲載済み」にして掲載ページの URL を控えた媒体は、毎月 2 日にページを開いて店名・電話・住所が今も出ているかを自動で確かめます（消えていれば「お知らせ」で知らせます）。"
+            actions={
+              <Button type="button" size="sm" variant="secondary" onClick={() => void runRecheck()} loading={rechecking} disabled={dirty} title={dirty ? "先に保存してください" : undefined}>
+                掲載を今すぐ確認する
+              </Button>
+            }
+          >
+            {recheckError && (
+              <Callout tone="fail" className="mb-4">
+                {recheckError}
+              </Callout>
+            )}
+            {recheck && (
+              <div className="mb-4 rounded-sm border border-line bg-surface p-3">
+                <p className="text-[13px] font-bold text-ink">確認の結果（{recheck.length} 媒体）</p>
+                <ul className="mt-2 space-y-1 text-[12px]">
+                  {recheck.map((l) => (
+                    <li key={l.mediaId} className="flex flex-wrap items-baseline gap-x-2">
+                      <Badge tone={RECHECK_TONE[l.outcome.result]} icon={false}>
+                        {RECHECK_LABELS[l.outcome.result]}
+                      </Badge>
+                      <span className="font-bold text-ink">{l.mediaName}</span>
+                      <span className="text-muted">{l.outcome.detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="mb-4 flex flex-wrap gap-2">
               {(
                 [
@@ -647,6 +700,11 @@ function MediaRow({ media, status, onChange }: { media: ListingMedia; status: Re
             {media.priority === 2 && <Badge tone="neutral">推奨</Badge>}
             <Badge tone={INTEGRATION_TONE[media.integration]}>{MEDIA_INTEGRATION_LABELS[media.integration]}</Badge>
             <Badge tone={STATUS_TONE[status.status]}>{LISTING_STATUS_LABELS[status.status]}</Badge>
+            {status.check && (
+              <Badge tone={RECHECK_TONE[status.check.result]} icon={false} title={status.lastCheckedAt ? `最終確認 ${formatDateTime(status.lastCheckedAt)}` : undefined}>
+                {RECHECK_LABELS[status.check.result]}
+              </Badge>
+            )}
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-muted">
             {media.howTo}
@@ -684,6 +742,11 @@ function MediaRow({ media, status, onChange }: { media: ListingMedia; status: Re
           <Field label="メモ" htmlFor={`lm-note-${media.id}`} hint={status.updatedAt ? `更新: ${formatDateTime(status.updatedAt)}` : undefined}>
             <Input id={`lm-note-${media.id}`} maxLength={LISTING_NOTE_MAX} value={status.note} onChange={(e) => onChange({ note: e.target.value })} />
           </Field>
+          {status.lastCheckedAt && status.check && (
+            <p className="text-[12px] text-muted md:col-span-2">
+              掲載の確認: {formatDateTime(status.lastCheckedAt)} に {RECHECK_LABELS[status.check.result]}（{status.check.detail}）。次回は {status.nextCheckAt ? formatDateTime(status.nextCheckAt) : "未定"}。
+            </p>
+          )}
         </div>
       )}
     </li>

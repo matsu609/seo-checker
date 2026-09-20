@@ -39,6 +39,7 @@ import { mapsViewStore } from "@/lib/store/maps";
 import { useToolRun } from "@/lib/tools/run";
 import { formatCount, formatRating, hostOf, statusLabel } from "./format";
 import { MeoHistoryCard } from "./MeoHistoryCard";
+import { RankTrendCard } from "./RankTrendCard";
 import { OwnerInputCard } from "./OwnerInputCard";
 import { PerformanceCard } from "./PerformanceCard";
 import { MeoReportView } from "./report/MeoReportView";
@@ -603,10 +604,12 @@ export function MapsTool() {
         busyId={busyId}
       />
 
-      <PerformanceCard number={5} placeId={ownId} storeName={own?.name ?? null} />
+      <RankTrendCard number={5} placeId={ownId} storeName={own?.name ?? null} refreshKey={history.items.length} />
+
+      <PerformanceCard number={6} placeId={ownId} storeName={own?.name ?? null} />
 
       <Card
-        number={6}
+        number={7}
         title="競合との比較"
         description="自社と登録した競合を、最新の一斉更新の数字で並べます。口コミは Google が返す最大 5 件です。"
         className="no-print"
