@@ -190,7 +190,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
-| 122 | **ご意見・不具合の報告を本番で開く（r128）**: ① Supabase の SQL Editor で下の「ご意見・不具合の報告のテーブル（r128）」の SQL を実行 → ② Vercel の自動デプロイ後、ツールの右上「ご意見・不具合」から 1 件送る → ③ `/admin` の「お客様からのご意見・不具合」に出ること、状態と返答を書けること → ④ `/settings` の「ご意見の履歴」に返答が出ること。SQL を実行するまで `/admin` のカードには「feedback テーブルがありません」と出る（他の画面は影響なし） | 利用者 | 未 |
+| 122 | **ご意見・不具合の報告を本番で開く（r128）**: ①~~Supabase の SQL Editor で SQL を実行~~ **完了（09-20。「Success. No rows returned」）** → ② Vercel の自動デプロイ後、ツールの右上「ご意見・不具合」から 1 件送る → ③ `/admin` の「お客様からのご意見・不具合」に出ること、状態と返答を書けること → ④ `/settings` の「ご意見の履歴」に返答が出ること | 利用者 | ① 完了、②〜④ 未 |
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
 | 111 | **サイドバーの整理の続き**: r94 で 3 つ外した。さらに減らす候補は ① ページ診断（競合比較。精密診断と役割が近い）② 順位計測（SerpApi）と検索パフォーマンス（推定）（DataForSEO）の一本化 ③ AIO 頻出トピック・ページ最適化レポートの API と `src/lib/aio-topics/` の削除（1〜2 か月後、転送ページと一緒に）。利用者の判断待ち（下の入力待ち） | 利用者（判断）→ Claude | 未 |
 | 112 | ~~タブの並び~~ | — | **不要（r95 で 3 タブをやめ、AIO 対策の中に SEO / MEO / サイテーションを入れ子にした）** |
@@ -1171,7 +1171,7 @@ alter table review_channels
   add column if not exists write_review_url text;
 ```
 
-### ご意見・不具合の報告のテーブル（r128、2026-09-20。Supabase SQL Editor で実行。**未実行**）
+### ご意見・不具合の報告のテーブル（r128、2026-09-20。**09-20 23:1x 実行済み**。利用者報告「Success. No rows returned」）
 
 ```sql
 create table if not exists feedback (
@@ -3967,3 +3967,9 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 ### 2026-09-20（SQL Editor の画面から何をするかを案内）
 
 利用者が Supabase の SQL Editor を開いた状態で「この画面からどうするの」。画面のエディタには **09-15 に実行済みの古いクエリ**（`alter table analysis_runs add column if not exists audit jsonb;`。#78 の 1b）が残っていたので、「全選択して消す → feedback の SQL を貼る → 枝が main / PRODUCTION であることを確認 → Run → Success. No rows returned」を表（# / サービス・画面 / URL / やること）で案内した。実行の報告待ち（#122 の ①）。
+
+### 2026-09-20（feedback テーブルの作成が完了、#122 の ①）
+
+利用者が Supabase の SQL Editor（`main` / PRODUCTION）で r128 の SQL を実行し、**Success. No rows returned**。`feedback` テーブルと索引 2 本ができ、RLS は有効（ポリシー無し = service_role だけが通る。他のテーブルと同じ）。
+
+**残り**: #122 の ②〜④（本番で 1 件送る → `/admin` に出ること・状態と返答を書けること → `/settings` の「ご意見の履歴」に返答が出ること）。Vercel の自動デプロイが終わっていれば、すぐ試せる。
