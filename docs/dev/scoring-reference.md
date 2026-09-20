@@ -60,13 +60,29 @@
 
 | カテゴリ | 重み | 何を見るか | コード |
 |---|---|---|---|
-| AI クローラ可否 | 20 | robots.txt が AI 検索用クローラを拒否していないか、noindex、`llms.txt` があるか（有無だけ。2026-09-18 から採点） | `robots.ts` |
+| AI・検索クローラ可否 | 20 | robots.txt が正しく置かれ書式が正しいか、検索エンジン（Googlebot / Bingbot）と AI 検索用クローラを拒否していないか、サイトマップの場所、noindex、`llms.txt` があるか（有無だけ。2026-09-18 から採点。robots.txt そのもの・書式・検索エンジン・サイトマップは 2026-09-20 から採点） | `robots.ts` / `robots-syntax.ts` |
 | 構造化データ | 25 | JSON-LD の有無と型（Organization / FAQPage / Article など） | `jsonld.ts` |
 | メタ情報 | 20 | title / description / canonical / OGP / 言語指定 | `meta.ts` |
 | 見出し | 15 | h1 が 1 つあるか、階層が飛んでいないか | `headings.ts` |
 | コンテンツ | 20 | 本文量、**本文の具体性**（固有名詞・数字・日付があるか） | `content.ts` |
 
 項目ごとの重みは 1〜3 点です（重要なものほど 3）。
+
+#### AI・検索クローラ可否の内訳（配点 12 点ぶんを 20 点に換算）
+
+| 項目 ID | 配点 | 判定 |
+|---|---|---|
+| `robots-txt` | 1 | 置かれていれば pass / 404 は warn / HTML が返る・5xx は fail（2026-09-20 追加） |
+| `robots-syntax` | 1 | 書式の誤り（効かない行）があれば fail、気になる書き方だけなら warn。robots.txt が無いページでは項目自体を出さない（2026-09-20 追加） |
+| `search-crawlers-allowed` | 3 | Googlebot / Bingbot の両方が拒否なら fail、片方なら warn（2026-09-20 追加） |
+| `ai-crawlers-allowed` | 3 | 検索用 AI クローラ 5 種が全滅なら fail、一部なら warn |
+| `ai-crawlers-training` | 0 | 学習用 5 種の拒否状況（参考表示。減点しない） |
+| `robots-sitemap` | 1 | robots.txt に Sitemap 行があれば pass / `/sitemap.xml` だけなら warn / どちらも無ければ fail（2026-09-20 追加） |
+| `noindex` | 2 | noindex があれば fail（意図したページを除く） |
+| `llms-txt` | 1 | 有無だけ |
+| `llms-full-txt` | 0 | 参考表示 |
+
+2026-09-20 に 4 項目（計 6 点）が増えたため、既存の項目のカテゴリ内の比重は従来の約半分になりました。同じサイトでも、この日を境に「AI・検索クローラ可否」の点は変わります。
 
 ### 注意
 

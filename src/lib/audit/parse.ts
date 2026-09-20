@@ -48,6 +48,8 @@ export interface ParseOptions {
   requestedUrl?: string;
   /** robots.txt が Googlebot にこの URL を許可しているか */
   robotsAllowed?: boolean;
+  /** robots.txt が拒否している AI 検索用クローラ（Googlebot が許可でも別に拒否できる） */
+  aiCrawlersBlocked?: string[];
   /** 実測した取得時間 */
   loadMs?: number | null;
 }
@@ -187,6 +189,7 @@ export function parseAuditPage(fetched: FetchedText, options: ParseOptions = {})
       types: jsonLd.types,
     },
     robotsAllowed: options.robotsAllowed ?? true,
+    aiCrawlersBlocked: options.aiCrawlersBlocked ?? [],
 
     ...extractExtras($, finalUrl, origin, meta, jsonLd.types),
   };

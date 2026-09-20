@@ -1,8 +1,9 @@
 import robotsParser from "robots-parser";
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
-import { fetchText, looksLikeHtml } from "./fetch";
+import { FetchError, fetchText, looksLikeHtml, type FetchedText } from "./fetch";
 import { notForSearch, type NotForSearchPage } from "./page-kind";
+import { countBySeverity, lintRobotsTxt } from "./robots-syntax";
 import type { CheckResult, CheckStatus, PageExclusion } from "./types";
 
 /* ─────────────────────────────────────────────────────────────
@@ -17,6 +18,9 @@ import type { CheckResult, CheckStatus, PageExclusion } from "./types";
    採点するのは検索用だけにする。
    ───────────────────────────────────────────────────────────── */
 export type CrawlerPurpose = "search" | "training";
+
+/** 書式の指摘を画面に並べる上限（多すぎると読めない） */
+const MAX_LINT_DETAILS = 8;
 
 export const AI_CRAWLERS = [
   { ua: "OAI-SearchBot", owner: "OpenAI（ChatGPT検索）", purpose: "search" },
@@ -34,6 +38,16 @@ export const AI_CRAWLERS = [
 export const SEARCH_CRAWLERS = AI_CRAWLERS.filter((c) => c.purpose === "search");
 export const TRAINING_CRAWLERS = AI_CRAWLERS.filter((c) => c.purpose === "training");
 
+/**
+ * 検索エンジンのクローラ。AI 検索の土台でもある（AI Overviews は Googlebot が取得した
+ * ページから作られ、Copilot は Bingbot のインデックスを使う）。AI 用の User-agent だけを
+ * 見ていると、`User-agent: Googlebot` を名指しで拒否しているサイトを見逃す。
+ */
+export const SEARCH_ENGINES = [
+  { ua: "Googlebot", owner: "Google（検索・AI Overviews）" },
+  { ua: "Bingbot", owner: "Microsoft（Bing・Copilot）" },
+] as const satisfies readonly { ua: string; owner: string }[];
+
 /** ua がどちらの用途か。未知の名前は search 扱い（採点を甘くしない） */
 export function purposeOf(ua: string): CrawlerPurpose {
   return AI_CRAWLERS.find((c) => c.ua === ua)?.purpose ?? "search";
@@ -47,20 +61,52 @@ export interface RobotsInfo {
   allowed: string[];
 }
 
+/**
+ * 指定した User-agent のうち、この URL を取得できないものを返す。
+ * robots.txt が無ければ全部取得できる（クローラの既定の扱いと同じ）。
+ */
+export function blockedAmong(
+  robotsTxt: string | null,
+  pageUrl: string,
+  robotsUrl: string,
+  uas: readonly string[],
+): string[] {
+  if (robotsTxt === null) return [];
+  const robots = robotsParser(robotsUrl, robotsTxt);
+  // isAllowed が undefined を返すのは URL がホスト外のとき。ここでは許可扱い
+  return uas.filter((ua) => robots.isAllowed(pageUrl, ua) === false);
+}
+
 /** robots.txt を解析し、対象 URL への各 AI クローラのアクセス可否を返す */
 export function evaluateRobots(robotsTxt: string | null, pageUrl: string, robotsUrl: string): RobotsInfo {
+  const all = AI_CRAWLERS.map((c) => c.ua);
   if (robotsTxt === null) {
-    return { exists: false, blocked: [], allowed: AI_CRAWLERS.map((c) => c.ua) };
+    return { exists: false, blocked: [], allowed: all };
   }
-  const robots = robotsParser(robotsUrl, robotsTxt);
-  const blocked: string[] = [];
-  const allowed: string[] = [];
-  for (const crawler of AI_CRAWLERS) {
-    // isAllowed が undefined を返すのは URL がホスト外のとき。ここでは許可扱い
-    if (robots.isAllowed(pageUrl, crawler.ua) === false) blocked.push(crawler.ua);
-    else allowed.push(crawler.ua);
-  }
-  return { exists: true, blocked, allowed };
+  const blocked = blockedAmong(robotsTxt, pageUrl, robotsUrl, all);
+  return { exists: true, blocked, allowed: all.filter((ua) => !blocked.includes(ua)) };
+}
+
+/**
+ * robots.txt の取得結果。`robotsTxt` が null でも理由は 3 通りあり、直し方が違う。
+ * - 404（無い。クローラは全許可として扱うので致命的ではない）
+ * - 200 だが HTML が返る（404 ページの取り違え。書いたはずの Sitemap 行や Disallow が
+ *   まったく効いていない状態で、運用者はふつう気づけない）
+ * - 5xx / 取得失敗（Google は robots.txt が 5xx を返し続けるとサイト全体のクロールを止める）
+ */
+export interface RobotsFetch {
+  /** HTTP ステータス。接続できなければ 0 */
+  status: number;
+  /** 200 で返ってきた中身が HTML だった（robots.txt として機能していない） */
+  html: boolean;
+  /** 取得できた robots.txt の文字数 */
+  length: number;
+}
+
+/** 定番の場所（/sitemap.xml）にサイトマップがあるか */
+export interface SitemapFetch {
+  present: boolean;
+  status: number;
 }
 
 /**
@@ -71,21 +117,47 @@ export interface SiteFiles {
   origin: string;
   /** robots.txt の中身。取得できなければ null */
   robotsTxt: string | null;
+  /** robots.txt の取得結果（無い / 誤設定 / エラーの見分けに使う） */
+  robots: RobotsFetch;
   /** robots.txt 内の Sitemap: 行 */
   sitemaps: string[];
+  /** robots.txt に Sitemap 行が無いときの定番の場所（/sitemap.xml） */
+  sitemapXml: SitemapFetch;
   llmsTxt: { present: boolean; length: number; status: number };
   llmsFullTxt: { present: boolean; length: number };
 }
 
-/** robots.txt / llms.txt / llms-full.txt をまとめて取得する */
+/**
+ * 取得できなかったファイルで診断全体を止めない。
+ * fetchText は 3MB 超・転送先が内部アドレスなどで FetchError を投げるが、
+ * robots.txt / llms.txt / sitemap.xml はどれも任意のファイルなので「無い」で扱う。
+ */
+async function optionalFetch(url: string): Promise<FetchedText> {
+  try {
+    return await fetchText(url, { timeoutMs: 8000 });
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      finalUrl: url,
+      contentType: "",
+      body: "",
+      headers: new Headers(),
+    };
+  }
+}
+
+/** robots.txt / llms.txt / llms-full.txt / sitemap.xml をまとめて取得する */
 export async function fetchSiteFiles(origin: string): Promise<SiteFiles> {
-  const [robotsRes, llmsRes, llmsFullRes] = await Promise.all([
-    fetchText(`${origin}/robots.txt`, { timeoutMs: 8000 }),
-    fetchText(`${origin}/llms.txt`, { timeoutMs: 8000 }),
-    fetchText(`${origin}/llms-full.txt`, { timeoutMs: 8000 }),
+  const [robotsRes, llmsRes, llmsFullRes, sitemapXml] = await Promise.all([
+    optionalFetch(`${origin}/robots.txt`),
+    optionalFetch(`${origin}/llms.txt`),
+    optionalFetch(`${origin}/llms-full.txt`),
+    probeSitemap(`${origin}/sitemap.xml`),
   ]);
 
-  const robotsTxt = robotsRes.ok && !looksLikeHtml(robotsRes) ? robotsRes.body : null;
+  const robotsHtml = robotsRes.ok && looksLikeHtml(robotsRes);
+  const robotsTxt = robotsRes.ok && !robotsHtml ? robotsRes.body : null;
   const llmsOk = llmsRes.ok && !looksLikeHtml(llmsRes) && llmsRes.body.trim().length > 0;
   const llmsFullOk =
     llmsFullRes.ok && !looksLikeHtml(llmsFullRes) && llmsFullRes.body.trim().length > 0;
@@ -93,7 +165,13 @@ export async function fetchSiteFiles(origin: string): Promise<SiteFiles> {
   return {
     origin,
     robotsTxt,
+    robots: {
+      status: robotsRes.status,
+      html: robotsHtml,
+      length: robotsTxt?.length ?? 0,
+    },
     sitemaps: extractSitemaps(robotsTxt),
+    sitemapXml,
     llmsTxt: {
       present: llmsOk,
       length: llmsOk ? llmsRes.body.trim().length : 0,
@@ -104,6 +182,28 @@ export async function fetchSiteFiles(origin: string): Promise<SiteFiles> {
       length: llmsFullOk ? llmsFullRes.body.trim().length : 0,
     },
   };
+}
+
+/**
+ * 定番の場所にサイトマップがあるかだけを見る。中身の URL は使わないので 256KB で打ち切る
+ * （サイトマップは数 MB になることがあり、有無の確認のために全部落とす必要はない）。
+ * 打ち切りに達したということは、それだけの量が返ってきたということなので「ある」と扱う。
+ */
+async function probeSitemap(url: string): Promise<SitemapFetch> {
+  try {
+    const res = await fetchText(url, { timeoutMs: 8000, maxBytes: 256 * 1024 });
+    return { present: looksLikeSitemap(res), status: res.status };
+  } catch (err) {
+    if (err instanceof FetchError && err.code === "too_large") return { present: true, status: 200 };
+    return { present: false, status: 0 };
+  }
+}
+
+/** サイトマップとして読める XML が返ってきたか（404 ページを 200 で返すサイト対策） */
+function looksLikeSitemap(res: FetchedText): boolean {
+  if (!res.ok || looksLikeHtml(res)) return false;
+  const head = res.body.slice(0, 2000);
+  return /<(urlset|sitemapindex)[\s>]/i.test(head);
 }
 
 /** robots.txt の `Sitemap: <url>` 行を集める */
@@ -171,6 +271,170 @@ export function searchExclusion(
   return { label: kind.label, noindex, robots };
 }
 
+/** robots.txt が正しく置かれているか（無い / HTML が返る / エラー） */
+function robotsFileCheck(files: SiteFiles, origin: string): CheckResult {
+  const url = `${origin}/robots.txt`;
+  const { status, html, length } = files.robots;
+
+  if (html) {
+    return check({
+      id: "robots-txt",
+      category: "crawlers",
+      status: "fail",
+      weight: 1,
+      label: "robots.txt の代わりに HTML が返っている",
+      evidence: `${url} → HTTP ${status} だが中身が HTML（robots.txt として読まれません）`,
+      advice:
+        "robots.txt を要求したのに、ページが見つからないときの HTML（404 ページ）が返っています。クローラはこれを robots.txt として読まないため、書いたはずの Sitemap 行や Disallow がまったく効いていません。サイトのルートに、文字だけのファイルとして robots.txt を置いてください。",
+    });
+  }
+  if (files.robotsTxt === null && (status === 0 || status >= 500)) {
+    return check({
+      id: "robots-txt",
+      category: "crawlers",
+      status: "fail",
+      weight: 1,
+      label: "robots.txt がエラーを返している",
+      evidence: `${url} → ${status === 0 ? "接続できませんでした" : `HTTP ${status}`}`,
+      advice:
+        "robots.txt がサーバーエラーを返しています。Google は robots.txt が 5xx を返す状態が続くと、安全側に倒して**サイト全体のクロールを止めます**。サーバーの設定を直し、ファイルが無いときは 404 を返すようにしてください（404 なら全許可として扱われます）。",
+    });
+  }
+  if (files.robotsTxt === null) {
+    return check({
+      id: "robots-txt",
+      category: "crawlers",
+      status: "warn",
+      weight: 1,
+      label: "robots.txt が置かれていない",
+      evidence: `${url} → HTTP ${status || "取得失敗"}`,
+      advice:
+        "robots.txt はクローラが最初に読むファイルです。無くてもクロールは止まりません（すべて許可として扱われます）が、サイトマップの場所を知らせる「Sitemap:」の行が書けず、発見が遅くなります。「User-agent: *」「Allow: /」「Sitemap: <サイトマップの URL>」の 3 行だけでも置いてください。",
+    });
+  }
+  return check({
+    id: "robots-txt",
+    category: "crawlers",
+    status: "pass",
+    weight: 1,
+    label: "robots.txt が置かれている",
+    evidence: `${url}（${length} 文字）`,
+    advice:
+      "robots.txt はクローラが最初に読むファイルです。サイトのルートに置いてください。",
+  });
+}
+
+/** robots.txt の書式。robots.txt が無いページでは項目自体を出さない */
+function robotsSyntaxCheck(files: SiteFiles): CheckResult | null {
+  if (files.robotsTxt === null) return null;
+  const issues = lintRobotsTxt(files.robotsTxt);
+  const counts = countBySeverity(issues);
+  const status: CheckStatus = counts.error > 0 ? "fail" : counts.warn > 0 ? "warn" : "pass";
+  const details = issues
+    .slice(0, MAX_LINT_DETAILS)
+    .map((i) => (i.line > 0 ? `${i.line} 行目: ${i.message}` : i.message));
+  if (issues.length > MAX_LINT_DETAILS) {
+    details.push(`ほか ${issues.length - MAX_LINT_DETAILS} 件`);
+  }
+  return check({
+    id: "robots-syntax",
+    category: "crawlers",
+    status,
+    weight: 1,
+    label:
+      status === "pass"
+        ? "robots.txt の書式に問題がない"
+        : status === "warn"
+          ? `robots.txt に気になる書き方が ${counts.warn} 件ある`
+          : `robots.txt に効いていない行が ${counts.error} 件ある`,
+    evidence:
+      status === "pass"
+        ? issues.length > 0
+          ? "効かない行はありません（参考の指摘のみ）"
+          : undefined
+        : "クローラは書式の誤った行を、何も言わずに読み飛ばします",
+    details,
+    advice:
+      "robots.txt は 1 行ずつ「ディレクティブ: 値」で書きます。綴りの誤り・全角の空白・User-agent より前の Disallow・絶対 URL を書いた Disallow は、エラーにならず黙って無視されるため、「書いたのに効いていない」状態になります。上の行番号の箇所を直してください。",
+  });
+}
+
+/** 検索エンジンのクローラ（Googlebot / Bingbot）の可否 */
+function searchEngineCheck(pageUrl: URL, files: SiteFiles, robotsUrl: string): CheckResult {
+  const uas = SEARCH_ENGINES.map((c) => c.ua);
+  const blocked = blockedAmong(files.robotsTxt, pageUrl.toString(), robotsUrl, uas);
+  const allowed = uas.filter((ua) => !blocked.includes(ua));
+
+  // サイト内検索の結果ページなどの意図した拒否は減点しない。ただしトップページまで
+  // 拒否されている（Disallow: /）ときは本物の問題なので、意図した拒否とみなさない
+  const homeBlocked = blockedAmong(files.robotsTxt, `${pageUrl.origin}/`, robotsUrl, uas);
+  const intended =
+    blocked.length > 0 && homeBlocked.length === 0 ? notForSearch(pageUrl.toString()) : null;
+
+  const status: CheckStatus =
+    blocked.length === 0 || intended ? "pass" : blocked.length === uas.length ? "fail" : "warn";
+  return check({
+    id: "search-crawlers-allowed",
+    category: "crawlers",
+    status,
+    weight: 3,
+    label: intended
+      ? `${intended.label}のため robots.txt での拒否は適切`
+      : status === "pass"
+        ? "検索エンジンのクローラがアクセス可能"
+        : status === "fail"
+          ? "検索エンジンのクローラがすべてブロックされている"
+          : `${blocked.join(" / ")} がブロックされている`,
+    evidence:
+      blocked.length === 0
+        ? files.robotsTxt === null
+          ? "robots.txt が無いため、すべてのクローラが許可されています"
+          : `robots.txt で ${uas.join(" / ")} がすべて許可されています`
+        : `拒否: ${blocked.join(", ")}${allowed.length > 0 ? ` / 許可: ${allowed.join(", ")}` : ""}${
+            intended ? ` — ${intended.reason}robots.txt で拒否したままで問題ありません（トップページは許可されています）。` : ""
+          }`,
+    advice:
+      "Googlebot は Google 検索だけでなく AI Overviews（検索結果の上に出る AI の回答）のもとになるページも取得します。Bingbot は Bing と Copilot のインデックスです。これらを robots.txt で拒否すると、検索にも AI の回答にも載らなくなります。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページであれば、拒否したままで問題ありません。",
+  });
+}
+
+/** サイトマップの場所（robots.txt の Sitemap 行 → 定番の /sitemap.xml の順に見る） */
+function sitemapCheck(files: SiteFiles, origin: string): CheckResult {
+  if (files.sitemaps.length > 0) {
+    return check({
+      id: "robots-sitemap",
+      category: "crawlers",
+      status: "pass",
+      weight: 1,
+      label: "robots.txt にサイトマップの場所が書かれている",
+      evidence: `Sitemap: ${files.sitemaps.slice(0, 2).join(" / ")}${files.sitemaps.length > 2 ? ` ほか ${files.sitemaps.length - 2} 件` : ""}`,
+      advice: "robots.txt の Sitemap 行は、クローラがサイト全体のページ一覧を見つける手がかりです。",
+    });
+  }
+  if (files.sitemapXml.present) {
+    return check({
+      id: "robots-sitemap",
+      category: "crawlers",
+      status: "warn",
+      weight: 1,
+      label: "サイトマップはあるが robots.txt に書かれていない",
+      evidence: `${origin}/sitemap.xml は見つかりましたが、robots.txt に Sitemap: の行がありません`,
+      advice:
+        "robots.txt に「Sitemap: " + origin + "/sitemap.xml」の 1 行を足してください。定番の場所にあるサイトマップはクローラも探しに来ますが、明示すると確実に見つかり、場所を変えたときにも追随できます。",
+    });
+  }
+  return check({
+    id: "robots-sitemap",
+    category: "crawlers",
+    status: "fail",
+    weight: 1,
+    label: "サイトマップが見つからない",
+    evidence: `robots.txt に Sitemap: の行が無く、${origin}/sitemap.xml も見つかりませんでした（HTTP ${files.sitemapXml.status || "取得失敗"}）`,
+    advice:
+      "サイトマップ（sitemap.xml）は、サイトにあるページの一覧を XML で書いたファイルです。多くの CMS（WordPress など）は自動で作ります。サイトのルートに置き、robots.txt に「Sitemap: <その URL>」の行を足してください。新しく作ったページや、内部リンクの少ないページが見つけてもらえるようになります。",
+  });
+}
+
 export function checkCrawlers(
   pageUrl: URL,
   $: cheerio.CheerioAPI,
@@ -181,6 +445,20 @@ export function checkCrawlers(
   const robotsUrl = `${origin}/robots.txt`;
 
   const results: CheckResult[] = [];
+
+  // --- robots.txt そのものが正しく置かれているか -----------------------------
+  // 無い（404）／HTML が返る（404 ページの取り違え）／5xx を分けて出す。書いたつもりの
+  // Sitemap 行や Disallow がまったく効いていない状態は、運用者からは見えないため。
+  results.push(robotsFileCheck(files, origin));
+
+  // --- robots.txt の書式 ------------------------------------------------------
+  // robots-parser は壊れた行を黙って読み飛ばす。「書いたのに効いていない」行はここで出す
+  const lintCheck = robotsSyntaxCheck(files);
+  if (lintCheck) results.push(lintCheck);
+
+  // --- 検索エンジンのクローラ（Googlebot / Bingbot）--------------------------
+  // AI 検索の土台。AI 用の User-agent だけを見ていると名指しの拒否を見逃す
+  results.push(searchEngineCheck(pageUrl, files, robotsUrl));
 
   // --- robots.txt による AI クローラ許可 -------------------------------------
   // 採点するのは検索用クローラだけ。学習用の拒否は正当な運用なので減点しない
@@ -247,6 +525,9 @@ export function checkCrawlers(
         "学習用クローラ（GPTBot・ClaudeBot・Google-Extended・CCBot など）を拒否しても、AI 検索での引用や Google の検索結果への掲載は減りません。コンテンツを学習に使わせたくない場合の正式な手段なので、この項目は採点していません。",
     }),
   );
+
+  // --- サイトマップの場所 -----------------------------------------------------
+  results.push(sitemapCheck(files, origin));
 
   // --- noindex ---------------------------------------------------------------
   // noindex は間違いとは限らない。サイト内検索の結果・買い物かご・ログイン後の画面

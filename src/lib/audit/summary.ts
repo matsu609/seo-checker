@@ -31,9 +31,9 @@ const PRIORITY_RULES: { rules: string[]; title: string; why: string }[] = [
     why: "たどり着けないページはクロールされず、利用者もそこで離脱します。まず到達できる状態に戻すのが最優先です。",
   },
   {
-    rules: ["SITEMAP_MISSING", "ROBOTS_MISSING"],
+    rules: ["SITEMAP_MISSING", "ROBOTS_MISSING", "ROBOTS_SYNTAX"],
     title: "sitemap.xml と robots.txt を整える",
-    why: "クローラがサイト全体を把握する入口です。ここが無いと、新しいページの発見が遅れます。",
+    why: "クローラがサイト全体を把握する入口です。ここが無い、または書式が誤っていると、新しいページの発見が遅れます。",
   },
   {
     rules: ["TITLE_MISSING", "TITLE_DUPLICATE", "META_DESC_MISSING", "META_DESC_DUPLICATE"],
@@ -107,6 +107,11 @@ export function buildRuleSummary(result: AuditResult): AuditSummary {
       countByRule(issues, ["NOINDEX", "ROBOTS_BLOCKED"]) > 0
         ? `${countByRule(issues, ["NOINDEX", "ROBOTS_BLOCKED"])} ページが noindex または robots.txt で拒否されています。意図した設定か確認してください。`
         : "検索結果から除外されているページはありませんでした。"
+    }`,
+    `AI 検索用クローラ: ${
+      countByRule(issues, ["AI_CRAWLER_BLOCKED"]) > 0
+        ? `${countByRule(issues, ["AI_CRAWLER_BLOCKED"])} ページで、検索エンジンは許可しつつ AI 検索用クローラだけを robots.txt で拒否しています。AI の回答に引用される機会が無くなります。`
+        : "robots.txt で拒否されているページはありませんでした。"
     }`,
     `表示速度: ${
       crawl.timed === 0

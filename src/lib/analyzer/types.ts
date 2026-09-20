@@ -89,7 +89,7 @@ export interface AnalysisResult {
 }
 
 export const CATEGORY_LABELS: Record<CategoryId, string> = {
-  crawlers: "AIクローラ可否",
+  crawlers: "AI・検索クローラ可否",
   structuredData: "構造化データ",
   meta: "メタ情報",
   headings: "見出し",

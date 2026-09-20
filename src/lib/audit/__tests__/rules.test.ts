@@ -210,6 +210,29 @@ describe("基本的な設定", () => {
     const siteWide = makeContext({ rootRobotsAllowed: false });
     expect(ruleRobotsBlocked(search, siteWide)[0].severity).toBe("error");
   });
+
+  // Googlebot は許可しつつ AI 検索用クローラだけ拒否している状態。
+  // robotsAllowed（Googlebot）だけを見ていたときは検出できなかった（2026-09-20 追加）
+  it("AI 検索用クローラだけの拒否は AI_CRAWLER_BLOCKED（警告）", () => {
+    const page = pageFrom(html({}), { aiCrawlersBlocked: ["OAI-SearchBot", "PerplexityBot"] });
+    const [found] = ruleRobotsBlocked(page, ctx);
+    expect(found.ruleId).toBe("AI_CRAWLER_BLOCKED");
+    expect(found.severity).toBe("warning");
+    expect(found.detail).toContain("OAI-SearchBot");
+  });
+
+  it("Googlebot も拒否されているときは ROBOTS_BLOCKED だけを出す（二重に数えない）", () => {
+    const page = pageFrom(html({}), { robotsAllowed: false, aiCrawlersBlocked: ["OAI-SearchBot"] });
+    expect(ruleIds(ruleRobotsBlocked(page, ctx))).toEqual(["ROBOTS_BLOCKED"]);
+  });
+
+  it("もともと検索に載せないページの AI クローラ拒否は情報に留める", () => {
+    const search = pageFrom(html({}), {
+      url: `${ORIGIN}/cart`,
+      aiCrawlersBlocked: ["OAI-SearchBot"],
+    });
+    expect(ruleRobotsBlocked(search, ctx)[0].severity).toBe("info");
+  });
 });
 
 describe("見出しタグ", () => {

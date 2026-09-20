@@ -72,7 +72,7 @@ export function ServiceGuide({ contactName, contactUrl, issuedOn }: ServiceGuide
           </p>
           <div className="mt-3 grid grid-cols-5 gap-2 text-center">
             {[
-              ["AI クローラ可否", "20"],
+              ["AI・検索クローラ可否", "20"],
               ["構造化データ", "25"],
               ["メタ情報", "20"],
               ["見出し", "15"],

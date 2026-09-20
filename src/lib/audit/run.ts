@@ -10,7 +10,12 @@
 import robotsParser from "robots-parser";
 import { assertHtmlPage } from "@/lib/analyzer";
 import { FetchError, assertPublicHost, fetchText, normalizeUrl, type FetchedText } from "@/lib/analyzer/fetch";
-import { fetchSiteFiles, type SiteFiles } from "@/lib/analyzer/robots";
+import {
+  blockedAmong,
+  fetchSiteFiles,
+  SEARCH_CRAWLERS,
+  type SiteFiles,
+} from "@/lib/analyzer/robots";
 import { crawlSite, resolveMaxPages } from "@/lib/crawl/crawler";
 import { discoverSitemapUrls } from "@/lib/crawl/discover";
 import { canonicalizeUrl } from "@/lib/crawl/url";
@@ -49,6 +54,9 @@ export interface RunAuditOptions {
   signal?: AbortSignal;
   onProgress?: (progress: AuditProgress) => void;
 }
+
+/** AI 検索用クローラの User-agent（学習用は拒否していても課題にしない） */
+const AI_SEARCH_UAS = SEARCH_CRAWLERS.map((c) => c.ua);
 
 export async function runAudit(input: string, options: RunAuditOptions = {}): Promise<AuditResult> {
   const started = Date.now();
@@ -110,6 +118,12 @@ export async function runAudit(input: string, options: RunAuditOptions = {}): Pr
       const result = parseAuditPage(page, {
         requestedUrl,
         robotsAllowed: robots ? robots.isAllowed(page.finalUrl, "Googlebot") !== false : true,
+        aiCrawlersBlocked: blockedAmong(
+          siteFiles.robotsTxt,
+          page.finalUrl,
+          `${origin}/robots.txt`,
+          AI_SEARCH_UAS,
+        ),
         loadMs: requestedUrl === entryUrl ? entryLoadMs : null,
       });
       parsed.set(result.page.url, result.page);
