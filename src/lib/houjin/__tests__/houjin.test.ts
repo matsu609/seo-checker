@@ -163,8 +163,14 @@ describe("登記との突き合わせ", () => {
     expect(next.address).toBe("東京都新宿区新宿一丁目1番1号");
   });
 
+  // 店名が通称でも、登記上の商号は必ず控える（構造化データの legalName に出す）
+  it("登記上の商号は空欄でなくても必ず控える", () => {
+    const profile = ListingProfileSchema.parse({ name: "テスト商会 新宿店" });
+    expect(prefillFromRegistry(profile, corporation).legalName).toBe("株式会社テスト商会");
+  });
+
   it("埋めるものが無ければ同じ参照を返す", () => {
-    const profile = ListingProfileSchema.parse({ name: "あ", nameKana: "い", postalCode: "1", address: "う" });
+    const profile = ListingProfileSchema.parse({ name: "あ", nameKana: "い", postalCode: "1", address: "う", legalName: "株式会社テスト商会" });
     expect(prefillFromRegistry(profile, corporation)).toBe(profile);
   });
 });

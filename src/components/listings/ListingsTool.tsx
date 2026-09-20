@@ -51,6 +51,7 @@ import { missingRequired, publishTargets, summarizeResults, type PublishFile, ty
 import {
   ADDRESS_MAX,
   CATEGORY_MAX,
+  buildSameAs,
   compareNap,
   EMAIL_MAX,
   emptyProfile,
@@ -68,6 +69,7 @@ import {
   prefillFromGoogle,
   profileToText,
   SHORT_DESCRIPTION_MAX,
+  SOCIAL_URLS_MAX,
   stateOf,
   summarizeStates,
   URL_MAX,
@@ -207,7 +209,8 @@ export function ListingsTool() {
   /** 集計は既定の 7 媒体だけ（上級も見たいときはチェックを入れる） */
   const summary = useMemo(() => summarizeStates(states, withAdvanced ? LISTING_MEDIA : CORE), [states, withAdvanced]);
   const text = useMemo(() => profileToText(profile), [profile]);
-  const jsonLd = useMemo(() => jsonLdScript(profile), [profile]);
+  const jsonLd = useMemo(() => jsonLdScript(profile, states), [profile, states]);
+  const sameAs = useMemo(() => buildSameAs(profile, states), [profile, states]);
   /** 一括登録に足りない必須項目と、今回の対象になる媒体 */
   const missing = useMemo(() => missingRequired(profile), [profile]);
   const targets = useMemo(() => publishTargets(states, { tier: withAdvanced ? "all" : "core" }), [states, withAdvanced]);
@@ -808,15 +811,51 @@ export function ListingsTool() {
           <Card
             number={5}
             title="サイトに貼る構造化データ"
-            description="自社サイトの <head> か本文の末尾に貼ると、検索エンジンと生成 AI が基本情報（店名・住所・電話・営業時間）を読み取れます。"
+            description="自社サイトの <head> か本文の末尾に貼ると、検索エンジンと生成 AI が基本情報（店名・住所・電話・営業時間）と、よそにある自社のページ（sameAs）を読み取れます。"
             actions={
               <Button type="button" size="sm" variant="secondary" onClick={() => copy("jsonld", jsonLd)}>
                 {copied === "jsonld" ? "コピーしました" : "コピー"}
               </Button>
             }
           >
-            <Textarea aria-label="構造化データ" rows={12} readOnly value={jsonLd} className="font-mono text-[12px]" />
-            <p className="mt-2 text-[12px] text-muted">営業時間は「月曜日: 10:00〜19:00」の形の行だけ変換されます。</p>
+            <Field
+              label="公式 SNS などの URL（1 行に 1 つ）"
+              htmlFor="lp-social"
+              hint="X・Instagram・Facebook・YouTube・業界団体の会員ページなど、自社を指す https:// の URL。自社サイトは上の「サイト」欄に入るのでここには書きません"
+            >
+              <Textarea
+                id="lp-social"
+                rows={4}
+                maxLength={SOCIAL_URLS_MAX}
+                value={profile.socialUrls}
+                placeholder={"https://www.instagram.com/your-shop/\nhttps://x.com/your-shop"}
+                onChange={(e) => update("socialUrls", e.target.value)}
+              />
+            </Field>
+            <Callout tone="info" title="sameAs に入るもの" className="mt-4">
+              <p>
+                <code>sameAs</code> は「このサイトの運営者は、よそにあるこの会社と同じだ」と伝える項目です。
+                <strong>精密診断が「無い」と指摘している当の項目</strong>で、同名の別会社との取り違えを防ぎ、AI が事実を裏づける材料になります。いまは
+                <strong>{sameAs.length} 件</strong>入っています。
+              </p>
+              {sameAs.length > 0 ? (
+                <ul className="mt-2 list-disc space-y-0.5 pl-5">
+                  {sameAs.map((u) => (
+                    <li key={u} className="break-all font-mono text-[11px]">
+                      {u}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2">
+                  上の欄に公式 SNS の URL を入れるか、法人番号を控えるか、媒体一覧で「掲載済み」にして掲載ページの URL を控えると増えます。
+                </p>
+              )}
+            </Callout>
+            <Textarea aria-label="構造化データ" rows={14} readOnly value={jsonLd} className="mt-4 font-mono text-[12px]" />
+            <p className="mt-2 text-[12px] text-muted">
+              営業時間は「月曜日: 10:00〜19:00」の形の行だけ変換されます。掲載ページの URL は、媒体一覧で状況を「掲載済み」にして URL を控えたものだけが入ります。
+            </p>
           </Card>
         </>
       )}

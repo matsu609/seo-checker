@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import type { PlaceDetail } from "@/lib/maps/types";
+import { publicRegistryUrls } from "@/lib/houjin/constants";
 import { LISTING_MEDIA, type ListingMedia } from "./media";
 
 export const NAME_MAX = 100;
@@ -18,6 +19,8 @@ export const EMAIL_MAX = 200;
 export const HOURS_MAX = 400;
 export const SHORT_DESCRIPTION_MAX = 150;
 export const LONG_DESCRIPTION_MAX = 750;
+/** 公式 SNS などの URL（1 行 1 URL）。sameAs に入る */
+export const SOCIAL_URLS_MAX = 800;
 export const LISTING_URL_MAX = 500;
 export const LISTING_NOTE_MAX = 200;
 
@@ -43,6 +46,13 @@ export const ListingProfileSchema = z.object({
   shortDescription: z.string().trim().max(SHORT_DESCRIPTION_MAX).default(""),
   /** 長い説明（750 文字。Google / Yahoo! / Apple の説明文） */
   longDescription: z.string().trim().max(LONG_DESCRIPTION_MAX).default(""),
+  /**
+   * 登記上の商号（国税庁の照会で入る）。店名が通称のときに構造化データの legalName に出す。
+   * 店名と同じなら出さない
+   */
+  legalName: z.string().trim().max(NAME_MAX).default(""),
+  /** 公式 SNS・業界団体の会員ページなど、自社を指す URL（1 行 1 つ）。構造化データの sameAs に入る */
+  socialUrls: z.string().trim().max(SOCIAL_URLS_MAX).default(""),
 });
 export type ListingProfile = z.infer<typeof ListingProfileSchema>;
 
@@ -236,14 +246,51 @@ export function parseHoursLine(line: string): OpeningHoursSpec | null {
   return { "@type": "OpeningHoursSpecification", dayOfWeek: day, opens, closes };
 }
 
+/**
+ * sameAs に入れる URL を集める（純粋関数）。
+ *
+ * sameAs は「このサイトを運営しているのは、よそのこの人／この会社と同じだ」と言う項目で、
+ * **精密診断が「無い」と減点している当のもの**（src/lib/analyzer/jsonld.ts）。
+ * 材料は 3 つ。自社サイト（url に入る）は sameAs には入れない。
+ *   1. 法人番号から作る公的な URL（法人番号公表サイト・gBizINFO）
+ *   2. 掲載が「掲載済み」になっていて、掲載ページの URL を控えてある媒体
+ *   3. 利用者が入れた公式 SNS・業界団体の会員ページなど
+ * 同じ URL は 1 つにまとめ、https:// のものだけを出す（間違いを構造化データに混ぜない）。
+ */
+export function buildSameAs(profile: ListingProfile, states: ListingStates = {}): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const own = profile.website.trim() ? normalizeForCompare(profile.website) : null;
+  const add = (value: string) => {
+    const url = value.trim();
+    if (!url.startsWith("https://")) return;
+    const key = normalizeForCompare(url);
+    if (key === own || seen.has(key)) return;
+    seen.add(key);
+    out.push(url);
+  };
+  for (const r of publicRegistryUrls(profile.corporateNumber)) add(r.url);
+  for (const media of LISTING_MEDIA) {
+    const state = stateOf(states, media.id);
+    if (state.status === "live") add(state.url);
+  }
+  for (const line of profile.socialUrls.split(/\r?\n/)) add(line);
+  return out;
+}
+
 /** サイトに貼る構造化データ（schema.org LocalBusiness。生成 AI と検索エンジンが基本情報を読む） */
-export function toJsonLd(profile: ListingProfile): Record<string, unknown> {
+export function toJsonLd(profile: ListingProfile, states: ListingStates = {}): Record<string, unknown> {
   const out: Record<string, unknown> = { "@context": "https://schema.org", "@type": "LocalBusiness" };
   if (profile.name) out.name = profile.name;
+  // 登記上の商号が店名と違うときだけ出す（「テスト商会 新宿店」と「株式会社テスト商会」）
+  if (profile.legalName && normalizeForCompare(profile.legalName) !== normalizeForCompare(profile.name)) out.legalName = profile.legalName;
   if (profile.shortDescription || profile.longDescription) out.description = profile.longDescription || profile.shortDescription;
   if (profile.website) out.url = profile.website;
   if (profile.phone) out.telephone = profile.phone;
   if (profile.email) out.email = profile.email;
+  if (profile.corporateNumber) {
+    out.identifier = { "@type": "PropertyValue", propertyID: "法人番号", value: profile.corporateNumber };
+  }
   if (profile.address || profile.postalCode) {
     const addr: Record<string, unknown> = { "@type": "PostalAddress", addressCountry: "JP" };
     if (profile.postalCode) addr.postalCode = profile.postalCode;
@@ -255,10 +302,12 @@ export function toJsonLd(profile: ListingProfile): Record<string, unknown> {
     .map(parseHoursLine)
     .filter((x): x is OpeningHoursSpec => x !== null);
   if (specs.length > 0) out.openingHoursSpecification = specs;
+  const sameAs = buildSameAs(profile, states);
+  if (sameAs.length > 0) out.sameAs = sameAs;
   return out;
 }
 
-export function jsonLdScript(profile: ListingProfile): string {
+export function jsonLdScript(profile: ListingProfile, states: ListingStates = {}): string {
   // </script> でタグを閉じられないようエスケープ
-  return `<script type="application/ld+json">\n${JSON.stringify(toJsonLd(profile), null, 2).replace(/<\//g, "<\\/")}\n</script>`;
+  return `<script type="application/ld+json">\n${JSON.stringify(toJsonLd(profile, states), null, 2).replace(/<\//g, "<\\/")}\n</script>`;
 }

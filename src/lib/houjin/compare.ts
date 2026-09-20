@@ -71,8 +71,14 @@ export function prefillFromRegistry(profile: ListingProfile, corporation: Corpor
     nameKana: profile.nameKana || corporation.furigana,
     postalCode: profile.postalCode || corporation.postCode,
     address: profile.address || corporation.address,
+    // 登記上の商号は必ず控える（店名が通称のとき、構造化データの legalName に出す）
+    legalName: corporation.name,
   };
-  return next.name === profile.name && next.nameKana === profile.nameKana && next.postalCode === profile.postalCode && next.address === profile.address
+  return next.name === profile.name &&
+    next.nameKana === profile.nameKana &&
+    next.postalCode === profile.postalCode &&
+    next.address === profile.address &&
+    next.legalName === profile.legalName
     ? profile
     : next;
 }
