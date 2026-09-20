@@ -42,6 +42,8 @@
 | Google Cloud → 予算とアラート | https://console.cloud.google.com/billing/budgets?project=seo-checker-508104 |
 | Google Cloud → OAuth → ブランディング | https://console.cloud.google.com/auth/branding?project=seo-checker-508104 |
 | Google Cloud → OAuth（Google Auth Platform） | https://console.cloud.google.com/auth/overview?project=seo-checker-508104 |
+| Google Cloud → Business Profile API の割り当て（**申請が通ったかの確認**） | https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 |
+| Google Cloud → 有効な API とサービス（呼び出し回数・エラー） | https://console.cloud.google.com/apis/dashboard?project=seo-checker-508104 |
 | Cloudflare → Email Routing | https://dash.cloudflare.com/ → seo-checker.tokyo → Email → Email Routing |
 | Cloudflare → 紹介サイトの Worker（ビルド設定） | https://dash.cloudflare.com/ → Compute（Workers） → `seo-checker-hp` → Settings → Build |
 | Google Cloud → OAuth → 対象（テストユーザー） | https://console.cloud.google.com/auth/audience?project=seo-checker-508104 |
@@ -102,7 +104,7 @@
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
-| Business Profile API | **09-11 に申請（ケース ID `0-4126000041187`）→ 返信なし。09-20 に再申請の準備（利用者の指示）。**再申請の前に潰す 2 点: ①**プロフィールの確認が未完了**（09-19 に Google から「追加のお手続きが必要」のメール）②前回は**管理者アカウント**で申請していた（フォームは**オーナー**で送る） | 手順は [google-oauth-verification.md](./google-oauth-verification.md) §5。Google の審査制（最大 2 週間）。承認後に足すコードは無い（r37 / r97 / 投稿まで実装済み） |
+| Business Profile API | **09-11 に申請（ケース ID `0-4126000041187`）→ 返信なし。09-20 に再申請の準備（利用者の指示）。**再申請の前に潰す 2 点: ①**プロフィールの確認が未完了**（09-19 に Google から「追加のお手続きが必要」のメール）②前回は**管理者アカウント**で申請していた（フォームは**オーナー**で送る） | 手順は [google-oauth-verification.md](./google-oauth-verification.md) §5。Google の審査制（最大 2 週間）。承認後に足すコードは無い（r37 / r97 / 投稿まで実装済み）。**進捗を見るページは Google に無い**（ケース ID はメールだけ）。承認の合否は Google Cloud の「割り当て」で判定する — https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 が **0 = 未承認 / 300 = 承認済み**。もう一つのランプは v4 がライブラリに出るかどうか。詳細は §5-5 |
 | 定期処理（`/api/cron/daily`、r127） | **本番で動作を確認（09-20 22:52、サイトの事故監視を「今すぐ実行」で成功。記録も `cron_runs` に残った）** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
 | Resend（メール送信、r127） | **未設定**（`RESEND_API_KEY` / `MAIL_FROM`） | #119 の手順。無くても画面の「お知らせ」には残る |
 | Stripe（直結） | **本番モードで割引付きの Checkout まで確認済み（2026-09-18 21:30）。Webhook（決済後に契約中になるか）は未確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
@@ -945,6 +947,7 @@ alter table monthly_reports enable row level security;
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
 - Business Profile API の再申請（#5 / #54 ①）の結果。**09-20 に「プロフィールの確認を完了 → オーナーアカウントで再申請 → 前回ケースへ督促」の 3 つを依頼（[google-oauth-verification.md](./google-oauth-verification.md) §5）。**①の確認が終わったか、②の新しいケース ID、③督促への返信
+- **Business Profile API の割り当ての数字**（進捗チェック。§5-5）。https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 の「1 分あたりのリクエスト数」が **0 か 300 か**。0 なら未承認のまま、300 なら承認済みなので v4 の有効化（#116）に進む
 - 口コミ支援の課金（スタンダードに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 - **Clerk のユーザーで `publicMetadata.plan` に `standard` を手で割り当てた人がいないか**（r63 で `standard` の意味が「診断・計測のみ」から「全機能」に変わったため。いれば `light` に直す。誰にも割り当てていなければ何もしなくてよい）。画面: https://dashboard.clerk.com/ → Users → 各ユーザー → Metadata
 - プレミアム（伴走）の中身の詰め: レポート代行の範囲と、お見積りの目安（どういう条件だと 150,000 円で、何が増えるといくら上がるのか）。r65 で**所要時間と返信目標の数字は外した**（「月 1 回の報告ミーティング（オンライン）」「優先サポート（メール・チャット）」）ので、約束しているのは頻度と手段だけ。数字を戻すなら `src/lib/plans/catalog.ts` と `marketing/public/index.html`・`public/service-guide.html` の 3 か所
@@ -4078,3 +4081,17 @@ Business Profile API の前提条件の 1 番目は「**確認済み（verified�
 **できないこと・注意**: Apple マップ・Yahoo!マップ・Bing のページは JS 描画で本文が取れず、API も契約が要る（Apple Business Connect / LINEヤフー / Bing は CSV のみ）ので自動では見ない。画面の注意書きで管理画面の目視を頼む。Google マップは公開情報（Places）なのでオーナー権限は不要。判定は「一致 / 不一致 / 記載なし」をそのまま出し、スコアや点数にはしない（利用者の意図「ごまかしが効かない」）。
 
 **触っていないこと**: 掲載（サイテーション・基本情報掲載）・定期更新（r127）・決済・Clerk は変更なし。法人番号 Web-API は作らない（判断の経緯）。別セッションのブランチ `claude/clever-pasteur-82da6k` は引き続き未マージ。
+
+### 2026-09-20（Business Profile API の申請の進捗をどこで見るか）
+
+- 利用者の質問「申請が必要な Google ビジネスプロフィールの API は何種類かあると思うが、その申請が正しく行われているか・進捗をチェックするページはどこにあるか」。コードは触っていない（調査と手順の記録のみ）。
+- 回答の要点を [google-oauth-verification.md](./google-oauth-verification.md) **§5-5** に全部書いた。
+  - **Google に「申請の進捗ページ」は無い。**申請フォームはケース ID をメールで返すだけで、ケースの状態を見るポータルは公開されていない。結果も追加質問もメールだけ。
+  - **代わりに Google Cloud の「割り当て（Quotas）」が合否ランプになる。**1 分あたりのリクエスト数が **0 = 未承認 / 300 = 承認済み**。ここで「割り当ての増加」を申請してはいけない（種別が違う）。URL は Account Management / Business Information / Performance の 3 本ぶんを §5-5 の表に。
+  - **もう一つのランプ**: Google My Business API（v4）は承認されたプロジェクトにしか API ライブラリに出ない（09-18 に「開かない」ことを確認済み = 当時は未承認）。
+  - **API は 4 本あるが、申請は 1 本**（Application for Basic API Access はプロジェクト単位の許可）。API ごとの申請ではない。
+  - **「申請」と呼んでいるものは 3 種類**で進捗の見え方が違う: A = Business Profile API の利用申請（進捗ページ無し・割り当てで判定）／ B = OAuth 本番公開審査（Google Auth Platform に確認の状態が出る = 進捗ページ有り）／ C = クォータ増加（当面不要）。
+  - **「正しく出せているか」は 3 点で確かめる**: ①ケース ID のメールがあるか ②**そのメールの宛先がオーナー `wolf@wolf-info.org` か**（管理者アカウントで出すと 5-0 の B を繰り返す） ③プロフィールの確認が完了しているか（5-0 の A）。
+- 出典（この環境から `developers.google.com` と `support.google.com` は直接開けないので検索結果で確認）: [Prerequisites | Google Business Profile APIs](https://developers.google.com/my-business/content/prereqs)、[Usage limits](https://developers.google.com/my-business/content/limits)、[Google Business Profile API access pending, quota still 0 QPM（コミュニティ）](https://support.google.com/business/thread/438770179/google-business-profile-api-access-pending-quota-still-0-qpm?hl=en)、[How to Track the Status of Case ID given by Google Business Profile Support（コミュニティ）](https://support.google.com/business/thread/252105979/how-to-track-the-status-of-case-id-given-by-google-business-profile-support?hl=en)。
+- 利用者への依頼: 上の 3 つの割り当て URL を開いて「1 分あたりのリクエスト数」が 0 か 300 かを見てもらう。**0 なら 09-11 の申請は通っていない**ので §5-1 の再申請（確認 → オーナーで再申請 → 督促）をそのまま進める。**300 なら承認済み**なので v4 の有効化（#116 の手順 1）に進めばよく、再申請は不要。
+- 触っていないこと: コード・テスト・リリース番号。`r131` のまま。
