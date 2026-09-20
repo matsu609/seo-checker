@@ -101,7 +101,7 @@
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
 | Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
-| 定期処理（`/api/cron/daily`、r127） | **コードは完成。本番は #19（`CRON_SECRET`）と #118（SQL 6 つ）の後に動く** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
+| 定期処理（`/api/cron/daily`、r127） | **コードは完成。SQL 6 つは実行済み（#118、09-20）。本番で動くのは #19（`CRON_SECRET`）の後** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
 | Resend（メール送信、r127） | **未設定**（`RESEND_API_KEY` / `MAIL_FROM`） | #119 の手順。無くても画面の「お知らせ」には残る |
 | Stripe（直結） | **本番モードで割引付きの Checkout まで確認済み（2026-09-18 21:30）。Webhook（決済後に契約中になるか）は未確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
 
@@ -199,7 +199,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 115 | **MEO の月次レポート（競合ツールの帳票の再現。2026-09-17 利用者が PDF を共有）**: 審査なし（Places API + 毎週の保存）で作れる部分を先に作る = 新規口コミ数・平均評価（前月比）／ 口コミの成長（月別件数 + 累計平均評価。登録日以降）／ 星別分布（当月。最新 5 件から）／ キーワード順位変動（月初 / 月末。毎週の順位から）／ 口コミの傾向。オーナー権限が要る欄（表示回数・マップ / 検索表示・電話 / サイト / ルート・流入キーワード・返信数と返信率・投稿数）は「接続すると表示」の枠にして、#113 / #114 のあと Performance API と v4 で埋める。PDF 出力は既存の仕組み。目安 3 日 | 利用者（判断）→ Claude | 未 |
 | 116 | **Performance API を承認当日に動かすための利用者の作業**: 下の「Business Profile Performance API を使えるようにする手順（#116）」の表 | 利用者 | **09-18: API 3 本を有効化済み。v4 は承認待ち。スコープ完了（非機密）。テストユーザー完了。**残り: Clerk の名前（7）・ブランディング（8）・ケースの督促（6。9/26 以降） |
 | 117 | **無料診断の前にユーザー登録、メールアドレスごとに 2 回まで**（2026-09-18 利用者の要望 → GO） | Claude → 利用者 | **本番で登録 → 確認コード → 無料診断まで通った（09-18 利用者報告。r98〜r104）**。`DEFAULT_PLAN=free`・`NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `SIGN_UP_URL` 登録済み。残り: 無料診断を 2 回使って「使い切り」が出ること、`/admin` に登録情報が出ること、Clerk の Account Portal の転送先（アカウントポータルを通らせない設定の表の 2）、既存契約者の個別開放（まだなら） |
-| 118 | **r127 のテーブル作成（Supabase SQL Editor）**: 下の「定期更新（r127）を本番で動かす手順」の SQL（`rank_snapshots` / `notifications` / `cron_runs` / `site_monitor_snapshots` / `gbp_posts` / `monthly_reports` の 6 つ）を実行する。実行するまで、自動計測・お知らせ・定期処理の記録・サイト監視・投稿・月次レポートは 404（テーブルが無い）で動かない（既存の機能は影響なし） | 利用者 | 未 |
+| 118 | **r127 のテーブル作成（Supabase SQL Editor）**: 下の「定期更新（r127）を本番で動かす手順」の SQL（`rank_snapshots` / `notifications` / `cron_runs` / `site_monitor_snapshots` / `gbp_posts` / `monthly_reports` の 6 つ）を実行する。実行するまで、自動計測・お知らせ・定期処理の記録・サイト監視・投稿・月次レポートは 404（テーブルが無い）で動かない（既存の機能は影響なし） | 利用者 | **完了（09-20。「Success. No rows returned」と Table Editor に `monthly_reports` / `notifications` / `rank_snapshots` / `site_monitor_snapshots` が並ぶ画面を確認）** |
 | 119 | **メール送信（Resend）の準備**: 下の手順の表（アカウント → 送信ドメインの DNS 認証 → API キー → Vercel に `RESEND_API_KEY` / `MAIL_FROM` → Redeploy）。無くても画面の「お知らせ」には残る | 利用者 | 未 |
 | 120 | **定期処理の本番確認**: #19（`CRON_SECRET`）と #118 のあと、Vercel の Cron Jobs に `/api/cron/daily`（`0 20 * * *`）と `/api/cron/geo-run` の 2 本が出ること → マスター画面の「定期処理（Cron）の状況」で各ジョブを「今すぐ実行」→ 成功と件数を見る。順位計測（火）は SerpApi、マップ診断（月）は Places の実費が出る | 利用者 | 未 |
 | 121 | **自動計測の語数の上限の確認**: ライト 30 / スタンダード 100 / プレミアム 300 語（週 1 回。`src/lib/rank/auto.ts` の `RANK_AUTO_LIMITS`）。SerpApi の残高（月 5,000 回のプランなら 300 語 × 4 週で 1,200 回）に合わせて変えるなら指示 | 利用者（判断） | 未 |
@@ -3912,3 +3912,8 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 ### 2026-09-20（r127 の SQL を会話に貼った）
 
 - 利用者「1 の SQL はどれ」→ 上の「定期更新（r127）を本番で動かす手順」の SQL（6 テーブル）をそのまま会話に貼り、Supabase の SQL Editor での実行をお願いした（#118）。実行の報告待ち。
+
+### 2026-09-20（#118 完了: r127 の SQL を実行）
+
+- 利用者が Supabase の SQL Editor で r127 の SQL（6 テーブル）を実行し「Success. No rows returned」。Table Editor の画面で `monthly_reports` / `notifications` / `rank_snapshots` / `site_monitor_snapshots` を確認（`cron_runs` / `gbp_posts` はアルファベット順で画面の上にあり、写っていないが同じ SQL の中）。
+- 残り: #19（`CRON_SECRET` を Vercel に登録 → Redeploy → Cron Jobs に `/api/cron/daily` と `/api/cron/geo-run`）、#119（Resend。手順の表の 3〜8）、#120（マスター画面で各ジョブを「今すぐ実行」）。別セッションの r128（ご意見・不具合の報告）の `feedback` テーブルの SQL も未実行なら実行する。
