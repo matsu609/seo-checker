@@ -932,6 +932,7 @@ alter table monthly_reports enable row level security;
 
 ### 入力待ち（利用者からの回答が要るもの）
 
+- **robots.txt のチェックをどこまで足すか（2026-09-20 の調査）**: クイック診断に ①Googlebot / Bingbot の可否 ②robots.txt の有無そのもの ③robots.txt が HTML を返す誤設定 ④`Sitemap:` 行の有無 を足すか（半日）。⑤書式の誤り（`User-agent` 無しの `Disallow`・綴り間違い・CSS/JS のブロック）の検出も足すか（別途 1 日）。⑥精密診断の `ROBOTS_BLOCKED` を AI 検索用クローラにも広げるか。詳しくは作業ログ 2026-09-20
 - **ご意見・不具合の報告の続き（r128 のあと）**: 新着をメールで受けたいか（Resend 等の送信サービスの契約が要る。09-20 の定期更新の相談と同じ基盤）。スクショ添付を足すか（Supabase Storage が要る）。Sentry（エラーの自動収集）を入れるか
 - **定期更新（r127）の本番反映**: #118（SQL）・#119（Resend）・#120（Cron の確認）が済んだら一言。自動計測の語数の上限（#121: ライト 30 / スタンダード 100 / プレミアム 300）はこれでよいか
 - **チャートの色**: dataviz の検証ツールで、既存の 6 色（`palette.chart`）は 5・6 色目の区別が弱く（色覚多様性で ΔE 2.2）、全体に彩度が低いと出た。推移グラフは最初の 4 色を区別しやすい順に並べ替え、点の形・凡例・表で補っている。デザインの色そのものを変えるか（変えるなら `globals.css` と `palette.ts` の両方）
@@ -3913,6 +3914,34 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 
 - 利用者「1 の SQL はどれ」→ 上の「定期更新（r127）を本番で動かす手順」の SQL（6 テーブル）をそのまま会話に貼り、Supabase の SQL Editor での実行をお願いした（#118）。実行の報告待ち。
 
+### 2026-09-20（調査: robots.txt と AI クローラのブロック確認は診断に入っているか）
+
+利用者の質問「クイック診断と精密診断で、robots.txt がちゃんと設定できているか、AI のクローリングをブロックしていないかの確認は、コードを見ただけで分かるか。診断に簡単に取り入れられるか、もう入っているか」への回答。**コードは触っていない（調査のみ）。**
+
+**結論: 判定はできるし、主要な部分はすでに入っている。**robots.txt はサイトのルートに置かれた公開テキストなので、取得して `robots-parser` に渡せば「どの User-agent がどの URL を取得できるか」は機械的に判定できる。取得（`fetchSiteFiles`）も判定（`evaluateRobots` / `evaluateAiBots`）も実装済み。
+
+**いま入っているもの**
+
+| どこ | 何を見ているか | 採点 | コード |
+|---|---|---|---|
+| クイック診断 | 検索用 AI クローラ 5 種（OAI-SearchBot / ChatGPT-User / Claude-SearchBot / Claude-User / PerplexityBot）がこの URL を取得できるか | 配点 3（全滅なら fail、一部なら warn） | `analyzer/robots.ts` の `ai-crawlers-allowed` |
+| クイック診断 | 学習用 5 種（GPTBot / ClaudeBot / Google-Extended / Applebot-Extended / CCBot）の拒否状況 | 配点 0（参考表示。学習拒否は正当な経営判断なので減点しない） | `ai-crawlers-training` |
+| クイック診断 | `meta robots` / `X-Robots-Tag` の noindex、llms.txt の有無 | 配点 2 / 1 | `noindex`、`llms-txt` |
+| 精密診断 | robots.txt が無い / sitemap.xml が無い / サイトマップの中身（404 の URL・未掲載ページ） | 課題として検出 | `audit/rules/cross.ts` の `ROBOTS_MISSING`・`SITEMAP_MISSING` |
+| 精密診断 | ページごとに Googlebot が robots.txt で拒否されていないか | 課題として検出（意図した拒否は除外） | `audit/rules/page.ts` の `ROBOTS_BLOCKED` |
+| 精密診断 | トップページのクイック診断の点（カテゴリ「AI クローラ可否」20 点ぶん）も同時に出す | 事実シートに点数のみ | `seo-analysis/collect.ts` の `quickScore` |
+| （参考） | AI ボット 20 種の一覧表（Googlebot・Bingbot・Bytespider・meta-externalagent なども含む） | 表示のみ | `page-report/robots.ts` の `evaluateAiBots`（HP 改修提案が使用。サイドバーからは非表示） |
+
+**足りていないもの（やるなら小さい追加。判定の土台はもうある）**
+
+1. **クイック診断に Googlebot / Bingbot が入っていない。**`AI_CRAWLERS` は AI 系 10 種だけ。`User-agent: *` の `Disallow: /` は AI 側の判定に巻き込まれて拾えるが、`User-agent: Googlebot` を名指しで拒否しているサイトは**クイック診断では素通りする**（精密診断なら `ROBOTS_BLOCKED` で出る）。
+2. **クイック診断に「robots.txt がある / 無い」の項目が無い。**AI クローラ判定の根拠文（「robots.txt が無いため、すべてのクローラが許可されています」）に出るだけで、独立した項目になっていない。
+3. **robots.txt が HTML を返す誤設定が「無い」と同じ扱い。**`fetchSiteFiles` は HTML っぽい応答を `null` にするので、404 ページを返す設定ミスも「robots.txt 無し = 全部許可」になり、クイック診断では減点ゼロ。
+4. **Sitemap: 行の有無を見ていない。**精密診断は sitemap.xml が定番の場所で見つかれば課題にしないので、「robots.txt に Sitemap 行が無い」は誰も指摘しない。
+5. **書式の誤りを検出していない。**`User-agent` の無い `Disallow`、綴り間違い（`Dissallow`）、全角スペース、BOM、`Disallow: *.css` のような CSS/JS のブロック（レンダリング阻害）は素通り。
+6. **精密診断の `ROBOTS_BLOCKED` は Googlebot だけ。**AI 検索用クローラだけが拒否されているページは、精密診断の課題一覧には出ない（トップの採点には出る）。
+
+**見積もり**: 1〜4 と 6 は `analyzer/robots.ts` に項目を足し、`report/weights.ts` に配点を書き、テストを足すだけ（UI は項目を自動で並べるので画面の改修は不要）。半日程度。5 の書式チェックは自前のパーサが要るので別途 1 日程度。**どこまでやるかは利用者の判断待ち**（入力待ちに記載）。
 ### 2026-09-20（#118 完了: r127 の SQL を実行）
 
 - 利用者が Supabase の SQL Editor で r127 の SQL（6 テーブル）を実行し「Success. No rows returned」。Table Editor の画面で `monthly_reports` / `notifications` / `rank_snapshots` / `site_monitor_snapshots` を確認（`cron_runs` / `gbp_posts` はアルファベット順で画面の上にあり、写っていないが同じ SQL の中）。
