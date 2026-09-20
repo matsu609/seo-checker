@@ -108,6 +108,8 @@ describe("機能とプランの対応", () => {
     expect(light).toContain("search-estimate");
     // サイテーション（ウェブ上の掲載・言及チェック）は読む・測る系なのでライト（2026-09-17）
     expect(light).toContain("citations");
+    // NAP チェック（表記ゆれの検出）も読む・測る系（2026-09-20）
+    expect(light).toContain("nap");
     expect(light).not.toContain("search-performance");
     expect(light.length).toBeGreaterThanOrEqual(9);
   });

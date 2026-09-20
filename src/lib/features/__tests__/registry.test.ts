@@ -37,7 +37,8 @@ describe("AIO 対策（親）の中の 3 本の柱", () => {
     expect(tree.pillars.map((p) => [p.category.id, p.features.map((f) => f.id)])).toEqual([
       ["seo", ["seo-analysis", "page-improve", "writing", "rank", "monitor"]],
       ["meo", ["maps", "reviews", "posts"]],
-      ["citation", ["citations"]],
+      // r131: NAP チェック（表記ゆれの検出）を柱の先頭に（利用者の決定 2026-09-20「ずれていないかを主機能に」）
+      ["citation", ["nap", "citations"]],
     ]);
     expect(tree.common.map((f) => f.id)).toEqual(["plans", "settings"]);
     // 木に出るのは hidden でないツールの全部（漏れも重複も無い）
@@ -87,6 +88,7 @@ describe("AIO 対策（親）の中の 3 本の柱", () => {
     expect(categoryForPath("/tools/geo")).toBe("aio");
     expect(categoryForPath("/tools/citations")).toBe("citation");
     expect(categoryForPath("/tools/listings")).toBe("citation");
+    expect(categoryForPath("/tools/nap")).toBe("citation");
     expect(isPillar(categoryForPath("/tools/citations"))).toBe(true);
     expect(isPillar(categoryForPath("/tools/geo"))).toBe(false);
     expect(isPillar(null)).toBe(false);

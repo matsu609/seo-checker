@@ -366,6 +366,31 @@ const DIAGNOSIS: readonly Feature[] = [
  */
 const FOUNDATION: readonly Feature[] = [
   {
+    id: "nap",
+    path: "/tools/nap",
+    label: "NAP チェック（表記ゆれの検出）",
+    shortLabel: "NAP チェック",
+    description:
+      "店名・住所・電話番号・サイト URL の 4 つを「正」として入れると、自社サイト（構造化データ・フッター・会社概要・お問い合わせ）、Google マップ、掲載ページに書かれている値を取りに行き、項目ごとに一致か不一致かで答えます。出てくるのは「直すべき箇所」の一覧です。",
+    details: [
+      "自社サイト: トップから会社概要・お問い合わせ・アクセスなどを最大 4 ページ辿り、構造化データ（JSON-LD）とフッター・本文の店名・住所・電話番号を突き合わせる",
+      "Google マップ: MEO の保存済み報告書か Places API で同じ店舗を見つけ、店名・住所・電話・サイトを突き合わせる",
+      "掲載ページ: 「掲載」タブで控えた URL と、検索で見つかった媒体のページ（最大 6 件）を開いて突き合わせる",
+      "全角 / 半角・空白・ハイフン・法人格の略記の違いは一致とみなし、それ以外は不一致。建物名だけの違いは要確認",
+      "直すべき箇所を「不一致 → 要確認」の順に、直し方と URL つきで一覧に（CSV）。構造化データが無い・ずれているサイトには貼る JSON-LD を出す",
+    ],
+    featureIds: [],
+    icon: "target",
+    status: "beta",
+    // 自社サイトの確認だけならキー不要。Google マップは Places、掲載ページの発見は DataForSEO、控えた URL は Supabase があれば増える
+    requires: [],
+    optional: ["places", "dataforseo", "supabase"],
+    group: "diagnosis",
+    category: "citation",
+    // 読む・測る系なのでライト。利用者の決定 2026-09-20「登録されている内容がずれていないかを主機能にする」
+    plan: "light",
+  },
+  {
     id: "citations",
     path: "/tools/citations",
     label: "掲載（ウェブ上の掲載チェックと NAP 登録）",

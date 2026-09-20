@@ -91,6 +91,7 @@ flowchart LR
 | キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |
 | AI ライティング | `/tools/writing` | standard | 必須 | ● | ○ ※4 | − | − | − | − | − | − |
 | 口コミへの返信 | `/tools/replies` | standard | 必須 | ○ | − | − | − | ○ | ○ | − | ◍ BP ※5 |
+| NAP チェック（表記ゆれの検出） | `/tools/nap` | light | 必須 | − | − | − | − | ○ | ○ | − | − |
 | サイテーション（DataForSEO ※8） | `/tools/citations` | light | 必須 | − | − | − | − | − | − | − | − |
 | 基本情報掲載（NAP） | `/tools/listings` | standard | 必須 | ○ | − | − | − | ○ | ● | − | − |
 | llms.txt 生成 | `/tools/llms-txt` | standard | 必須 | − | − | − | − | − | − | − | − |
@@ -309,6 +310,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 |---|---|
 | サイト診断（テクニカル SEO） | 自前クローラ |
 | ページ診断（競合比較） | 自前クローラ + SerpApi + Claude |
+| NAP チェック | 自前クローラ（自社サイト・掲載ページ）。Google マップは Places、掲載ページの発見は DataForSEO（Google 検索 2 回）。どちらも無くても自社サイトの確認は動く |
 | サイテーション | DataForSEO（Google 検索 3 回） |
 | HP 改修提案 | Claude |
 | 順位計測・AI Overviews 引用 | SerpApi |

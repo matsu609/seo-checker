@@ -37,6 +37,7 @@
 | 生成 | `/tools/replies` | 口コミへの返信（AI 返信案） | — | Google 連携（Business Profile API、`business.manage`）。返信案は Anthropic 任意 |
 | 調査 | `/tools/keywords` | キーワード調査 | C1 | なし（意図分類は Anthropic 任意） |
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
+| 基礎対策 | `/tools/nap` | NAP チェック（表記ゆれの検出。4 項目の「正」と、自社サイト・Google マップ・掲載ページに書かれている値を突き合わせ、直すべき箇所を一覧に。サイテーションの柱の先頭） | — | なし（Places / DataForSEO / Supabase は任意） |
 | 基礎対策 | `/tools/citations` | サイテーション（店名・電話・住所で Google を検索し、ウェブ上の掲載・言及と NAP の食い違いを一覧に。サイテーションの柱） | — | DataForSEO |
 | 基礎対策 | `/tools/listings` | 基本情報掲載（NAP 一括登録。サイテーションの柱） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
 | 基礎対策 | `/tools/llms-txt` | llms.txt 生成（サイテーションの柱） | D6 | なし |
@@ -83,6 +84,7 @@ src/
                               #   残りは検索・CrUX・クロールの数値を使い回す。採点は score.ts の純関数）
     page-report/              # A2/A3（画面は引退。HP 改修提案・PSI・llms.txt が使う）
     citations/                # サイテーション（sources = 既知の媒体、analyze = 純関数、dataforseo = 検索）
+    nap/                      # NAP チェック（compare = 正規化と突き合わせ、extract = HTML から NAP、site / google / media = 媒体ごとの確認、report = 直すべき箇所）
     serp/                     # SERP プロバイダ抽象（SerpApi 実装、未設定時は null）
     llm/                      # Anthropic クライアント、モデル定数、構造化出力ヘルパ
     llmo/（プロンプト拡張だけ）rank/ keywords/ writing/ llms-txt/ geo/ search-estimate/ ...
