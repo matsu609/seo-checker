@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { AdminConsole } from "@/components/admin/AdminConsole";
 import { FeedbackCard } from "@/components/admin/FeedbackCard";
 import { IntegrationsCard } from "@/components/admin/IntegrationsCard";
+import { JobsCard } from "@/components/admin/JobsCard";
 import { VersionCard } from "@/components/admin/VersionCard";
 import { Callout } from "@/components/ui/Callout";
 import { loadAgencies } from "@/lib/admin/agencies";
@@ -56,7 +57,7 @@ export default async function Page() {
     } catch (err) {
       feedbackError =
         err instanceof DbError && err.status === 404
-          ? "feedback テーブルがありません。docs/dev/OPERATIONS.md の SQL（r127）を Supabase の SQL Editor で実行してください。"
+          ? "feedback テーブルがありません。docs/dev/OPERATIONS.md の SQL（r128）を Supabase の SQL Editor で実行してください。"
           : "ご意見の一覧を取得できませんでした。時間をおいて開き直してください。";
     }
   }
@@ -81,6 +82,10 @@ export default async function Page() {
 
       <div className="mb-6">
         <FeedbackCard initial={feedback} loadError={feedbackError} />
+      </div>
+
+      <div className="mb-6">
+        <JobsCard />
       </div>
 
       <AdminConsole

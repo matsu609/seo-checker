@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { RankAutoResponse } from "@/app/api/rank/auto/route";
 import { Badge, Button, Callout, Card, Select, StatStrip, Tabs } from "@/components/ui";
 import { downloadCsv, csvFileName, type CsvColumn } from "@/lib/export/csv";
 import {
@@ -32,9 +33,11 @@ import { useToolRun } from "@/lib/tools/run";
 import { AioPanel } from "./AioPanel";
 import { KeywordRegistry } from "./KeywordRegistry";
 import { RankTable } from "./RankTable";
+import { RankTrendPanel } from "./RankTrendPanel";
 import { RealtimePanel } from "./RealtimePanel";
+import { formatDateTime } from "@/lib/report/format";
 
-type TabId = "keywords" | "realtime" | "aio" | "estimate" | "research";
+type TabId = "keywords" | "trend" | "realtime" | "aio" | "estimate" | "research";
 
 const CSV_COLUMNS: CsvColumn<RankRow>[] = [
   { header: "キーワード", value: (r) => r.keyword.keyword },
@@ -71,7 +74,22 @@ export function RankTool() {
   const [previousDate, setPreviousDate] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [failures, setFailures] = useState<RankMeasureFailure[]>([]);
+  const [auto, setAuto] = useState<RankAutoResponse | null>(null);
   const { state, run, cancel } = useToolRun<RankMeasureResponse>();
+
+  // 毎週の自動計測（サーバー保存）を端末側の履歴に取り込む（同じ語・同じ日は後勝ち）
+  useEffect(() => {
+    const ac = new AbortController();
+    fetch("/api/rank/auto", { cache: "no-store", signal: ac.signal })
+      .then(async (r) => (r.ok ? ((await r.json()) as RankAutoResponse) : null))
+      .then((body) => {
+        if (!body || ac.signal.aborted) return;
+        setAuto(body);
+        if (body.snapshots.length > 0) saveSnapshots(body.snapshots);
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, []);
 
   const projectId = project?.id ?? "";
   const projectDomain = project?.domain ?? "";
@@ -147,6 +165,7 @@ export function RankTool() {
   // どれも「どの語で何位か」を扱う仕事で、画面が分かれている必要がなかった
   const tabs = [
     { id: "keywords" as const, label: "キーワード", count: scoped.length },
+    { id: "trend" as const, label: "推移" },
     { id: "realtime" as const, label: "リアルタイム計測" },
     { id: "aio" as const, label: "AI Overviews" },
     { id: "estimate" as const, label: "検索の推定" },
@@ -279,6 +298,16 @@ export function RankTool() {
         </p>
       </Card>
 
+      {auto && (
+        <Callout tone="info" title="毎週火曜 5:00 に自動で計測します">
+          登録キーワードのうち登録が古い順に {auto.limit} 語まで（プランで決まります）を、SerpApi で測って履歴に足します。
+          次回 {formatDateTime(auto.nextRunAt)}。
+          {auto.lastRunDate ? `最後の自動計測は ${auto.lastRunDate} です。` : "まだ自動計測は動いていません。"}
+          {!auto.enabled && " いまは自動計測の準備ができていません（運用側の設定待ち）。"}
+          前回より 5 位以上下がった語・10 位以内から外れた語・圏外になった語は「お知らせ」（設定でメールも可）で知らせます。
+        </Callout>
+      )}
+
       {state.phase === "error" && (
         <Callout tone="fail" title="計測できませんでした">
           {state.message}
@@ -327,6 +356,12 @@ export function RankTool() {
           </Card>
           <KeywordRegistry projectId={projectId} keywords={scoped} groups={groups} />
         </div>
+      )}
+
+      {tab === "trend" && (
+        <Card title="順位の推移" headingLevel={3} description="手動の計測と毎週の自動計測を同じ線に並べます。上が 1 位。">
+          <RankTrendPanel keywords={visible} snapshots={visibleSnapshots} />
+        </Card>
       )}
 
       {tab === "realtime" && (

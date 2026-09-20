@@ -28,6 +28,9 @@
 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables |
 | Vercel → Deployments（Redeploy） | https://vercel.com/matsumatsu452-6233/seo-checker/deployments |
 | Vercel → Cron Jobs | https://vercel.com/matsumatsu452-6233/seo-checker/settings/cron-jobs |
+| Resend → API Keys（メール送信。r127） | https://resend.com/api-keys |
+| Resend → Domains（送信ドメインの DNS 認証） | https://resend.com/domains |
+| Resend → Emails（送信ログ） | https://resend.com/emails |
 | Supabase → 組織（Projects） | https://supabase.com/dashboard/org/hrjabajiqwgrttfglwul |
 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new |
 | Supabase → API Keys | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/settings/api-keys |
@@ -81,7 +84,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r127 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r128 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -98,6 +101,8 @@
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
 | Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
+| 定期処理（`/api/cron/daily`、r127） | **コードは完成。本番は #19（`CRON_SECRET`）と #118（SQL 6 つ）の後に動く** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
+| Resend（メール送信、r127） | **未設定**（`RESEND_API_KEY` / `MAIL_FROM`） | #119 の手順。無くても画面の「お知らせ」には残る |
 | Stripe（直結） | **本番モードで割引付きの Checkout まで確認済み（2026-09-18 21:30）。Webhook（決済後に契約中になるか）は未確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
 
 ### Vercel の環境変数（Production）
@@ -185,7 +190,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
-| 118 | **ご意見・不具合の報告を本番で開く（r127）**: ① Supabase の SQL Editor で下の「ご意見・不具合の報告のテーブル（r127）」の SQL を実行 → ② Vercel の自動デプロイ後、ツールの右上「ご意見・不具合」から 1 件送る → ③ `/admin` の「お客様からのご意見・不具合」に出ること、状態と返答を書けること → ④ `/settings` の「ご意見の履歴」に返答が出ること。SQL を実行するまで `/admin` のカードには「feedback テーブルがありません」と出る（他の画面は影響なし） | 利用者 | 未 |
+| 122 | **ご意見・不具合の報告を本番で開く（r128）**: ① Supabase の SQL Editor で下の「ご意見・不具合の報告のテーブル（r128）」の SQL を実行 → ② Vercel の自動デプロイ後、ツールの右上「ご意見・不具合」から 1 件送る → ③ `/admin` の「お客様からのご意見・不具合」に出ること、状態と返答を書けること → ④ `/settings` の「ご意見の履歴」に返答が出ること。SQL を実行するまで `/admin` のカードには「feedback テーブルがありません」と出る（他の画面は影響なし） | 利用者 | 未 |
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
 | 111 | **サイドバーの整理の続き**: r94 で 3 つ外した。さらに減らす候補は ① ページ診断（競合比較。精密診断と役割が近い）② 順位計測（SerpApi）と検索パフォーマンス（推定）（DataForSEO）の一本化 ③ AIO 頻出トピック・ページ最適化レポートの API と `src/lib/aio-topics/` の削除（1〜2 か月後、転送ページと一緒に）。利用者の判断待ち（下の入力待ち） | 利用者（判断）→ Claude | 未 |
 | 112 | ~~タブの並び~~ | — | **不要（r95 で 3 タブをやめ、AIO 対策の中に SEO / MEO / サイテーションを入れ子にした）** |
@@ -194,11 +199,15 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 115 | **MEO の月次レポート（競合ツールの帳票の再現。2026-09-17 利用者が PDF を共有）**: 審査なし（Places API + 毎週の保存）で作れる部分を先に作る = 新規口コミ数・平均評価（前月比）／ 口コミの成長（月別件数 + 累計平均評価。登録日以降）／ 星別分布（当月。最新 5 件から）／ キーワード順位変動（月初 / 月末。毎週の順位から）／ 口コミの傾向。オーナー権限が要る欄（表示回数・マップ / 検索表示・電話 / サイト / ルート・流入キーワード・返信数と返信率・投稿数）は「接続すると表示」の枠にして、#113 / #114 のあと Performance API と v4 で埋める。PDF 出力は既存の仕組み。目安 3 日 | 利用者（判断）→ Claude | 未 |
 | 116 | **Performance API を承認当日に動かすための利用者の作業**: 下の「Business Profile Performance API を使えるようにする手順（#116）」の表 | 利用者 | **09-18: API 3 本を有効化済み。v4 は承認待ち。スコープ完了（非機密）。テストユーザー完了。**残り: Clerk の名前（7）・ブランディング（8）・ケースの督促（6。9/26 以降） |
 | 117 | **無料診断の前にユーザー登録、メールアドレスごとに 2 回まで**（2026-09-18 利用者の要望 → GO） | Claude → 利用者 | **本番で登録 → 確認コード → 無料診断まで通った（09-18 利用者報告。r98〜r104）**。`DEFAULT_PLAN=free`・`NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `SIGN_UP_URL` 登録済み。残り: 無料診断を 2 回使って「使い切り」が出ること、`/admin` に登録情報が出ること、Clerk の Account Portal の転送先（アカウントポータルを通らせない設定の表の 2）、既存契約者の個別開放（まだなら） |
+| 118 | **r127 のテーブル作成（Supabase SQL Editor）**: 下の「定期更新（r127）を本番で動かす手順」の SQL（`rank_snapshots` / `notifications` / `cron_runs` / `site_monitor_snapshots` / `gbp_posts` / `monthly_reports` の 6 つ）を実行する。実行するまで、自動計測・お知らせ・定期処理の記録・サイト監視・投稿・月次レポートは 404（テーブルが無い）で動かない（既存の機能は影響なし） | 利用者 | 未 |
+| 119 | **メール送信（Resend）の準備**: 下の手順の表（アカウント → 送信ドメインの DNS 認証 → API キー → Vercel に `RESEND_API_KEY` / `MAIL_FROM` → Redeploy）。無くても画面の「お知らせ」には残る | 利用者 | 未 |
+| 120 | **定期処理の本番確認**: #19（`CRON_SECRET`）と #118 のあと、Vercel の Cron Jobs に `/api/cron/daily`（`0 20 * * *`）と `/api/cron/geo-run` の 2 本が出ること → マスター画面の「定期処理（Cron）の状況」で各ジョブを「今すぐ実行」→ 成功と件数を見る。順位計測（火）は SerpApi、マップ診断（月）は Places の実費が出る | 利用者 | 未 |
+| 121 | **自動計測の語数の上限の確認**: ライト 30 / スタンダード 100 / プレミアム 300 語（週 1 回。`src/lib/rank/auto.ts` の `RANK_AUTO_LIMITS`）。SerpApi の残高（月 5,000 回のプランなら 300 語 × 4 週で 1,200 回）に合わせて変えるなら指示 | 利用者（判断） | 未 |
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports`~~ → ~~Vercel に環境変数 2 つ~~ → ~~`meo_stores`~~（09-10 17:03 作成、Table Editor で 2 テーブル確認）→ 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: 動作確認のみ |
 | 45 | r27 の SQL を Supabase で実行（`meo_owner_inputs`） | 利用者 | **完了（09-11 17:21、画面で Success を確認）**。残りは本番 `/tools/maps` の「オーナー情報の入力」で保存できるかの確認 |
-| 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
+| 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/daily`（`0 20 * * *`。r127 で日次に統合）と `/api/cron/geo-run` の 2 本が出ることを確認 | 利用者 | 未 |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
 | 5 | Business Profile API の利用申請 | 利用者 | **申請済み（09-11 20:52、ケース ID `0-4126000041187`、審査 7〜10 営業日）**。承認メール待ち → #54 ②〜④へ |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
@@ -796,10 +805,136 @@ order by 1;
 
 **RLS の考え方（利用者の質問 2026-09-18）**: ブラウザ用の anon キー（Publishable key）は誰でも見られる前提の鍵なので、RLS が無効のテーブルは URL と anon キーがあれば誰でも読み書きできる。**RLS を有効にしてポリシーを 1 つも作らない**と anon キーでは何もできず、アプリが使う service_role だけが通る。これが本サービスの全テーブル共通の設計（`user_id` の絞り込みはサーバーのコードで行う）。上の 8 テーブルの SQL には 2026-09-18 まで `enable row level security` が抜けていた（他のテーブルの SQL には全部入っていた）ので追記した。
 
+### 定期更新（r127）を本番で動かす手順（#118〜#120。すべて利用者の作業）
+
+r127 で足した「継続的に更新する」機能は、Supabase のテーブル 6 つとメール送信の設定が要る。順番どおりに。
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | 下の SQL を貼って Run（`create table if not exists` なので二重実行しても安全） |
+| 2 | Vercel → Settings → Environment Variables | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | まだなら `CRON_SECRET`（長いランダムな文字列。Secret、Production）を追加（#19） |
+| 3 | Resend → Sign up | https://resend.com/signup | アカウントを作る（無料枠: 月 3,000 通・1 日 100 通） |
+| 4 | Resend → Domains | https://resend.com/domains | 「Add Domain」で `seo-checker.tokyo` を追加 → 表示される DNS レコード（TXT・CNAME。SPF / DKIM）を控える |
+| 5 | Cloudflare → seo-checker.tokyo → DNS → Records | https://dash.cloudflare.com/ | 4 のレコードをそのまま追加（CNAME は「DNS のみ」= プロキシ OFF）→ Resend の画面で「Verified」になるまで待つ（数分〜1 時間） |
+| 6 | Resend → API Keys | https://resend.com/api-keys | 「Create API Key」（Permission: Sending access）→ 値を控える（`re_` で始まる。メモには書かない） |
+| 7 | Vercel → Settings → Environment Variables | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | `RESEND_API_KEY`（Secret）と `MAIL_FROM`（値は `SEO Checker <noreply@seo-checker.tokyo>`）を Production に追加 |
+| 8 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイを Redeploy（環境変数はデプロイ時に読まれる） |
+| 9 | Vercel → Settings → Cron Jobs | https://vercel.com/matsumatsu452-6233/seo-checker/settings/cron-jobs | `/api/cron/daily`（`0 20 * * *` = 毎日 5:00 JST）と `/api/cron/geo-run` の 2 本が出ること（Hobby は 2 本まで。`maps-refresh` は無くてよい） |
+| 10 | app → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」で Resend が設定済み → 「定期処理（Cron）の状況」で各ジョブを「今すぐ実行」→ 成功と件数を確認（順位計測は SerpApi、マップ診断は Places の実費が出る） |
+| 11 | app → 設定 | https://app.seo-checker.tokyo/settings | 「通知」カードでメールの ON / OFF と宛先を確認（既定は ON・ログインのメール） |
+
+**SQL（r127。6 つまとめて 1 回）**:
+
+```sql
+-- 順位計測の自動計測（毎週火曜）の保存先。画面が開いたときに端末の履歴へ取り込む
+create table if not exists rank_snapshots (
+  user_id text not null,
+  keyword_id text not null,
+  taken_on date not null,
+  snapshot jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, keyword_id, taken_on)
+);
+create index if not exists rank_snapshots_user_idx on rank_snapshots (user_id, taken_on desc);
+alter table rank_snapshots enable row level security;
+
+-- お知らせ（画面の「お知らせ」。メールを送れたら emailed_at）
+create table if not exists notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  kind text not null,
+  title text not null,
+  body text not null default '',
+  link text,
+  created_at timestamptz not null default now(),
+  emailed_at timestamptz,
+  read_at timestamptz
+);
+create index if not exists notifications_user_idx on notifications (user_id, created_at desc);
+alter table notifications enable row level security;
+
+-- 定期処理の実行記録（マスター画面の「定期処理（Cron）の状況」）
+create table if not exists cron_runs (
+  id uuid primary key default gen_random_uuid(),
+  job text not null,
+  status text not null,
+  summary jsonb not null default '{}'::jsonb,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz
+);
+create index if not exists cron_runs_job_idx on cron_runs (job, started_at desc);
+alter table cron_runs enable row level security;
+
+-- サイトの事故監視（毎週水曜）のスナップショット
+create table if not exists site_monitor_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  origin text not null,
+  checked_at timestamptz not null,
+  incidents int not null default 0,
+  snapshot jsonb not null
+);
+create index if not exists site_monitor_user_idx on site_monitor_snapshots (user_id, origin, checked_at desc);
+alter table site_monitor_snapshots enable row level security;
+
+-- Google ビジネス プロフィールの投稿（下書き → 予約 → 毎日 5:00 に送信）
+create table if not exists gbp_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  place_id text not null,
+  location_name text,
+  topic_type text not null default 'STANDARD',
+  title text not null default '',
+  summary text not null default '',
+  cta_type text not null default 'NONE',
+  cta_url text not null default '',
+  event_start date,
+  event_end date,
+  status text not null default 'draft',
+  scheduled_at timestamptz,
+  published_at timestamptz,
+  google_name text,
+  error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists gbp_posts_user_idx on gbp_posts (user_id, place_id, created_at desc);
+create index if not exists gbp_posts_due_idx on gbp_posts (status, scheduled_at);
+alter table gbp_posts enable row level security;
+
+-- 月次レポート（利用者 × 月で 1 行）
+create table if not exists monthly_reports (
+  user_id text not null,
+  month text not null,
+  report jsonb not null,
+  created_at timestamptz not null default now(),
+  emailed_at timestamptz,
+  primary key (user_id, month)
+);
+alter table monthly_reports enable row level security;
+```
+
+掲載の再チェックは `listing_profiles.states` の JSON に書くので SQL は不要。精密診断の自動再診断も `analysis_runs` の `input` に `source: "auto"` を入れるだけで SQL は不要。
+
+**定期処理の中身（`/api/cron/daily`、毎日 5:00 JST。`src/lib/jobs/schedule.ts`）**:
+
+| いつ | ジョブ | 何をするか | 実費 |
+|---|---|---|---|
+| 毎日 | 投稿の送信 | 予約済みで予定時刻を過ぎた投稿を Business Profile API に送る（承認前は 403 で「失敗」） | なし |
+| 月曜 | マップ診断の一斉更新 | 従来どおり（旧 `/api/cron/maps-refresh` の中身） | Places |
+| 火曜 | 順位計測（自動） | プランの上限まで SerpApi で測り、5 位以上の下落・10 位圏外・圏外を知らせる | SerpApi |
+| 水曜 | サイトの事故監視 | 主要ページの noindex・エラー・転送・SSL・リンク切れを確認し、新しい事故を知らせる | なし |
+| 毎月 1 日 | 月次レポート | 前月の数字をまとめて保存 + メール | なし |
+| 毎月 2 日 | 掲載の再チェック | 掲載済みの媒体ページを開き、店名・電話・住所を確認 | なし |
+| 毎日 | 精密診断の自動再診断 | 前回から 30 日たったサイトを 1 日 1 件（クロール + PSI + SerpApi。AI のアドバイスは作らない） | SerpApi・PSI |
+
+1 回の Cron は 250 秒で打ち切り、残りは次回に回る（`cron_runs` に「時間切れ」と残る）。
+
 ### 入力待ち（利用者からの回答が要るもの）
 
-- **ご意見・不具合の報告の続き（r127 のあと）**: 新着をメールで受けたいか（Resend 等の送信サービスの契約が要る。09-20 の定期更新の相談と同じ基盤）。スクショ添付を足すか（Supabase Storage が要る）。Sentry（エラーの自動収集）を入れるか
-- **継続課金のための定期更新（09-20 の相談）**: 順位計測の週次自動化 / 月次レポート + メール通知 / 精密診断の月次再診断 / サイト事故監視 / GBP 投稿の予約 / 掲載の月次再チェック のどれから着手するか。メール送信サービス（Resend 等）を契約するか
+- **ご意見・不具合の報告の続き（r128 のあと）**: 新着をメールで受けたいか（Resend 等の送信サービスの契約が要る。09-20 の定期更新の相談と同じ基盤）。スクショ添付を足すか（Supabase Storage が要る）。Sentry（エラーの自動収集）を入れるか
+- **定期更新（r127）の本番反映**: #118（SQL）・#119（Resend）・#120（Cron の確認）が済んだら一言。自動計測の語数の上限（#121: ライト 30 / スタンダード 100 / プレミアム 300）はこれでよいか
+- **チャートの色**: dataviz の検証ツールで、既存の 6 色（`palette.chart`）は 5・6 色目の区別が弱く（色覚多様性で ΔE 2.2）、全体に彩度が低いと出た。推移グラフは最初の 4 色を区別しやすい順に並べ替え、点の形・凡例・表で補っている。デザインの色そのものを変えるか（変えるなら `globals.css` と `palette.ts` の両方）
 - **登録つき無料診断（#117）**: 本番で開く前の作業（`DEFAULT_PLAN=free`・既存契約者の個別開放）が済んだら一言。
 - **サイドバーの整理（#111）**: r94 で外した 3 つ（ページ最適化レポート・AIO 頻出トピック・プロンプト拡張）はこれでよいか。さらに減らすか（ページ診断 / 順位計測と検索の推定の一本化）。
 - **明日の公開の形（09-16 提案）**: Stripe が止まっているあいだ、最初のお客様の初月（無料）は管理画面の個別開放で使ってもらい、2 か月目の請求は ①Stripe 復旧を待って Checkout で ②請求書（銀行振込）で、のどちらにするか。②なら請求書の発行方法（Stripe の請求書機能は決済停止中は使えない可能性が高いので、手書き / 会計ソフト）
@@ -1035,7 +1170,7 @@ alter table review_channels
   add column if not exists write_review_url text;
 ```
 
-### ご意見・不具合の報告のテーブル（r127、2026-09-20。Supabase SQL Editor で実行。**未実行**）
+### ご意見・不具合の報告のテーブル（r128、2026-09-20。Supabase SQL Editor で実行。**未実行**）
 
 ```sql
 create table if not exists feedback (
@@ -1285,6 +1420,17 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **外部連携（API キーの設定状況）はお客様に見せない（2026-09-15）**: 利用者の指示「ユーザーに見える必要はない。マスターアカウントだけが把握していればいい」。設定画面から外し、マスター画面 `/admin` に移した（r57）。お客様の設定画面は「プロジェクト・競合・Google 連携・データ」だけ。各ツールの `SetupNotice`（未設定のキー名を出す案内）はまだお客様にも見えるので、隠すなら別途。
 
 - **サイト診断は精密診断に統合、ページ診断は別のまま（2026-09-15）**: 利用者の質問「3 つの違いは？同じなら統合して」。サイト診断（A1）は精密診断の中で同じクロール + 48 ルールを実行している部分集合なので、二重に持たず統合（r58）。課題一覧・カテゴリ別・ページ一覧・CSV は報告書の「詳細」に残した。ページ診断（A4）は「1 キーワード × Google 上位 10 件 × 自社 1 ページ」の競合比較で軸が違うため別のまま（名前を「ページ診断（競合比較）」に）。前回比（差分）はブラウザ履歴に依存していたので今回は落とした。要望があれば Supabase の前回の run と比べる形で復活できる。
+
+### 定期更新（r127、2026-09-20）
+
+- **Cron は日次の 1 本（`/api/cron/daily`）にまとめた。**Vercel の Hobby プランは Cron が 2 本まで・1 日 1 回のため、ジョブごとに Cron を足せない。曜日・日付で振り分け（月: マップ診断 / 火: 順位 / 水: 監視 / 1 日: レポート / 2 日: 掲載 / 毎日: 投稿・再診断）、重い処理を同じ日に重ねない。旧 `/api/cron/maps-refresh` は手動用に残す（`vercel.json` からは外した）。
+- **自動計測の順位はサーバー側の表（`rank_snapshots`）に置く。**手動計測の履歴はブラウザ側ストア → `user_stores` の写しで、Cron がそこへ書くと端末の同期と衝突する。画面が開いたときに端末へ取り込む（同じ語・同じ日は後勝ち）。
+- **語数の上限をプランで決めた**（ライト 30 / スタンダード 100 / プレミアム 300 語 / 週）。SerpApi の実費が契約数に比例するため。契約が無い人（プランが足りない人）は測らない（`src/lib/plans/user.ts` で Clerk から引く）。
+- **自動再診断は AI のアドバイスを作らない。**費用（Opus）と時間（1〜3 分）が大きく、差分（直った / 悪化した）が目的なので収集だけにし、必要なら画面の「アドバイスを作り直す」で作る。月の回数制限も消費しない。1 日 1 件まで。
+- **投稿は人が承認したものだけを送る。**AI の下書きは「下書き」で保存し、「承認して予約」を押したものだけを予定時刻に送る（自動投稿はしない。Google マップで公開される文章のため）。承認前（403）は「失敗」として理由が残り、承認が下りればコードの変更なしで動く。
+- **掲載の再チェックは控えめに判定する。**店名が本文に無ければ「見つからない」、店名はあるが電話も住所も無ければ「ずれ」、取得できなければ「確認できず」（消えたとは言わない）。状況（掲載済み）そのものは変えず、判断は利用者がする。
+- **知らせは `notifyUser()` 1 本に通す。**画面の「お知らせ」に必ず残し、設定でメール ON かつ Resend の設定があるときだけメール。送れなかったものを「送った」と見せない。低評価の回答（口コミ支援）もここから知らせる（入力待ちにあった「低評価のメール通知」の答え）。
+- **チャートの色は変えていない。**dataviz の検証で既存の 6 色の弱さが出たが、デザインの色は `globals.css` と `palette.ts` の両方に固定されている決定事項なので、推移グラフ側で並び替えと二次の符号（点の形・凡例・表）で補い、色の変更は入力待ちにした。
 
 ## 進行中の開発の設計メモ
 
@@ -3711,8 +3857,38 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 **実装するときの設計（未着手）**: テーブル `feedback`（`id` / `user_id` / `email` / `kind` / `body` / `path` / `plan` / `user_agent` / `commit` / `status` / `reply` / `created_at`。RLS 有効・ポリシー無し、service_role だけが通る他テーブルと同じ設計）。API `/api/feedback`（POST: ログイン必須・1 日の件数上限、GET: 自分の分。`/api/admin/feedback`: 一覧と状態・返答の更新）。画面: 入口（場所は入力待ち）+ `/admin` のカード + 設定画面の「ご意見の履歴」。スクショは Supabase Storage が要るので第 2 段でよい。
 
 **入力待ち**: ③で進めるか、入口の場所、スクショの有無、Sentry を同時に入れるか。
+### 2026-09-20（継続課金のための定期更新 ①〜⑥ を全部実装、r127）
 
-### 2026-09-20（ご意見・不具合の報告を実装、r127）
+利用者の指示「①から順に全部やって。一旦すべて終わらせてください」（前項の相談の推奨順）。
+
+#### やったこと（共通の土台）
+
+| # | 内容 | 触ったところ |
+|---|---|---|
+| 0-1 | **日次の Cron 1 本に統合**（Vercel Hobby は Cron 2 本まで・1 日 1 回）。曜日・日付でジョブを振り分け、250 秒で打ち切って残りは次回へ。実行記録を `cron_runs` に残し、マスター画面に「定期処理（Cron）の状況」カード（次回・前回の結果・「今すぐ実行」） | `vercel.json`（`/api/cron/daily` + `geo-run` の 2 本）、`src/lib/jobs/`（types / schedule / runs / runner / registry）、`src/app/api/cron/daily/`、`src/app/api/admin/jobs/`、`src/components/admin/JobsCard.tsx`。旧 `/api/cron/maps-refresh` は手動用に残し、中身を `src/lib/maps/refresh-job.ts` へ |
+| 0-2 | **知らせ**: `notifyUser()` 1 本。`notifications` テーブル（画面の「お知らせ」）+ 設定で ON ならメール（Resend の REST を fetch で。SDK なし） | `src/lib/notifications/`（settings = ブラウザ側ストア `notificationSettings` / store / notify / types）、`src/lib/mail/`（send / format）、`src/app/api/notifications/`、設定画面の「通知」カード、マスター画面の外部連携に Resend |
+| 0-3 | **ログイン中でない利用者のプランを引く**（Cron が契約の無い人のために実費を出さない） | `src/lib/plans/user.ts`（Clerk の publicMetadata → Stripe → plan → DEFAULT_PLAN。個別開放と ADMIN_EMAILS も見る） |
+| 0-4 | 日本時間の計算を 1 か所に | `src/lib/time/jst.ts` |
+
+#### やったこと（①〜⑥）
+
+| # | 内容 | 触ったところ |
+|---|---|---|
+| ① | **順位計測の週次自動化 + 推移グラフ**: 毎週火曜 5:00 に設定のキーワードをプランの上限（ライト 30 / スタンダード 100 / プレミアム 300 語）まで SerpApi で計測し `rank_snapshots` に保存。前回より 5 位以上の下落・10 位圏外・圏外を知らせる。画面は開いたときにサーバー分を端末の履歴に取り込み（同じ語・同じ日は後勝ち）、「推移」タブに折れ線（手動と自動を同じ線に。既定 4 語、最大 6 語）。**MEO の順位推移**は毎週の報告書の `rank` から線に（マップ診断のカード 5） | `src/lib/rank/`（auto / server-store / measure-batch / job）、`src/app/api/rank/auto/`、`src/components/rank/RankTrendPanel.tsx`、`src/components/charts/LineChart.tsx`（十字線 + ツールチップ、凡例、点の形、表）、`src/lib/maps/rank-history.ts`、`src/app/api/maps/rank-history/`、`src/components/maps/RankTrendCard.tsx` |
+| ② | **月次レポート + メール**: 毎月 1 日に前月の数字（順位・MEO・AI 検索・精密診断・掲載・口コミ・投稿・お知らせの件数）を「前月の最後の値」と比べて 1 枚に。数字から「来月やること」を優先順に組み立てる。`/tools/reports`（親の直下、ライト）に月の一覧・PDF・「今すぐ作る」（前月 / 今月の途中）・お知らせの一覧 | `src/lib/reports/`（types / build = 純関数 / collect / store / job）、`src/app/api/reports/`、`src/app/tools/reports/`、`src/components/reports/ReportsTool.tsx` |
+| ③ | **精密診断の月次再診断と差分**: 前回から 30 日たったサイトを 1 日 1 件、前回と同じ条件で収集し直す（`input.source = "auto"`。月の回数は消費しない。AI のアドバイスは作らない）。「前回との比較」（直った / 悪化した: 採点・課題の件数とルール・順位・速度・DR・llms.txt・信頼）を報告書の上に出し、知らせる。履歴に「自動」バッジ | `src/lib/seo-analysis/`（diff / reanalysis / job、runs.ts に previousRun・createFailedRun・listLatestRunsAllUsers・listTopPages）、`src/app/api/seo-analysis/[id]/diff/`、`src/components/seo-analysis/DiffCard.tsx` |
+| ④ | **サイトの事故監視**: 毎週水曜に トップ + 精密診断で重要度の高いページ（最大 10）+ トップからの内部リンク（最大 30）を確認。noindex・robots.txt の全拒否・エラー・別サイトへの転送・canonical のずれ・SSL の期限（14 日前から）・リンク切れ・構造化データの崩れ・サイトマップの欠落・5 秒超。前回は無かった事故だけを知らせる。`/tools/monitor`（SEO の柱、ライト）に状態・事故の差分・ページごとの表・履歴・「今すぐ確認」（5 分に 1 回） | `src/lib/monitor/`（types / checks = 純関数 / ssl / run / store / job）、`src/app/api/monitor/`、`src/app/tools/monitor/`、`src/components/monitor/MonitorTool.tsx` |
+| ⑤ | **GBP 投稿の AI 下書き・予約投稿**: 店舗の情報と対策キーワード・季節から AI（高速モデル）が週 1 本 × N 週分の下書きを作り、予定日時を付けて「下書き」で保存。人が「承認して予約」を押したものだけを毎日 5:00 の定期処理が Business Profile API（`localPosts`）で投稿。失敗は理由つきで残して知らせる。`/tools/posts`（MEO の柱、スタンダード） | `src/lib/posts/`（types / schedule = 純関数 / store / draft / publish / job / api）、`src/lib/google/business-profile.ts`（`createLocalPost` / `toLocalPostBody`）、`src/lib/google/token.ts`（`getGoogleTokenForUser`）、`src/app/api/posts/`、`src/app/tools/posts/`、`src/components/posts/PostsTool.tsx` |
+| ⑥ | **掲載の月次再チェック**: 掲載済みで URL を控えた媒体のページを毎月 2 日に開き、店名・電話・住所が今も出ているかを確かめる（`states` に `lastCheckedAt` / `nextCheckAt` / `check`）。消えた・ずれたものを知らせる。媒体一覧に結果のバッジと「掲載を今すぐ確認する」 | `src/lib/listings/`（recheck / recheck-labels / job、profile.ts の `ListingStateSchema`）、`src/app/api/listings/recheck/`、`src/components/listings/ListingsTool.tsx` |
+| + | 口コミ支援の**低評価の回答を店舗に知らせる**（入力待ちにあった「低評価のメール通知」） | `src/app/api/r/[slug]/answers/route.ts`、`src/lib/reviews/forms.ts`（`getFormOwner`） |
+
+- サイドバー: 親の直下 = AI 検索モニタリング → **月次レポート**、SEO = 精密診断 → ページ改善 → AI ライティング → 順位計測 → **サイト監視**、MEO = マップ診断 → 口コミ → **投稿**（`registry.test.ts` を更新）。プランの線: 投稿はスタンダード（AI が本文を作る）、サイト監視と月次レポートはライト（`plans.test.ts` を更新）。
+- 推移グラフは dataviz の手順で作った。色は既存の `palette.chart` のまま（入力待ち参照）。
+- 検証: lint / tsc / test（153 ファイル・1,688 件）/ build 通過。build で 1 回 `/tools/reports` の `useSearchParams` が Suspense 無しで落ちたので `page.tsx` で包んだ。
+- 本番で動かすには **#118（SQL）・#119（Resend）・#120（Cron の確認）**。手順は上の「定期更新（r127）を本番で動かす手順」。
+- 触っていないこと: 既存の Cron `geo-run`、Stripe、Clerk。既存機能の API と画面の動きは変えていない（順位計測の画面にサーバー分の取り込みと「推移」タブ、精密診断に「前回との比較」と「自動」バッジ、掲載の媒体一覧に確認の結果、マップ診断にカード 5 を足しただけ）。
+
+### 2026-09-20（ご意見・不具合の報告を実装、r128）
 
 利用者「#3 で進めてください」（09-20 の相談の ③ = アプリ内フィードバック）。入口の場所などは判断待ちにせず、こちらで決めて進めた。
 
@@ -3732,4 +3908,4 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 
 **検証**: lint / tsc / test（1,642 件）/ build 通過。`next start` で `/api/feedback` が Supabase 未設定時に 503、`/api/admin/feedback` が非管理者に 404 を返すこと、Playwright でモーダル・設定画面のカード・スマホ表示を目視。
 
-**利用者にお願いすること**: 残タスク #118（Supabase で SQL を実行 → 本番で 1 件送って `/admin` と `/settings` を確認）。
+**利用者にお願いすること**: 残タスク #122（Supabase で SQL を実行 → 本番で 1 件送って `/admin` と `/settings` を確認）。

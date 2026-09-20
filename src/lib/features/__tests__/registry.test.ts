@@ -31,11 +31,12 @@ describe("AIO 対策（親）の中の 3 本の柱", () => {
 
   it("サイドバーの木: 親の直下に AI 検索モニタリング、柱の中に各ツール、共通に料金・設定", () => {
     const tree = sidebarTree();
-    expect(tree.umbrella.map((f) => f.id)).toEqual(["geo"]);
+    // r127: 親の直下に月次レポート、SEO にサイト監視、MEO に投稿を足した（継続課金のための定期更新。2026-09-20）
+    expect(tree.umbrella.map((f) => f.id)).toEqual(["geo", "reports"]);
     // 並びは「診断 → やること → 成果」（利用者の決定 2026-09-19）
     expect(tree.pillars.map((p) => [p.category.id, p.features.map((f) => f.id)])).toEqual([
-      ["seo", ["seo-analysis", "page-improve", "writing", "rank"]],
-      ["meo", ["maps", "reviews"]],
+      ["seo", ["seo-analysis", "page-improve", "writing", "rank", "monitor"]],
+      ["meo", ["maps", "reviews", "posts"]],
       ["citation", ["citations"]],
     ]);
     expect(tree.common.map((f) => f.id)).toEqual(["plans", "settings"]);

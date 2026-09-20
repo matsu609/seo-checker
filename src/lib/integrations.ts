@@ -28,6 +28,8 @@ const CHECKS: Record<IntegrationKey, () => boolean> = {
   // 鍵・スタンダードの Price（旧名 STRIPE_PRICE_PRO も可）・Webhook がそろって申し込みが出る（isStripeConfigured と同じ条件）
   stripe: () => has("STRIPE_SECRET_KEY") && (has("STRIPE_PRICE_STANDARD") || has("STRIPE_PRICE_PRO")) && has("STRIPE_WEBHOOK_SECRET"),
   supabase: () => has("SUPABASE_URL") && has("SUPABASE_SERVICE_ROLE_KEY"),
+  // メール送信（Resend）。鍵と差出人の両方が要る
+  resend: () => has("RESEND_API_KEY") && has("MAIL_FROM"),
 };
 
 /** 各連携が設定済みかどうか（値は含まない） */

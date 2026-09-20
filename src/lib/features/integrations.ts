@@ -14,6 +14,7 @@ export const INTEGRATION_KEYS = [
   "google-business",
   "stripe",
   "supabase",
+  "resend",
 ] as const;
 
 export type IntegrationKey = (typeof INTEGRATION_KEYS)[number];
@@ -199,6 +200,21 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
       { label: "Webhook", url: "https://dashboard.stripe.com/workbench/webhooks" },
       { label: "アカウントのステータス", url: "https://dashboard.stripe.com/settings/account" },
       { label: "API キー", url: "https://dashboard.stripe.com/apikeys" },
+    ],
+  },
+  resend: {
+    key: "resend",
+    label: "Resend（メール送信。月次レポート・変化の知らせ）",
+    envVars: ["RESEND_API_KEY", "MAIL_FROM"],
+    description: "月次レポートと、順位の急落・サイトの事故・掲載の消失・低評価の回答・投稿の失敗の知らせをメールで送る。未設定でも画面の「お知らせ」には残る",
+    pricing: "Free = $0（月 3,000 通・1 日 100 通まで。送信ドメイン 1 つ）。Pro = $20 / 月（月 50,000 通〜）",
+    limits: "無料枠を超えると送信が失敗する（画面のお知らせは残る）。MAIL_FROM のドメインは Resend で DNS 認証（SPF / DKIM）が必要。認証していないと送れない",
+    usage: "利用者 1 人につき月次レポート 1 通 + 変化の知らせ（週に数通まで）",
+    links: [
+      { label: "料金", url: "https://resend.com/pricing" },
+      { label: "API キー", url: "https://resend.com/api-keys" },
+      { label: "送信ドメインの追加（DNS 認証）", url: "https://resend.com/domains" },
+      { label: "送信ログ", url: "https://resend.com/emails" },
     ],
   },
   supabase: {

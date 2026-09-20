@@ -338,3 +338,49 @@ export async function updateLocationNap(locationName: string, nap: NapUpdate, op
   );
   return true;
 }
+
+/* ───────────── 投稿（Local Posts。r127） ───────────── */
+
+export interface LocalPostInput {
+  topicType: "STANDARD" | "EVENT" | "OFFER";
+  summary: string;
+  title?: string;
+  ctaType?: string;
+  ctaUrl?: string;
+  /** YYYY-MM-DD */
+  eventStart?: string | null;
+  eventEnd?: string | null;
+}
+
+function toGoogleDate(value: string): { year: number; month: number; day: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return null;
+  return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) };
+}
+
+/** 送る本文（純粋関数）。イベント・クーポンは題名と期間、ボタンは種類と URL */
+export function toLocalPostBody(post: LocalPostInput): Record<string, unknown> {
+  const body: Record<string, unknown> = { languageCode: "ja", summary: post.summary.trim(), topicType: post.topicType };
+  if (post.topicType !== "STANDARD") {
+    const start = post.eventStart ? toGoogleDate(post.eventStart) : null;
+    const end = post.eventEnd ? toGoogleDate(post.eventEnd) : null;
+    body.event = { title: (post.title ?? "").trim(), schedule: { ...(start ? { startDate: start } : {}), ...(end ? { endDate: end } : {}) } };
+  }
+  if (post.ctaType && post.ctaType !== "NONE") {
+    body.callToAction = post.ctaType === "CALL" ? { actionType: "CALL" } : { actionType: post.ctaType, url: (post.ctaUrl ?? "").trim() };
+  }
+  return body;
+}
+
+/** 投稿を作る。返ってきた投稿の名前（accounts/…/localPosts/…）と検索用 URL */
+export async function createLocalPost(locationName: string, post: LocalPostInput, options: BusinessProfileOptions = {}): Promise<{ name: string | null; searchUrl: string | null }> {
+  if (!isLocationName(locationName)) throw new GoogleLinkError("ビジネスの指定が正しくありません。", "not_selected");
+  const base = options.reviewsEndpoint ?? REVIEWS_ENDPOINT;
+  const payload = await callApi(
+    `${base}/${locationName}/localPosts`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(toLocalPostBody(post)) },
+    options,
+  );
+  const root = isRecord(payload) ? payload : {};
+  return { name: strOrNull(root.name), searchUrl: strOrNull(root.searchUrl) };
+}

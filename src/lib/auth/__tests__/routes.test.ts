@@ -151,7 +151,9 @@ describe("公開パスの一覧", () => {
       "/sitemap.xml",
     ]);
     // 無料診断の API 5 本は 2026-09-18 にログイン必須へ（登録したメールアドレスごとに回数制限）
+    // r127: 日次の定期処理 /api/cron/daily を足した（maps-refresh は旧パスとして残す）
     expect(PUBLIC_PATHS.apis).toEqual([
+      "/api/cron/daily",
       "/api/cron/maps-refresh",
       "/api/cron/geo-run",
       "/api/billing/webhook",

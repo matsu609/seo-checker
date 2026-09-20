@@ -33,6 +33,8 @@ export interface AnalysisInput {
   brand: string;
   /** クロールの上限ページ数 */
   maxPages: number;
+  /** 誰が始めたか。auto = 月 1 回の自動再診断（r127）。無ければ手動 */
+  source?: "manual" | "auto";
 }
 
 export type AnalysisGoal = "inquiry" | "ec" | "recruit" | "visit" | "media" | "other";

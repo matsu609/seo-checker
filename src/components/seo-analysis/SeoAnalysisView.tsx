@@ -22,6 +22,9 @@ import { SiteTargetNotice, useRegisteredSite } from "@/components/site/Registere
 import { useSharedSettings } from "@/lib/settings/client";
 import { formatDateTime, hostOf } from "@/lib/report";
 import { useStore } from "@/lib/store/hooks";
+import type { SeoAnalysisDiffResponse } from "@/app/api/seo-analysis/[id]/diff/route";
+import type { SheetDiff } from "@/lib/seo-analysis/diff";
+import { DiffCard } from "./DiffCard";
 import { ReportView } from "./ReportView";
 import {
   deleteRunRequest,
@@ -78,6 +81,21 @@ export function SeoAnalysisView() {
   const [analyzeProgress, setAnalyzeProgress] = useState<AnalyzeProgressEvent | null>(null);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  // 表示中の診断と、同じサイトの直前の診断との差分（直った / 悪化した）。診断ごとに持つ
+  const [diff, setDiff] = useState<{ runId: string; diff: SheetDiff | null } | null>(null);
+  const loadedRunId = loaded?.runId ?? null;
+
+  useEffect(() => {
+    if (!loadedRunId) return;
+    const ac = new AbortController();
+    fetch(`/api/seo-analysis/${encodeURIComponent(loadedRunId)}/diff`, { cache: "no-store", signal: ac.signal })
+      .then(async (r) => (r.ok ? ((await r.json()) as SeoAnalysisDiffResponse) : null))
+      .then((body) => {
+        if (!ac.signal.aborted && body) setDiff({ runId: loadedRunId, diff: body.diff });
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, [loadedRunId]);
   const controller = useRef<AbortController | null>(null);
 
   const reloadMeta = useCallback(async () => {
@@ -349,6 +367,11 @@ export function SeoAnalysisView() {
                   <Badge tone={r.status === "analyzed" ? "pass" : r.status === "failed" ? "fail" : "neutral"} icon={false}>
                     {r.status === "analyzed" ? "アドバイスあり" : r.status === "failed" ? "失敗" : "診断のみ"}
                   </Badge>
+                  {r.source === "auto" && (
+                    <Badge tone="info" icon={false} title="前回から 30 日たったので、同じ条件で自動的に診断し直したもの">
+                      自動
+                    </Badge>
+                  )}
                   {current && <Badge tone="info" icon={false}>表示中</Badge>}
                   {r.headline && <span className="min-w-0 flex-1 truncate text-muted">{r.headline}</span>}
                   <button type="button" className="ml-auto text-[12px] text-muted underline-offset-2 hover:underline" onClick={() => void remove(r.id)}>
@@ -366,6 +389,8 @@ export function SeoAnalysisView() {
           {error}
         </Callout>
       )}
+
+      {loaded && diff?.runId === loaded.runId && diff.diff && <DiffCard diff={diff.diff} />}
 
       {loaded ? (
         <ReportView

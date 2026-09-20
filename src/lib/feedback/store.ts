@@ -3,7 +3,7 @@
  *
  * 本人の読み出しは必ず user_id で絞る（service_role は RLS を素通りするので、ここが唯一の境界）。
  * 運営者（マスター）だけが全件を読み、状態と返答を書く。
- * テーブル定義は docs/dev/OPERATIONS.md の SQL（r127）を参照。
+ * テーブル定義は docs/dev/OPERATIONS.md の SQL（r128）を参照。
  */
 import { z } from "zod";
 import { eq } from "@/lib/db/filters";
