@@ -10,7 +10,7 @@
  *   毎月 2 日: 掲載の再チェック（掲載ページへのアクセスだけ）
  *   毎日: 予約した投稿の送信（軽い）、精密診断の自動再診断（期限が来た人を、残り時間の範囲で）
  */
-import { jstParts, nextMonthDayAtJst, nextWeekdayAtJst, type JstParts } from "@/lib/time/jst";
+import { addDays, jstDate, jstParts, nextMonthDayAtJst, nextWeekdayAtJst, type JstParts } from "@/lib/time/jst";
 import type { JobId } from "./types";
 
 export const CRON_HOUR_JST = 5;
@@ -40,10 +40,11 @@ const monthly = (day: number) => ({
 });
 const daily = () => ({
   due: () => true,
+  // きょうの 5:00 がまだなら きょう、過ぎていれば あす（曜日の関数を使うと 1 週間後になってしまう。2026-09-20 に本番で判明）
   next: (now: Date) => {
     const p = jstParts(now);
-    const today = nextWeekdayAtJst(now, p.weekday, CRON_HOUR_JST);
-    return today;
+    const today = jstDate(p.year, p.month, p.day, CRON_HOUR_JST);
+    return now.getTime() < today.getTime() ? today : addDays(today, 1);
   },
 });
 

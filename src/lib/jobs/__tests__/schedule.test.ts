@@ -19,6 +19,15 @@ describe("ジョブの振り分け", () => {
     expect(dueJobs(new Date("2026-10-01T20:00:00Z"))).toEqual(["gbp-posts", "listings-recheck", "seo-reanalysis"]);
   });
 
+  it("毎日のジョブの次回: 5:00 前なら きょう、過ぎていれば あす（1 週間後ではない）", () => {
+    // 2026-09-20 22:52 JST（= 13:52 UTC）→ 9/21 5:00 JST
+    expect(scheduleOf("gbp-posts").next(new Date("2026-09-20T13:52:00Z")).toISOString()).toBe("2026-09-20T20:00:00.000Z");
+    // 2026-09-21 4:30 JST（= 9/20 19:30 UTC）→ 9/21 5:00 JST
+    expect(scheduleOf("seo-reanalysis").next(new Date("2026-09-20T19:30:00Z")).toISOString()).toBe("2026-09-20T20:00:00.000Z");
+    // 5:00 ちょうどは あす
+    expect(scheduleOf("gbp-posts").next(new Date("2026-09-20T20:00:00Z")).toISOString()).toBe("2026-09-21T20:00:00.000Z");
+  });
+
   it("次回の予定（水曜の監視は次の水曜 5:00）", () => {
     expect(scheduleOf("site-monitor").next(new Date("2026-09-20T03:00:00Z")).toISOString()).toBe("2026-09-22T20:00:00.000Z");
     expect(scheduleOf("monthly-report").next(new Date("2026-09-20T03:00:00Z")).toISOString()).toBe("2026-09-30T20:00:00.000Z");
