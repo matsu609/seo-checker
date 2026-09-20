@@ -4259,3 +4259,72 @@ Business Profile API の前提条件の 1 番目は「**確認済み（verified�
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
 | 1 | 国税庁 法人番号システム Web-API | https://www.houjin-bangou.nta.go.jp/webapi/ | **アプリケーション ID の利用届出**（無料）。申請方法・発行までの日数・利用条件を確認 |
+### 2026-09-20（法人番号の照会・構造化データの sameAs・別セッションとの重複の整理、r132）
+
+利用者の指示:「5 → 4 → 3 の順でお願いします。もう実装されてたりする？」
+
+#### まず「もう実装されているか」を調べた結果
+
+| # | 施策 | 調べた結果 |
+|---|---|---|
+| 5 | 法人番号 Web-API | **ゼロ**。`src/lib/analyzer/jsonld.ts` の説明文に「法人番号公表サイト」の語があるだけ |
+| 4 | 構造化データ | **半分あった**。`toJsonLd()` が LocalBusiness（店名・住所・電話・営業時間）を、`src/lib/faq/render.ts` が FAQPage を作っていた。**足りないのは `sameAs`** = 精密診断が「無い」と減点している当の項目 |
+| 3 | 生存監視 | **器だけあった**（`ListingState.url` = 掲載ページの URL を手で控える欄）。自動で見に行く仕組みは無し |
+
+#### ⚠ 別セッションと重複した（次のセッションへの教訓）
+
+作業の途中で `origin/main` を見たら、**別セッションが r129〜r131 を入れていて、そこに「GBP 投稿（予約投稿つき）」と「掲載の再チェック」が既にあった。**このブランチで作った同じ機能は**捨てて main 側に寄せた**（main は既にマージ済みで、ジョブ基盤・管理画面つきの上位互換）。
+
+| 機能 | main 側 | このブランチ | 判断 |
+|---|---|---|---|
+| GBP 投稿 | `src/lib/posts/`（下書き・**予約投稿**・ジョブ・管理画面） | r127 の投稿（その場で投稿するだけ） | **main を採用。こちらを削除** |
+| 掲載の生存監視 | `src/lib/listings/recheck.ts` + `src/lib/jobs/`（`/api/cron/daily` に集約） | `monitor.ts` + `check.ts` + 専用 Cron | **main を採用。こちらを削除** |
+
+**捨てた実装にあって main に無い工夫**（必要になったら移植する）:
+- 判定を 5 段階にし、**404 / 410 のときだけ「消えた」と言う**（main は本文に店名が無ければ「消えた」。JavaScript で描かれた媒体のページで誤警告が出るおそれ）
+- 次の確認までの日数を結果ごとに変える（main は一律 30 日。こちらは 3〜30 日）
+- 店名を**生の HTML でも探す**（属性や JSON の中にしか名前が無いページを拾える）
+
+**重要**: **Vercel の Hobby プランは Cron が 2 本まで。**`vercel.json` に 3 本目を足すとデプロイが通らない。日次のジョブは `/api/cron/daily`（`src/lib/jobs/registry.ts`）に足すこと。
+
+**次のセッションへ**: 着手前に必ず `git fetch origin && git log --oneline HEAD..origin/main` を見る。今回は 20 コミットぶん進んでいた。
+
+#### ① 法人番号（新規・このブランチ固有）
+
+| # | 内容 | 触ったところ |
+|---|---|---|
+| 1 | 定数（検査用数字の検証・公表サイトと gBizINFO の URL） | `src/lib/houjin/constants.ts`（新） |
+| 2 | 応答（XML）の解析。**要素名で引く寛容な読み方**にしたので、名前が違っても全体は壊れず、その項目だけが空になる | `src/lib/houjin/parse.ts`（新） |
+| 3 | 登記の商号・本店所在地と掲載の NAP の突き合わせ | `src/lib/houjin/compare.ts`（新） |
+| 4 | Web-API クライアント（24 時間キャッシュ） | `src/lib/houjin/client.ts`（新） |
+| 5 | `GET /api/houjin`（会社名 / 法人番号で検索） | `src/app/api/houjin/route.ts`（新） |
+| 6 | 掲載タブのカード 2 に「登記で確かめる（法人のみ・任意）」 | `src/components/listings/ListingsTool.tsx` |
+| 7 | `listing_profiles.profile` に `corporateNumber`（JSON 列なので **SQL は不要**） | `src/lib/listings/profile.ts` |
+| 8 | 外部連携に `houjin` を追加 | `src/lib/features/integrations.ts`・`src/lib/integrations.ts` |
+
+**決めた線**:
+- **住所の食い違いを「間違い」と言い切らない。**登記は本店、掲載は店舗。支店・店舗型では違って当たり前
+- **個人事業主には法人番号が無い**ことを画面に明記する（**当社自身がこれに当たる**）
+- 検査用数字が合わない番号は API を呼ばずに弾く
+
+**⚠ 未検証**: この環境は外向きの取得がネットワークポリシーで塞がれている（2026-09-20 に `www.houjin-bangou.nta.go.jp` / `info.gbiz.go.jp` / `api.houjin-bangou.nta.go.jp` の 403 を確認）。**API のベース URL・パラメータ名・応答の要素名・公表サイトの URL の形を実物で確認できていない。**ベース URL は `HOUJIN_BANGOU_API_BASE` で上書きでき、公的な URL は画面に「開いて確認」を出している。直すときは `src/lib/houjin/constants.ts` と `client.ts` の 2 か所だけ。
+
+#### ② 構造化データの sameAs（新規・このブランチ固有）
+
+精密診断は「sameAs が無い」と減点していたのに、**直す手段がこちらに無かった**。その穴を塞いだ。
+
+`buildSameAs()` が 3 つの材料を集めて重複を取る:
+1. 法人番号から作る公的な URL（法人番号公表サイト・gBizINFO）
+2. 媒体一覧で「掲載済み」にして掲載ページの URL を控えた媒体
+3. 利用者が入れた公式 SNS・業界団体の会員ページ（新しい `socialUrls` 欄）
+
+自社サイトは `url` に入るので `sameAs` には入れない。`https://` 以外は捨てる。あわせて `legalName`（登記上の商号。店名と違うときだけ）と `identifier`（法人番号の PropertyValue）も出す。**生成した JSON-LD が自社の診断の sameAs チェックを通る形であることをテストで固定した。**
+
+#### 検証
+
+`npx eslint`（0）・`npx tsc --noEmit`（0）・`npx vitest run`（**163 ファイル / 1,813 件すべて成功**）・`npx next build`（成功）。`/tools/citations`・`/tools/posts`・`/tools/maps` を開発サーバーで開き、**JavaScript のエラーが出ないことを Playwright で確認**。
+
+#### 本番で動くか
+
+- **7 媒体への絞り込み・構造化データの sameAs（SNS の URL 欄）は今すぐ効く。**
+- **法人番号の照会は `HOUJIN_BANGOU_APP_ID` を設定するまで案内だけ出る**（エラーにはしない）。法人番号が分かっていれば手入力もでき、その場合も `sameAs` は出る。

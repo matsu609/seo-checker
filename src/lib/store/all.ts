@@ -18,7 +18,6 @@ import "@/lib/rank/store";
 import "@/lib/seo-analysis/store";
 import "@/lib/writing/store";
 import "./maps";
-import "./posts";
 import "./projects";
 import "./promo";
 import "./replies";

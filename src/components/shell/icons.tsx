@@ -210,7 +210,6 @@ const ICONS: Record<FeatureIcon, (p: IconProps) => React.JSX.Element> = {
   qr: QrIcon,
   reply: ReplyIcon,
   broadcast: BroadcastIcon,
-  megaphone: MegaphoneIcon,
   quote: QuoteIcon,
 };
 
@@ -220,16 +219,6 @@ function QuoteIcon({ className = "" }: IconProps) {
     <svg {...base} className={className}>
       <path d="M10 8H6a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2" />
       <path d="M20 8h-4a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2" />
-    </svg>
-  );
-}
-
-function MegaphoneIcon({ className = "" }: IconProps) {
-  return (
-    <svg {...base} className={className}>
-      <path d="M3 11v2a1 1 0 0 0 1 1h3l7 4V6l-7 4H4a1 1 0 0 0-1 1Z" />
-      <path d="M18 9a3 3 0 0 1 0 6" />
-      <path d="M7 14v5a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-3" />
     </svg>
   );
 }
