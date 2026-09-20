@@ -3963,3 +3963,7 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 ### 2026-09-20（利用者に feedback テーブルの SQL を渡した）
 
 利用者「Supabase の SQL を教えて、コピペ用の」→ 上の「ご意見・不具合の報告のテーブル（r128）」の SQL をそのまま渡した（#122 の ①）。実行の報告待ち。
+
+### 2026-09-20（SQL Editor の画面から何をするかを案内）
+
+利用者が Supabase の SQL Editor を開いた状態で「この画面からどうするの」。画面のエディタには **09-15 に実行済みの古いクエリ**（`alter table analysis_runs add column if not exists audit jsonb;`。#78 の 1b）が残っていたので、「全選択して消す → feedback の SQL を貼る → 枝が main / PRODUCTION であることを確認 → Run → Success. No rows returned」を表（# / サービス・画面 / URL / やること）で案内した。実行の報告待ち（#122 の ①）。
