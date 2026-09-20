@@ -2,11 +2,12 @@
  * ご意見・不具合の報告の保存（Supabase の `feedback` テーブル）。サーバー専用。
  *
  * 本人の読み出しは必ず user_id で絞る（service_role は RLS を素通りするので、ここが唯一の境界）。
- * 運営者（マスター）だけが全件を読み、状態と返答を書く。
+ * 全件を読めるのは運営者（マスター）だけ。管理アカウントは担当の登録者の分だけ
+ * （listFeedbackForUsers に担当の ID を渡す。ID は必ずセッションから作ること）。
  * テーブル定義は docs/dev/OPERATIONS.md の SQL（r128）を参照。
  */
 import { z } from "zod";
-import { eq } from "@/lib/db/filters";
+import { eq, inList } from "@/lib/db/filters";
 import { supabaseRest } from "@/lib/db/supabase";
 import {
   FEEDBACK_COLUMNS,
@@ -83,6 +84,26 @@ export async function listAllFeedback(status?: FeedbackStatus): Promise<Feedback
   const filter = status ? `&status=${eq(status)}` : "";
   return parseRows(
     await supabaseRest<unknown>(`${TABLE}?select=${FEEDBACK_COLUMNS}${filter}&order=created_at.desc&limit=${ADMIN_FEEDBACK_LIMIT}`),
+  );
+}
+
+/**
+ * 管理アカウント向け: 指定した登録者の分だけ（新しい順）。
+ * userIds が空なら問い合わせずに 0 件を返す（担当が 1 人も居ない管理アカウント）。
+ */
+export async function listFeedbackForUsers(userIds: readonly string[], status?: FeedbackStatus): Promise<FeedbackRecord[]> {
+  const users = inList(userIds);
+  if (!users) return [];
+  const filter = status ? `&status=${eq(status)}` : "";
+  return parseRows(
+    await supabaseRest<unknown>(`${TABLE}?select=${FEEDBACK_COLUMNS}&user_id=${users}${filter}&order=created_at.desc&limit=${ADMIN_FEEDBACK_LIMIT}`),
+  );
+}
+
+/** 1 件だけ読む（誰の報告かを確かめて権限を見るため）。無ければ null */
+export async function getFeedback(id: string): Promise<FeedbackRecord | null> {
+  return (
+    parseRows(await supabaseRest<unknown>(`${TABLE}?select=${FEEDBACK_COLUMNS}&id=${eq(id)}&limit=1`))[0] ?? null
   );
 }
 

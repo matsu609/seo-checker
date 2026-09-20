@@ -219,13 +219,27 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
       </div>
 
       {/*
-        運用者・代理店だけに出す。判定はサーバー（/api/plan）で、ここは表示の出し分けだけ。
-        画面そのものも、運用者でなければ 404 を返す（src/app/admin・src/app/agency）。
+        運用者・管理アカウントだけに出す。判定はサーバー（/api/plan）で、ここは表示の出し分けだけ。
+        画面そのものも、その立場でなければ 404 を返す（src/app/admin・src/app/clients）。
+
+        マスター画面（システム・バックエンド）は運用者だけ。顧客管理（お客様の契約状況・
+        ご利用状況・ご意見）は両方に出す（利用者の指示 2026-09-20）。
       */}
       {(access?.admin || access?.agency) && (
         <div>
-          <div className="mt-4 mb-1 px-4 text-[11px] text-on-brand-muted">運用</div>
+          <div className="mt-4 mb-1 px-4 text-[11px] text-on-brand-muted">管理者用</div>
           <ul className="space-y-0.5">
+            <li>
+              <Link
+                href="/clients"
+                onClick={onNavigate}
+                aria-current={pathname.startsWith("/clients") ? "page" : undefined}
+                className={`${ITEM_CLASS} ${pathname.startsWith("/clients") ? ACTIVE_CLASS : IDLE_CLASS}`}
+              >
+                <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">顧客管理</span>
+              </Link>
+            </li>
             {access?.admin && (
               <li>
                 <Link
@@ -236,19 +250,6 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                 >
                   <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">マスター画面</span>
-                </Link>
-              </li>
-            )}
-            {access?.agency && (
-              <li>
-                <Link
-                  href="/agency"
-                  onClick={onNavigate}
-                  aria-current={pathname.startsWith("/agency") ? "page" : undefined}
-                  className={`${ITEM_CLASS} ${pathname.startsWith("/agency") ? ACTIVE_CLASS : IDLE_CLASS}`}
-                >
-                  <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">管理アカウント画面</span>
                 </Link>
               </li>
             )}

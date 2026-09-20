@@ -242,8 +242,10 @@ describe("マスター画面・代理店画面は公開しない", () => {
   });
 
   // 担当分とはいえ他人の請求情報が出る画面。こちらもログイン必須
-  it("/agency は保護される", () => {
+  it("/agency（旧・管理アカウント画面）と /clients（顧客管理）は保護される", () => {
     expect(isPublicPath("/agency")).toBe(false);
     expect(isPublicPath("/agency/")).toBe(false);
+    expect(isPublicPath("/clients")).toBe(false);
+    expect(isPublicPath("/clients/")).toBe(false);
   });
 });

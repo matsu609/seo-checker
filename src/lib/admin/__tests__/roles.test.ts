@@ -12,6 +12,7 @@ import {
   agencyIdFromMetadata,
   canAssignAgency,
   isAgencyMetadata,
+  isAssignedClient,
   isUserId,
   normalizeEmail,
   withAgencyId,
@@ -119,5 +120,36 @@ describe("メールアドレスの正規化", () => {
     expect(normalizeEmail("")).toBeNull();
     expect(normalizeEmail(null)).toBeNull();
     expect(normalizeEmail(42)).toBeNull();
+  });
+});
+
+/**
+ * 管理アカウントが触ってよい相手かどうか。ここが緩むと、担当外のお客様に
+ * 割引・機能開放・代理ログインが通ってしまう（API はこの判定だけを頼りにしている）。
+ */
+describe("担当の登録者かどうか", () => {
+  const AGENCY = "user_agency1";
+  const OTHER = "user_agency2";
+
+  it("自分が担当に付いている登録者は扱える", () => {
+    expect(isAssignedClient({ [AGENCY_KEY]: AGENCY }, AGENCY)).toBe(true);
+  });
+
+  it("担当が付いていない・他の管理アカウントの担当は扱えない", () => {
+    expect(isAssignedClient({}, AGENCY)).toBe(false);
+    expect(isAssignedClient({ [AGENCY_KEY]: OTHER }, AGENCY)).toBe(false);
+    expect(isAssignedClient(null, AGENCY)).toBe(false);
+  });
+
+  // 管理アカウントどうしで割引や機能開放を付け合えると、権限の出どころが追えなくなる
+  it("相手が管理アカウントなら、担当が付いていても扱えない", () => {
+    expect(
+      isAssignedClient({ [AGENCY_KEY]: AGENCY, [ROLE_KEY]: AGENCY_ROLE }, AGENCY),
+    ).toBe(false);
+  });
+
+  it("担当側の ID の形が違えば扱えない", () => {
+    expect(isAssignedClient({ [AGENCY_KEY]: AGENCY }, "")).toBe(false);
+    expect(isAssignedClient({ [AGENCY_KEY]: "org_1" }, "org_1")).toBe(false);
   });
 });

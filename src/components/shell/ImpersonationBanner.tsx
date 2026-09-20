@@ -30,8 +30,9 @@ export function ImpersonationBanner() {
     setLeaving(true);
     try {
       // そのセッションだけを閉じる。Clerk が複数セッションを持てる設定なら
-      // 運用者自身のセッションに戻り、そうでなければログイン画面に出る
-      await signOut({ sessionId: sessionId ?? undefined, redirectUrl: "/admin" });
+      // 運用者自身のセッションに戻り、そうでなければログイン画面に出る。
+      // 戻り先は顧客管理（運用者・管理アカウントのどちらでも開ける画面）
+      await signOut({ sessionId: sessionId ?? undefined, redirectUrl: "/clients" });
     } finally {
       setLeaving(false);
     }

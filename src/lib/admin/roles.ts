@@ -74,6 +74,19 @@ export function withAgencyId(metadata: unknown, agencyId: string | null): Record
 }
 
 /**
+ * 管理アカウントがその登録者を扱ってよいか（純粋）。
+ *
+ * 見せる・触れるのは「自分が担当に付いている登録者」だけ。管理アカウント自身
+ * （role が agency の相手）は、担当に付いていても扱えないようにする
+ * （管理アカウントどうしで割引や機能開放を付け合えると、権限の出どころが追えなくなる）。
+ */
+export function isAssignedClient(metadata: unknown, agencyId: string): boolean {
+  if (!isUserId(agencyId)) return false;
+  if (isAgencyMetadata(metadata)) return false;
+  return agencyIdFromMetadata(metadata) === agencyId;
+}
+
+/**
  * その割り当てを保存してよいか。保存する前に必ず通す。
  *
  * 自分自身を担当代理店にすると、代理店画面に自分が並び、

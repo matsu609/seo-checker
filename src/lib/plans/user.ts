@@ -7,6 +7,7 @@
  */
 import { clerkClient } from "@clerk/nextjs/server";
 import { isAdminEmail, adminEmails } from "@/lib/admin/config";
+import { isAgencyMetadata } from "@/lib/admin/roles";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { planFromStripeState, stripeStateFromMetadata } from "@/lib/billing/state";
 import { findFeatureById } from "@/lib/features/registry";
@@ -22,6 +23,8 @@ export interface UserAccess {
   overrides: string[];
   /** 運用者（ADMIN_EMAILS）なら全機能 */
   admin: boolean;
+  /** 管理アカウント（publicMetadata.role = agency）なら全機能 */
+  agency: boolean;
   /** 連絡先（確認済みの主メール）。取れなければ null */
   email: string | null;
   /** Clerk から読めなかった（削除済みなど）。このときは何も動かさない */
@@ -29,7 +32,7 @@ export interface UserAccess {
 }
 
 /** 認証が無効な環境（開発・E2E）では全部使える扱い */
-const ACCESS_WHEN_AUTH_DISABLED = (userId: string): UserAccess => ({ userId, plan: "premium", overrides: [], admin: false, email: null, missing: false });
+const ACCESS_WHEN_AUTH_DISABLED = (userId: string): UserAccess => ({ userId, plan: "premium", overrides: [], admin: false, agency: false, email: null, missing: false });
 
 export async function loadUserAccess(userId: string): Promise<UserAccess> {
   if (!isAuthEnabled()) return ACCESS_WHEN_AUTH_DISABLED(userId);
@@ -46,10 +49,10 @@ export async function loadUserAccess(userId: string): Promise<UserAccess> {
     const primary = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId) ?? user.emailAddresses[0];
     const allowed = adminEmails();
     const admin = user.emailAddresses.some((e) => e.verification?.status === "verified" && isAdminEmail(e.emailAddress, allowed));
-    return { userId, plan, overrides: overridesFromMetadata(metadata), admin, email: primary?.emailAddress ?? null, missing: false };
+    return { userId, plan, overrides: overridesFromMetadata(metadata), admin, agency: isAgencyMetadata(metadata), email: primary?.emailAddress ?? null, missing: false };
   } catch {
     // 消えた利用者・API の一時的な失敗。開ける方向には倒さない
-    return { userId, plan: "free", overrides: [], admin: false, email: null, missing: true };
+    return { userId, plan: "free", overrides: [], admin: false, agency: false, email: null, missing: true };
   }
 }
 
@@ -59,7 +62,8 @@ export function accessAllows(access: UserAccess, featureId: string): boolean {
   const feature = findFeatureById(featureId);
   if (!feature) return true;
   if (planAllows(access.plan, feature.plan)) return true;
-  if (access.admin) return true;
+  // 運用者・管理アカウントは全機能（ログイン中の判定 checkPlanForFeature と同じ）
+  if (access.admin || access.agency) return true;
   return access.overrides.includes(featureId);
 }
 

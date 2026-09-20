@@ -67,6 +67,31 @@ describe("フィルタの組み立て（eq / gte）", () => {
   });
 });
 
+/**
+ * 複数の値の一致（`in`）。管理アカウントに見せるご意見を「担当の登録者だけ」に絞るのに使う。
+ * 囲みが壊れる値を通すと、他人の行まで一致してしまう。
+ */
+describe("フィルタの組み立て（inList）", () => {
+  it("引用符で囲み、値は encodeURIComponent する", async () => {
+    const { inList } = await import("../filters");
+    expect(inList(["user_1", "user_2"])).toBe('in.(%22user_1%22,%22user_2%22)');
+    // `&` `=` `,` が潰れるので、order= / limit= / select= を差し込めない
+    const injection = "user_1&select=*,x=eq.1";
+    expect(inList([injection])).toBe(`in.(%22${encodeURIComponent(injection)}%22)`);
+  });
+
+  it("囲みを壊す値（二重引用符・バックスラッシュ）と空文字は捨てる", async () => {
+    const { inList } = await import("../filters");
+    expect(inList(['user_1"', "user_\\2", "", "user_3"])).toBe('in.(%22user_3%22)');
+  });
+
+  it("1 件も残らなければ null（問い合わせを組み立てない合図）", async () => {
+    const { inList } = await import("../filters");
+    expect(inList([])).toBeNull();
+    expect(inList(['"'])).toBeNull();
+  });
+});
+
 describe("8 モジュールが組み立てる URL（1 文字も変えない）", () => {
   it("meo_stores: 一覧", async () => {
     const { listStores } = await import("@/lib/maps/stores");
@@ -114,6 +139,21 @@ describe("8 モジュールが組み立てる URL（1 文字も変えない）",
     const { listRuns } = await import("@/lib/seo-analysis/runs");
     await listRuns(EVIL);
     expect(query()).toContain(`&user_id=eq.${EVIL_ENC}&order=created_at.desc&limit=`);
+  });
+
+  it("feedback: 担当の登録者だけ（管理アカウント）", async () => {
+    const { listFeedbackForUsers } = await import("@/lib/feedback/store");
+    await listFeedbackForUsers(["user_1", "user_2"], "open");
+    const { FEEDBACK_COLUMNS } = await import("@/lib/feedback/types");
+    expect(query()).toBe(
+      `feedback?select=${FEEDBACK_COLUMNS}&user_id=in.(%22user_1%22,%22user_2%22)&status=eq.open&order=created_at.desc&limit=300`,
+    );
+  });
+
+  it("feedback: 担当が 0 人なら問い合わせない", async () => {
+    const { listFeedbackForUsers } = await import("@/lib/feedback/store");
+    expect(await listFeedbackForUsers([])).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("geo_brands: 一覧", async () => {

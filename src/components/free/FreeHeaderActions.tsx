@@ -26,7 +26,7 @@ export function FreeHeaderActions() {
 
   if (isSignedIn) {
     // 運用者・代理店はデモ用に開いているので、料金プランではなく自分の画面へ戻す
-    const back = access?.admin ? { href: "/admin", label: "マスター画面へ" } : access?.agency ? { href: "/agency", label: "管理アカウント画面へ" } : null;
+    const back = access?.admin ? { href: "/admin", label: "マスター画面へ" } : access?.agency ? { href: "/clients", label: "顧客管理へ" } : null;
     return (
       <>
         {back ? (

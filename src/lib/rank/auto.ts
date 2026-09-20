@@ -15,6 +15,15 @@ export { rankKeywordsStore };
 /** 1 週間に自動で測る語数の上限（プランごと） */
 export const RANK_AUTO_LIMITS: Record<PlanId, number> = { free: 0, light: 30, standard: 100, premium: 300 };
 
+/**
+ * その人に適用する上限。運用者（ADMIN_EMAILS）と管理アカウントは、契約が無くても
+ * いちばん上の段として扱う（ツールは全部使える立場なのに、自動計測だけ 0 語になると
+ * 画面の説明と食い違う）。定期処理と画面の両方がこれを使う。
+ */
+export function rankAutoLimit(plan: PlanId, staff: boolean): number {
+  return RANK_AUTO_LIMITS[plan] || (staff ? RANK_AUTO_LIMITS.premium : 0);
+}
+
 /** 「急落」とみなす下げ幅（順位） */
 export const RANK_DROP_MIN = 5;
 /** ここより上にいた語が落ちたら知らせる */
