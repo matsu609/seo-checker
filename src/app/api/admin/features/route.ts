@@ -1,13 +1,13 @@
 /**
  * POST /api/admin/features
- * 顧客ごとの機能の個別開放を保存する。運用者だけ。
+ * 顧客ごとの機能の個別開放を保存する。運用者は全員に、管理アカウントは担当の登録者だけ。
  *
  * 保存先は Clerk の publicMetadata なので、ここでもデータベースは要らない。
  * 送られてきた ID はレジストリに在るものだけに絞る（parseFeatureOverrides）。
  */
 import { z } from "zod";
 import { toggleClientFeature } from "@/lib/admin/clients";
-import { requireAdmin } from "@/lib/admin/guard";
+import { requireClientAccess } from "@/lib/admin/guard";
 import { parseFeatureOverrides } from "@/lib/plans/overrides";
 
 export const runtime = "nodejs";
@@ -19,15 +19,16 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
-  const denied = await requireAdmin();
-  if (denied) return denied;
-
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return Response.json({ error: "入力が正しくありません。" }, { status: 400 });
   }
   const { userId, featureId, enabled } = parsed.data;
+
+  // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）。
+  // 担当外の登録者・管理アカウント宛は 404（存在そのものを教えない）
+  const denied = await requireClientAccess(userId);
+  if (denied) return denied;
 
   // 知らない機能 ID は弾く（レジストリに無い値を metadata に残さない）
   if (parseFeatureOverrides([featureId]).length === 0) {

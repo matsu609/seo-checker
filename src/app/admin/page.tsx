@@ -1,22 +1,28 @@
+/**
+ * マスター画面（運用者だけ）。
+ *
+ * ここに置くのは**システム・バックエンド側**のものだけ（利用者の指示 2026-09-20）。
+ *   動いているコミットと版 / 外部連携（API キー）の設定状況 / 定期処理（Cron）の状況 /
+ *   管理アカウントの追加・解除
+ *
+ * お客様の契約状況・ご利用状況・ご意見への返答は顧客管理（/clients）へ移した。
+ * 管理アカウントにも同じ画面を見せ、お問い合わせをその画面で完結させるため。
+ */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { AdminConsole } from "@/components/admin/AdminConsole";
-import { FeedbackCard } from "@/components/admin/FeedbackCard";
+import Link from "next/link";
+import { AgencyPanel } from "@/components/admin/AgencyPanel";
 import { IntegrationsCard } from "@/components/admin/IntegrationsCard";
 import { JobsCard } from "@/components/admin/JobsCard";
 import { VersionCard } from "@/components/admin/VersionCard";
 import { Callout } from "@/components/ui/Callout";
 import { loadAgencies } from "@/lib/admin/agencies";
-import { loadClients } from "@/lib/admin/clients";
 import { isAdmin } from "@/lib/admin/guard";
-import { DbError, isSupabaseConfigured } from "@/lib/db/supabase";
-import { listAllFeedback } from "@/lib/feedback/store";
-import type { FeedbackRecord } from "@/lib/feedback/types";
 
 export const metadata: Metadata = {
   title: "マスター画面",
-  description: "顧客ごとの契約状況・月額・クーポンの確認と、機能の個別開放・管理アカウントの管理。",
+  description: "版・外部連携・定期処理などシステム側の確認と、管理アカウントの追加・解除。",
   // 運用者だけの画面なので、検索にもクローラにも出さない
   robots: { index: false, follow: false },
 };
@@ -28,10 +34,9 @@ export default async function Page() {
   // 管理者でなければ「そんな画面は無い」で返す（存在を教えない）
   if (!(await isAdmin())) notFound();
 
-  let clients;
   let agencies;
   try {
-    [clients, agencies] = await Promise.all([loadClients(), loadAgencies()]);
+    agencies = await loadAgencies();
   } catch {
     return (
       <div className="mx-auto w-full max-w-5xl @container">
@@ -39,27 +44,11 @@ export default async function Page() {
           <span className="h-5 w-1 shrink-0 bg-brand" aria-hidden="true" />
           マスター画面
         </h1>
-        <Callout tone="fail" title="顧客の一覧を取得できませんでした">
+        <Callout tone="fail" title="管理アカウントの一覧を取得できませんでした">
           Clerk への接続に失敗しました。時間をおいて開き直してください。
         </Callout>
       </div>
     );
-  }
-
-  // お客様からのご意見・不具合（Supabase）。読めなくても画面全体は止めない
-  let feedback: FeedbackRecord[] | null = null;
-  let feedbackError: string | null = null;
-  if (!isSupabaseConfigured()) {
-    feedbackError = "保存先（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）が未設定のため、ご意見は表示できません。";
-  } else {
-    try {
-      feedback = await listAllFeedback();
-    } catch (err) {
-      feedbackError =
-        err instanceof DbError && err.status === 404
-          ? "feedback テーブルがありません。docs/dev/OPERATIONS.md の SQL（r128）を Supabase の SQL Editor で実行してください。"
-          : "ご意見の一覧を取得できませんでした。時間をおいて開き直してください。";
-    }
   }
 
   return (
@@ -69,9 +58,12 @@ export default async function Page() {
         マスター画面
       </h1>
       <p className="mb-6 text-[13px] leading-relaxed text-muted">
-        登録しているすべてのお客様の契約状況・月額・クーポンを確認し、機能を個別に開放できます。
-        管理アカウント（旧称: 代理店アカウント）を追加して、担当のお客様だけを見てもらうこともできます。
-        金額と契約状況は Clerk Billing（決済は Stripe）の値をそのまま出しています。
+        システム側（動いている版・外部連携の設定状況・定期処理）の確認と、管理アカウントの追加・解除を行います。
+        お客様の契約状況・ご利用状況・ご意見への返答は{" "}
+        <Link href="/clients" className="text-accent underline">
+          顧客管理
+        </Link>
+        に移りました（管理アカウントからも同じ画面が開けます）。
       </p>
 
       <VersionCard />
@@ -81,20 +73,10 @@ export default async function Page() {
       </div>
 
       <div className="mb-6">
-        <FeedbackCard initial={feedback} loadError={feedbackError} />
-      </div>
-
-      <div className="mb-6">
         <JobsCard />
       </div>
 
-      <AdminConsole
-        freeRunLimit={clients.freeRunLimit}
-        agencies={agencies}
-        clients={clients.rows}
-        totalCount={clients.totalCount}
-        truncated={clients.truncated}
-      />
+      <AgencyPanel initial={agencies} />
     </div>
   );
 }

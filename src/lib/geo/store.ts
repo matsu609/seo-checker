@@ -383,6 +383,7 @@ export async function saveObservations(userId: string, rows: readonly Omit<GeoOb
 const ObservationJoinRow = z.object({
   brand_id: z.string(),
   prompt_id: z.string().nullable(),
+  keyword_id: z.string().nullable(),
   mentioned: z.boolean(),
   cited: z.boolean(),
   mention_confidence: z.number(),
@@ -397,6 +398,7 @@ export async function listObservations(userId: string, days = 90): Promise<
   {
     brandId: string;
     promptId: string | null;
+    keywordId: string | null;
     mentioned: boolean;
     cited: boolean;
     confidence: number;
@@ -407,13 +409,14 @@ export async function listObservations(userId: string, days = 90): Promise<
 > {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const rows = await supabaseRest<unknown>(
-    `${T_OBSERVATION}?select=brand_id,prompt_id,mentioned,cited,mention_confidence,cited_domains,domain_class,observed_at,geo_measurements(model,executed_at)&user_id=${eq(userId)}&observed_at=${gte(since)}&order=observed_at.desc&limit=20000`,
+    `${T_OBSERVATION}?select=brand_id,prompt_id,keyword_id,mentioned,cited,mention_confidence,cited_domains,domain_class,observed_at,geo_measurements(model,executed_at)&user_id=${eq(userId)}&observed_at=${gte(since)}&order=observed_at.desc&limit=20000`,
   );
   const parsed = z.array(ObservationJoinRow).safeParse(rows);
   if (!parsed.success) return [];
   return parsed.data.map((r) => ({
     brandId: r.brand_id,
     promptId: r.prompt_id,
+    keywordId: r.keyword_id,
     mentioned: r.mentioned,
     cited: r.cited,
     confidence: r.mention_confidence,

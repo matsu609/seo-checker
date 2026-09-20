@@ -9,11 +9,13 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, ButtonLink, Callout, Card, Field, Input, StatCard, Tabs } from "@/components/ui";
 import { SITE_SETTINGS_HREF } from "@/components/site/RegisteredSite";
+import { NORMAL_REPEATS_PER_WEEK, PRECISION_REPEATS_PER_WEEK } from "@/lib/geo/schedule";
 import { CREDIT_ACTION_LABELS, GEO_MODEL_LABELS, type CreditAction, type GeoModel } from "@/lib/geo/types";
 import { pct } from "@/lib/report/format";
 import { BrandedCard } from "./BrandedCard";
 import { SetupPanel } from "./SetupPanel";
 import { ShareCard } from "./ShareCard";
+import { TargetBars } from "./TargetBars";
 import { fetchDashboard, fetchSetup, runLive, type DashboardResponse, type LiveResult, type SetupResponse } from "./client";
 
 type TabId = "dashboard" | "setup";
@@ -128,6 +130,28 @@ function Dashboard({ data, onGoSetup }: { data: DashboardResponse; onGoSetup: ()
         brands={data.brands}
         title="ブランドシェアスコア（4 週ローリング）"
         description="登録したプロンプト全体で、回答本文に各ブランドの名前が出た割合です。1 週間の上下は誤差に埋もれるため、見出しは 4 週分をまとめた数字にしています。"
+      />
+
+      {/* キーワード・プロンプトごとの棒グラフ（利用者の指示 2026-09-20） */}
+      <TargetBars
+        rows={data.perPrompt}
+        title="プロンプトごとの出現率（ChatGPT / Gemini・4 週）"
+        description="登録したプロンプト 1 本ずつに、回答本文で自社の名前が出た割合です。棒が平均、帯がありうる範囲（狭いほど信用できます）。"
+        cadence={`通常のプロンプトが週 ${NORMAL_REPEATS_PER_WEEK} 回（月・水・金に分散）× モデル数、高精度枠が週 ${PRECISION_REPEATS_PER_WEEK} 回`}
+        emptyText="まだ計測結果がありません。「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から数字が入ります。"
+        modelFilter
+      />
+
+      <TargetBars
+        rows={data.perKeyword}
+        title="キーワードごとの AI Overviews 引用率（4 週）"
+        description="設定の「対策キーワード」で Google を検索し、AI による概要（AI Overviews）の参照リンクに自社ドメインが入っていた割合です。"
+        cadence="週 1 回（月曜）なので 4 週で 4 回。帯が広いのはそのため"
+        emptyText={
+          data.keywordCount === 0
+            ? "設定の「対策キーワード」にキーワードを登録すると、週 1 回の計測が始まります。"
+            : "登録済みのキーワードの計測はこれからです。翌週の月曜から数字が入ります。"
+        }
       />
 
       {Object.entries(data.perModel).map(([model, rows]) => (

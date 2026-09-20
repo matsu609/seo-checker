@@ -3,6 +3,7 @@
 /**
  * AI 検索モニタリングの API クライアント（画面から呼ぶ薄い層）。
  */
+import type { LabeledTargetShare } from "@/lib/geo/aggregate";
 import type { GeoBrand, GeoKeyword, GeoModel, GeoPrompt } from "@/lib/geo/types";
 
 export interface GeoAccountView {
@@ -36,6 +37,9 @@ export interface ShareRow {
   band: "often" | "sometimes" | "rare" | "none";
 }
 
+/** 計測対象（プロンプト 1 本 / キーワード 1 語）ごとの出現率。棒グラフの 1 行 */
+export type TargetRow = LabeledTargetShare;
+
 export interface DashboardResponse {
   account: GeoAccountView;
   brands: GeoBrand[];
@@ -43,6 +47,11 @@ export interface DashboardResponse {
   precisionCount: number;
   overall: ShareRow[];
   perModel: Record<string, ShareRow[]>;
+  /** プロンプトごとの言及率（ChatGPT / Gemini） */
+  perPrompt: TargetRow[];
+  /** キーワードごとの AI Overviews 引用率 */
+  perKeyword: TargetRow[];
+  keywordCount: number;
   branded: {
     ownCitationRate: number;
     citationMix: Record<"own" | "competitor" | "third_party", number>;

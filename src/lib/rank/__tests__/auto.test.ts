@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRankAlert, detectRankDrops, previousByKeyword, RANK_AUTO_LIMITS, selectAutoTargets } from "../auto";
+import { buildRankAlert, detectRankDrops, previousByKeyword, RANK_AUTO_LIMITS, rankAutoLimit, selectAutoTargets } from "../auto";
 import type { RankKeyword, RankSnapshot } from "../store";
 
 const kw = (id: string, keyword: string, projectId = "p1", createdAt = "2026-09-01T00:00:00Z"): RankKeyword => ({ id, projectId, keyword, device: "desktop", createdAt });
@@ -32,6 +32,14 @@ describe("自動計測の対象", () => {
 
   it("プランの上限", () => {
     expect(RANK_AUTO_LIMITS).toEqual({ free: 0, light: 30, standard: 100, premium: 300 });
+  });
+
+  // 運用者・管理アカウントは契約が無くてもツールを全部使える立場なので、上限も最上段に合わせる
+  it("運用者・管理アカウントは契約が無くても最上段", () => {
+    expect(rankAutoLimit("free", false)).toBe(0);
+    expect(rankAutoLimit("free", true)).toBe(RANK_AUTO_LIMITS.premium);
+    // 契約があるときは、その契約の上限のまま（立場で増やさない）
+    expect(rankAutoLimit("light", true)).toBe(RANK_AUTO_LIMITS.light);
   });
 });
 

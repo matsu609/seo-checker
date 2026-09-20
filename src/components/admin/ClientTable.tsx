@@ -1,13 +1,19 @@
 "use client";
 
 /**
- * マスター画面の顧客一覧（操作側）。
+ * 顧客管理の画面（/clients）の顧客一覧（操作側）。
  *
  * 1 行 = 1 顧客。契約状況・月額・クーポンは読み取り専用で、
- * 触れるのは機能の個別開放（チェックボックス）と担当代理店（選択）、
+ * 触れるのは割引・機能の個別開放（チェックボックス）・担当の管理アカウント（選択）、
  * そして「この方の画面を見る」（代理ログイン）だけ。
  *
- * 保存はどちらも押した瞬間に行う。押した直後に見た目を戻さないよう、
+ * 運用者（マスター）と管理アカウントで同じ表を使う。違いは 2 つだけで、
+ *   ・管理アカウントに出るのは担当に割り当てられた登録者だけ（行を作る側で絞る）
+ *   ・担当の付け替え（canAssign）は運用者だけ
+ * 残りの操作（割引・機能の個別開放・代理ログイン）は同じ API を使い、
+ * 担当外の相手には サーバーが 404 を返す（src/lib/admin/guard.ts の requireClientAccess）。
+ *
+ * 保存はどれも押した瞬間に行う。押した直後に見た目を戻さないよう、
  * 保存中は行の状態を先に進めておき、失敗したら元に戻す。
  */
 import { useState } from "react";
@@ -32,11 +38,23 @@ export interface ClientTableProps {
   initial: ClientRow[];
   /** 無料診断の上限（回数の表示に使う） */
   freeRunLimit?: number;
-  /** 担当代理店の選択肢。代理店を足す・外すと親から入れ替わる */
-  agencies: AgencyRow[];
+  /** 担当の管理アカウントの選択肢（運用者のときだけ渡す） */
+  agencies?: AgencyRow[];
+  /** 担当の付け替えができるか（運用者だけ。管理アカウントには欄ごと出さない） */
+  canAssign?: boolean;
+  /** 顧客が 1 人も居ないときの案内（立場で文面が変わる） */
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
-export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTableProps) {
+export function ClientTable({
+  initial,
+  agencies = [],
+  freeRunLimit = 2,
+  canAssign = false,
+  emptyTitle = "まだ顧客がいません",
+  emptyDescription = "ログインしたアカウントがここに並びます。",
+}: ClientTableProps) {
   const [rows, setRows] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -153,8 +171,8 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
 
   if (rows.length === 0) {
     return (
-      <Callout tone="info" title="まだ顧客がいません">
-        ログインしたアカウントがここに並びます。
+      <Callout tone="info" title={emptyTitle}>
+        {emptyDescription}
       </Callout>
     );
   }
@@ -293,7 +311,8 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
                 <p className="text-[12px] text-muted">クーポンの適用はありません。</p>
               )}
 
-              {/* 担当の管理アカウント（旧称: 代理店） */}
+              {/* 担当の管理アカウント（旧称: 代理店）。付け替えは運用者だけ */}
+              {canAssign && (
               <div>
                 <label
                   className="text-[12px] font-bold text-ink"
@@ -338,6 +357,7 @@ export function ClientTable({ initial, agencies, freeRunLimit = 2 }: ClientTable
                   )}
                 </div>
               </div>
+              )}
 
               {/* 割引（スタンダード専用）。管理アカウント画面からも同じものを設定できる */}
               {!isAgency && <PromoSelect userId={row.userId} value={row.promo} endpoint="/api/admin/promo" subscribed={row.billing.status === "active" || row.billing.status === "trial"} />}

@@ -1,5 +1,5 @@
 /**
- * マスター画面・代理店画面のアクセス制御。サーバー専用。
+ * マスター画面・顧客管理画面のアクセス制御。サーバー専用。
  *
  * マスターの判定は「ログイン中 かつ 確認済みのメールが ADMIN_EMAILS に含まれる」。
  * 未確認のメールを許すと、管理者のアドレスで登録するだけで入れてしまうので、
@@ -10,11 +10,14 @@
  *
  * 認証が無効な環境（開発・E2E）でも、どちらも開けない。他人の請求情報が出る画面なので、
  * 鍵が無いときは通さないほうを既定にする。
+ *
+ * 顧客 1 人への操作（割引・機能の個別開放・代理ログイン・ご意見への返答）は、
+ * この 2 つをまとめた currentClientScope / requireClientAccess を通す（ファイル末尾）。
  */
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { adminEmails, isAdminEmail } from "./config";
-import { isAgencyMetadata } from "./roles";
+import { isAgencyMetadata, isAssignedClient } from "./roles";
 
 export async function isAdmin(): Promise<boolean> {
   if (!isAuthEnabled()) return false;
@@ -36,14 +39,18 @@ export async function isAdmin(): Promise<boolean> {
   }
 }
 
-/** API ルート用。管理者でなければ 404 の Response を返す */
-export async function requireAdmin(): Promise<Response | null> {
-  if (await isAdmin()) return null;
-  // 403 だと「その画面が存在すること」を教えてしまうので 404 にする
+/** 権限が足りないときの応答。403 だと「その画面が存在すること」を教えてしまうので 404 にする */
+function notFoundResponse(): Response {
   return Response.json(
     { error: "見つかりませんでした。" },
     { status: 404, headers: { "cache-control": "no-store" } },
   );
+}
+
+/** API ルート用。管理者でなければ 404 の Response を返す */
+export async function requireAdmin(): Promise<Response | null> {
+  if (await isAdmin()) return null;
+  return notFoundResponse();
 }
 
 /**
@@ -70,4 +77,43 @@ export async function currentAgencyId(): Promise<string | null> {
 /** 代理店かどうか（画面の出し分け用） */
 export async function isAgency(): Promise<boolean> {
   return (await currentAgencyId()) !== null;
+}
+
+/**
+ * 顧客管理の画面（/clients）と、顧客 1 人への操作をしてよい立場かどうか。
+ *
+ *   master  … 運用者（ADMIN_EMAILS）。全登録者が見え、担当の付け替えもできる
+ *   manager … 管理アカウント（publicMetadata.role = agency）。担当の登録者だけ
+ *
+ * どちらでもなければ null（画面は 404、API も 404）。
+ */
+export type ClientScope = { kind: "master" } | { kind: "manager"; agencyId: string };
+
+export async function currentClientScope(): Promise<ClientScope | null> {
+  if (await isAdmin()) return { kind: "master" };
+  const agencyId = await currentAgencyId();
+  return agencyId ? { kind: "manager", agencyId } : null;
+}
+
+/**
+ * API ルート用。その顧客に触ってよいか調べ、だめなら 404 の Response を返す。
+ *
+ * 運用者は全員に触れる。管理アカウントは**担当に付いている登録者だけ**
+ * （担当外・他の管理アカウント宛は 404。存在そのものを教えない）。
+ * 担当の判定に使う ID は必ずセッションから取る（リクエストの値を信用しない）。
+ */
+export async function requireClientAccess(userId: string): Promise<Response | null> {
+  const scope = await currentClientScope();
+  if (!scope) return notFoundResponse();
+  if (scope.kind === "master") return null;
+
+  try {
+    const client = await clerkClient();
+    const target = await client.users.getUser(userId).catch(() => null);
+    if (!target || !isAssignedClient(target.publicMetadata, scope.agencyId)) return notFoundResponse();
+    return null;
+  } catch {
+    // 取れなければ触らせない（開ける方向には倒さない）
+    return notFoundResponse();
+  }
 }

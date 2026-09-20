@@ -230,3 +230,35 @@ describe("Clerk Billing（Stripe）のプラン識別子", () => {
     expect(new Set(slugs).size).toBe(PLANS.length);
   });
 });
+
+/**
+ * 運用者・管理アカウントの扱い（利用者の決定 2026-09-20）。
+ * 管理アカウントは、カードの登録なしでツールを全部使える。ログイン中の判定
+ * （checkPlanForFeature）と定期処理の判定（accessAllows）で食い違うと、
+ * 「画面では使えるのに自動処理だけ動かない」が起きるので、ここで固定する。
+ */
+describe("運用者・管理アカウントは全機能", () => {
+  const base = { userId: "user_1", plan: "free" as PlanId, overrides: [], admin: false, agency: false, email: null, missing: false };
+  // 無料プランでは使えない機能（レジストリから 1 つ拾う）
+  const paidFeature = features.find((f) => f.plan !== "free")?.featureIds[0] ?? "rank";
+
+  it("無料プランのままでも、運用者と管理アカウントには開く", async () => {
+    const { accessAllows } = await import("@/lib/plans/user");
+    expect(accessAllows(base, paidFeature)).toBe(false);
+    expect(accessAllows({ ...base, admin: true }, paidFeature)).toBe(true);
+    expect(accessAllows({ ...base, agency: true }, paidFeature)).toBe(true);
+  });
+
+  it("Clerk から読めなかった人には、立場に関わらず開かない", async () => {
+    const { accessAllows } = await import("@/lib/plans/user");
+    expect(accessAllows({ ...base, agency: true, missing: true }, paidFeature)).toBe(false);
+  });
+
+  it("画面側の判定（canUseFeature）も同じ", async () => {
+    const { canUseFeature } = await import("@/lib/store/usePlan");
+    const access = { plan: "free" as PlanId, overrides: [], admin: false, agency: false };
+    expect(canUseFeature(access, paidFeature, "standard")).toBe(false);
+    expect(canUseFeature({ ...access, agency: true }, paidFeature, "standard")).toBe(true);
+    expect(canUseFeature({ ...access, admin: true }, paidFeature, "standard")).toBe(true);
+  });
+});

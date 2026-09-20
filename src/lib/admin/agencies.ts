@@ -137,7 +137,21 @@ export async function removeAgency(userId: string): Promise<void> {
 }
 
 /**
- * その代理店が担当している登録者の一覧。代理店画面に出す。
+ * その管理アカウントが担当している登録者の**ID だけ**。
+ *
+ * 契約情報を引かないので、ご意見の絞り込みのように「誰の分か」だけが要る場面で使う
+ * （loadAgencyClients は人数ぶん Billing を呼ぶので、ID だけ欲しいときには重すぎる）。
+ */
+export async function listAgencyClientIds(agencyId: string): Promise<string[]> {
+  if (!isUserId(agencyId)) return [];
+  const { users } = await listUsers();
+  return users
+    .filter((u) => u.id !== agencyId && agencyIdFromMetadata(u.publicMetadata) === agencyId && !isAgencyMetadata(u.publicMetadata))
+    .map((u) => u.id);
+}
+
+/**
+ * その代理店が担当している登録者の一覧。顧客管理の画面に出す。
  *
  * 契約情報を引くのは絞り込んだあとだけ（人数ぶんの API 呼び出しになるため）。
  * 代理店自身は結果に含めない（担当に自分を入れられない作りだが、念のため落とす）。

@@ -12,7 +12,7 @@ import { accessAllows, loadUserAccess } from "@/lib/plans/user";
 import { getSerpProvider } from "@/lib/serp";
 import { CURRENT_PROJECT_STORE, PROJECTS_STORE, RANK_KEYWORDS_STORE } from "@/lib/settings/shared";
 import { jstDateKey } from "@/lib/time/jst";
-import { buildRankAlert, detectRankDrops, previousByKeyword, RANK_AUTO_LIMITS, selectAutoTargets } from "./auto";
+import { buildRankAlert, detectRankDrops, previousByKeyword, rankAutoLimit, selectAutoTargets } from "./auto";
 import { measureBatch } from "./measure-batch";
 import { listRankSnapshots, saveRankSnapshots } from "./server-store";
 import { toSnapshot } from "./store";
@@ -61,7 +61,7 @@ export async function runRankWeekly(ctx: JobContext, deps: RankJobDeps = default
       continue;
     }
     const stores = await deps.loadStores(u.userId);
-    const targets = selectAutoTargets({ projects: stores.projects, rankKeywords: u.value }, RANK_AUTO_LIMITS[access.plan] || (access.admin ? RANK_AUTO_LIMITS.premium : 0));
+    const targets = selectAutoTargets({ projects: stores.projects, rankKeywords: u.value }, rankAutoLimit(access.plan, access.admin || access.agency));
     if (targets.length === 0) {
       summary.skippedEmpty += 1;
       continue;
