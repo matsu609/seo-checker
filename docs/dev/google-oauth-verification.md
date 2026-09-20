@@ -198,3 +198,58 @@ A の承認後: Google Cloud で「Google My Business API」（v4。口コミは
 | Google での見られ方（18 か月・6 指標・流入キーワード） | https://app.seo-checker.tokyo/tools/maps | r97（`src/lib/google/performance.ts`） | 無し（Performance API は有効化済み） |
 | GBP への予約投稿 | https://app.seo-checker.tokyo/tools/posts | `src/lib/posts/`（`localPosts`） | 無し（v4 の有効化で一緒に動く） |
 | MEO 採点の「未取得」9 項目 | https://app.seo-checker.tokyo/tools/maps | オーナー申告（r27）→ API の値へ | `#11` の差し替え（Claude 側の作業。半日） |
+
+### 5-5. 申請の進捗を確かめる画面（2026-09-20。利用者の質問「申請が正しく行われているか、進捗チェックみたいなページはどこ？」）
+
+**結論: Google には「Business Profile API の利用申請の進捗を見るページ」は無い。**申請フォーム（https://support.google.com/business/contact/api_default ）に出すと**ケース ID がメールで返ってくるだけ**で、ケースの状態を一覧できるポータルは公開されていない（Google のヘルプコミュニティでも「ケース ID から状況を追う方法は無く、返信はメールだけ」という回答で一致している）。
+
+**その代わり、承認が下りたかどうかは Google Cloud の「割り当て（Quotas）」で確実に分かる。**これが実質の進捗チェック画面。
+
+| 割り当ての数字（1 分あたりのリクエスト数） | 意味 |
+|---|---|
+| **0**（0 QPM） | **未承認**。申請中か、却下されたか。ここで「割り当ての増加」を申請してはいけない（種別が違う。出すのは Application for Basic API Access） |
+| **300**（300 QPM） | **承認済み**。プロジェクト `seo-checker-508104` が許可リストに入った |
+
+#### 見る画面（上から順に確かめる）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Google Cloud → Account Management API → 割り当て | https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 | **いちばん確実な合否ランプ。**「1 分あたりのリクエスト数」が 0 なら未承認、300 なら承認済み |
+| 2 | Google Cloud → Business Information API → 割り当て | https://console.cloud.google.com/apis/api/mybusinessbusinessinformation.googleapis.com/quotas?project=seo-checker-508104 | 同上（3 本とも同じ申請で一度に開く） |
+| 3 | Google Cloud → Performance API → 割り当て | https://console.cloud.google.com/apis/api/businessprofileperformance.googleapis.com/quotas?project=seo-checker-508104 | 同上。ここが 300 になれば「Google での見られ方」（`/tools/maps`）が動く |
+| 4 | Google Cloud → 割り当て（全サービス横断。上が開けないとき） | https://console.cloud.google.com/iam-admin/quotas?project=seo-checker-508104 | 「サービス」で `My Business` / `Business Profile` を絞り込む |
+| 5 | Google Cloud → API ライブラリ → Google My Business API（v4） | https://console.cloud.google.com/apis/library/mybusiness.googleapis.com?project=seo-checker-508104 | **もう一つのランプ。**v4 は承認されたプロジェクトにしか出ない。このページが普通に開いて「有効にする」が押せたら承認済み（09-18 時点では開かない = 未承認） |
+| 6 | Google Cloud → 有効な API とサービス | https://console.cloud.google.com/apis/dashboard?project=seo-checker-508104 | 有効化済みの 3 本と、呼び出し回数・エラー率。403 が並んでいれば未承認のまま |
+| 7 | Gmail（申請に使ったアカウント） | https://mail.google.com/ → `businessprofile` / ケース ID で検索 | ケース ID のスレッドが唯一の公式な記録。**追加質問が来ていたら即日返信**（放置すると 1〜2 週間で却下） |
+| 8 | 当サービス → マスター画面 → 外部連携 | https://app.seo-checker.tokyo/admin | 「Google ビジネス プロフィール（OAuth）」の行。承認後に口コミの取得が通るようになる |
+| 9 | 当サービス → 口コミへの返信 | https://app.seo-checker.tokyo/tools/replies | 実地のテスト。未承認なら「承認待ち」の案内（403）が出る。ここが口コミ一覧に変われば承認済み |
+
+#### 「申請は何種類あるのか」の整理
+
+**API は 4 本あるが、申請は 1 本。**Application for Basic API Access はプロジェクト単位の許可で、通れば下の API がまとめて使えるようになる（API ごとに申請するのではない）。
+
+| API | 何に使うか | いまの状態 |
+|---|---|---|
+| My Business Account Management API | アカウント・店舗の一覧 | Cloud で有効化済み（09-18）。割り当ては未確認 |
+| My Business Business Information API | 店舗情報の取得・更新 | 同上 |
+| Business Profile Performance API | 「Google での見られ方」（表示回数・電話・経路・検索語） | 同上 |
+| Google My Business API（v4） | 口コミの取得・返信、投稿（localPosts）、写真 | **承認されるまでライブラリに出ない** |
+| （任意）Verifications / Notifications / Lodging / Place Actions | 今は使わない | — |
+
+**「申請」という言葉で呼んでいるものは 3 種類ある。進捗の見え方がそれぞれ違うので混同しない。**
+
+| 申請 | 出す場所 | 進捗の見え方 |
+|---|---|---|
+| **A. Business Profile API の利用申請**（#5） | https://support.google.com/business/contact/api_default | **進捗ページ無し。**上の割り当て（0 → 300）で判定。結果はメール |
+| **B. OAuth 本番公開審査**（#13） | https://console.cloud.google.com/auth/overview?project=seo-checker-508104 | **進捗ページ有り。**同じ画面に「確認（verification）の状態」が出る（未申請 / 審査中 / 承認済み） |
+| **C. クォータ増加申請**（当面不要） | A と同じフォームで種別 Quota Increase Request | 割り当ての数字が増えるかどうか |
+
+#### 「申請が正しく行われているか」の確認（出した内容そのものは Google 側で見られない）
+
+フォームの控えは残らないので、**出したかどうか・正しく出せたかは次の 3 点で確かめる**。
+
+| 確かめること | どこで | 合格の形 |
+|---|---|---|
+| ① 送信した証拠（ケース ID） | 申請に使ったアカウントの Gmail | Google からの自動返信にケース ID がある（前回は `0-4126000041187`） |
+| ② **どのアカウントで送ったか** | そのメールの宛先 | **オーナー `wolf@wolf-info.org` 宛**であること。`matsumatsu452@gmail.com`（管理者）宛なら 5-0 の B の失敗を繰り返している |
+| ③ プロフィールが確認済みか | https://business.google.com/n/4773232117026925181/profile/verify | 「確認が必要です」が消えていること。ここが未了だと A は何回出しても通らない（5-0 の A） |

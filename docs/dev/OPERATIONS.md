@@ -42,6 +42,8 @@
 | Google Cloud → 予算とアラート | https://console.cloud.google.com/billing/budgets?project=seo-checker-508104 |
 | Google Cloud → OAuth → ブランディング | https://console.cloud.google.com/auth/branding?project=seo-checker-508104 |
 | Google Cloud → OAuth（Google Auth Platform） | https://console.cloud.google.com/auth/overview?project=seo-checker-508104 |
+| Google Cloud → Business Profile API の割り当て（**申請が通ったかの確認**） | https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 |
+| Google Cloud → 有効な API とサービス（呼び出し回数・エラー） | https://console.cloud.google.com/apis/dashboard?project=seo-checker-508104 |
 | Cloudflare → Email Routing | https://dash.cloudflare.com/ → seo-checker.tokyo → Email → Email Routing |
 | Cloudflare → 紹介サイトの Worker（ビルド設定） | https://dash.cloudflare.com/ → Compute（Workers） → `seo-checker-hp` → Settings → Build |
 | Google Cloud → OAuth → 対象（テストユーザー） | https://console.cloud.google.com/auth/audience?project=seo-checker-508104 |
@@ -95,6 +97,7 @@
 | アクセス解析（自前の計測タグ） | **取り下げ（r90、09-17。利用者の決定「ツールで完結しないので面倒。やらない」）** | r89 で作った直後に取り下げ。画面は推定へ転送、API と `/t.js` は 410。コードは r93 で削除済み。Supabase の SQL は**実行不要** |
 | ご意見・不具合の報告（r128、09-20） | **稼働中（09-20 に本番で確認。利用者報告「正しく使えた」）** | ツールの右上から送信 → Supabase `feedback` → `/admin` で状態と返答 → お客様の `/settings`「ご意見の履歴」に返答が出る。メールは送らない（新着通知が要るなら Resend の契約。入力待ち）。1 人 1 日 20 件、代理ログイン中は送信不可。`src/lib/feedback/`・`/api/feedback`・`/api/admin/feedback` |
 | NAP チェック（表記ゆれの検出、r131、09-20） | **コード完成・検証済み（lint / tsc / test 1,778 件 / build）。本番での実サイトの通し確認は未（#123）** | `/tools/nap`。店名・住所・電話・サイト URL の 4 つを「正」として、自社サイト（JSON-LD・フッター・会社概要・お問い合わせ）・Google マップ・掲載ページの値と突き合わせ、直すべき箇所を一覧に。キー無しでも自社サイトの確認は動く（Google マップは Places、掲載ページの発見は DataForSEO、控えた URL は Supabase）。1 分に 1 回。利用者の決定 09-20「登録されている内容がずれていないかを主機能に」 |
+| AI 検索モニタリングのキーワード別グラフ（r132、09-20） | **コード完成・検証済み（lint / tsc / test 1,795 件 / build）。本番で数字が入るのは計測が回ってから（#91 の 7〜9 と #19 が先）** | `/tools/geo` のダッシュボードに横棒グラフを 2 枚追加。①プロンプトごとの言及率（ChatGPT / Gemini。モデルで絞り込める）②キーワードごとの AI Overviews 引用率。**棒 = 4 週ローリングの出現率、帯 = Wilson 95% 信頼区間**で、回数が少ない行ほど帯が広い。Supabase のテーブル変更は不要（`geo_observations.keyword_id` は元からある列を読むようにしただけ）。利用者の指示 09-20「キーワードごとに棒グラフ。確率にある程度幅を持たせて分布を見たい」 |
 | サイドバーの構成（r94 → r95、09-17） | **「AIO 対策」を親のくくりにし、その中に 3 本の柱を開閉式で並べる（r95）。親の直下 = AI 検索モニタリング / 柱 SEO = 精密診断・ページ診断・HP 改修提案（AIO から移動）・順位計測・検索の推定・キーワード調査・AI ライティング / 柱 MEO = Google マップ・口コミ支援・口コミへの返信 / 柱 サイテーション = **NAP チェック（r131、09-20）**・サイテーション・基本情報掲載・llms.txt** | 利用者の指示「本当に必要な機能に絞る」「AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称」。サイドバーから外した 3 つ: ページ最適化レポート（→ HP 改修提案へ転送）・AIO 頻出トピック（→ AI 検索モニタリングへ転送）・プロンプト拡張（AI 検索モニタリングの設定からリンク）。定義・API・プランのゲートは残る（`hidden: true`） |
 | LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity） | **提供終了（r92、09-17。利用者の決定「AI 検索モニタリングに一本化」）** | `/tools/llmo` → `/tools/geo` へ転送、`/api/llmo/run` と `/api/seo-analysis/second-opinion` は 410。**残る契約は Anthropic・DataForSEO・SerpApi・Google（マップ・PageSpeed）・Supabase・Clerk・Stripe**。コードは r93 で削除済み |
 | DataForSEO | **接続済み・動作確認済み（09-17）** | `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Production に登録。検索パフォーマンス（推定）が実データを返した = Labs `ranked_keywords` のエンドポイントは合っていた（`DATAFORSEO_LABS_RANKED_PATH` の差し替えは不要）。残高はお試し $1 → 動作確認後に $50 入金 |
@@ -102,7 +105,7 @@
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
-| Business Profile API | **09-11 に申請（ケース ID `0-4126000041187`）→ 返信なし。09-20 に再申請の準備（利用者の指示）。**再申請の前に潰す 2 点: ①**プロフィールの確認が未完了**（09-19 に Google から「追加のお手続きが必要」のメール）②前回は**管理者アカウント**で申請していた（フォームは**オーナー**で送る） | 手順は [google-oauth-verification.md](./google-oauth-verification.md) §5。Google の審査制（最大 2 週間）。承認後に足すコードは無い（r37 / r97 / 投稿まで実装済み） |
+| Business Profile API | **09-11 に申請（ケース ID `0-4126000041187`）→ 返信なし。09-20 に再申請の準備（利用者の指示）。**再申請の前に潰す 2 点: ①**プロフィールの確認が未完了**（09-19 に Google から「追加のお手続きが必要」のメール）②前回は**管理者アカウント**で申請していた（フォームは**オーナー**で送る） | 手順は [google-oauth-verification.md](./google-oauth-verification.md) §5。Google の審査制（最大 2 週間）。承認後に足すコードは無い（r37 / r97 / 投稿まで実装済み）。**進捗を見るページは Google に無い**（ケース ID はメールだけ）。承認の合否は Google Cloud の「割り当て」で判定する — https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 が **0 = 未承認 / 300 = 承認済み**。もう一つのランプは v4 がライブラリに出るかどうか。詳細は §5-5 |
 | 定期処理（`/api/cron/daily`、r127） | **本番で動作を確認（09-20 22:52、サイトの事故監視を「今すぐ実行」で成功。記録も `cron_runs` に残った）** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
 | Resend（メール送信、r127） | **未設定**（`RESEND_API_KEY` / `MAIL_FROM`） | #119 の手順。無くても画面の「お知らせ」には残る |
 | Stripe（直結） | **本番モードで割引付きの Checkout まで確認済み（2026-09-18 21:30）。Webhook（決済後に契約中になるか）は未確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
@@ -194,6 +197,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 |---|---|---|---|
 | 122 | ~~**ご意見・不具合の報告を本番で開く（r128）**~~ | 利用者 | **完了（09-20。SQL 実行 →「Success. No rows returned」→ 本番で利用者が「正しく使えた」と報告）** |
 | 123 | **NAP チェック（r131）の本番確認**: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/nap` を開く → 4 項目（設定の基本情報とホームページが初期値。MEO の登録店舗からも取り込める）→「チェックする」→ 1〜2 分で「直すべき箇所」「媒体ごとの突き合わせ」が出ること。自社サイトの値が正しく読めているか（構造化データ・フッター・会社概要）、Google マップが同じ店を見つけたか、誤判定（本当は同じなのに不一致 / 違うのに一致）があればその媒体と値を共有。費用は Places の詳細 1 回 + DataForSEO 2 回（数円） | 利用者 | 未 |
+| 124 | **AI 検索モニタリングを実際に回して棒グラフに数字を入れる（r132 の本番確認）**: 先に #19（`CRON_SECRET`）と #91 の 7〜9。① `/admin` の「外部連携」で DataForSEO が設定済みか ② `/tools/geo` →「プロンプトと計測対象」でプロンプトを 3〜5 本登録（例「おすすめの〇〇は？」「〇〇 比較」）③ 設定（/settings）の「対策キーワード」にキーワードが入っているか ④ 翌朝 5:00 JST の Cron のあと `/tools/geo` のダッシュボードで 「プロンプトごとの出現率」「キーワードごとの AI Overviews 引用率」に棒が出ること。**数字が落ち着くまで 4 週かかる**（帯が広いのは異常ではない）。DataForSEO の残高はお試し $1 のままなので、回すなら $50 の入金が先 | 利用者 | 未 |
+| 125 | **キーワードの AI Overviews を週 1 回 → 週 3 回に増やすかの判断**: いまキーワードは月曜の週 1 回しか測らないので、4 週でも n=4 にしかならず、棒グラフの帯が常に非常に広い（±40pt 程度）。週 3 回（月・水・金。プロンプトと同じ分散）にすると 4 週で n=12 になり帯が半分くらいに締まる。**費用は 1 キーワードあたり月 +$0.021（約 +¥3.4）**、30 語なら月 +¥100 前後・クレジット +120。コード側は `src/lib/geo/schedule.ts` の `RANK_PLAN` を `[1,0,1,0,1,0,0]` にするだけ（10 分）。順位計測まで週 3 回にすると費用は倍近くになるので、**AIO だけ増やす**のが本線 | 利用者（判断）→ Claude | 判断待ち |
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
 | 111 | **サイドバーの整理の続き**: r94 で 3 つ外した。さらに減らす候補は ① ページ診断（競合比較。精密診断と役割が近い）② 順位計測（SerpApi）と検索パフォーマンス（推定）（DataForSEO）の一本化 ③ AIO 頻出トピック・ページ最適化レポートの API と `src/lib/aio-topics/` の削除（1〜2 か月後、転送ページと一緒に）。利用者の判断待ち（下の入力待ち） | 利用者（判断）→ Claude | 未 |
 | 112 | ~~タブの並び~~ | — | **不要（r95 で 3 タブをやめ、AIO 対策の中に SEO / MEO / サイテーションを入れ子にした）** |
@@ -945,6 +950,7 @@ alter table monthly_reports enable row level security;
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
 - Business Profile API の再申請（#5 / #54 ①）の結果。**09-20 に「プロフィールの確認を完了 → オーナーアカウントで再申請 → 前回ケースへ督促」の 3 つを依頼（[google-oauth-verification.md](./google-oauth-verification.md) §5）。**①の確認が終わったか、②の新しいケース ID、③督促への返信
+- **Business Profile API の割り当ての数字**（進捗チェック。§5-5）。https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 の「1 分あたりのリクエスト数」が **0 か 300 か**。0 なら未承認のまま、300 なら承認済みなので v4 の有効化（#116）に進む
 - 口コミ支援の課金（スタンダードに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 - **Clerk のユーザーで `publicMetadata.plan` に `standard` を手で割り当てた人がいないか**（r63 で `standard` の意味が「診断・計測のみ」から「全機能」に変わったため。いれば `light` に直す。誰にも割り当てていなければ何もしなくてよい）。画面: https://dashboard.clerk.com/ → Users → 各ユーザー → Metadata
 - プレミアム（伴走）の中身の詰め: レポート代行の範囲と、お見積りの目安（どういう条件だと 150,000 円で、何が増えるといくら上がるのか）。r65 で**所要時間と返信目標の数字は外した**（「月 1 回の報告ミーティング（オンライン）」「優先サポート（メール・チャット）」）ので、約束しているのは頻度と手段だけ。数字を戻すなら `src/lib/plans/catalog.ts` と `marketing/public/index.html`・`public/service-guide.html` の 3 か所
@@ -1342,6 +1348,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | 日付 | 判断 | 理由 |
 |---|---|---|
+| 09-20 | **キーワード別の棒グラフでは、仕様書 §5.1-3 の「観測 30 件未満はパーセントを出さず 4 段階表示」を緩め、パーセントも出す。ただし ①信頼区間の帯を必ず同じ図に描く ②n<30 の行は棒の色と数値を薄くし「参考値」と明示する ③段階のラベルも併記する**（r132） | 利用者の指示 09-20「確率にある程度幅を持たせて分布を見たい」= 幅そのものを見たいという要望なので、段階に丸めると要望を満たせない。§5.1-3 の狙いは「n が小さいのに断定させない」ことで、**帯を必ず描けばその狙いは満たせる**（むしろ 4 段階より情報が多い）。§5.1-5「有意差という言葉は使わない」はそのまま守り、図の下に「帯が重なっている 2 行は差が読み取れない」と明記した。ブランドシェアの見出し（ShareCard）は従来どおり n<30 で段階表示のまま（主指標は変えない） |
 | 09-20 | **入力を補助する機能（法人番号 Web-API で NAP の正本を国の一次情報で検証・`sameAs` の自動生成など）は作らない・後回し。「登録されている内容がずれていないか」の検出を主機能にする（NAP チェック、r131）** | 利用者の決定「入力を補助するような機能はやっぱりいらない。実装コストが高いのとすぐに実装できないので後回し」「網羅的な登録チェックは原理的に完成しない。表記揺れの検出は一致か不一致しかないのでごまかしが効かない。出せれば確実に価値が上がる」。形も利用者の指定: 入力は 4 つだけ（店名・住所・電話・サイト URL）、サイトを取得してフッター・会社概要・お問い合わせから NAP を抽出して一致 / 不一致を評価、出力は直すべき箇所のリスト |
 | **セキュリティ点検の指摘への対応方針（2026-09-18）** | 下の「セキュリティ点検（2026-09-18）」の 8 件。**S-1（`/api/store` の上限欠落・r111 の回帰）と S-2（`/api/faq` の無制限 AI 費用）はコード修正、S-0（鍵のローテーション）は利用者の作業**。高が 4 件（S-1・S-2・S-6・S-9）、中が 10 件。どこから直すか指示をください | 利用者の回答待ち |
 | Stripe 本番切替の残り: `STRIPE_SECRET_KEY`（`sk_live_`）と `STRIPE_WEBHOOK_SECRET`（本番 Webhook の `whsec_`）の差し替え → Redeploy（2026-09-18） | A で進行中。Price ID 2 つは本番と一致済み、`STRIPE_PRICE_PRO` 削除済み（Claude in Chrome、20:30 ごろ）。Webhook `elegant-bliss` が本番モードのものかは要確認（テストの whsec だと契約状態が書かれない） | 利用者の作業待ち |
@@ -4078,3 +4085,77 @@ Business Profile API の前提条件の 1 番目は「**確認済み（verified�
 **できないこと・注意**: Apple マップ・Yahoo!マップ・Bing のページは JS 描画で本文が取れず、API も契約が要る（Apple Business Connect / LINEヤフー / Bing は CSV のみ）ので自動では見ない。画面の注意書きで管理画面の目視を頼む。Google マップは公開情報（Places）なのでオーナー権限は不要。判定は「一致 / 不一致 / 記載なし」をそのまま出し、スコアや点数にはしない（利用者の意図「ごまかしが効かない」）。
 
 **触っていないこと**: 掲載（サイテーション・基本情報掲載）・定期更新（r127）・決済・Clerk は変更なし。法人番号 Web-API は作らない（判断の経緯）。別セッションのブランチ `claude/clever-pasteur-82da6k` は引き続き未マージ。
+
+### 2026-09-20（Business Profile API の申請の進捗をどこで見るか）
+
+- 利用者の質問「申請が必要な Google ビジネスプロフィールの API は何種類かあると思うが、その申請が正しく行われているか・進捗をチェックするページはどこにあるか」。コードは触っていない（調査と手順の記録のみ）。
+- 回答の要点を [google-oauth-verification.md](./google-oauth-verification.md) **§5-5** に全部書いた。
+  - **Google に「申請の進捗ページ」は無い。**申請フォームはケース ID をメールで返すだけで、ケースの状態を見るポータルは公開されていない。結果も追加質問もメールだけ。
+  - **代わりに Google Cloud の「割り当て（Quotas）」が合否ランプになる。**1 分あたりのリクエスト数が **0 = 未承認 / 300 = 承認済み**。ここで「割り当ての増加」を申請してはいけない（種別が違う）。URL は Account Management / Business Information / Performance の 3 本ぶんを §5-5 の表に。
+  - **もう一つのランプ**: Google My Business API（v4）は承認されたプロジェクトにしか API ライブラリに出ない（09-18 に「開かない」ことを確認済み = 当時は未承認）。
+  - **API は 4 本あるが、申請は 1 本**（Application for Basic API Access はプロジェクト単位の許可）。API ごとの申請ではない。
+  - **「申請」と呼んでいるものは 3 種類**で進捗の見え方が違う: A = Business Profile API の利用申請（進捗ページ無し・割り当てで判定）／ B = OAuth 本番公開審査（Google Auth Platform に確認の状態が出る = 進捗ページ有り）／ C = クォータ増加（当面不要）。
+  - **「正しく出せているか」は 3 点で確かめる**: ①ケース ID のメールがあるか ②**そのメールの宛先がオーナー `wolf@wolf-info.org` か**（管理者アカウントで出すと 5-0 の B を繰り返す） ③プロフィールの確認が完了しているか（5-0 の A）。
+- 出典（この環境から `developers.google.com` と `support.google.com` は直接開けないので検索結果で確認）: [Prerequisites | Google Business Profile APIs](https://developers.google.com/my-business/content/prereqs)、[Usage limits](https://developers.google.com/my-business/content/limits)、[Google Business Profile API access pending, quota still 0 QPM（コミュニティ）](https://support.google.com/business/thread/438770179/google-business-profile-api-access-pending-quota-still-0-qpm?hl=en)、[How to Track the Status of Case ID given by Google Business Profile Support（コミュニティ）](https://support.google.com/business/thread/252105979/how-to-track-the-status-of-case-id-given-by-google-business-profile-support?hl=en)。
+- 利用者への依頼: 上の 3 つの割り当て URL を開いて「1 分あたりのリクエスト数」が 0 か 300 かを見てもらう。**0 なら 09-11 の申請は通っていない**ので §5-1 の再申請（確認 → オーナーで再申請 → 督促）をそのまま進める。**300 なら承認済み**なので v4 の有効化（#116 の手順 1）に進めばよく、再申請は不要。
+- 触っていないこと: コード・テスト・リリース番号。`r131` のまま。
+
+### 2026-09-20（AI 検索モニタリング: キーワード・プロンプトごとの棒グラフ、r132。見られる LLM と API の使用状況の棚卸し）
+
+**利用者の依頼**「AI 検索モニタリング機能を改修したい。棒グラフが出るようにしたい。設定したキーワードごとに。で定期的にチェックして、どれぐらいそのキーワードでヒットするかを、確率にある程度幅を持たせて分布で見たい」／質問「API の使用状況と、今見られる LLM の種類を教えてください」「Google AI 検索と Perplexity は見れるんでしたっけ」。
+
+#### 回答 1: いま見られる LLM（`src/lib/geo/types.ts` の `GEO_MODELS`）
+
+| モデル | 状態 | 取り方 | 頻度 |
+|---|---|---|---|
+| ChatGPT | **見られる** | DataForSEO LLM Responses（`/v3/ai_optimization/chat_gpt/llm_responses/task_post`） | 週 3 回（月・水・金）。高精度枠は週 10 回 |
+| Gemini | **見られる** | 同上（`gemini`） | 同上 |
+| Google AI Overviews（Google の AI 検索） | **見られる** | DataForSEO SERP Advanced + `load_async_ai_overview` | **週 1 回（月曜だけ）** |
+| Perplexity | **見られない** | DataForSEO は対応（Live のみ）。#109 | — |
+| Claude | **見られない** | DataForSEO は対応。#109 | — |
+
+- **Google AI 検索 = AI Overviews は見られる。Perplexity は見られない。**Perplexity は旧 LLMO モニタリングで見られていたが、09-17（r92）の一本化で落ちた。足すなら #109（`GEO_MODELS`・`llmPath`・単価の拡張。1 日）。
+- **Google の AI Mode は未対応**（DataForSEO の SERP API にはあるが、コードは AI Overviews だけを読む）。足すなら #109 と同じ範囲。
+
+#### 回答 2: API の使用状況（2026-09-20 時点）
+
+| 項目 | 状態 |
+|---|---|
+| `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` | Vercel に登録済み（09-17）。`/tools/search-estimate` は本番で動作確認済み |
+| DataForSEO の残高 | **お試しの $1 のまま**（$50 の入金は動作確認後の予定） |
+| AI 検索モニタリングの計測 | **まだ 1 回も回っていない見込み。**理由は下の 2 つ |
+| ① プロンプトの登録 | 未（#91 の 8）。プロンプトが 0 本だと計測対象が無い |
+| ② `CRON_SECRET` | **記録が食い違っている。**環境変数の表は「登録済みの見込み（Cron Jobs 画面での確認は未）」、残タスク #19 は「未」。未設定なら `/api/cron/geo-run` は 503 で何もしない → **#124 で最初に確かめる** |
+| アプリ内での使用量表示 | **無い。**`/admin` の「外部連携」は設定済み / 未設定と料金の目安だけ。実際の消費額・残高は DataForSEO のダッシュボード（https://app.dataforseo.com/api-dashboard ）で見る。アプリ側で見えるのは `/tools/geo` の「クレジットの消費内訳（今月）」（自社換算。1 クレジット = 原価 ¥1 相当、月 2,000 付与・繰越なし）だけ |
+
+#### やったこと（r132）
+
+**棒グラフを 2 枚追加した**（`/tools/geo` のダッシュボード、ブランドシェアの下）。
+
+1. **プロンプトごとの出現率（ChatGPT / Gemini・4 週）** — 登録したプロンプト 1 本ずつに、回答本文で自社の名前が出た割合。モデル（すべて / ChatGPT / Gemini）と並び順（率順 / 名前順）を切り替えられる。
+2. **キーワードごとの AI Overviews 引用率（4 週）** — 設定の「対策キーワード」で Google を検索し、AI による概要の参照リンクに自社ドメインが入っていた割合。
+
+**1 行の読み方**: 棒 = 4 週ローリングの出現率（点推定）、**帯 = Wilson 95% 信頼区間**（= 利用者の言う「確率の幅」）。右に「率」と「±N pt」、ラベルの下に「N 回中 M 回・段階ラベル」。帯が重なっている 2 行は差が読み取れない、と図の下に明記。
+
+**観測数の目安**（帯の広さはここで決まる）:
+
+| 軸 | 1 週の回数 | 4 週の n | 帯の広さの目安 |
+|---|---|---|---|
+| 通常プロンプト | 3 回 × モデル数 | 12（2 モデルなら 24） | ±25〜30pt |
+| 高精度プロンプト | 10 回 × モデル数 | 40（2 モデルなら 80） | ±15pt |
+| キーワード（AI Overviews） | **1 回** | **4** | **±40pt**（かなり広い。#125 で週 3 回にするか判断） |
+
+**コード**: `src/lib/geo/store.ts`（`listObservations` に `keyword_id` を追加。列は元からあるので **Supabase の SQL 実行は不要**）、`src/lib/geo/aggregate.ts`（`targetShares` / `rollingTargetShares` / `filterTargetsByModel` / `availableModels` の純関数）、`src/app/api/geo/dashboard/route.ts`（`perPrompt` / `perKeyword` / `keywordCount` を返す）、`src/components/geo/TargetBars.tsx`（新。既存の `HBar` の `range` をそのまま使う）、`src/components/geo/GeoTool.tsx`・`client.ts`。
+
+**検証**: lint / tsc / test（164 ファイル・1,795 件。+14 = 集計 7・描画 7）/ build 通過。
+
+**触っていないこと**: 計測の頻度・単価・クレジットのレート・プランの線引き（スタンダードのまま）・Supabase のテーブル。`GEO_MODELS` も増やしていない（Perplexity / Claude は #109 のまま）。
+
+#### 残した判断（利用者の回答待ち）
+
+| # | 内容 | 費用 |
+|---|---|---|
+| 125 | キーワードの AI Overviews を週 1 回 → 週 3 回に増やすか（帯が半分くらいに締まる） | 30 語で月 +¥100 前後 |
+| 109 | Perplexity と Claude を足すか（Google AI Mode も同じ範囲で足せる） | モデルが増えた分だけ比例（1 プロンプト 1 モデルで月 ≒ ¥2.5） |
+
+**注意（別セッションとの重複）**: ブランチ `claude/clever-pasteur-82da6k` のメモが「法人番号・sameAs（r132）」と書いている。あちらは main に未マージなので、こちらが先に r132 を取った。あちらがマージされるときは `src/lib/release/releases.json` の番号を振り直すこと（件数がそのまま版番号なので、後から入るほうが r133 になる）。
