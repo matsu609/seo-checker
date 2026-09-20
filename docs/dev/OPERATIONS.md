@@ -93,6 +93,7 @@
 | Google Cloud `seo-checker-508104` | OAuth 構成済み（テスト状態） | 下記「Google Cloud の設定」。**r89 以降、要求するスコープは口コミ返信の `business.manage` だけ**（GSC / GA4 は廃止） |
 | Google 連携（GSC / GA4） | **提供終了（r89、09-17。利用者の決定「Google Search Console と GA4 は使わない」）** | 画面は代替へ転送、API は 410。代替: 検索パフォーマンス（推定）（r87）だけ。サイト内の行動（訪問者・CV）は外部から取れず、自前タグも r90 で取り下げ。コード（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/lib/site-report/` の大半・`src/components/{search-performance,site-report,ai-traffic,google}/`）は**削除待ち**（下の残タスク #105） |
 | アクセス解析（自前の計測タグ） | **取り下げ（r90、09-17。利用者の決定「ツールで完結しないので面倒。やらない」）** | r89 で作った直後に取り下げ。画面は推定へ転送、API と `/t.js` は 410。コードは r93 で削除済み。Supabase の SQL は**実行不要** |
+| ご意見・不具合の報告（r128、09-20） | **稼働中（09-20 に本番で確認。利用者報告「正しく使えた」）** | ツールの右上から送信 → Supabase `feedback` → `/admin` で状態と返答 → お客様の `/settings`「ご意見の履歴」に返答が出る。メールは送らない（新着通知が要るなら Resend の契約。入力待ち）。1 人 1 日 20 件、代理ログイン中は送信不可。`src/lib/feedback/`・`/api/feedback`・`/api/admin/feedback` |
 | サイドバーの構成（r94 → r95、09-17） | **「AIO 対策」を親のくくりにし、その中に 3 本の柱を開閉式で並べる（r95）。親の直下 = AI 検索モニタリング / 柱 SEO = 精密診断・ページ診断・HP 改修提案（AIO から移動）・順位計測・検索の推定・キーワード調査・AI ライティング / 柱 MEO = Google マップ・口コミ支援・口コミへの返信 / 柱 サイテーション = サイテーション（新規）・基本情報掲載・llms.txt** | 利用者の指示「本当に必要な機能に絞る」「AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称」。サイドバーから外した 3 つ: ページ最適化レポート（→ HP 改修提案へ転送）・AIO 頻出トピック（→ AI 検索モニタリングへ転送）・プロンプト拡張（AI 検索モニタリングの設定からリンク）。定義・API・プランのゲートは残る（`hidden: true`） |
 | LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity） | **提供終了（r92、09-17。利用者の決定「AI 検索モニタリングに一本化」）** | `/tools/llmo` → `/tools/geo` へ転送、`/api/llmo/run` と `/api/seo-analysis/second-opinion` は 410。**残る契約は Anthropic・DataForSEO・SerpApi・Google（マップ・PageSpeed）・Supabase・Clerk・Stripe**。コードは r93 で削除済み |
 | DataForSEO | **接続済み・動作確認済み（09-17）** | `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Production に登録。検索パフォーマンス（推定）が実データを返した = Labs `ranked_keywords` のエンドポイントは合っていた（`DATAFORSEO_LABS_RANKED_PATH` の差し替えは不要）。残高はお試し $1 → 動作確認後に $50 入金 |
@@ -190,7 +191,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
-| 122 | **ご意見・不具合の報告を本番で開く（r128）**: ①~~Supabase の SQL Editor で SQL を実行~~ **完了（09-20。「Success. No rows returned」）** → ② Vercel の自動デプロイ後、ツールの右上「ご意見・不具合」から 1 件送る → ③ `/admin` の「お客様からのご意見・不具合」に出ること、状態と返答を書けること → ④ `/settings` の「ご意見の履歴」に返答が出ること | 利用者 | ① 完了、②〜④ 未 |
+| 122 | ~~**ご意見・不具合の報告を本番で開く（r128）**~~ | 利用者 | **完了（09-20。SQL 実行 →「Success. No rows returned」→ 本番で利用者が「正しく使えた」と報告）** |
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
 | 111 | **サイドバーの整理の続き**: r94 で 3 つ外した。さらに減らす候補は ① ページ診断（競合比較。精密診断と役割が近い）② 順位計測（SerpApi）と検索パフォーマンス（推定）（DataForSEO）の一本化 ③ AIO 頻出トピック・ページ最適化レポートの API と `src/lib/aio-topics/` の削除（1〜2 か月後、転送ページと一緒に）。利用者の判断待ち（下の入力待ち） | 利用者（判断）→ Claude | 未 |
 | 112 | ~~タブの並び~~ | — | **不要（r95 で 3 タブをやめ、AIO 対策の中に SEO / MEO / サイテーションを入れ子にした）** |
@@ -4006,3 +4007,9 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 **検証**: lint / tsc / test（156 ファイル・1,744 件。新規 41 件）/ build 通過。実際の HTTP を使う E2E（`site-files-e2e.test.ts`）をダミーサイトに対して追加し、robots.txt と sitemap.xml の取得から判定までがつながっていることを確認した。
 
 **触っていないこと**: ページ最適化レポート（`page-report/robots.ts` の AI ボット 20 種の表）は従来のまま。MEO・決済・Clerk・Supabase まわりは無変更。
+
+### 2026-09-20（ご意見・不具合の報告を本番で確認、#122 完了）
+
+利用者「この機能は正しく使えた」。r128 のご意見・不具合の報告が本番で通しで動いた（送信 → `/admin` に表示 → 状態・返答 → `/settings` の「ご意見の履歴」）。**#122 は完了**、状態の表にも「稼働中」で載せた。
+
+**この機能で次にできること（要望が出たら）**: ①新着のメール通知（r127 の `notifyUser()` と Resend にそのまま乗せられる。入力待ち）②スクショ添付（Supabase Storage）③同じ要望の件数（投票）④Sentry（エラーの自動収集。言われる前に不具合を拾う）。
