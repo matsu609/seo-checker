@@ -932,7 +932,6 @@ alter table monthly_reports enable row level security;
 
 ### 入力待ち（利用者からの回答が要るもの）
 
-- **robots.txt のチェックをどこまで足すか（2026-09-20 の調査）**: クイック診断に ①Googlebot / Bingbot の可否 ②robots.txt の有無そのもの ③robots.txt が HTML を返す誤設定 ④`Sitemap:` 行の有無 を足すか（半日）。⑤書式の誤り（`User-agent` 無しの `Disallow`・綴り間違い・CSS/JS のブロック）の検出も足すか（別途 1 日）。⑥精密診断の `ROBOTS_BLOCKED` を AI 検索用クローラにも広げるか。詳しくは作業ログ 2026-09-20
 - **ご意見・不具合の報告の続き（r128 のあと）**: 新着をメールで受けたいか（Resend 等の送信サービスの契約が要る。09-20 の定期更新の相談と同じ基盤）。スクショ添付を足すか（Supabase Storage が要る）。Sentry（エラーの自動収集）を入れるか
 - **定期更新（r127）の本番反映**: #118（SQL）・#119（Resend）・#120（Cron の確認）が済んだら一言。自動計測の語数の上限（#121: ライト 30 / スタンダード 100 / プレミアム 300）はこれでよいか
 - **チャートの色**: dataviz の検証ツールで、既存の 6 色（`palette.chart`）は 5・6 色目の区別が弱く（色覚多様性で ΔE 2.2）、全体に彩度が低いと出た。推移グラフは最初の 4 色を区別しやすい順に並べ替え、点の形・凡例・表で補っている。デザインの色そのものを変えるか（変えるなら `globals.css` と `palette.ts` の両方）
@@ -3941,7 +3940,9 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 5. **書式の誤りを検出していない。**`User-agent` の無い `Disallow`、綴り間違い（`Dissallow`）、全角スペース、BOM、`Disallow: *.css` のような CSS/JS のブロック（レンダリング阻害）は素通り。
 6. **精密診断の `ROBOTS_BLOCKED` は Googlebot だけ。**AI 検索用クローラだけが拒否されているページは、精密診断の課題一覧には出ない（トップの採点には出る）。
 
-**見積もり**: 1〜4 と 6 は `analyzer/robots.ts` に項目を足し、`report/weights.ts` に配点を書き、テストを足すだけ（UI は項目を自動で並べるので画面の改修は不要）。半日程度。5 の書式チェックは自前のパーサが要るので別途 1 日程度。**どこまでやるかは利用者の判断待ち**（入力待ちに記載）。
+**見積もり**: 1〜4 と 6 は `analyzer/robots.ts` に項目を足し、`report/weights.ts` に配点を書き、テストを足すだけ（UI は項目を自動で並べるので画面の改修は不要）。半日程度。5 の書式チェックは自前のパーサが要るので別途 1 日程度。
+
+→ **利用者の指示「1〜6 全部入れて」で同日に実装した（r130）。**下の作業ログを参照。
 ### 2026-09-20（#118 完了: r127 の SQL を実行）
 
 - 利用者が Supabase の SQL Editor で r127 の SQL（6 テーブル）を実行し「Success. No rows returned」。Table Editor の画面で `monthly_reports` / `notifications` / `rank_snapshots` / `site_monitor_snapshots` を確認（`cron_runs` / `gbp_posts` はアルファベット順で画面の上にあり、写っていないが同じ SQL の中）。
@@ -3973,3 +3974,35 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 利用者が Supabase の SQL Editor（`main` / PRODUCTION）で r128 の SQL を実行し、**Success. No rows returned**。`feedback` テーブルと索引 2 本ができ、RLS は有効（ポリシー無し = service_role だけが通る。他のテーブルと同じ）。
 
 **残り**: #122 の ②〜④（本番で 1 件送る → `/admin` に出ること・状態と返答を書けること → `/settings` の「ご意見の履歴」に返答が出ること）。Vercel の自動デプロイが終わっていれば、すぐ試せる。
+
+### 2026-09-20（robots.txt の診断強化、r130）
+
+利用者の指示「1 から 6 全部入れて、修正して、メインにマージして」（同日の調査で挙げた 6 つの穴）。
+
+**クイック診断に 4 項目を追加**（カテゴリ「AI クローラ可否」→ 名前を **「AI・検索クローラ可否」** に変更。実態に Googlebot とサイトマップが入ったため）
+
+| 項目 ID | 配点 | 判定 |
+|---|---|---|
+| `robots-txt` | 1 | 置かれていれば pass / 404 は warn（クロールは止まらない）/ **HTML が返る誤設定**と **5xx** は fail |
+| `robots-syntax` | 1 | 書式の誤り。効かない行があれば fail、気になる書き方だけなら warn。robots.txt が無いページでは項目自体を出さない |
+| `search-crawlers-allowed` | 3 | **Googlebot / Bingbot** の可否。両方拒否なら fail、片方なら warn |
+| `robots-sitemap` | 1 | robots.txt に `Sitemap:` 行があれば pass / `/sitemap.xml` だけなら warn / どちらも無ければ fail |
+
+書式チェック（`src/lib/analyzer/robots-syntax.ts`、純関数）が見るもの: 綴り間違い（`Dissallow` など。編集距離 2 以内なら error）・認識されない名前（warn）・全角の空白と全角コロン・`User-agent` より前の `Disallow`・「名前: 値」になっていない行・絶対 URL を書いた `Disallow`・`/` で始まらない値・**CSS / JS のブロック**（描画を妨げるので error）・絶対 URL でない `Sitemap`・BOM・`User-agent` の値が空・500KB 超（warn）・廃止された `Noindex`（warn）・`Crawl-delay`（info。減点しない）。**robots-parser は誤った行を黙って読み飛ばす**ので、可否の判定だけでは「書いたのに効いていない」状態に気づけない、というのがこの項目を足した理由。
+
+**精密診断（サイト診断のルール）**
+- `AI_CRAWLER_BLOCKED`（新）: Googlebot は許可しつつ **AI 検索用クローラだけ**を拒否しているページを警告に（もともと検索に載せないページは情報に留める）。ルール関数は `ruleRobotsBlocked` のままで、関数の数は増やしていない
+- `ROBOTS_MISSING`: HTML が返る誤設定と 5xx を**重大**として区別（それ以外の不在は従来どおり警告）
+- `ROBOTS_SYNTAX`（新）: 書式の誤りを課題として出す（クイック診断と同じ判定を共有）
+- `SITEMAP_MISSING`: サイトマップはあるのに robots.txt に `Sitemap:` 行が無い場合を情報として追加
+- 「専門家のアドバイス」に渡す事実文にも AI 検索用クローラの行を追加（`audit/summary.ts`）
+
+**土台の変更**
+- `SiteFiles` に `robots`（HTTP ステータス・HTML 判定・文字数）と `sitemapXml`（定番の場所の有無）を追加。`fetchSiteFiles` が `/sitemap.xml` も確認する（**有無だけなので 256KB で打ち切る**。打ち切りに達したら「ある」と扱う）
+- 任意ファイルの取得失敗（3MB 超・転送先が内部アドレスなど）で診断全体が落ちないよう `optionalFetch` で包んだ（これまでは llms.txt が巨大だとクイック診断ごと失敗し得た）
+
+**採点への影響（利用者に伝えること）**: このカテゴリの配点合計が 6 → 12 点になったため、**既存項目（AI クローラ・noindex・llms.txt）のカテゴリ内の比重は従来の約半分**になる。同じサイトでも r130 を境に「AI・検索クローラ可否」の点は変わる。カテゴリ全体の重み 20 点は据え置き。
+
+**検証**: lint / tsc / test（156 ファイル・1,744 件。新規 41 件）/ build 通過。実際の HTTP を使う E2E（`site-files-e2e.test.ts`）をダミーサイトに対して追加し、robots.txt と sitemap.xml の取得から判定までがつながっていることを確認した。
+
+**触っていないこと**: ページ最適化レポート（`page-report/robots.ts` の AI ボット 20 種の表）は従来のまま。MEO・決済・Clerk・Supabase まわりは無変更。
