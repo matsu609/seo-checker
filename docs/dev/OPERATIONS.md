@@ -101,7 +101,7 @@
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
-| Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
+| Business Profile API | **09-11 に申請（ケース ID `0-4126000041187`）→ 返信なし。09-20 に再申請の準備（利用者の指示）。**再申請の前に潰す 2 点: ①**プロフィールの確認が未完了**（09-19 に Google から「追加のお手続きが必要」のメール）②前回は**管理者アカウント**で申請していた（フォームは**オーナー**で送る） | 手順は [google-oauth-verification.md](./google-oauth-verification.md) §5。Google の審査制（最大 2 週間）。承認後に足すコードは無い（r37 / r97 / 投稿まで実装済み） |
 | 定期処理（`/api/cron/daily`、r127） | **本番で動作を確認（09-20 22:52、サイトの事故監視を「今すぐ実行」で成功。記録も `cron_runs` に残った）** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
 | Resend（メール送信、r127） | **未設定**（`RESEND_API_KEY` / `MAIL_FROM`） | #119 の手順。無くても画面の「お知らせ」には残る |
 | Stripe（直結） | **本番モードで割引付きの Checkout まで確認済み（2026-09-18 21:30）。Webhook（決済後に契約中になるか）は未確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
@@ -210,7 +210,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 45 | r27 の SQL を Supabase で実行（`meo_owner_inputs`） | 利用者 | **完了（09-11 17:21、画面で Success を確認）**。残りは本番 `/tools/maps` の「オーナー情報の入力」で保存できるかの確認 |
 | 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/daily`（`0 20 * * *`。r127 で日次に統合）と `/api/cron/geo-run` の 2 本が出ることを確認 | 利用者 | 未 |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
-| 5 | Business Profile API の利用申請 | 利用者 | **申請済み（09-11 20:52、ケース ID `0-4126000041187`、審査 7〜10 営業日）**。承認メール待ち → #54 ②〜④へ |
+| 5 | Business Profile API の利用申請 | 利用者 | **09-11 20:52 に申請（ケース ID `0-4126000041187`）→ 9 日経っても返信なし。09-20、利用者の指示で再申請へ。**先に①プロフィールの確認（https://business.google.com/n/4773232117026925181/profile/verify ）②オーナー `wolf@wolf-info.org` でフォームを送り直す。手順とコピペ用の記入内容は [google-oauth-verification.md](./google-oauth-verification.md) §5 |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
 | 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | **切り替え完了（09-11 0:04、バージョン `9ef76797` = コミット `c60fe42` がアクティブ）**。残りは `https://seo-checker.tokyo/` の表示確認と、旧リポジトリのアーカイブだけ |
 | 30 | 紹介サイトの文面反映（運営者情報、SEO/AIO/MEO の説明、Google 連携の説明、フッターのリンク、CTA をアプリへ） | Claude | **完了。09-11 1:00 に本番 https://seo-checker.tokyo/ の表示を利用者の画面で確認** |
@@ -659,7 +659,7 @@ alter table user_stores enable row level security;
 | B-4 | 58-⑧ | Stripe 復旧後: 本番モードで商品・Webhook・ポータル → Vercel の `STRIPE_*` を本番の値に → Redeploy → `/plans` で申し込みが通ることを確認。ここで初めて「申し込む」を開ける | 利用者 | 1 時間 |
 | C-1 | 83 / 90 | Ahrefs の新しいキーを Vercel `AHREFS_API_KEY`（+ `AHREFS_API_KEY_ISSUED_AT=2026-09-16`）に → Redeploy → `/admin` で「設定済み」。無いと報告書のドメインパワーから DR の 25 点分が抜けるだけ | 利用者 | 10 分 |
 | C-2 | 13 | Google OAuth の本番公開申請（審査 2〜6 週間）。お客様が増えたらテストユーザー 100 人の上限と 7 日失効が効いてくる | 利用者 + Claude | 申請は来週でも可 |
-| C-3 | 5 / 54 | Business Profile API の承認待ち（ケース ID `0-4126000041187`）。承認まで口コミ返信は「段階 1（コピーして GBP へ）」で運用 | — | 待ち |
+| C-3 | 5 / 54 | **Business Profile API の再申請（09-20）。**前回ケース `0-4126000041187` は返信なし。①プロフィールの確認 →②オーナーアカウントで再申請 →③督促（[google-oauth-verification.md](./google-oauth-verification.md) §5）。承認まで口コミ返信は「段階 1（コピーして GBP へ）」で運用 | 利用者 | ①次第 |
 | C-5 | 91 | **AI 検索モニタリング（r76）を動かす**: Supabase の SQL → DataForSEO 登録（前払い $50 程度）→ Vercel に `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` → Redeploy → `/tools/geo` でブランドとプロンプトを登録。下の「AI 検索モニタリングを有効にする手順」に 8 手順の表がある。**明日のリリースには不要**（新機能で、数値が安定するまで 4 週かかるため、落ち着いてから） | 利用者 | 40 分 + 翌朝の確認 |
 | C-6 | 93 | AI 検索モニタリングをライトに含めるかスタンダードのままかを決める（下の #93） | 利用者 | 5 分 |
 | C-4 | 12 | 規約・特商法の専門家レビュー（r41 の文面は Claude の仮置き。少なくとも運営責任者名・解約条件を利用者が一読する） | 利用者 | 30 分 |
@@ -941,7 +941,7 @@ alter table monthly_reports enable row level security;
 - **明日の公開の形（09-16 提案）**: Stripe が止まっているあいだ、最初のお客様の初月（無料）は管理画面の個別開放で使ってもらい、2 か月目の請求は ①Stripe 復旧を待って Checkout で ②請求書（銀行振込）で、のどちらにするか。②なら請求書の発行方法（Stripe の請求書機能は決済停止中は使えない可能性が高いので、手書き / 会計ソフト）
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
-- Business Profile API の承認結果（#5 / #54 ①。09-11 申請、ケース ID `0-4126000041187`、7〜10 営業日）。承認されたら #54 の②〜④へ
+- Business Profile API の再申請（#5 / #54 ①）の結果。**09-20 に「プロフィールの確認を完了 → オーナーアカウントで再申請 → 前回ケースへ督促」の 3 つを依頼（[google-oauth-verification.md](./google-oauth-verification.md) §5）。**①の確認が終わったか、②の新しいケース ID、③督促への返信
 - 口コミ支援の課金（スタンダードに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 - **Clerk のユーザーで `publicMetadata.plan` に `standard` を手で割り当てた人がいないか**（r63 で `standard` の意味が「診断・計測のみ」から「全機能」に変わったため。いれば `light` に直す。誰にも割り当てていなければ何もしなくてよい）。画面: https://dashboard.clerk.com/ → Users → 各ユーザー → Metadata
 - プレミアム（伴走）の中身の詰め: レポート代行の範囲と、お見積りの目安（どういう条件だと 150,000 円で、何が増えるといくら上がるのか）。r65 で**所要時間と返信目標の数字は外した**（「月 1 回の報告ミーティング（オンライン）」「優先サポート（メール・チャット）」）ので、約束しているのは頻度と手段だけ。数字を戻すなら `src/lib/plans/catalog.ts` と `marketing/public/index.html`・`public/service-guide.html` の 3 か所
@@ -4013,3 +4013,31 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 利用者「この機能は正しく使えた」。r128 のご意見・不具合の報告が本番で通しで動いた（送信 → `/admin` に表示 → 状態・返答 → `/settings` の「ご意見の履歴」）。**#122 は完了**、状態の表にも「稼働中」で載せた。
 
 **この機能で次にできること（要望が出たら）**: ①新着のメール通知（r127 の `notifyUser()` と Resend にそのまま乗せられる。入力待ち）②スクショ添付（Supabase Storage）③同じ要望の件数（投票）④Sentry（エラーの自動収集。言われる前に不具合を拾う）。
+
+### 2026-09-20（Business Profile API の再申請。落ちていた理由が 2 つ見つかった）
+
+利用者「Google ビジネスプロフィールの API を申請したはずだが、うまくできていたか心配。もう一度申請したい。急ぎたい」。→ **再申請に賛成。ただし今のまま同じフォームを出しても同じ結果になる。**受信箱と申請の要件を調べ直したところ、**落ちる原因が 2 つ**見つかった。
+
+**① プロフィールの確認が未完了（これが最有力の原因）**
+
+`wolf@wolf-info.org` の受信箱に **09-19 13:08（UTC）** の未読メール。送信元 `businessprofile-noreply@google.com`、件名「株式会社Wolf 様のアカウントでは、アカウントのご確認のために追加のお手続きを完了していただく必要がございます」。本文は「お客様が『株式会社Wolf』の管理者であることを確認するため、追加の情報のご提供をお願いいたします」「**編集内容を公開するには、プロフィールの確認を完了していただく必要がございます**」。確認 URL は https://business.google.com/n/4773232117026925181/profile/verify 。
+
+Business Profile API の前提条件の 1 番目は「**確認済み（verified）で 60 日以上稼働しているプロフィール**」。確認が外れている状態で申請すると、審査側から見て前提を満たさないので自動的に却下される。**この確認を終えるのが最優先。**
+
+**② 前回の申請を「管理者」アカウントで送っていた**
+
+09-11 の申請は `matsumatsu452@gmail.com` で送信した（OPERATIONS の記録どおり）。だが 09-09 のメール「まつした さんが『株式会社Wolf』の管理者になりました」のとおり、このアカウントは**管理者（manager）**で**オーナー（owner）ではない**。オーナーは `wolf@wolf-info.org` 側。申請フォームは**オーナー権限のアカウントでログインして送る**のが通過条件とされており（管理者アカウントからの申請は弾かれるという報告が複数。2026 時点の解説記事で確認）、審査対象は「ログイン中のアカウント」なので、管理者で出した申請はプロフィールの実在確認に失敗する。**再申請は `wolf@wolf-info.org` で送る。**
+
+**やること（利用者の作業。詳細・コピペ用の記入内容は [google-oauth-verification.md](./google-oauth-verification.md) §5）**
+
+1. プロフィールの確認を完了（https://business.google.com/n/4773232117026925181/profile/verify ）
+2. `wolf@wolf-info.org` でログインして申請フォームを送り直す（https://support.google.com/business/contact/api_default → Application for Basic API Access）
+3. 前回のケース `0-4126000041187` に督促メール（英文は §5-3）
+
+**§5 に追加したもの**: 5-0 潰すべき 2 点 / 5-1 手順表 6 行（URL つき）/ 5-2 フォームの記入内容と用途説明の英文（Performance API の用途を追記し、前回ケースとの関係も末尾に書いた）/ 5-3 督促の英文 / 5-4 承認後に足すコードは無いことの確認表。
+
+**Claude 側は何も待っていない。**口コミの取得・返信（r37）、Google での見られ方（r97）、GBP への予約投稿（`src/lib/posts/`）はすべて実装・検証済みで、承認が下りれば **v4 を有効化するだけで動き出す**（Performance / Account Management / Business Information は有効化済み）。
+
+**注意**: 「確認済みで 60 日以上」の 60 日について、いま再確認を求められているため「確認済みになった日」がいつ扱いになるかは Google にしか分からない。推測で動かず、確認を完了させて申請し、却下されたら理由を見て判断する。
+
+ドキュメントのみの更新（コード変更なし）。

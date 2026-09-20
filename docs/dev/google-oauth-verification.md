@@ -120,3 +120,81 @@ A の承認後: Google Cloud で「Google My Business API」（v4。口コミは
 | 7 | （撮影） | — | §3 の台本で動画 |
 | 8 | Google Cloud → OAuth → 概要 | https://console.cloud.google.com/auth/overview?project=seo-checker-508104 | 「アプリを公開」→ 審査申請（§2 の文 + 動画 URL） |
 | 9 | メール | — | 質問に即日返信。目安 2〜6 週間 |
+
+---
+
+## 5. 再申請（2026-09-20。利用者の指示「もう一度申請したい」）
+
+### 5-0. 再申請の前に必ず潰す 2 つ（ここを直さないと、何回出しても同じ結果になる）
+
+| # | 見つかったこと | なぜ致命的か | どうする |
+|---|---|---|---|
+| **A** | **2026-09-19 13:08（UTC）に Google から「株式会社Wolf 様のアカウントでは、アカウントのご確認のために追加のお手続きを完了していただく必要がございます」というメールが `wolf@wolf-info.org` に届いている（未読）。**本文: 「お客様が『株式会社Wolf』の管理者であることを確認するため、追加の情報のご提供をお願いいたします」「編集内容を公開するには、プロフィールの確認を完了していただく必要がございます」。確認 URL: https://business.google.com/n/4773232117026925181/profile/verify | Business Profile API の**前提条件の 1 番目が「確認済み（verified）のプロフィール」**。確認が外れている / 再確認を求められている状態で申請すると、審査側から見て「確認済みプロフィールが無い」= 自動的に却下になる。**09-11 の申請が通らなかった最有力の理由もこれの可能性がある**（9/19 のメールは、それ以前から確認の問題が続いていた結果とも読める） | 下の 5-1 の手順 1。**再申請より先にこれを終わらせる** |
+| **B** | **09-11 の申請は `matsumatsu452@gmail.com` で送った。**このアカウントは 09-09 のメール「まつした さんが『株式会社Wolf』の管理者になりました」のとおり**管理者（manager）**で、**オーナー（owner）ではない**。オーナーは `wolf@wolf-info.org` 側 | 申請フォームは**オーナー権限のアカウントでログインして送る**のが通過条件とされている（管理者アカウントからの申請は弾かれるという報告が複数）。審査対象は「ログイン中のアカウント」なので、管理者で出した申請はプロフィールの実在確認に失敗する | 下の 5-1 の手順 3。**再申請は `wolf@wolf-info.org`（オーナー）で送る** |
+
+> 補足: 「確認済みで 60 日以上」の 60 日について。株式会社Wolf のプロフィール自体は 7 月から稼働しているが、**いま再確認を求められているため「確認済みになった日」がいつ扱いになるかは Google 側にしか分からない**。ここは推測せず、確認を完了させたうえで申請し、却下されたら理由を見て判断する。
+
+### 5-1. 再申請の手順（利用者の作業）
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | **Google ビジネス プロフィール → 確認** | https://business.google.com/n/4773232117026925181/profile/verify | **最優先。**9/19 のメールの「確認を行う」の行き先。求められた方法（ハガキ / 電話 / 動画 / 書類）で確認を完了させる。**動画確認を求められたら、店舗の外観 → 看板 → 中 → 設備 → 自分が管理者だと分かる場面を 1 本撮りで**。ここが「確認済み」に戻るまで、API の申請は何回出しても通らない |
+| 2 | Google ビジネス プロフィール → ユーザー | https://business.google.com/ → 対象のプロフィール → 設定 → ユーザーとアクセス | `wolf@wolf-info.org` が**オーナー（owner）**であることを確認。もし `matsumatsu452@gmail.com` をオーナーにしたいなら「メインのオーナー」を移譲してもよいが、**移譲すると 7 日間の保留が入る**ので、急ぐなら移譲せず `wolf@wolf-info.org` で申請する |
+| 3 | **Google → Business Profile API 申請フォーム**（**必ず `wolf@wolf-info.org` でログインした状態で開く**。ブラウザのシークレットウィンドウで開いてログインし直すのが確実） | https://support.google.com/business/contact/api_default | 種別のプルダウンで **Application for Basic API Access** を選ぶ。記入内容は下の 5-2 をそのまま貼る。**送信後に出るケース ID を控える**（前回は `0-4126000041187`） |
+| 4 | Google Cloud → ダッシュボード（Project number の確認） | https://console.cloud.google.com/home/dashboard?project=seo-checker-508104 | フォームに入れる **Project number**（12 桁の数字。Project ID `seo-checker-508104` とは別物）をここで控えてから 3 を書く |
+| 5 | メール（前回のケースへの督促） | 件名にケース ID `0-4126000041187` を含む Google からのメールに返信 | 5-3 の英文を返信で送る。**再申請とは別に出す**（前回の分が生きているなら進捗が聞けるし、死んでいるなら理由が分かる） |
+| 6 | メール（毎日見る） | `matsumatsu452@gmail.com` と `wolf@wolf-info.org` の両方（**迷惑メールも**） | 審査担当からの質問に**即日返信**する。1〜2 週間放置すると却下される。目安は最大 2 週間 |
+
+### 5-2. フォームの記入内容（コピペ用）
+
+| 欄 | 入れる値 |
+|---|---|
+| ログインするアカウント | **`wolf@wolf-info.org`**（オーナー） |
+| Request type | **Application for Basic API Access** |
+| Contact email | `contact@seo-checker.tokyo` |
+| Company / Organization name | `SEO Kenkyusho (SEO 研究所)` |
+| Website | `https://seo-checker.tokyo/` |
+| Google Cloud Project ID | `seo-checker-508104` |
+| Google Cloud Project number | （手順 4 で控えた 12 桁の数字） |
+| Verified Business Profile | `Yes` — business name: `株式会社Wolf` |
+| Do you have an allowlisted project ID? | `Yes` と答えず、**前回の申請があることを備考に書く**（下の英文の末尾） |
+| APIs needed | My Business Account Management API / My Business Business Information API / Google My Business API (v4) / Business Profile Performance API |
+| OAuth scope | `https://www.googleapis.com/auth/business.manage` |
+| Service account を使うか | `No`（利用者ごとの OAuth のみ） |
+
+用途の説明欄（英語。§2 の English をそのまま使う）:
+
+> SEO Checker (https://seo-checker.tokyo/ ) is a subscription web app for small businesses and local stores in Japan. It diagnoses the state of a business's website and Google Business Profile and helps the owner improve them.
+>
+> We use the Business Profile APIs in two features. (1) "Reply to reviews" (https://app.seo-checker.tokyo/tools/replies ): after the user (the owner or a manager of the Business Profile) grants access with their own Google account, our app lists the user's accounts and locations so they can pick a location, reads the reviews and existing replies of that location and shows them to that same user with unreplied ones first, and creates, updates, or deletes a reply to a review — but only when the user has reviewed and edited the text on screen and pressed "Post to Google". (2) "How you appear on Google" (https://app.seo-checker.tokyo/tools/maps ): we read the Business Profile Performance metrics (impressions, calls, direction requests, website clicks, and search keywords) of the user's own location and display them as a monthly report to that same user.
+>
+> Our app drafts replies with an AI provider (Anthropic). A draft is generated only for a review the user explicitly chose by pressing "Draft with AI", and nothing is sent to Google until the user reviews, edits, and posts it. We never post replies automatically without a user action, and we never modify location information (name, address, hours, etc.) without the user's explicit action.
+>
+> Reading reviews and posting replies requires the Business Profile management scope; there is no narrower (read-only) scope that allows posting a reply, which is why we request `https://www.googleapis.com/auth/business.manage`. Reviews and replies are fetched each time the screen is shown and are not stored on our servers or database. The data is used solely to display it back to the user and to post the reply the user instructed. We do not sell it, use it for advertising, disclose it to other users, or use it to develop, improve, or train generalized AI/ML models. The user can disconnect at any time, and we delete the stored token when they do. We do not use service accounts; all access is per-user OAuth.
+>
+> Note: we submitted an earlier request on September 11, 2026 (Case ID 0-4126000041187) from a manager-level account. This new request is submitted from the owner account of the Business Profile. Please treat this as the authoritative request, or let us know if the earlier case should be used instead.
+
+### 5-3. 前回のケースへの督促（英語。同じスレッドに返信）
+
+> Subject: Follow-up on Business Profile API access request (Case 0-4126000041187)
+>
+> Hello,
+>
+> I submitted a Basic API access request on September 11, 2026 (Case ID 0-4126000041187) for Google Cloud project `seo-checker-508104` (Project ID), website https://seo-checker.tokyo/ . I have not received any response yet.
+>
+> Could you let me know the current status of this case, or whether any additional information is needed from my side? If the case was closed, I would appreciate knowing the reason so that I can correct it.
+>
+> I have also noticed that the earlier request was submitted from a manager-level Google account. I have now re-submitted the request from the owner account of the Business Profile. Please let me know which case I should follow.
+>
+> Thank you for your help.
+
+### 5-4. Claude 側は何も待っていない（コードは全部できている）
+
+承認が下りた瞬間に動き出すものは、すでに実装・検証済み。**承認後に足すコードは無い。**
+
+| 機能 | 画面 | 実装 | 承認後に必要な作業 |
+|---|---|---|---|
+| 口コミの全件取得・返信の投稿 / 更新 / 削除 | https://app.seo-checker.tokyo/tools/replies | r37（`src/lib/google/business-profile.ts`） | v4 を有効化（https://console.cloud.google.com/apis/library/mybusiness.googleapis.com?project=seo-checker-508104 ） |
+| Google での見られ方（18 か月・6 指標・流入キーワード） | https://app.seo-checker.tokyo/tools/maps | r97（`src/lib/google/performance.ts`） | 無し（Performance API は有効化済み） |
+| GBP への予約投稿 | https://app.seo-checker.tokyo/tools/posts | `src/lib/posts/`（`localPosts`） | 無し（v4 の有効化で一緒に動く） |
+| MEO 採点の「未取得」9 項目 | https://app.seo-checker.tokyo/tools/maps | オーナー申告（r27）→ API の値へ | `#11` の差し替え（Claude 側の作業。半日） |
