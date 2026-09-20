@@ -23,6 +23,7 @@ const CHECKS: Record<IntegrationKey, () => boolean> = {
   crux: () => has("CRUX_API_KEY") || has("PAGESPEED_API_KEY"),
   ahrefs: () => has("AHREFS_API_KEY"),
   places: () => has("GOOGLE_PLACES_API_KEY"),
+  houjin: () => has("HOUJIN_BANGOU_APP_ID"),
   // OAuth（Clerk の Google 連携）。環境変数では分からないので、/api/integrations がログイン中の人の接続状態で上書きする
   "google-business": () => false,
   // 鍵・スタンダードの Price（旧名 STRIPE_PRICE_PRO も可）・Webhook がそろって申し込みが出る（isStripeConfigured と同じ条件）

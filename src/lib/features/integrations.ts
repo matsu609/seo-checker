@@ -12,6 +12,7 @@ export const INTEGRATION_KEYS = [
   "ahrefs",
   "places",
   "google-business",
+  "houjin",
   "stripe",
   "supabase",
 ] as const;
@@ -183,6 +184,21 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
       { label: "My Business API v4（承認後）", url: "https://console.cloud.google.com/apis/library/mybusiness.googleapis.com?project=seo-checker-508104" },
       { label: "Business Profile API の利用申請", url: "https://developers.google.com/my-business/content/prereqs" },
       { label: "Clerk → SSO Connections → Google", url: "https://dashboard.clerk.com/" },
+    ],
+  },
+  houjin: {
+    key: "houjin",
+    label: "法人番号システム Web-API（国税庁）",
+    envVars: ["HOUJIN_BANGOU_APP_ID"],
+    description:
+      "掲載の基本情報（NAP）を**登記上の商号・本店所在地**と突き合わせます。国の一次情報なので、表記ゆれを推測でなく登記で確定できます。法人番号が分かると、構造化データの sameAs に法人番号公表サイトと gBizINFO の URL が入ります。**法人だけ**（個人事業主には法人番号がありません）",
+    pricing: "無料。利用届出でアプリケーション ID が発行されます（申請方法と発行までの日数は公式サイトで確認してください）",
+    limits: "1 日あたりの呼び出し回数に上限があります（公式の仕様書で確認）。当サービス側では結果を 24 時間キャッシュし、同じ会社名を何度も引かないようにしています",
+    usage: "掲載タブの「会社名で法人番号を探す」1 回 = 1 回。保存済みの法人番号を使うときは呼びません",
+    links: [
+      { label: "法人番号システム Web-API（利用届出・仕様書）", url: "https://www.houjin-bangou.nta.go.jp/webapi/" },
+      { label: "法人番号公表サイト", url: "https://www.houjin-bangou.nta.go.jp/" },
+      { label: "gBizINFO", url: "https://info.gbiz.go.jp/" },
     ],
   },
   stripe: {

@@ -44,6 +44,9 @@ import {
   type MediaIntegration,
   type MediaKind,
 } from "@/lib/listings/media";
+import type { HoujinCandidate, HoujinSearchResponse } from "@/app/api/houjin/route";
+import { compareWithRegistry, prefillFromRegistry } from "@/lib/houjin/compare";
+import { CORPORATE_NUMBER_LENGTH, SEARCH_NAME_MIN } from "@/lib/houjin/constants";
 import { missingRequired, publishTargets, summarizeResults, type PublishFile, type PublishOutcome, type PublishResult } from "@/lib/listings/publish";
 import {
   ADDRESS_MAX,
@@ -155,6 +158,10 @@ export function ListingsTool() {
   const [publish, setPublish] = useState<{ results: PublishResult[]; files: PublishFile[] } | null>(null);
   /** 上級の媒体（残り 25 件）も対象にするか。既定は off（利用者の指示 2026-09-19） */
   const [withAdvanced, setWithAdvanced] = useState(false);
+  /** 法人番号の照会（国税庁）。結果は保存せず、選んだ法人番号だけを基本情報に入れる */
+  const [houjin, setHoujin] = useState<HoujinSearchResponse | null>(null);
+  const [houjinLoading, setHoujinLoading] = useState(false);
+  const [houjinError, setHoujinError] = useState<string | null>(null);
 
   /** 選んだ店舗の記録を画面に読み込む */
   function selectStore(item: ListingsStoreItem | null) {
@@ -205,6 +212,13 @@ export function ListingsTool() {
   const missing = useMemo(() => missingRequired(profile), [profile]);
   const targets = useMemo(() => publishTargets(states, { tier: withAdvanced ? "all" : "core" }), [states, withAdvanced]);
   const publishCounts = useMemo(() => (publish ? summarizeResults(publish.results) : null), [publish]);
+  /** 基本情報に入っている法人番号に当たる候補（= いま採用している登記） */
+  const chosenCorporation = useMemo(
+    () => (profile.corporateNumber ? (houjin?.candidates.find((c) => c.corporateNumber === profile.corporateNumber) ?? null) : null),
+    [houjin, profile.corporateNumber],
+  );
+  /** 登記との突き合わせ（商号・所在地） */
+  const registryFindings = useMemo(() => (chosenCorporation ? compareWithRegistry(profile, chosenCorporation) : []), [profile, chosenCorporation]);
   /** 「何が起きるか」に出す内訳。いまの対象（既定 = 7 媒体）に出てくる登録経路だけを並べる */
   const scopeIntegrations = useMemo(() => {
     const scope = withAdvanced ? LISTING_MEDIA : CORE;
@@ -273,6 +287,27 @@ export function ListingsTool() {
     } finally {
       setDescribing(false);
     }
+  }
+
+  /** 国税庁の法人番号システムで会社名を引く。結果は保存しない（選んだ番号だけが基本情報に入る） */
+  async function lookupHoujin() {
+    setHoujinLoading(true);
+    setHoujinError(null);
+    try {
+      const params = new URLSearchParams({ name: profile.name, address: profile.address });
+      setHoujin(await request<HoujinSearchResponse>(`/api/houjin?${params.toString()}`));
+    } catch (err) {
+      setHoujinError(err instanceof Error ? err.message : "法人番号を照会できませんでした");
+    } finally {
+      setHoujinLoading(false);
+    }
+  }
+
+  /** 候補を採用する: 法人番号を控え、空欄だけ登記の値で埋める */
+  function adoptCorporation(c: HoujinCandidate) {
+    setSaved({ ...prefillFromRegistry(profile, c), corporateNumber: c.corporateNumber });
+    setDirty(true);
+    setSaveMessage(null);
   }
 
   async function runPublish() {
@@ -448,6 +483,16 @@ export function ListingsTool() {
               <Field label="メール（任意）" htmlFor="lp-email">
                 <Input id="lp-email" maxLength={EMAIL_MAX} value={profile.email} onChange={(e) => update("email", e.target.value)} />
               </Field>
+              <Field label="法人番号（任意）" htmlFor="lp-corporate-number" hint="13 桁。法人だけ（個人事業主にはありません）。下の「登記で確かめる」から探せます">
+                <Input
+                  id="lp-corporate-number"
+                  inputMode="numeric"
+                  maxLength={CORPORATE_NUMBER_LENGTH}
+                  value={profile.corporateNumber}
+                  className="font-mono"
+                  onChange={(e) => update("corporateNumber", e.target.value.replace(/\D/g, "").slice(0, CORPORATE_NUMBER_LENGTH))}
+                />
+              </Field>
             </div>
             <Field label="営業時間" htmlFor="lp-hours" hint="1 行 1 曜日（例: 月曜日: 10:00〜19:00、日曜日: 定休日）。構造化データにも使います" className="mt-4">
               <Textarea id="lp-hours" rows={7} maxLength={HOURS_MAX} value={profile.hours} onChange={(e) => update("hours", e.target.value)} />
@@ -490,6 +535,117 @@ export function ListingsTool() {
                 {saveError}
               </Callout>
             )}
+            <section className="mt-6 rounded-sm border border-line bg-surface p-4">
+              <h3 className="text-[13px] font-bold text-ink">登記で確かめる（法人のみ・任意）</h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-muted">
+                国税庁の法人番号システムで<strong>登記上の商号と本店所在地</strong>を引き、上の基本情報と突き合わせます。国の一次情報なので、表記ゆれを推測でなく登記で確定できます。
+                法人番号を控えると、構造化データの <code>sameAs</code> に法人番号公表サイトと gBizINFO の URL が入ります。
+                <strong>個人事業主には法人番号がありません</strong>ので、その場合はこの欄を空のままにしてください。
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <Button type="button" size="sm" variant="secondary" onClick={lookupHoujin} loading={houjinLoading} disabled={profile.name.trim().length < SEARCH_NAME_MIN}>
+                  会社名で法人番号を探す
+                </Button>
+                {profile.name.trim().length < SEARCH_NAME_MIN && <span className="text-[12px] text-muted">先に店名を {SEARCH_NAME_MIN} 文字以上入力してください。</span>}
+                {profile.corporateNumber && (
+                  <span className="text-[12px] text-ink">
+                    控えている法人番号: <span className="font-mono font-bold">{profile.corporateNumber}</span>
+                  </span>
+                )}
+                {profile.corporateNumber && (
+                  <Button type="button" size="sm" variant="ghost" onClick={() => update("corporateNumber", "")}>
+                    法人番号を外す
+                  </Button>
+                )}
+              </div>
+
+              {houjinError && (
+                <Callout tone="fail" className="mt-3">
+                  {houjinError}
+                </Callout>
+              )}
+              {houjin && !houjin.enabled && (
+                <Callout tone="info" className="mt-3" title="法人番号の照会はまだ使えません">
+                  国税庁の法人番号システム Web-API の利用届出でアプリケーション ID を取得し、<code>HOUJIN_BANGOU_APP_ID</code> に設定してください（無料）。法人番号が分かっていれば、下の欄に直接入力もできます。
+                </Callout>
+              )}
+              {houjin?.message && houjin.enabled && (
+                <Callout tone="warn" className="mt-3">
+                  {houjin.message}
+                </Callout>
+              )}
+              {houjin && houjin.enabled && !houjin.message && houjin.candidates.length === 0 && (
+                <Callout tone="info" className="mt-3">
+                  見つかりませんでした。個人事業主であれば法人番号はありません（そのままで問題ありません）。法人のはずなら、登記上の商号（「株式会社」を含む正式名称）でお試しください。
+                </Callout>
+              )}
+              {houjin && houjin.candidates.length > 0 && (
+                <ul className="mt-3 divide-y divide-line border-y border-line">
+                  {houjin.candidates.map((c) => (
+                    <li key={`${c.corporateNumber}-${c.changeDate ?? ""}`} className="flex flex-wrap items-start gap-x-3 gap-y-2 py-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-bold text-ink">{c.name}</span>
+                          {c.kindLabel && <Badge tone="neutral">{c.kindLabel}</Badge>}
+                          {c.closeDate && <Badge tone="warn">閉鎖（{c.closeDate}）</Badge>}
+                          {c.corporateNumber === profile.corporateNumber && <Badge tone="pass">採用中</Badge>}
+                        </div>
+                        <p className="mt-1 text-[12px] text-muted">
+                          <span className="font-mono">{c.corporateNumber}</span>
+                          {c.postCode ? `　〒${c.postCode}` : ""}　{c.address}
+                        </p>
+                      </div>
+                      <Button type="button" size="sm" variant={c.corporateNumber === profile.corporateNumber ? "ghost" : "secondary"} onClick={() => adoptCorporation(c)}>
+                        {c.corporateNumber === profile.corporateNumber ? "空欄を埋め直す" : "これを使う"}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {houjin && houjin.total !== null && houjin.total > houjin.candidates.length && (
+                <p className="mt-2 text-[12px] text-muted">{houjin.total} 件中 {houjin.candidates.length} 件を表示しています。会社名を詳しくすると絞れます。</p>
+              )}
+
+              {registryFindings.length > 0 && (
+                <div className="mt-4 border-t border-line pt-4">
+                  <h4 className="text-[13px] font-bold text-ink">登記との突き合わせ</h4>
+                  <ul className="mt-2 space-y-2">
+                    {registryFindings.map((f) => (
+                      <li key={f.field} className="text-[12px] leading-relaxed">
+                        <span className="inline-flex items-center gap-2">
+                          <Badge tone={f.status === "match" ? "pass" : f.status === "differs" ? "warn" : "neutral"}>{f.label}</Badge>
+                          <span className="text-ink">{f.message}</span>
+                        </span>
+                        {f.status === "differs" && (
+                          <span className="mt-0.5 block text-muted">
+                            ここ「{f.profile}」／ 登記「{f.registry}」
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {chosenCorporation && chosenCorporation.registryUrls.length > 0 && (
+                <div className="mt-4 border-t border-line pt-4">
+                  <h4 className="text-[13px] font-bold text-ink">構造化データに入る公的な URL</h4>
+                  <p className="mt-1 text-[12px] text-muted">
+                    下の構造化データの <code>sameAs</code> に入ります。<strong>初回は開いて、御社のページが出るかご確認ください</strong>（URL の形が変わることがあります）。
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {chosenCorporation.registryUrls.map((r) => (
+                      <li key={r.url} className="flex flex-wrap items-center gap-2 text-[12px]">
+                        <span className="text-muted">{r.label}</span>
+                        <ButtonLink href={r.url} external size="sm" variant="ghost">
+                          開いて確認
+                        </ButtonLink>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button type="button" onClick={save} loading={saving} disabled={!dirty && savedAt !== null}>
                 保存する

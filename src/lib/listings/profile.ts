@@ -23,6 +23,12 @@ export const LISTING_NOTE_MAX = 200;
 
 export const ListingProfileSchema = z.object({
   name: z.string().trim().max(NAME_MAX).default(""),
+  /**
+   * 法人番号（13 桁）。国税庁の照会で確定させる（src/lib/houjin/）。
+   * **個人事業主には無い**ので空のままでよい。入っていれば構造化データの sameAs に
+   * 法人番号公表サイトと gBizINFO の URL を入れられる
+   */
+  corporateNumber: z.string().trim().regex(/^\d{13}$|^$/, "法人番号は 13 桁の数字です").default(""),
   /** ふりがな（Yahoo!プレイスなど日本の媒体で要る） */
   nameKana: z.string().trim().max(NAME_MAX).default(""),
   category: z.string().trim().max(CATEGORY_MAX).default(""),
