@@ -84,7 +84,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r128 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r129 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -101,7 +101,7 @@
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
 | Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
-| 定期処理（`/api/cron/daily`、r127） | **コードは完成。SQL 6 つは実行済み（#118、09-20）。本番で動くのは #19（`CRON_SECRET`）の後** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
+| 定期処理（`/api/cron/daily`、r127） | **本番で動作を確認（09-20 22:52、サイトの事故監視を「今すぐ実行」で成功。記録も `cron_runs` に残った）** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
 | Resend（メール送信、r127） | **未設定**（`RESEND_API_KEY` / `MAIL_FROM`） | #119 の手順。無くても画面の「お知らせ」には残る |
 | Stripe（直結） | **本番モードで割引付きの Checkout まで確認済み（2026-09-18 21:30）。Webhook（決済後に契約中になるか）は未確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
 
@@ -201,7 +201,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 117 | **無料診断の前にユーザー登録、メールアドレスごとに 2 回まで**（2026-09-18 利用者の要望 → GO） | Claude → 利用者 | **本番で登録 → 確認コード → 無料診断まで通った（09-18 利用者報告。r98〜r104）**。`DEFAULT_PLAN=free`・`NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `SIGN_UP_URL` 登録済み。残り: 無料診断を 2 回使って「使い切り」が出ること、`/admin` に登録情報が出ること、Clerk の Account Portal の転送先（アカウントポータルを通らせない設定の表の 2）、既存契約者の個別開放（まだなら） |
 | 118 | **r127 のテーブル作成（Supabase SQL Editor）**: 下の「定期更新（r127）を本番で動かす手順」の SQL（`rank_snapshots` / `notifications` / `cron_runs` / `site_monitor_snapshots` / `gbp_posts` / `monthly_reports` の 6 つ）を実行する。実行するまで、自動計測・お知らせ・定期処理の記録・サイト監視・投稿・月次レポートは 404（テーブルが無い）で動かない（既存の機能は影響なし） | 利用者 | **完了（09-20。「Success. No rows returned」と Table Editor に `monthly_reports` / `notifications` / `rank_snapshots` / `site_monitor_snapshots` が並ぶ画面を確認）** |
 | 119 | **メール送信（Resend）の準備**: 下の手順の表（アカウント → 送信ドメインの DNS 認証 → API キー → Vercel に `RESEND_API_KEY` / `MAIL_FROM` → Redeploy）。無くても画面の「お知らせ」には残る | 利用者 | 未 |
-| 120 | **定期処理の本番確認**: #19（`CRON_SECRET`）と #118 のあと、Vercel の Cron Jobs に `/api/cron/daily`（`0 20 * * *`）と `/api/cron/geo-run` の 2 本が出ること → マスター画面の「定期処理（Cron）の状況」で各ジョブを「今すぐ実行」→ 成功と件数を見る。順位計測（火）は SerpApi、マップ診断（月）は Places の実費が出る | 利用者 | 未 |
+| 120 | **定期処理の本番確認**: #19（`CRON_SECRET`）と #118 のあと、Vercel の Cron Jobs に `/api/cron/daily`（`0 20 * * *`）と `/api/cron/geo-run` の 2 本が出ること → マスター画面の「定期処理（Cron）の状況」で各ジョブを「今すぐ実行」→ 成功と件数を見る。順位計測（火）は SerpApi、マップ診断（月）は Places の実費が出る | 利用者 | **一部完了（09-20 22:52: サイトの事故監視を「今すぐ実行」→ 成功。利用者 2 人・確認 2 サイト・事故 2 件・知らせ 1 件）**。残り: 順位計測（SerpApi の実費）・マップ診断（Places の実費）・月次レポート・掲載の再チェック・投稿の送信は、実費の無いものから順に 1 回ずつ |
 | 121 | **自動計測の語数の上限の確認**: ライト 30 / スタンダード 100 / プレミアム 300 語（週 1 回。`src/lib/rank/auto.ts` の `RANK_AUTO_LIMITS`）。SerpApi の残高（月 5,000 回のプランなら 300 語 × 4 週で 1,200 回）に合わせて変えるなら指示 | 利用者（判断） | 未 |
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
@@ -3946,3 +3946,9 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 
 - 利用者が Supabase の SQL Editor で r127 の SQL（6 テーブル）を実行し「Success. No rows returned」。Table Editor の画面で `monthly_reports` / `notifications` / `rank_snapshots` / `site_monitor_snapshots` を確認（`cron_runs` / `gbp_posts` はアルファベット順で画面の上にあり、写っていないが同じ SQL の中）。
 - 残り: #19（`CRON_SECRET` を Vercel に登録 → Redeploy → Cron Jobs に `/api/cron/daily` と `/api/cron/geo-run`）、#119（Resend。手順の表の 3〜8）、#120（マスター画面で各ジョブを「今すぐ実行」）。別セッションの r128（ご意見・不具合の報告）の `feedback` テーブルの SQL も未実行なら実行する。
+
+### 2026-09-20（定期処理の本番確認 → 「次回」の表示の不具合を修正、r129）
+
+- 利用者がマスター画面の「定期処理（Cron）の状況」で**サイトの事故監視を「今すぐ実行」→ 成功**（22:52。利用者 2 人・確認 2 サイト・事故 2 件・知らせ 1 件。`cron_runs` にも記録された）。r127 の土台（ジョブの実行・記録・お知らせ）が本番で動いた最初の確認。#118（SQL）は完了、#120 は一部完了。
+- 画面で**毎日のジョブ（投稿の送信・自動再診断）の「次回」が 2026-09-27 と 1 週間後**になっているのを発見。原因: `schedule.ts` の `daily().next` が曜日の関数（`nextWeekdayAtJst`）を使っていて、きょうの 5:00 を過ぎると「来週の同じ曜日」を返していた。表示だけの問題で、Cron 自体は毎日動く（`vercel.json`）。あす 5:00 を返すように直し、テストを 3 件追加（r129）。lint / tsc / test（1,696 件）/ build 通過。
+- 残り: #19 が済んでいれば火曜 5:00 に順位計測が自動で動く。#119（Resend）はまだ。見つかった事故 2 件の中身は `/tools/monitor`（各利用者の画面）で見られる。
