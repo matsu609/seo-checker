@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { brandedMetrics, byModel, byTag, detectVersionChange, rollingShares, shares, toAggregates, withinDays, type AggregateInput } from "../aggregate";
+import {
+  availableModels,
+  brandedMetrics,
+  byModel,
+  byTag,
+  detectVersionChange,
+  filterTargetsByModel,
+  rollingShares,
+  rollingTargetShares,
+  shares,
+  targetShares,
+  toAggregates,
+  withinDays,
+  type AggregateInput,
+  type LabeledTargetShare,
+} from "../aggregate";
 import { citationMix, classifyDomain, findAliasCandidates, judgeCitation, needsReview } from "../extract";
 import type { GeoBrand, GeoCitation } from "../types";
 
@@ -9,6 +24,7 @@ function obs(over: Partial<AggregateInput> = {}): AggregateInput {
   return {
     brandId: "own",
     promptId: "p1",
+    keywordId: null,
     tags: [],
     isBranded: false,
     model: "chatgpt",
@@ -169,5 +185,116 @@ describe("モデル更新の検知（§5.3）", () => {
     expect(detectVersionChange("gpt-5.1", "gpt-5.1").changed).toBe(false);
     expect(detectVersionChange(null, "gpt-5.1").changed).toBe(false);
     expect(detectVersionChange("gpt-5.1", null).changed).toBe(false);
+  });
+});
+
+/* ───────────── 計測対象ごとの出現率（棒グラフ。利用者の指示 2026-09-20） ───────────── */
+
+describe("targetShares", () => {
+  it("プロンプトごとに自社の言及率と Wilson 区間を出す", () => {
+    const rows = [
+      ...Array.from({ length: 3 }, () => obs({ promptId: "p1", mentioned: true })),
+      obs({ promptId: "p1", mentioned: false }),
+      obs({ promptId: "p2", mentioned: false }),
+      obs({ promptId: "p2", mentioned: false }),
+    ];
+    const out = targetShares(rows, { brandId: "own", axis: "prompt", metric: "mention" });
+    expect(out.map((r) => r.targetId)).toEqual(["p1", "p2"]); // 率の高い順
+    const p1 = out[0];
+    expect(p1).toMatchObject({ n: 4, hits: 3, rate: 0.75 });
+    // 帯は点推定をまたぎ、n が小さいので広い
+    expect(p1.ciLow).toBeLessThan(0.75);
+    expect(p1.ciHigh).toBeGreaterThan(0.75);
+    expect(p1.spread).toBeGreaterThan(0.3);
+    expect(out[1]).toMatchObject({ n: 2, hits: 0, rate: 0, band: "none" });
+  });
+
+  it("キーワード軸では AI Overviews の引用を数える（言及ではなく）", () => {
+    const rows = [
+      obs({ promptId: null, keywordId: "k1", model: "aio", cited: true, mentioned: false }),
+      obs({ promptId: null, keywordId: "k1", model: "aio", cited: false, mentioned: true }),
+    ];
+    const out = targetShares(rows, { brandId: "own", axis: "keyword", metric: "citation" });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ targetId: "k1", n: 2, hits: 1, rate: 0.5 });
+  });
+
+  it("競合の観測は混ぜない。軸に合わない行（ID が null）は落とす", () => {
+    const rows = [
+      obs({ promptId: "p1", mentioned: true }),
+      obs({ brandId: "rival", promptId: "p1", mentioned: true }),
+      obs({ promptId: null, keywordId: "k1", mentioned: true }),
+    ];
+    const out = targetShares(rows, { brandId: "own", axis: "prompt", metric: "mention" });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ targetId: "p1", n: 1, hits: 1 });
+  });
+
+  it("モデル別の内訳を持つ", () => {
+    const rows = [
+      obs({ promptId: "p1", model: "chatgpt", mentioned: true }),
+      obs({ promptId: "p1", model: "chatgpt", mentioned: false }),
+      obs({ promptId: "p1", model: "gemini", mentioned: true }),
+    ];
+    const [row] = targetShares(rows, { brandId: "own", axis: "prompt", metric: "mention" });
+    expect(row.perModel).toHaveLength(2);
+    expect(row.perModel.find((m) => m.model === "chatgpt")).toMatchObject({ n: 2, hits: 1, rate: 0.5 });
+    expect(row.perModel.find((m) => m.model === "gemini")).toMatchObject({ n: 1, hits: 1, rate: 1 });
+  });
+
+  it("rollingTargetShares は 4 週より古い観測を外す", () => {
+    const rows = [
+      obs({ promptId: "p1", mentioned: true }),
+      obs({ promptId: "p1", mentioned: true, executedAt: "2026-07-01T00:00:00Z" }),
+    ];
+    const [row] = rollingTargetShares(rows, { brandId: "own", axis: "prompt", metric: "mention" }, NOW);
+    expect(row.n).toBe(1);
+  });
+
+  it("観測ゼロなら行を作らない", () => {
+    expect(targetShares([], { brandId: "own", axis: "prompt", metric: "mention" })).toEqual([]);
+  });
+});
+
+describe("filterTargetsByModel", () => {
+  const labeled = (over: Partial<LabeledTargetShare> = {}): LabeledTargetShare => ({
+    targetId: "p1",
+    label: "おすすめの SEO ツールは？",
+    n: 3,
+    hits: 2,
+    rate: 2 / 3,
+    ciLow: 0.2,
+    ciHigh: 0.94,
+    band: "often",
+    spread: 0.74,
+    perModel: [
+      { model: "chatgpt", n: 2, hits: 2, rate: 1 },
+      { model: "gemini", n: 1, hits: 0, rate: 0 },
+    ],
+    ...over,
+  });
+
+  it("all はそのまま返す", () => {
+    const rows = [labeled()];
+    expect(filterTargetsByModel(rows, "all")).toEqual(rows);
+  });
+
+  it("モデルで絞ると n が減り、帯は広くなる", () => {
+    const before = labeled();
+    const [after] = filterTargetsByModel([before], "chatgpt");
+    expect(after).toMatchObject({ targetId: "p1", label: before.label, n: 2, hits: 2, rate: 1 });
+    expect(after.spread).toBeGreaterThan(0.3);
+    expect(after.ciLow).toBeLessThan(1);
+    expect(after.perModel).toHaveLength(1);
+  });
+
+  it("そのモデルの観測が無い行は落とす", () => {
+    expect(filterTargetsByModel([labeled({ perModel: [{ model: "chatgpt", n: 0, hits: 0, rate: 0 }] })], "chatgpt")).toEqual([]);
+    expect(filterTargetsByModel([labeled()], "aio")).toEqual([]);
+  });
+
+  it("availableModels は内訳にあるモデルだけを返す", () => {
+    expect(availableModels([labeled()])).toEqual(["chatgpt", "gemini"]);
+    expect(availableModels([])).toEqual([]);
   });
 });
