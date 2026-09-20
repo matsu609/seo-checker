@@ -1,26 +1,20 @@
 /**
  * GET /api/cron/maps-refresh
- * 登録された全店舗の一斉更新。Vercel の Cron（vercel.json: 毎週月曜 5:00 JST）が叩く。
+ * 登録された全店舗の一斉更新（旧パス。r127 から日次の /api/cron/daily の月曜分に統合した）。
  *
- * ログインではなく CRON_SECRET で守る（Vercel は Cron の呼び出しに
- * `Authorization: Bearer <CRON_SECRET>` を自動で付ける）。
- * CRON_SECRET が未設定なら一切動かさない（誰でも叩けて Google の費用が出る状態にしない）。
+ * Vercel の Hobby プランは Cron が 2 本までなので、vercel.json からは外してある。
+ * 手動で叩く（curl + CRON_SECRET）用に残す。中身は src/lib/maps/refresh-job.ts。
+ *
+ * ログインではなく CRON_SECRET で守る。未設定なら一切動かさない（誰でも叩けて Google の費用が出る状態にしない）。
  * src/lib/auth/routes.ts で公開 API に入れてあるので、Clerk の 401 は返らない。
  */
 import { isCronAuthorized, isCronConfigured } from "@/lib/auth/cron";
 import { isSupabaseConfigured } from "@/lib/db/supabase";
-import { getPlace } from "@/lib/maps/client";
-import { enrichOwnReport } from "@/lib/maps/enrich";
-import { latestReports, saveMeoReport } from "@/lib/maps/history";
-import { getOwnerInputOrNull } from "@/lib/maps/owner-store";
-import { refreshStores, type RefreshSummary } from "@/lib/maps/refresh";
-import { listStoresDue, markRefreshed } from "@/lib/maps/stores";
+import { runMapsRefresh } from "@/lib/maps/refresh-job";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-/** 1 回で読む行数（利用者 × 店舗）。超えた分は次回（時間切れと同じ扱い） */
-const ROW_LIMIT = 2000;
 /** maxDuration より短く切り上げる（保存の途中で切られないように） */
 const BUDGET_MS = 240_000;
 
@@ -35,21 +29,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "Supabase が未設定のため一斉更新は無効です" }, { status: 503 });
   }
 
-  const summary: RefreshSummary = await refreshStores(
-    {
-      listDue: listStoresDue,
-      getDetail: getPlace,
-      save: (userId, report) => saveMeoReport(userId, { ...report, aiCommentary: null }),
-      markRefreshed,
-      getOwnerInput: getOwnerInputOrNull,
-      // 検索順位は毎週取り直し（前回の順位を previous に）、周辺の同業も毎週取り直す
-      enrich: async (userId, detail, owner) => {
-        const previous = (await latestReports(userId, [detail.id])).get(detail.id)?.report ?? null;
-        return enrichOwnReport(userId, detail, owner?.input.keywords ?? [], { previous, refreshArea: true });
-      },
-    },
-    { limit: ROW_LIMIT, budgetMs: BUDGET_MS },
-  );
+  const summary = await runMapsRefresh({ budgetMs: BUDGET_MS, signal: request.signal });
   console.info("[maps-refresh]", summary);
   return Response.json(summary, { status: summary.aborted ? 502 : 200, headers: { "cache-control": "no-store" } });
 }

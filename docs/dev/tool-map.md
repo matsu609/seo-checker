@@ -91,7 +91,7 @@ flowchart LR
 | キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |
 | AI ライティング | `/tools/writing` | standard | 必須 | ● | ○ ※4 | − | − | − | − | − | − |
 | 口コミへの返信 | `/tools/replies` | standard | 必須 | ○ | − | − | − | ○ | ○ | − | ◍ BP ※5 |
-| 投稿（最新情報） | `/tools/posts` | standard | 必須 | ○ | − | − | − | − | ○ | − | ◍ BP ※5 |
+| NAP チェック（表記ゆれの検出） | `/tools/nap` | light | 必須 | − | − | − | − | ○ | ○ | − | − |
 | サイテーション（DataForSEO ※8） | `/tools/citations` | light | 必須 | − | − | − | − | − | − | − | − |
 | 基本情報掲載（NAP） | `/tools/listings` | standard | 必須 | ○ | − | − | − | ○ | ● | − | − |
 | llms.txt 生成 | `/tools/llms-txt` | standard | 必須 | − | − | − | − | − | − | − | − |
@@ -197,7 +197,6 @@ flowchart LR
   ST --> REV["口コミ支援（QR）<br/>/tools/reviews"]
   ST --> LST["基本情報掲載（NAP）<br/>/tools/listings"]
   ST --> REP["口コミへの返信<br/>/tools/replies"]
-  ST --> PST["投稿（最新情報）<br/>/tools/posts"]
   REV --> RF["review_forms / review_channels"]
   RF --> QR["来店客のアンケート /r/&lt;slug&gt;"]
   QR --> RR["review_responses"]
@@ -224,12 +223,22 @@ flowchart LR
 ## 6. 自動更新（Cron）と決済
 
 ```
-Vercel Cron（vercel.json: "0 20 * * 0" = 毎週月曜 5:00 JST）
+Vercel Cron（vercel.json: "0 20 * * *" = 毎日 5:00 JST。Hobby プランは 2 本まで）
     │  Authorization: Bearer <CRON_SECRET> を Vercel が自動で付ける
     ↓
-GET /api/cron/maps-refresh      ← ログインは無い。CRON_SECRET が未設定なら 503 で何もしない
-    ↓  Places で全店舗を取り直す（実費が出る）
-Supabase（meo_stores → meo_reports）に保存
+GET /api/cron/daily             ← ログインは無い。CRON_SECRET が未設定なら 503 で何もしない
+    │  src/lib/jobs/schedule.ts が曜日・日付で振り分け、順に動かす（記録は cron_runs）
+    ├─ 毎日      投稿の送信（gbp_posts の予約済み → Business Profile API。利用者の Google 権限）
+    ├─ 月曜      マップ診断の一斉更新（Places で全店舗を取り直す。実費）→ meo_reports
+    ├─ 火曜      順位計測（SerpApi。プランの上限まで）→ rank_snapshots。急落は notifyUser()
+    ├─ 水曜      サイトの事故監視（自社サイトへのアクセスだけ）→ site_monitor_snapshots
+    ├─ 毎月 1 日 月次レポート（保存済みの数字だけ。外部 API なし）→ monthly_reports + メール
+    ├─ 毎月 2 日 掲載の再チェック（掲載ページを開いて店名・電話・住所を確認）→ listing_profiles.states
+    └─ 毎日      精密診断の自動再診断（前回から 30 日たったサイトを 1 日 1 件。クロール + PSI + SerpApi）→ analysis_runs
+GET /api/cron/geo-run           ← AI 検索モニタリングの日次（従来どおり別の 1 本）
+GET /api/cron/maps-refresh      ← 旧パス。手動用に残す（vercel.json からは外した）
+
+知らせ: notifyUser() → notifications テーブル（画面の「お知らせ」）→ 設定でメール ON かつ RESEND_API_KEY / MAIL_FROM があれば Resend で送る
 ```
 
 ```
@@ -301,6 +310,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 |---|---|
 | サイト診断（テクニカル SEO） | 自前クローラ |
 | ページ診断（競合比較） | 自前クローラ + SerpApi + Claude |
+| NAP チェック | 自前クローラ（自社サイト・掲載ページ）。Google マップは Places、掲載ページの発見は DataForSEO（Google 検索 2 回）。どちらも無くても自社サイトの確認は動く |
 | サイテーション | DataForSEO（Google 検索 3 回） |
 | HP 改修提案 | Claude |
 | 順位計測・AI Overviews 引用 | SerpApi |

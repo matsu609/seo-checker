@@ -28,6 +28,9 @@
 | Vercel → 環境変数 | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables |
 | Vercel → Deployments（Redeploy） | https://vercel.com/matsumatsu452-6233/seo-checker/deployments |
 | Vercel → Cron Jobs | https://vercel.com/matsumatsu452-6233/seo-checker/settings/cron-jobs |
+| Resend → API Keys（メール送信。r127） | https://resend.com/api-keys |
+| Resend → Domains（送信ドメインの DNS 認証） | https://resend.com/domains |
+| Resend → Emails（送信ログ） | https://resend.com/emails |
 | Supabase → 組織（Projects） | https://supabase.com/dashboard/org/hrjabajiqwgrttfglwul |
 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new |
 | Supabase → API Keys | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/settings/api-keys |
@@ -81,7 +84,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r126 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r131 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -90,14 +93,18 @@
 | Google Cloud `seo-checker-508104` | OAuth 構成済み（テスト状態） | 下記「Google Cloud の設定」。**r89 以降、要求するスコープは口コミ返信の `business.manage` だけ**（GSC / GA4 は廃止） |
 | Google 連携（GSC / GA4） | **提供終了（r89、09-17。利用者の決定「Google Search Console と GA4 は使わない」）** | 画面は代替へ転送、API は 410。代替: 検索パフォーマンス（推定）（r87）だけ。サイト内の行動（訪問者・CV）は外部から取れず、自前タグも r90 で取り下げ。コード（`src/lib/google/search-console/`・`src/lib/ga4/`・`src/lib/site-report/` の大半・`src/components/{search-performance,site-report,ai-traffic,google}/`）は**削除待ち**（下の残タスク #105） |
 | アクセス解析（自前の計測タグ） | **取り下げ（r90、09-17。利用者の決定「ツールで完結しないので面倒。やらない」）** | r89 で作った直後に取り下げ。画面は推定へ転送、API と `/t.js` は 410。コードは r93 で削除済み。Supabase の SQL は**実行不要** |
-| サイドバーの構成（r94 → r95、09-17） | **「AIO 対策」を親のくくりにし、その中に 3 本の柱を開閉式で並べる（r95）。親の直下 = AI 検索モニタリング / 柱 SEO = 精密診断・ページ診断・HP 改修提案（AIO から移動）・順位計測・検索の推定・キーワード調査・AI ライティング / 柱 MEO = Google マップ・口コミ支援・口コミへの返信 / 柱 サイテーション = サイテーション（新規）・基本情報掲載・llms.txt** | 利用者の指示「本当に必要な機能に絞る」「AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称」。サイドバーから外した 3 つ: ページ最適化レポート（→ HP 改修提案へ転送）・AIO 頻出トピック（→ AI 検索モニタリングへ転送）・プロンプト拡張（AI 検索モニタリングの設定からリンク）。定義・API・プランのゲートは残る（`hidden: true`） |
+| ご意見・不具合の報告（r128、09-20） | **稼働中（09-20 に本番で確認。利用者報告「正しく使えた」）** | ツールの右上から送信 → Supabase `feedback` → `/admin` で状態と返答 → お客様の `/settings`「ご意見の履歴」に返答が出る。メールは送らない（新着通知が要るなら Resend の契約。入力待ち）。1 人 1 日 20 件、代理ログイン中は送信不可。`src/lib/feedback/`・`/api/feedback`・`/api/admin/feedback` |
+| NAP チェック（表記ゆれの検出、r131、09-20） | **コード完成・検証済み（lint / tsc / test 1,778 件 / build）。本番での実サイトの通し確認は未（#123）** | `/tools/nap`。店名・住所・電話・サイト URL の 4 つを「正」として、自社サイト（JSON-LD・フッター・会社概要・お問い合わせ）・Google マップ・掲載ページの値と突き合わせ、直すべき箇所を一覧に。キー無しでも自社サイトの確認は動く（Google マップは Places、掲載ページの発見は DataForSEO、控えた URL は Supabase）。1 分に 1 回。利用者の決定 09-20「登録されている内容がずれていないかを主機能に」 |
+| サイドバーの構成（r94 → r95、09-17） | **「AIO 対策」を親のくくりにし、その中に 3 本の柱を開閉式で並べる（r95）。親の直下 = AI 検索モニタリング / 柱 SEO = 精密診断・ページ診断・HP 改修提案（AIO から移動）・順位計測・検索の推定・キーワード調査・AI ライティング / 柱 MEO = Google マップ・口コミ支援・口コミへの返信 / 柱 サイテーション = **NAP チェック（r131、09-20）**・サイテーション・基本情報掲載・llms.txt** | 利用者の指示「本当に必要な機能に絞る」「AIO 対策 = SEO + MEO + NAP 登録・サイテーションの総称」。サイドバーから外した 3 つ: ページ最適化レポート（→ HP 改修提案へ転送）・AIO 頻出トピック（→ AI 検索モニタリングへ転送）・プロンプト拡張（AI 検索モニタリングの設定からリンク）。定義・API・プランのゲートは残る（`hidden: true`） |
 | LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity） | **提供終了（r92、09-17。利用者の決定「AI 検索モニタリングに一本化」）** | `/tools/llmo` → `/tools/geo` へ転送、`/api/llmo/run` と `/api/seo-analysis/second-opinion` は 410。**残る契約は Anthropic・DataForSEO・SerpApi・Google（マップ・PageSpeed）・Supabase・Clerk・Stripe**。コードは r93 で削除済み |
 | DataForSEO | **接続済み・動作確認済み（09-17）** | `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` を Production に登録。検索パフォーマンス（推定）が実データを返した = Labs `ranked_keywords` のエンドポイントは合っていた（`DATAFORSEO_LABS_RANKED_PATH` の差し替えは不要）。残高はお試し $1 → 動作確認後に $50 入金 |
 | Places API（Google マップ） | **コードは完成、キーは設定済み（09-10）。本番で報告書が出ることの通し確認は未（#2）** | 公開情報だけを使うので Google への申請やオーナー権限は不要。オーナー権限が要る項目（投稿・返信率・説明文など 9 項目）はオーナー申告か Business Profile API（#54、審査申請済み）で埋める |
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
-| Business Profile API | **未申請** | フェーズ 3 に必要。Google の審査制 |
+| Business Profile API | **09-11 に申請（ケース ID `0-4126000041187`）→ 返信なし。09-20 に再申請の準備（利用者の指示）。**再申請の前に潰す 2 点: ①**プロフィールの確認が未完了**（09-19 に Google から「追加のお手続きが必要」のメール）②前回は**管理者アカウント**で申請していた（フォームは**オーナー**で送る） | 手順は [google-oauth-verification.md](./google-oauth-verification.md) §5。Google の審査制（最大 2 週間）。承認後に足すコードは無い（r37 / r97 / 投稿まで実装済み） |
+| 定期処理（`/api/cron/daily`、r127） | **本番で動作を確認（09-20 22:52、サイトの事故監視を「今すぐ実行」で成功。記録も `cron_runs` に残った）** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
+| Resend（メール送信、r127） | **未設定**（`RESEND_API_KEY` / `MAIL_FROM`） | #119 の手順。無くても画面の「お知らせ」には残る |
 | Stripe（直結） | **本番モードで割引付きの Checkout まで確認済み（2026-09-18 21:30）。Webhook（決済後に契約中になるか）は未確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
 
 ### Vercel の環境変数（Production）
@@ -185,6 +192,8 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
+| 122 | ~~**ご意見・不具合の報告を本番で開く（r128）**~~ | 利用者 | **完了（09-20。SQL 実行 →「Success. No rows returned」→ 本番で利用者が「正しく使えた」と報告）** |
+| 123 | **NAP チェック（r131）の本番確認**: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/nap` を開く → 4 項目（設定の基本情報とホームページが初期値。MEO の登録店舗からも取り込める）→「チェックする」→ 1〜2 分で「直すべき箇所」「媒体ごとの突き合わせ」が出ること。自社サイトの値が正しく読めているか（構造化データ・フッター・会社概要）、Google マップが同じ店を見つけたか、誤判定（本当は同じなのに不一致 / 違うのに一致）があればその媒体と値を共有。費用は Places の詳細 1 回 + DataForSEO 2 回（数円） | 利用者 | 未 |
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
 | 111 | **サイドバーの整理の続き**: r94 で 3 つ外した。さらに減らす候補は ① ページ診断（競合比較。精密診断と役割が近い）② 順位計測（SerpApi）と検索パフォーマンス（推定）（DataForSEO）の一本化 ③ AIO 頻出トピック・ページ最適化レポートの API と `src/lib/aio-topics/` の削除（1〜2 か月後、転送ページと一緒に）。利用者の判断待ち（下の入力待ち） | 利用者（判断）→ Claude | 未 |
 | 112 | ~~タブの並び~~ | — | **不要（r95 で 3 タブをやめ、AIO 対策の中に SEO / MEO / サイテーションを入れ子にした）** |
@@ -193,13 +202,17 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 115 | **MEO の月次レポート（競合ツールの帳票の再現。2026-09-17 利用者が PDF を共有）**: 審査なし（Places API + 毎週の保存）で作れる部分を先に作る = 新規口コミ数・平均評価（前月比）／ 口コミの成長（月別件数 + 累計平均評価。登録日以降）／ 星別分布（当月。最新 5 件から）／ キーワード順位変動（月初 / 月末。毎週の順位から）／ 口コミの傾向。オーナー権限が要る欄（表示回数・マップ / 検索表示・電話 / サイト / ルート・流入キーワード・返信数と返信率・投稿数）は「接続すると表示」の枠にして、#113 / #114 のあと Performance API と v4 で埋める。PDF 出力は既存の仕組み。目安 3 日 | 利用者（判断）→ Claude | 未 |
 | 116 | **Performance API を承認当日に動かすための利用者の作業**: 下の「Business Profile Performance API を使えるようにする手順（#116）」の表 | 利用者 | **09-18: API 3 本を有効化済み。v4 は承認待ち。スコープ完了（非機密）。テストユーザー完了。**残り: Clerk の名前（7）・ブランディング（8）・ケースの督促（6。9/26 以降） |
 | 117 | **無料診断の前にユーザー登録、メールアドレスごとに 2 回まで**（2026-09-18 利用者の要望 → GO） | Claude → 利用者 | **本番で登録 → 確認コード → 無料診断まで通った（09-18 利用者報告。r98〜r104）**。`DEFAULT_PLAN=free`・`NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `SIGN_UP_URL` 登録済み。残り: 無料診断を 2 回使って「使い切り」が出ること、`/admin` に登録情報が出ること、Clerk の Account Portal の転送先（アカウントポータルを通らせない設定の表の 2）、既存契約者の個別開放（まだなら） |
+| 118 | **r127 のテーブル作成（Supabase SQL Editor）**: 下の「定期更新（r127）を本番で動かす手順」の SQL（`rank_snapshots` / `notifications` / `cron_runs` / `site_monitor_snapshots` / `gbp_posts` / `monthly_reports` の 6 つ）を実行する。実行するまで、自動計測・お知らせ・定期処理の記録・サイト監視・投稿・月次レポートは 404（テーブルが無い）で動かない（既存の機能は影響なし） | 利用者 | **完了（09-20。「Success. No rows returned」と Table Editor に `monthly_reports` / `notifications` / `rank_snapshots` / `site_monitor_snapshots` が並ぶ画面を確認）** |
+| 119 | **メール送信（Resend）の準備**: 下の手順の表（アカウント → 送信ドメインの DNS 認証 → API キー → Vercel に `RESEND_API_KEY` / `MAIL_FROM` → Redeploy）。無くても画面の「お知らせ」には残る | 利用者 | 未 |
+| 120 | **定期処理の本番確認**: #19（`CRON_SECRET`）と #118 のあと、Vercel の Cron Jobs に `/api/cron/daily`（`0 20 * * *`）と `/api/cron/geo-run` の 2 本が出ること → マスター画面の「定期処理（Cron）の状況」で各ジョブを「今すぐ実行」→ 成功と件数を見る。順位計測（火）は SerpApi、マップ診断（月）は Places の実費が出る | 利用者 | **一部完了（09-20 22:52: サイトの事故監視を「今すぐ実行」→ 成功。利用者 2 人・確認 2 サイト・事故 2 件・知らせ 1 件）**。残り: 順位計測（SerpApi の実費）・マップ診断（Places の実費）・月次レポート・掲載の再チェック・投稿の送信は、実費の無いものから順に 1 回ずつ |
+| 121 | **自動計測の語数の上限の確認**: ライト 30 / スタンダード 100 / プレミアム 300 語（週 1 回。`src/lib/rank/auto.ts` の `RANK_AUTO_LIMITS`）。SerpApi の残高（月 5,000 回のプランなら 300 語 × 4 週で 1,200 回）に合わせて変えるなら指示 | 利用者（判断） | 未 |
 | 1 | `ANTHROPIC_API_KEY`: ~~Claude Console でクレジット購入 → API キー作成 → Vercel で貼り替え~~ → Redeploy → 設定画面「外部連携」で Anthropic が設定済みになるか確認 | 利用者 | ほぼ完了（残り: Redeploy と確認） |
 | 2 | Places API: **請求先アカウント（作成済み）を `seo-checker` に紐づけ** → seo-checker で Places API (New) を有効化 → 予算アラート（月 1,000 円目安）→ API キー（Places API (New) に制限、アプリ制限なし）→ Vercel `GOOGLE_PLACES_API_KEY`（Secret）→ Redeploy → `/tools/maps` で報告書を確認 | 利用者 | 未 |
 | 3 | Supabase: ~~プロジェクト作成~~ → ~~`meo_reports`~~ → ~~Vercel に環境変数 2 つ~~ → ~~`meo_stores`~~（09-10 17:03 作成、Table Editor で 2 テーブル確認）→ 設定画面「外部連携」で Supabase が設定済みになるか確認 | 利用者 | 残り: 動作確認のみ |
 | 45 | r27 の SQL を Supabase で実行（`meo_owner_inputs`） | 利用者 | **完了（09-11 17:21、画面で Success を確認）**。残りは本番 `/tools/maps` の「オーナー情報の入力」で保存できるかの確認 |
-| 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/maps-refresh`（`0 20 * * 0`）が出ることを確認 | 利用者 | 未 |
+| 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/daily`（`0 20 * * *`。r127 で日次に統合）と `/api/cron/geo-run` の 2 本が出ることを確認 | 利用者 | 未 |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
-| 5 | Business Profile API の利用申請 | 利用者 | **申請済み（09-11 20:52、ケース ID `0-4126000041187`、審査 7〜10 営業日）**。承認メール待ち → #54 ②〜④へ |
+| 5 | Business Profile API の利用申請 | 利用者 | **09-11 20:52 に申請（ケース ID `0-4126000041187`）→ 9 日経っても返信なし。09-20、利用者の指示で再申請へ。**先に①プロフィールの確認（https://business.google.com/n/4773232117026925181/profile/verify ）②オーナー `wolf@wolf-info.org` でフォームを送り直す。手順とコピペ用の記入内容は [google-oauth-verification.md](./google-oauth-verification.md) §5 |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
 | 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | **切り替え完了（09-11 0:04、バージョン `9ef76797` = コミット `c60fe42` がアクティブ）**。残りは `https://seo-checker.tokyo/` の表示確認と、旧リポジトリのアーカイブだけ |
 | 30 | 紹介サイトの文面反映（運営者情報、SEO/AIO/MEO の説明、Google 連携の説明、フッターのリンク、CTA をアプリへ） | Claude | **完了。09-11 1:00 に本番 https://seo-checker.tokyo/ の表示を利用者の画面で確認** |
@@ -648,7 +661,7 @@ alter table user_stores enable row level security;
 | B-4 | 58-⑧ | Stripe 復旧後: 本番モードで商品・Webhook・ポータル → Vercel の `STRIPE_*` を本番の値に → Redeploy → `/plans` で申し込みが通ることを確認。ここで初めて「申し込む」を開ける | 利用者 | 1 時間 |
 | C-1 | 83 / 90 | Ahrefs の新しいキーを Vercel `AHREFS_API_KEY`（+ `AHREFS_API_KEY_ISSUED_AT=2026-09-16`）に → Redeploy → `/admin` で「設定済み」。無いと報告書のドメインパワーから DR の 25 点分が抜けるだけ | 利用者 | 10 分 |
 | C-2 | 13 | Google OAuth の本番公開申請（審査 2〜6 週間）。お客様が増えたらテストユーザー 100 人の上限と 7 日失効が効いてくる | 利用者 + Claude | 申請は来週でも可 |
-| C-3 | 5 / 54 | Business Profile API の承認待ち（ケース ID `0-4126000041187`）。承認まで口コミ返信は「段階 1（コピーして GBP へ）」で運用 | — | 待ち |
+| C-3 | 5 / 54 | **Business Profile API の再申請（09-20）。**前回ケース `0-4126000041187` は返信なし。①プロフィールの確認 →②オーナーアカウントで再申請 →③督促（[google-oauth-verification.md](./google-oauth-verification.md) §5）。承認まで口コミ返信は「段階 1（コピーして GBP へ）」で運用 | 利用者 | ①次第 |
 | C-5 | 91 | **AI 検索モニタリング（r76）を動かす**: Supabase の SQL → DataForSEO 登録（前払い $50 程度）→ Vercel に `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` → Redeploy → `/tools/geo` でブランドとプロンプトを登録。下の「AI 検索モニタリングを有効にする手順」に 8 手順の表がある。**明日のリリースには不要**（新機能で、数値が安定するまで 4 週かかるため、落ち着いてから） | 利用者 | 40 分 + 翌朝の確認 |
 | C-6 | 93 | AI 検索モニタリングをライトに含めるかスタンダードのままかを決める（下の #93） | 利用者 | 5 分 |
 | C-4 | 12 | 規約・特商法の専門家レビュー（r41 の文面は Claude の仮置き。少なくとも運営責任者名・解約条件を利用者が一読する） | 利用者 | 30 分 |
@@ -795,17 +808,146 @@ order by 1;
 
 **RLS の考え方（利用者の質問 2026-09-18）**: ブラウザ用の anon キー（Publishable key）は誰でも見られる前提の鍵なので、RLS が無効のテーブルは URL と anon キーがあれば誰でも読み書きできる。**RLS を有効にしてポリシーを 1 つも作らない**と anon キーでは何もできず、アプリが使う service_role だけが通る。これが本サービスの全テーブル共通の設計（`user_id` の絞り込みはサーバーのコードで行う）。上の 8 テーブルの SQL には 2026-09-18 まで `enable row level security` が抜けていた（他のテーブルの SQL には全部入っていた）ので追記した。
 
+### 定期更新（r127）を本番で動かす手順（#118〜#120。すべて利用者の作業）
+
+r127 で足した「継続的に更新する」機能は、Supabase のテーブル 6 つとメール送信の設定が要る。順番どおりに。
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Supabase → SQL Editor | https://supabase.com/dashboard/project/qcdkatzxvdgplgibevlc/sql/new | 下の SQL を貼って Run（`create table if not exists` なので二重実行しても安全） |
+| 2 | Vercel → Settings → Environment Variables | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | まだなら `CRON_SECRET`（長いランダムな文字列。Secret、Production）を追加（#19） |
+| 3 | Resend → Sign up | https://resend.com/signup | アカウントを作る（無料枠: 月 3,000 通・1 日 100 通） |
+| 4 | Resend → Domains | https://resend.com/domains | 「Add Domain」で `seo-checker.tokyo` を追加 → 表示される DNS レコード（TXT・CNAME。SPF / DKIM）を控える |
+| 5 | Cloudflare → seo-checker.tokyo → DNS → Records | https://dash.cloudflare.com/ | 4 のレコードをそのまま追加（CNAME は「DNS のみ」= プロキシ OFF）→ Resend の画面で「Verified」になるまで待つ（数分〜1 時間） |
+| 6 | Resend → API Keys | https://resend.com/api-keys | 「Create API Key」（Permission: Sending access）→ 値を控える（`re_` で始まる。メモには書かない） |
+| 7 | Vercel → Settings → Environment Variables | https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables | `RESEND_API_KEY`（Secret）と `MAIL_FROM`（値は `SEO Checker <noreply@seo-checker.tokyo>`）を Production に追加 |
+| 8 | Vercel → Deployments | https://vercel.com/matsumatsu452-6233/seo-checker/deployments | 最新のデプロイを Redeploy（環境変数はデプロイ時に読まれる） |
+| 9 | Vercel → Settings → Cron Jobs | https://vercel.com/matsumatsu452-6233/seo-checker/settings/cron-jobs | `/api/cron/daily`（`0 20 * * *` = 毎日 5:00 JST）と `/api/cron/geo-run` の 2 本が出ること（Hobby は 2 本まで。`maps-refresh` は無くてよい） |
+| 10 | app → マスター画面 | https://app.seo-checker.tokyo/admin | 「外部連携」で Resend が設定済み → 「定期処理（Cron）の状況」で各ジョブを「今すぐ実行」→ 成功と件数を確認（順位計測は SerpApi、マップ診断は Places の実費が出る） |
+| 11 | app → 設定 | https://app.seo-checker.tokyo/settings | 「通知」カードでメールの ON / OFF と宛先を確認（既定は ON・ログインのメール） |
+
+**SQL（r127。6 つまとめて 1 回）**:
+
+```sql
+-- 順位計測の自動計測（毎週火曜）の保存先。画面が開いたときに端末の履歴へ取り込む
+create table if not exists rank_snapshots (
+  user_id text not null,
+  keyword_id text not null,
+  taken_on date not null,
+  snapshot jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, keyword_id, taken_on)
+);
+create index if not exists rank_snapshots_user_idx on rank_snapshots (user_id, taken_on desc);
+alter table rank_snapshots enable row level security;
+
+-- お知らせ（画面の「お知らせ」。メールを送れたら emailed_at）
+create table if not exists notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  kind text not null,
+  title text not null,
+  body text not null default '',
+  link text,
+  created_at timestamptz not null default now(),
+  emailed_at timestamptz,
+  read_at timestamptz
+);
+create index if not exists notifications_user_idx on notifications (user_id, created_at desc);
+alter table notifications enable row level security;
+
+-- 定期処理の実行記録（マスター画面の「定期処理（Cron）の状況」）
+create table if not exists cron_runs (
+  id uuid primary key default gen_random_uuid(),
+  job text not null,
+  status text not null,
+  summary jsonb not null default '{}'::jsonb,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz
+);
+create index if not exists cron_runs_job_idx on cron_runs (job, started_at desc);
+alter table cron_runs enable row level security;
+
+-- サイトの事故監視（毎週水曜）のスナップショット
+create table if not exists site_monitor_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  origin text not null,
+  checked_at timestamptz not null,
+  incidents int not null default 0,
+  snapshot jsonb not null
+);
+create index if not exists site_monitor_user_idx on site_monitor_snapshots (user_id, origin, checked_at desc);
+alter table site_monitor_snapshots enable row level security;
+
+-- Google ビジネス プロフィールの投稿（下書き → 予約 → 毎日 5:00 に送信）
+create table if not exists gbp_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  place_id text not null,
+  location_name text,
+  topic_type text not null default 'STANDARD',
+  title text not null default '',
+  summary text not null default '',
+  cta_type text not null default 'NONE',
+  cta_url text not null default '',
+  event_start date,
+  event_end date,
+  status text not null default 'draft',
+  scheduled_at timestamptz,
+  published_at timestamptz,
+  google_name text,
+  error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists gbp_posts_user_idx on gbp_posts (user_id, place_id, created_at desc);
+create index if not exists gbp_posts_due_idx on gbp_posts (status, scheduled_at);
+alter table gbp_posts enable row level security;
+
+-- 月次レポート（利用者 × 月で 1 行）
+create table if not exists monthly_reports (
+  user_id text not null,
+  month text not null,
+  report jsonb not null,
+  created_at timestamptz not null default now(),
+  emailed_at timestamptz,
+  primary key (user_id, month)
+);
+alter table monthly_reports enable row level security;
+```
+
+掲載の再チェックは `listing_profiles.states` の JSON に書くので SQL は不要。精密診断の自動再診断も `analysis_runs` の `input` に `source: "auto"` を入れるだけで SQL は不要。
+
+**定期処理の中身（`/api/cron/daily`、毎日 5:00 JST。`src/lib/jobs/schedule.ts`）**:
+
+| いつ | ジョブ | 何をするか | 実費 |
+|---|---|---|---|
+| 毎日 | 投稿の送信 | 予約済みで予定時刻を過ぎた投稿を Business Profile API に送る（承認前は 403 で「失敗」） | なし |
+| 月曜 | マップ診断の一斉更新 | 従来どおり（旧 `/api/cron/maps-refresh` の中身） | Places |
+| 火曜 | 順位計測（自動） | プランの上限まで SerpApi で測り、5 位以上の下落・10 位圏外・圏外を知らせる | SerpApi |
+| 水曜 | サイトの事故監視 | 主要ページの noindex・エラー・転送・SSL・リンク切れを確認し、新しい事故を知らせる | なし |
+| 毎月 1 日 | 月次レポート | 前月の数字をまとめて保存 + メール | なし |
+| 毎月 2 日 | 掲載の再チェック | 掲載済みの媒体ページを開き、店名・電話・住所を確認 | なし |
+| 毎日 | 精密診断の自動再診断 | 前回から 30 日たったサイトを 1 日 1 件（クロール + PSI + SerpApi。AI のアドバイスは作らない） | SerpApi・PSI |
+
+1 回の Cron は 250 秒で打ち切り、残りは次回に回る（`cron_runs` に「時間切れ」と残る）。
+
 ### 入力待ち（利用者からの回答が要るもの）
 
-- **掲載の代行をどうするか（09-19 の相談の残り）**: ①の絞り込みは r127 で完了。残りは ② `manual` の作業を `/agency`・`/admin` の作業画面に移して**代行（有料オプション）**にするか ③ Uberall 等の OEM を買うか。**利用者の判断待ち**
-- **次に作る AIO 機能（09-19 の提案の残り）**: 1. 掲載タブの絞り込み（r127 で完了） 2. GBP 投稿の配信（r127 で完了。#5 の承認後に動く） **3. 掲載の生存監視（`evidence_url` / `last_checked_at` / `next_check_at`） 4. 構造化データ（JSON-LD）の生成 5.（09-19 に追加提案）法人番号 Web-API で NAP を登記と突き合わせ、`sameAs` の URL を自動生成（半日。4 の材料が揃うので先にやると効率がよい）**。どれから着手するか指示待ち
-- **法人番号 Web-API のアプリケーション ID（09-19）**: 利用届出の方法・発行までの日数・利用条件の確認。画面: https://www.houjin-bangou.nta.go.jp/webapi/
+- **掲載の代行をどうするか（09-19 の相談の残り）**: ①の絞り込みは r132 で完了。残りは ② `manual` の作業を `/agency`・`/admin` の作業画面に移して**代行（有料オプション）**にするか ③ Uberall 等の OEM を買うか。**利用者の判断待ち**
+- **法人番号 Web-API のアプリケーション ID（09-19 → 09-20 実装済み）**: 利用届出の方法・発行までの日数・利用条件の確認と、`HOUJIN_BANGOU_APP_ID` の設定。**設定するまで掲載タブの「登記で確かめる」は案内だけ出る**。画面: https://www.houjin-bangou.nta.go.jp/webapi/
+- **法人番号公表サイト / gBizINFO の個別ページの URL（09-20）**: この環境から開けないため形を検証できていない。掲載タブの「開いて確認」から一度開いて、御社のページが出るか確認してほしい。違っていれば `src/lib/houjin/constants.ts` の 2 関数だけ直す
+- **NAP チェック（r131）の使い勝手**: 本番で 1 回試した結果（#123）。誤判定があればその媒体と「書かれている値 / 正の値」。判定の緩さ（建物名だけの違いを不一致にするか要確認のままか、法人格の有無を不一致にするか）はここから調整する。Apple マップ・Yahoo!マップ・Bing は自動で読めないので目視のままでよいか
+- **ご意見・不具合の報告の続き（r128 のあと）**: 新着をメールで受けたいか（Resend 等の送信サービスの契約が要る。09-20 の定期更新の相談と同じ基盤）。スクショ添付を足すか（Supabase Storage が要る）。Sentry（エラーの自動収集）を入れるか
+- **定期更新（r127）の本番反映**: #118（SQL）・#119（Resend）・#120（Cron の確認）が済んだら一言。自動計測の語数の上限（#121: ライト 30 / スタンダード 100 / プレミアム 300）はこれでよいか
+- **チャートの色**: dataviz の検証ツールで、既存の 6 色（`palette.chart`）は 5・6 色目の区別が弱く（色覚多様性で ΔE 2.2）、全体に彩度が低いと出た。推移グラフは最初の 4 色を区別しやすい順に並べ替え、点の形・凡例・表で補っている。デザインの色そのものを変えるか（変えるなら `globals.css` と `palette.ts` の両方）
 - **登録つき無料診断（#117）**: 本番で開く前の作業（`DEFAULT_PLAN=free`・既存契約者の個別開放）が済んだら一言。
 - **サイドバーの整理（#111）**: r94 で外した 3 つ（ページ最適化レポート・AIO 頻出トピック・プロンプト拡張）はこれでよいか。さらに減らすか（ページ診断 / 順位計測と検索の推定の一本化）。
 - **明日の公開の形（09-16 提案）**: Stripe が止まっているあいだ、最初のお客様の初月（無料）は管理画面の個別開放で使ってもらい、2 か月目の請求は ①Stripe 復旧を待って Checkout で ②請求書（銀行振込）で、のどちらにするか。②なら請求書の発行方法（Stripe の請求書機能は決済停止中は使えない可能性が高いので、手書き / 会計ソフト）
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
-- Business Profile API の承認結果（#5 / #54 ①。09-11 申請、ケース ID `0-4126000041187`、7〜10 営業日）。承認されたら #54 の②〜④へ
+- Business Profile API の再申請（#5 / #54 ①）の結果。**09-20 に「プロフィールの確認を完了 → オーナーアカウントで再申請 → 前回ケースへ督促」の 3 つを依頼（[google-oauth-verification.md](./google-oauth-verification.md) §5）。**①の確認が終わったか、②の新しいケース ID、③督促への返信
 - 口コミ支援の課金（スタンダードに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 - **Clerk のユーザーで `publicMetadata.plan` に `standard` を手で割り当てた人がいないか**（r63 で `standard` の意味が「診断・計測のみ」から「全機能」に変わったため。いれば `light` に直す。誰にも割り当てていなければ何もしなくてよい）。画面: https://dashboard.clerk.com/ → Users → 各ユーザー → Metadata
 - プレミアム（伴走）の中身の詰め: レポート代行の範囲と、お見積りの目安（どういう条件だと 150,000 円で、何が増えるといくら上がるのか）。r65 で**所要時間と返信目標の数字は外した**（「月 1 回の報告ミーティング（オンライン）」「優先サポート（メール・チャット）」）ので、約束しているのは頻度と手段だけ。数字を戻すなら `src/lib/plans/catalog.ts` と `marketing/public/index.html`・`public/service-guide.html` の 3 か所
@@ -1035,6 +1177,34 @@ alter table review_channels
   add column if not exists write_review_url text;
 ```
 
+### ご意見・不具合の報告のテーブル（r128、2026-09-20。**09-20 23:1x 実行済み**。利用者報告「Success. No rows returned」）
+
+```sql
+create table if not exists feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  email text not null default '',
+  name text not null default '',
+  kind text not null,
+  body text not null,
+  path text not null default '',
+  plan text not null default '',
+  user_agent text not null default '',
+  commit text not null default '',
+  release int not null default 0,
+  status text not null default 'open',
+  reply text,
+  replied_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists feedback_user_idx on feedback (user_id, created_at desc);
+create index if not exists feedback_status_idx on feedback (status, created_at desc);
+alter table feedback enable row level security;
+```
+
+`kind` は `bug` / `request` / `question` / `other`、`status` は `open` / `in_progress` / `done`（`src/lib/feedback/types.ts`）。`email` / `name` / `plan` / `user_agent` / `commit` / `release` は**送信時点の写し**（あとで契約が変わっても報告時の状態が残る）。本人の読み出しは `user_id` で絞り、運用者（`ADMIN_EMAILS`）だけが全件を読んで `status` / `reply` を書く（`/api/admin/feedback`）。
+
 `review_forms.questions` は `src/lib/reviews/questions.ts` の `QuestionsSchema`（最大 8 問、評価は 1 問）、`settings` は `ReviewFormSettingsSchema`（業種・トーン・キーワード最大 5・低評価の閾値）。`review_responses` には user_id が無いので、店舗側は必ず `review_forms`（user_id）経由で触る。`edit_token` は来店客が押下の記録・「お店に直接伝える」を送るための鍵（回答時に発行、画面にだけ返す）。
 
 **テーブルの形を変えるときは、`alter table` の SQL をここに追記し、コード（`src/lib/maps/history.ts` / `stores.ts`）も同時に直す。**利用者には SQL を渡して実行してもらう。
@@ -1175,6 +1345,7 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 
 | 日付 | 判断 | 理由 |
 |---|---|---|
+| 09-20 | **入力を補助する機能（法人番号 Web-API で NAP の正本を国の一次情報で検証・`sameAs` の自動生成など）は作らない・後回し。「登録されている内容がずれていないか」の検出を主機能にする（NAP チェック、r131）** | 利用者の決定「入力を補助するような機能はやっぱりいらない。実装コストが高いのとすぐに実装できないので後回し」「網羅的な登録チェックは原理的に完成しない。表記揺れの検出は一致か不一致しかないのでごまかしが効かない。出せれば確実に価値が上がる」。形も利用者の指定: 入力は 4 つだけ（店名・住所・電話・サイト URL）、サイトを取得してフッター・会社概要・お問い合わせから NAP を抽出して一致 / 不一致を評価、出力は直すべき箇所のリスト |
 | **セキュリティ点検の指摘への対応方針（2026-09-18）** | 下の「セキュリティ点検（2026-09-18）」の 8 件。**S-1（`/api/store` の上限欠落・r111 の回帰）と S-2（`/api/faq` の無制限 AI 費用）はコード修正、S-0（鍵のローテーション）は利用者の作業**。高が 4 件（S-1・S-2・S-6・S-9）、中が 10 件。どこから直すか指示をください | 利用者の回答待ち |
 | Stripe 本番切替の残り: `STRIPE_SECRET_KEY`（`sk_live_`）と `STRIPE_WEBHOOK_SECRET`（本番 Webhook の `whsec_`）の差し替え → Redeploy（2026-09-18） | A で進行中。Price ID 2 つは本番と一致済み、`STRIPE_PRICE_PRO` 削除済み（Claude in Chrome、20:30 ごろ）。Webhook `elegant-bliss` が本番モードのものかは要確認（テストの whsec だと契約状態が書かれない） | 利用者の作業待ち |
 | 09-17 | **サイドバーは 3 つの並列タブではなく、「AIO 対策」（親）の中に SEO / MEO / サイテーション（柱）が入る入れ子にする**（r95） | 利用者の指示「独立しちゃっているので、くくり的には AI の中に MEO・SEO・サイテーションがあると分かる構成に」。柱は開閉式（開くのは 1 本。r94 の「押した柱が最優先」はそのまま）。AI 検索モニタリングは柱ではなく AIO 対策全体の成果をはかるものなので親の直下。柱の並びは 09-13 の指定（SEO → MEO → 基礎情報）のまま |
@@ -1257,6 +1428,17 @@ RLS は有効のまま。アプリはサーバーの service_role だけで読�
 - **外部連携（API キーの設定状況）はお客様に見せない（2026-09-15）**: 利用者の指示「ユーザーに見える必要はない。マスターアカウントだけが把握していればいい」。設定画面から外し、マスター画面 `/admin` に移した（r57）。お客様の設定画面は「プロジェクト・競合・Google 連携・データ」だけ。各ツールの `SetupNotice`（未設定のキー名を出す案内）はまだお客様にも見えるので、隠すなら別途。
 
 - **サイト診断は精密診断に統合、ページ診断は別のまま（2026-09-15）**: 利用者の質問「3 つの違いは？同じなら統合して」。サイト診断（A1）は精密診断の中で同じクロール + 48 ルールを実行している部分集合なので、二重に持たず統合（r58）。課題一覧・カテゴリ別・ページ一覧・CSV は報告書の「詳細」に残した。ページ診断（A4）は「1 キーワード × Google 上位 10 件 × 自社 1 ページ」の競合比較で軸が違うため別のまま（名前を「ページ診断（競合比較）」に）。前回比（差分）はブラウザ履歴に依存していたので今回は落とした。要望があれば Supabase の前回の run と比べる形で復活できる。
+
+### 定期更新（r127、2026-09-20）
+
+- **Cron は日次の 1 本（`/api/cron/daily`）にまとめた。**Vercel の Hobby プランは Cron が 2 本まで・1 日 1 回のため、ジョブごとに Cron を足せない。曜日・日付で振り分け（月: マップ診断 / 火: 順位 / 水: 監視 / 1 日: レポート / 2 日: 掲載 / 毎日: 投稿・再診断）、重い処理を同じ日に重ねない。旧 `/api/cron/maps-refresh` は手動用に残す（`vercel.json` からは外した）。
+- **自動計測の順位はサーバー側の表（`rank_snapshots`）に置く。**手動計測の履歴はブラウザ側ストア → `user_stores` の写しで、Cron がそこへ書くと端末の同期と衝突する。画面が開いたときに端末へ取り込む（同じ語・同じ日は後勝ち）。
+- **語数の上限をプランで決めた**（ライト 30 / スタンダード 100 / プレミアム 300 語 / 週）。SerpApi の実費が契約数に比例するため。契約が無い人（プランが足りない人）は測らない（`src/lib/plans/user.ts` で Clerk から引く）。
+- **自動再診断は AI のアドバイスを作らない。**費用（Opus）と時間（1〜3 分）が大きく、差分（直った / 悪化した）が目的なので収集だけにし、必要なら画面の「アドバイスを作り直す」で作る。月の回数制限も消費しない。1 日 1 件まで。
+- **投稿は人が承認したものだけを送る。**AI の下書きは「下書き」で保存し、「承認して予約」を押したものだけを予定時刻に送る（自動投稿はしない。Google マップで公開される文章のため）。承認前（403）は「失敗」として理由が残り、承認が下りればコードの変更なしで動く。
+- **掲載の再チェックは控えめに判定する。**店名が本文に無ければ「見つからない」、店名はあるが電話も住所も無ければ「ずれ」、取得できなければ「確認できず」（消えたとは言わない）。状況（掲載済み）そのものは変えず、判断は利用者がする。
+- **知らせは `notifyUser()` 1 本に通す。**画面の「お知らせ」に必ず残し、設定でメール ON かつ Resend の設定があるときだけメール。送れなかったものを「送った」と見せない。低評価の回答（口コミ支援）もここから知らせる（入力待ちにあった「低評価のメール通知」の答え）。
+- **チャートの色は変えていない。**dataviz の検証で既存の 6 色の弱さが出たが、デザインの色は `globals.css` と `palette.ts` の両方に固定されている決定事項なので、推移グラフ側で並び替えと二次の符号（点の形・凡例・表）で補い、色の変更は入力待ちにした。
 
 ## 進行中の開発の設計メモ
 
@@ -3635,6 +3817,270 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 2. Facebook ページの API 連携（App Review が要る）
 3. Yahoo!プレイス / Apple の API 連携（下の照会の答え次第）
 4. 一括登録の履歴（いつ何を送ったか）
+
+### 2026-09-20（相談: 継続課金に耐える「更新し続ける」機能は何か）
+
+利用者「SaaS なので継続的に価値を提供しないと課金が続かない。一度載せて終わりでは厳しい。定期更新が要るのは **MEO の画像・返信自動化** のほかに何があるか」。
+
+**前提として実測した現状**: 自動で動き続けているのは 2 本だけ（`vercel.json`）。①マップ診断の週次更新（`/api/cron/maps-refresh`、月曜 5:00 JST）②AI 検索モニタリングの日次実行（`/api/cron/geo-run`）。**順位計測（SerpApi）・精密診断・掲載チェック・ページ改善・AI ライティングはすべて「ボタンを押した時だけ」**で、放っておくと数字が古くなる＝解約されやすい形。
+
+**回答（4 つの型に分けた）**
+
+| 型 | 項目 | いまの状態 | 継続の形にするには |
+|---|---|---|---|
+| A. 測り続ける | 順位計測（SEO） | 手動 | 週次 Cron + 推移グラフ + 急落の通知。SerpApi の変動費なのでプラン別に語数の上限 |
+| | マップ検索順位（MEO） | 週次で取れている（r29） | **推移グラフが未実装**（データはある。実装だけ） |
+| | 精密診断 | 手動 | 月 1 回の自動再診断 → 前回比「直った / 悪化した」の差分。既存の `analysis_runs` を使う |
+| | 掲載チェック（NAP） | 手動 | `last_checked_at` / `next_check_at` で月次の再確認（09-19 に「商品価値そのもの」と結論済み） |
+| | 競合の変化 | 週次の競合報告書はある | 差分だけ抜く（口コミ数・評価・写真・投稿の増減を通知） |
+| | サイトの事故監視 | 無し | 週次クロールで noindex 事故・リンク切れ・robots.txt 変更・構造化データ崩れ・SSL 期限を検知して通知。**壊れた時に真っ先に気付く**のが継続価値 |
+| B. 動かし続ける | GBP 投稿（最新情報・イベント・クーポン） | 無し（理想状態に「週 1 投稿」と自分で定義済み） | AI で下書き → 承認 → 予約投稿。**Business Profile API 承認後** |
+| | Q&A の登録・返答 | 無し | 同上（Q&A API） |
+| | 特別営業時間（祝日・年末年始） | 無し | 祝日前に通知 → 一括反映（掲載の一括登録に相乗り） |
+| | ブログ記事の月次供給 | AI ライティングは単発 | キーワード調査 → 記事案 → 原稿を毎月出す「コンテンツカレンダー」 |
+| | 掲載先の新規追加 | 媒体マスタ 30 | 媒体が増えたら既存客に「新しい登録先」として出す |
+| C. 外の変化に反応 | Google コアアップデート | 無し | 更新の直後に順位を取り直して「影響あり / なし」を出す |
+| | 診断ルールの更新 | 134 ルール + 精密診断 | ルールを増やし続ける = ツール自体が育つ（更新履歴をお客様にも見せる） |
+| | AI 検索の変化 | 日次で取れている | AI Overviews の出現率・引用元の変化 |
+| D. 報告 | **月次レポート**（PDF + メール） | 無し | 「今月の数字の変化・やったこと・来月やること」。**解約を止める場面はここ** |
+| | アラート通知 | 無し（送信サービス未契約） | 低評価・順位急落・掲載消失・サイト事故をメールで |
+
+**優先順（こちらの推奨）**: ①順位計測の週次自動化 + 推移（MEO 順位のグラフも同時に）→ ②月次レポート + メール通知（Resend 等の送信サービスが要る。入力待ちにある「低評価のメール通知」と同じ基盤）→ ③精密診断の月次再診断と差分 → ④サイトの事故監視 → ⑤GBP 投稿の自動下書き・予約（API 承認待ち）→ ⑥掲載の月次再チェック。
+理由: ①③④は既存のエンジンに Cron を足すだけで、お客様側の作業ゼロ（09-17 の方針どおり）。②が無いと①〜⑥の成果が伝わらない。
+
+**注意点**: 定期実行にすると変動費（SerpApi・DataForSEO・Places）が契約数に比例して増える。プランごとに「語数・店舗数・頻度」の上限を決めてから Cron にする。
+
+**入力待ち**: 上の①〜⑥のどれから着手するか。メール送信サービスを契約するか（Resend の無料枠 3,000 通 / 月で当面足りる）。
+
+### 2026-09-20（相談: 利用者から意見・不具合・要望を集めやすくする方法）
+
+利用者「各ユーザーから、ツールの制作者に対して、困りごと・バグ・要望を集めやすくしてほしい。どういう方法があるか」。
+
+**実測した現状**: ツールの画面に「ご意見を送る」入口が**どこにもない**（サイドバー・設定画面・上部バーとも。連絡先は規約・特商法の `contact@seo-checker.tokyo` だけ）。エラーの自動収集（Sentry 等）もメール送信サービスも未導入。Cloudflare Email Routing は受信専用なので、`contact@` から返信するには Gmail の「別のアドレスとして送信」か送信サービスが要る。
+
+**回答（8 つの方法を軽い順に提示）**: ①メールリンク（件名に画面名と版を自動付与。30 分）②外部フォーム（Google フォーム / Tally）③**アプリ内フィードバック（自前）**: 種類（不具合 / 要望 / その他）+ 本文 + スクショ任意 → Supabase の 1 テーブル → `/admin` に一覧カード（未対応 / 対応中 / 対応済み・運営者の返答）。ログイン済みなので**誰が・どの画面（pathname）・プラン・ブラウザ・動いているコミット（版）を自動で添付**でき、返答を利用者の設定画面に「ご意見の履歴」として出せばメール送信サービスなしで返事が届く。1 日 ④要望ボード（Canny / Featurebase / Nolt。投票で「何人が同じことを言っているか」）⑤サポートチャット（Crisp / Chatwoot / Tawk.to）⑥エラーの自動収集（Sentry。Vercel 連携、無料枠 5,000 件 / 月。言われる前にバグを拾う）⑦使われ方の計測（PostHog / Vercel Analytics。ポリシー追記が要る）⑧こちらから聞く（契約 2 週間後の 1 問・月次レポートの「ご意見」リンク・解約画面のひと言）。
+
+**推奨（3 段階）**: ③を本線（①はそれまでのつなぎ）→ ⑥Sentry → 要望が月 10 件を超えたら④か③に投票を足す。理由: 不具合の報告で一番抜けるのが「誰が・どの画面で・どの版で」で、ログイン済みのツール内なら全部自動で付く。返答が画面内で完結するので送信サービスを待たなくてよい。
+
+**実装するときの設計（未着手）**: テーブル `feedback`（`id` / `user_id` / `email` / `kind` / `body` / `path` / `plan` / `user_agent` / `commit` / `status` / `reply` / `created_at`。RLS 有効・ポリシー無し、service_role だけが通る他テーブルと同じ設計）。API `/api/feedback`（POST: ログイン必須・1 日の件数上限、GET: 自分の分。`/api/admin/feedback`: 一覧と状態・返答の更新）。画面: 入口（場所は入力待ち）+ `/admin` のカード + 設定画面の「ご意見の履歴」。スクショは Supabase Storage が要るので第 2 段でよい。
+
+**入力待ち**: ③で進めるか、入口の場所、スクショの有無、Sentry を同時に入れるか。
+### 2026-09-20（継続課金のための定期更新 ①〜⑥ を全部実装、r127）
+
+利用者の指示「①から順に全部やって。一旦すべて終わらせてください」（前項の相談の推奨順）。
+
+#### やったこと（共通の土台）
+
+| # | 内容 | 触ったところ |
+|---|---|---|
+| 0-1 | **日次の Cron 1 本に統合**（Vercel Hobby は Cron 2 本まで・1 日 1 回）。曜日・日付でジョブを振り分け、250 秒で打ち切って残りは次回へ。実行記録を `cron_runs` に残し、マスター画面に「定期処理（Cron）の状況」カード（次回・前回の結果・「今すぐ実行」） | `vercel.json`（`/api/cron/daily` + `geo-run` の 2 本）、`src/lib/jobs/`（types / schedule / runs / runner / registry）、`src/app/api/cron/daily/`、`src/app/api/admin/jobs/`、`src/components/admin/JobsCard.tsx`。旧 `/api/cron/maps-refresh` は手動用に残し、中身を `src/lib/maps/refresh-job.ts` へ |
+| 0-2 | **知らせ**: `notifyUser()` 1 本。`notifications` テーブル（画面の「お知らせ」）+ 設定で ON ならメール（Resend の REST を fetch で。SDK なし） | `src/lib/notifications/`（settings = ブラウザ側ストア `notificationSettings` / store / notify / types）、`src/lib/mail/`（send / format）、`src/app/api/notifications/`、設定画面の「通知」カード、マスター画面の外部連携に Resend |
+| 0-3 | **ログイン中でない利用者のプランを引く**（Cron が契約の無い人のために実費を出さない） | `src/lib/plans/user.ts`（Clerk の publicMetadata → Stripe → plan → DEFAULT_PLAN。個別開放と ADMIN_EMAILS も見る） |
+| 0-4 | 日本時間の計算を 1 か所に | `src/lib/time/jst.ts` |
+
+#### やったこと（①〜⑥）
+
+| # | 内容 | 触ったところ |
+|---|---|---|
+| ① | **順位計測の週次自動化 + 推移グラフ**: 毎週火曜 5:00 に設定のキーワードをプランの上限（ライト 30 / スタンダード 100 / プレミアム 300 語）まで SerpApi で計測し `rank_snapshots` に保存。前回より 5 位以上の下落・10 位圏外・圏外を知らせる。画面は開いたときにサーバー分を端末の履歴に取り込み（同じ語・同じ日は後勝ち）、「推移」タブに折れ線（手動と自動を同じ線に。既定 4 語、最大 6 語）。**MEO の順位推移**は毎週の報告書の `rank` から線に（マップ診断のカード 5） | `src/lib/rank/`（auto / server-store / measure-batch / job）、`src/app/api/rank/auto/`、`src/components/rank/RankTrendPanel.tsx`、`src/components/charts/LineChart.tsx`（十字線 + ツールチップ、凡例、点の形、表）、`src/lib/maps/rank-history.ts`、`src/app/api/maps/rank-history/`、`src/components/maps/RankTrendCard.tsx` |
+| ② | **月次レポート + メール**: 毎月 1 日に前月の数字（順位・MEO・AI 検索・精密診断・掲載・口コミ・投稿・お知らせの件数）を「前月の最後の値」と比べて 1 枚に。数字から「来月やること」を優先順に組み立てる。`/tools/reports`（親の直下、ライト）に月の一覧・PDF・「今すぐ作る」（前月 / 今月の途中）・お知らせの一覧 | `src/lib/reports/`（types / build = 純関数 / collect / store / job）、`src/app/api/reports/`、`src/app/tools/reports/`、`src/components/reports/ReportsTool.tsx` |
+| ③ | **精密診断の月次再診断と差分**: 前回から 30 日たったサイトを 1 日 1 件、前回と同じ条件で収集し直す（`input.source = "auto"`。月の回数は消費しない。AI のアドバイスは作らない）。「前回との比較」（直った / 悪化した: 採点・課題の件数とルール・順位・速度・DR・llms.txt・信頼）を報告書の上に出し、知らせる。履歴に「自動」バッジ | `src/lib/seo-analysis/`（diff / reanalysis / job、runs.ts に previousRun・createFailedRun・listLatestRunsAllUsers・listTopPages）、`src/app/api/seo-analysis/[id]/diff/`、`src/components/seo-analysis/DiffCard.tsx` |
+| ④ | **サイトの事故監視**: 毎週水曜に トップ + 精密診断で重要度の高いページ（最大 10）+ トップからの内部リンク（最大 30）を確認。noindex・robots.txt の全拒否・エラー・別サイトへの転送・canonical のずれ・SSL の期限（14 日前から）・リンク切れ・構造化データの崩れ・サイトマップの欠落・5 秒超。前回は無かった事故だけを知らせる。`/tools/monitor`（SEO の柱、ライト）に状態・事故の差分・ページごとの表・履歴・「今すぐ確認」（5 分に 1 回） | `src/lib/monitor/`（types / checks = 純関数 / ssl / run / store / job）、`src/app/api/monitor/`、`src/app/tools/monitor/`、`src/components/monitor/MonitorTool.tsx` |
+| ⑤ | **GBP 投稿の AI 下書き・予約投稿**: 店舗の情報と対策キーワード・季節から AI（高速モデル）が週 1 本 × N 週分の下書きを作り、予定日時を付けて「下書き」で保存。人が「承認して予約」を押したものだけを毎日 5:00 の定期処理が Business Profile API（`localPosts`）で投稿。失敗は理由つきで残して知らせる。`/tools/posts`（MEO の柱、スタンダード） | `src/lib/posts/`（types / schedule = 純関数 / store / draft / publish / job / api）、`src/lib/google/business-profile.ts`（`createLocalPost` / `toLocalPostBody`）、`src/lib/google/token.ts`（`getGoogleTokenForUser`）、`src/app/api/posts/`、`src/app/tools/posts/`、`src/components/posts/PostsTool.tsx` |
+| ⑥ | **掲載の月次再チェック**: 掲載済みで URL を控えた媒体のページを毎月 2 日に開き、店名・電話・住所が今も出ているかを確かめる（`states` に `lastCheckedAt` / `nextCheckAt` / `check`）。消えた・ずれたものを知らせる。媒体一覧に結果のバッジと「掲載を今すぐ確認する」 | `src/lib/listings/`（recheck / recheck-labels / job、profile.ts の `ListingStateSchema`）、`src/app/api/listings/recheck/`、`src/components/listings/ListingsTool.tsx` |
+| + | 口コミ支援の**低評価の回答を店舗に知らせる**（入力待ちにあった「低評価のメール通知」） | `src/app/api/r/[slug]/answers/route.ts`、`src/lib/reviews/forms.ts`（`getFormOwner`） |
+
+- サイドバー: 親の直下 = AI 検索モニタリング → **月次レポート**、SEO = 精密診断 → ページ改善 → AI ライティング → 順位計測 → **サイト監視**、MEO = マップ診断 → 口コミ → **投稿**（`registry.test.ts` を更新）。プランの線: 投稿はスタンダード（AI が本文を作る）、サイト監視と月次レポートはライト（`plans.test.ts` を更新）。
+- 推移グラフは dataviz の手順で作った。色は既存の `palette.chart` のまま（入力待ち参照）。
+- 検証: lint / tsc / test（153 ファイル・1,688 件）/ build 通過。build で 1 回 `/tools/reports` の `useSearchParams` が Suspense 無しで落ちたので `page.tsx` で包んだ。
+- 本番で動かすには **#118（SQL）・#119（Resend）・#120（Cron の確認）**。手順は上の「定期更新（r127）を本番で動かす手順」。
+- 触っていないこと: 既存の Cron `geo-run`、Stripe、Clerk。既存機能の API と画面の動きは変えていない（順位計測の画面にサーバー分の取り込みと「推移」タブ、精密診断に「前回との比較」と「自動」バッジ、掲載の媒体一覧に確認の結果、マップ診断にカード 5 を足しただけ）。
+
+### 2026-09-20（ご意見・不具合の報告を実装、r128）
+
+利用者「#3 で進めてください」（09-20 の相談の ③ = アプリ内フィードバック）。入口の場所などは判断待ちにせず、こちらで決めて進めた。
+
+**決めたこと（利用者に確認していない。変えたければ言ってもらう）**
+- **入口はトップバーの右（ログイン状態の左隣）**。どのツール画面でも同じ場所にあり、スマホでもアイコンで出る。サイドバー下だとスマホではドロワーを開かないと見えず、右下の常設ボタンは PDF 化やレポートの操作と重なるため。
+- **スクショ添付は今回入れない**（Supabase Storage が要る。要望が出たら第 2 段）。
+- **Sentry も入れない**（別の判断。入力待ちに残した）。
+- 種類は 4 つ（不具合の報告 / こうしてほしい（要望）/ 使い方の質問 / その他のご意見）。1 人 1 日 20 件まで（プロセス内の簡易カウンタ）。代理ログイン中は 403（お客様の名前で記録が残るため。決済 API と同じ扱い）。
+
+**作ったもの**
+- `src/lib/feedback/types.ts`（種類・状態・zod・行 → 記録・UA の短縮・並び順。純関数）、`store.ts`（Supabase `feedback`。本人は `user_id` で絞る、運用者は全件）、テスト 7 件。
+- `/api/feedback`（GET 自分の履歴 50 件 / POST 送信。メール・表示名（会社名 → 担当者名 → 氏名）は Clerk、プランは判定結果、ブラウザは User-Agent ヘッダ、版は `buildInfo().commit` と `releaseCount()` をサーバーが付ける。ブラウザから来るのは種類・本文・開いていた画面のパスだけ）。
+- `/api/admin/feedback`（GET 一覧 300 件 `?status=` / PATCH 状態・返答。`requireAdmin`、他は 404）。
+- 画面: `src/components/feedback/FeedbackDialog.tsx`（トップバーのボタン + モーダル。Escape・フォーカストラップ・送信後の完了表示）、`FeedbackHistoryCard.tsx`（設定画面「ご意見の履歴」。返答つき）、`src/components/admin/FeedbackCard.tsx`（マスター画面。状態の切替・返答の編集。返答を書くと未対応 → 対応中に自動で進む。誰が / 画面 / プラン / ブラウザ / 版を 1 行で表示）。
+- マスター画面はサーバーで読んで渡す。Supabase 未設定や **テーブル未作成（404）のときはカードの中に理由を出す**だけで、画面全体は止めない。
+- README（設定・マスター画面）と ARCHITECTURE（設定の行・Supabase の行・ディレクトリ）を更新。
+
+**検証**: lint / tsc / test（1,642 件）/ build 通過。`next start` で `/api/feedback` が Supabase 未設定時に 503、`/api/admin/feedback` が非管理者に 404 を返すこと、Playwright でモーダル・設定画面のカード・スマホ表示を目視。
+
+**利用者にお願いすること**: 残タスク #122（Supabase で SQL を実行 → 本番で 1 件送って `/admin` と `/settings` を確認）。
+### 2026-09-20（r127 の SQL を会話に貼った）
+
+- 利用者「1 の SQL はどれ」→ 上の「定期更新（r127）を本番で動かす手順」の SQL（6 テーブル）をそのまま会話に貼り、Supabase の SQL Editor での実行をお願いした（#118）。実行の報告待ち。
+
+### 2026-09-20（調査: robots.txt と AI クローラのブロック確認は診断に入っているか）
+
+利用者の質問「クイック診断と精密診断で、robots.txt がちゃんと設定できているか、AI のクローリングをブロックしていないかの確認は、コードを見ただけで分かるか。診断に簡単に取り入れられるか、もう入っているか」への回答。**コードは触っていない（調査のみ）。**
+
+**結論: 判定はできるし、主要な部分はすでに入っている。**robots.txt はサイトのルートに置かれた公開テキストなので、取得して `robots-parser` に渡せば「どの User-agent がどの URL を取得できるか」は機械的に判定できる。取得（`fetchSiteFiles`）も判定（`evaluateRobots` / `evaluateAiBots`）も実装済み。
+
+**いま入っているもの**
+
+| どこ | 何を見ているか | 採点 | コード |
+|---|---|---|---|
+| クイック診断 | 検索用 AI クローラ 5 種（OAI-SearchBot / ChatGPT-User / Claude-SearchBot / Claude-User / PerplexityBot）がこの URL を取得できるか | 配点 3（全滅なら fail、一部なら warn） | `analyzer/robots.ts` の `ai-crawlers-allowed` |
+| クイック診断 | 学習用 5 種（GPTBot / ClaudeBot / Google-Extended / Applebot-Extended / CCBot）の拒否状況 | 配点 0（参考表示。学習拒否は正当な経営判断なので減点しない） | `ai-crawlers-training` |
+| クイック診断 | `meta robots` / `X-Robots-Tag` の noindex、llms.txt の有無 | 配点 2 / 1 | `noindex`、`llms-txt` |
+| 精密診断 | robots.txt が無い / sitemap.xml が無い / サイトマップの中身（404 の URL・未掲載ページ） | 課題として検出 | `audit/rules/cross.ts` の `ROBOTS_MISSING`・`SITEMAP_MISSING` |
+| 精密診断 | ページごとに Googlebot が robots.txt で拒否されていないか | 課題として検出（意図した拒否は除外） | `audit/rules/page.ts` の `ROBOTS_BLOCKED` |
+| 精密診断 | トップページのクイック診断の点（カテゴリ「AI クローラ可否」20 点ぶん）も同時に出す | 事実シートに点数のみ | `seo-analysis/collect.ts` の `quickScore` |
+| （参考） | AI ボット 20 種の一覧表（Googlebot・Bingbot・Bytespider・meta-externalagent なども含む） | 表示のみ | `page-report/robots.ts` の `evaluateAiBots`（HP 改修提案が使用。サイドバーからは非表示） |
+
+**足りていないもの（やるなら小さい追加。判定の土台はもうある）**
+
+1. **クイック診断に Googlebot / Bingbot が入っていない。**`AI_CRAWLERS` は AI 系 10 種だけ。`User-agent: *` の `Disallow: /` は AI 側の判定に巻き込まれて拾えるが、`User-agent: Googlebot` を名指しで拒否しているサイトは**クイック診断では素通りする**（精密診断なら `ROBOTS_BLOCKED` で出る）。
+2. **クイック診断に「robots.txt がある / 無い」の項目が無い。**AI クローラ判定の根拠文（「robots.txt が無いため、すべてのクローラが許可されています」）に出るだけで、独立した項目になっていない。
+3. **robots.txt が HTML を返す誤設定が「無い」と同じ扱い。**`fetchSiteFiles` は HTML っぽい応答を `null` にするので、404 ページを返す設定ミスも「robots.txt 無し = 全部許可」になり、クイック診断では減点ゼロ。
+4. **Sitemap: 行の有無を見ていない。**精密診断は sitemap.xml が定番の場所で見つかれば課題にしないので、「robots.txt に Sitemap 行が無い」は誰も指摘しない。
+5. **書式の誤りを検出していない。**`User-agent` の無い `Disallow`、綴り間違い（`Dissallow`）、全角スペース、BOM、`Disallow: *.css` のような CSS/JS のブロック（レンダリング阻害）は素通り。
+6. **精密診断の `ROBOTS_BLOCKED` は Googlebot だけ。**AI 検索用クローラだけが拒否されているページは、精密診断の課題一覧には出ない（トップの採点には出る）。
+
+**見積もり**: 1〜4 と 6 は `analyzer/robots.ts` に項目を足し、`report/weights.ts` に配点を書き、テストを足すだけ（UI は項目を自動で並べるので画面の改修は不要）。半日程度。5 の書式チェックは自前のパーサが要るので別途 1 日程度。
+
+→ **利用者の指示「1〜6 全部入れて」で同日に実装した（r130）。**下の作業ログを参照。
+### 2026-09-20（#118 完了: r127 の SQL を実行）
+
+- 利用者が Supabase の SQL Editor で r127 の SQL（6 テーブル）を実行し「Success. No rows returned」。Table Editor の画面で `monthly_reports` / `notifications` / `rank_snapshots` / `site_monitor_snapshots` を確認（`cron_runs` / `gbp_posts` はアルファベット順で画面の上にあり、写っていないが同じ SQL の中）。
+- 残り: #19（`CRON_SECRET` を Vercel に登録 → Redeploy → Cron Jobs に `/api/cron/daily` と `/api/cron/geo-run`）、#119（Resend。手順の表の 3〜8）、#120（マスター画面で各ジョブを「今すぐ実行」）。別セッションの r128（ご意見・不具合の報告）の `feedback` テーブルの SQL も未実行なら実行する。
+
+### 2026-09-20（定期処理の本番確認 → 「次回」の表示の不具合を修正、r129）
+
+- 利用者がマスター画面の「定期処理（Cron）の状況」で**サイトの事故監視を「今すぐ実行」→ 成功**（22:52。利用者 2 人・確認 2 サイト・事故 2 件・知らせ 1 件。`cron_runs` にも記録された）。r127 の土台（ジョブの実行・記録・お知らせ）が本番で動いた最初の確認。#118（SQL）は完了、#120 は一部完了。
+- 画面で**毎日のジョブ（投稿の送信・自動再診断）の「次回」が 2026-09-27 と 1 週間後**になっているのを発見。原因: `schedule.ts` の `daily().next` が曜日の関数（`nextWeekdayAtJst`）を使っていて、きょうの 5:00 を過ぎると「来週の同じ曜日」を返していた。表示だけの問題で、Cron 自体は毎日動く（`vercel.json`）。あす 5:00 を返すように直し、テストを 3 件追加（r129）。lint / tsc / test（1,696 件）/ build 通過。
+- 残り: #19 が済んでいれば火曜 5:00 に順位計測が自動で動く。#119（Resend）はまだ。見つかった事故 2 件の中身は `/tools/monitor`（各利用者の画面）で見られる。
+
+### 2026-09-20（法人番号 Web-API の URL を受け取った。この環境からは開けない）
+
+- 利用者が https://www.houjin-bangou.nta.go.jp/webapi/ を貼った（別セッション 09-19 の提案「法人番号 Web-API で NAP の正本を国の一次情報で検証し、`sameAs` の URL を自動生成する」の続き。その提案はブランチ `claude/clever-pasteur-82da6k` のメモにあり、**main には未マージ**）。
+- **この環境からは国税庁のサイト（`www.houjin-bangou.nta.go.jp`）も API（`api.houjin-bangou.nta.go.jp`）も開けない**（ネットワークの出口で 403。curl と WebFetch の両方で確認）。ページの一次情報（利用届出の方法・発行日数・利用条件・現行バージョン）はこちらでは確かめられないので、利用者に画面で確認してもらう。記憶では: 利用届出は画面のフォーム、アプリケーション ID はメールで発行、無料、v4 は `/4/num`（法人番号指定）・`/4/name`（法人名指定）・`/4/diff`（差分）、応答は CSV / XML — **すべて未確認**。
+- 実装は判断待ち（このセッションで作るか、提案した別セッションで作るか）。作るなら環境変数 `HOUJIN_BANGOU_APP_ID`、`src/lib/houjin/`（会社名 → 法人番号・正式な商号・本店所在地）、掲載タブの「表記ゆれの確認」に登記の値を並べ、構造化データの `sameAs` に法人番号公表サイトと gBizINFO の URL を足す。個人事業（御社を含む）には法人番号が無いので、法人のお客様だけ。
+- **注意（引き継ぎ）**: `claude/clever-pasteur-82da6k` には main に無いコミットが 9 件ある（掲載を 7 媒体に絞る・投稿（「最新情報」を AI の下書きから投稿）・r127 / r128 の追加）。**投稿は r127（このセッション、`/tools/posts`）と重なり、リリース番号も main の r127〜r129 とぶつかる。**そのブランチを main に入れるときは、投稿の重複と `releases.json` の番号を手で整理すること。
+- → **同日の利用者の決定で、法人番号 Web-API を含む「入力を補助する機能」は作らない・後回しになった**（判断の経緯 09-20）。代わりに「登録されている内容がずれていないか」を見る NAP チェック（r131）を作った（下の作業ログ）。
+
+### 2026-09-20（利用者に feedback テーブルの SQL を渡した）
+
+利用者「Supabase の SQL を教えて、コピペ用の」→ 上の「ご意見・不具合の報告のテーブル（r128）」の SQL をそのまま渡した（#122 の ①）。実行の報告待ち。
+
+### 2026-09-20（SQL Editor の画面から何をするかを案内）
+
+利用者が Supabase の SQL Editor を開いた状態で「この画面からどうするの」。画面のエディタには **09-15 に実行済みの古いクエリ**（`alter table analysis_runs add column if not exists audit jsonb;`。#78 の 1b）が残っていたので、「全選択して消す → feedback の SQL を貼る → 枝が main / PRODUCTION であることを確認 → Run → Success. No rows returned」を表（# / サービス・画面 / URL / やること）で案内した。実行の報告待ち（#122 の ①）。
+
+### 2026-09-20（feedback テーブルの作成が完了、#122 の ①）
+
+利用者が Supabase の SQL Editor（`main` / PRODUCTION）で r128 の SQL を実行し、**Success. No rows returned**。`feedback` テーブルと索引 2 本ができ、RLS は有効（ポリシー無し = service_role だけが通る。他のテーブルと同じ）。
+
+**残り**: #122 の ②〜④（本番で 1 件送る → `/admin` に出ること・状態と返答を書けること → `/settings` の「ご意見の履歴」に返答が出ること）。Vercel の自動デプロイが終わっていれば、すぐ試せる。
+
+### 2026-09-20（robots.txt の診断強化、r130）
+
+利用者の指示「1 から 6 全部入れて、修正して、メインにマージして」（同日の調査で挙げた 6 つの穴）。
+
+**クイック診断に 4 項目を追加**（カテゴリ「AI クローラ可否」→ 名前を **「AI・検索クローラ可否」** に変更。実態に Googlebot とサイトマップが入ったため）
+
+| 項目 ID | 配点 | 判定 |
+|---|---|---|
+| `robots-txt` | 1 | 置かれていれば pass / 404 は warn（クロールは止まらない）/ **HTML が返る誤設定**と **5xx** は fail |
+| `robots-syntax` | 1 | 書式の誤り。効かない行があれば fail、気になる書き方だけなら warn。robots.txt が無いページでは項目自体を出さない |
+| `search-crawlers-allowed` | 3 | **Googlebot / Bingbot** の可否。両方拒否なら fail、片方なら warn |
+| `robots-sitemap` | 1 | robots.txt に `Sitemap:` 行があれば pass / `/sitemap.xml` だけなら warn / どちらも無ければ fail |
+
+書式チェック（`src/lib/analyzer/robots-syntax.ts`、純関数）が見るもの: 綴り間違い（`Dissallow` など。編集距離 2 以内なら error）・認識されない名前（warn）・全角の空白と全角コロン・`User-agent` より前の `Disallow`・「名前: 値」になっていない行・絶対 URL を書いた `Disallow`・`/` で始まらない値・**CSS / JS のブロック**（描画を妨げるので error）・絶対 URL でない `Sitemap`・BOM・`User-agent` の値が空・500KB 超（warn）・廃止された `Noindex`（warn）・`Crawl-delay`（info。減点しない）。**robots-parser は誤った行を黙って読み飛ばす**ので、可否の判定だけでは「書いたのに効いていない」状態に気づけない、というのがこの項目を足した理由。
+
+**精密診断（サイト診断のルール）**
+- `AI_CRAWLER_BLOCKED`（新）: Googlebot は許可しつつ **AI 検索用クローラだけ**を拒否しているページを警告に（もともと検索に載せないページは情報に留める）。ルール関数は `ruleRobotsBlocked` のままで、関数の数は増やしていない
+- `ROBOTS_MISSING`: HTML が返る誤設定と 5xx を**重大**として区別（それ以外の不在は従来どおり警告）
+- `ROBOTS_SYNTAX`（新）: 書式の誤りを課題として出す（クイック診断と同じ判定を共有）
+- `SITEMAP_MISSING`: サイトマップはあるのに robots.txt に `Sitemap:` 行が無い場合を情報として追加
+- 「専門家のアドバイス」に渡す事実文にも AI 検索用クローラの行を追加（`audit/summary.ts`）
+
+**土台の変更**
+- `SiteFiles` に `robots`（HTTP ステータス・HTML 判定・文字数）と `sitemapXml`（定番の場所の有無）を追加。`fetchSiteFiles` が `/sitemap.xml` も確認する（**有無だけなので 256KB で打ち切る**。打ち切りに達したら「ある」と扱う）
+- 任意ファイルの取得失敗（3MB 超・転送先が内部アドレスなど）で診断全体が落ちないよう `optionalFetch` で包んだ（これまでは llms.txt が巨大だとクイック診断ごと失敗し得た）
+
+**採点への影響（利用者に伝えること）**: このカテゴリの配点合計が 6 → 12 点になったため、**既存項目（AI クローラ・noindex・llms.txt）のカテゴリ内の比重は従来の約半分**になる。同じサイトでも r130 を境に「AI・検索クローラ可否」の点は変わる。カテゴリ全体の重み 20 点は据え置き。
+
+**検証**: lint / tsc / test（156 ファイル・1,744 件。新規 41 件）/ build 通過。実際の HTTP を使う E2E（`site-files-e2e.test.ts`）をダミーサイトに対して追加し、robots.txt と sitemap.xml の取得から判定までがつながっていることを確認した。
+
+**触っていないこと**: ページ最適化レポート（`page-report/robots.ts` の AI ボット 20 種の表）は従来のまま。MEO・決済・Clerk・Supabase まわりは無変更。
+
+### 2026-09-20（ご意見・不具合の報告を本番で確認、#122 完了）
+
+利用者「この機能は正しく使えた」。r128 のご意見・不具合の報告が本番で通しで動いた（送信 → `/admin` に表示 → 状態・返答 → `/settings` の「ご意見の履歴」）。**#122 は完了**、状態の表にも「稼働中」で載せた。
+
+**この機能で次にできること（要望が出たら）**: ①新着のメール通知（r127 の `notifyUser()` と Resend にそのまま乗せられる。入力待ち）②スクショ添付（Supabase Storage）③同じ要望の件数（投票）④Sentry（エラーの自動収集。言われる前に不具合を拾う）。
+
+### 2026-09-20（Business Profile API の再申請。落ちていた理由が 2 つ見つかった）
+
+利用者「Google ビジネスプロフィールの API を申請したはずだが、うまくできていたか心配。もう一度申請したい。急ぎたい」。→ **再申請に賛成。ただし今のまま同じフォームを出しても同じ結果になる。**受信箱と申請の要件を調べ直したところ、**落ちる原因が 2 つ**見つかった。
+
+**① プロフィールの確認が未完了（これが最有力の原因）**
+
+`wolf@wolf-info.org` の受信箱に **09-19 13:08（UTC）** の未読メール。送信元 `businessprofile-noreply@google.com`、件名「株式会社Wolf 様のアカウントでは、アカウントのご確認のために追加のお手続きを完了していただく必要がございます」。本文は「お客様が『株式会社Wolf』の管理者であることを確認するため、追加の情報のご提供をお願いいたします」「**編集内容を公開するには、プロフィールの確認を完了していただく必要がございます**」。確認 URL は https://business.google.com/n/4773232117026925181/profile/verify 。
+
+Business Profile API の前提条件の 1 番目は「**確認済み（verified）で 60 日以上稼働しているプロフィール**」。確認が外れている状態で申請すると、審査側から見て前提を満たさないので自動的に却下される。**この確認を終えるのが最優先。**
+
+**② 前回の申請を「管理者」アカウントで送っていた**
+
+09-11 の申請は `matsumatsu452@gmail.com` で送信した（OPERATIONS の記録どおり）。だが 09-09 のメール「まつした さんが『株式会社Wolf』の管理者になりました」のとおり、このアカウントは**管理者（manager）**で**オーナー（owner）ではない**。オーナーは `wolf@wolf-info.org` 側。申請フォームは**オーナー権限のアカウントでログインして送る**のが通過条件とされており（管理者アカウントからの申請は弾かれるという報告が複数。2026 時点の解説記事で確認）、審査対象は「ログイン中のアカウント」なので、管理者で出した申請はプロフィールの実在確認に失敗する。**再申請は `wolf@wolf-info.org` で送る。**
+
+**やること（利用者の作業。詳細・コピペ用の記入内容は [google-oauth-verification.md](./google-oauth-verification.md) §5）**
+
+1. プロフィールの確認を完了（https://business.google.com/n/4773232117026925181/profile/verify ）
+2. `wolf@wolf-info.org` でログインして申請フォームを送り直す（https://support.google.com/business/contact/api_default → Application for Basic API Access）
+3. 前回のケース `0-4126000041187` に督促メール（英文は §5-3）
+
+**§5 に追加したもの**: 5-0 潰すべき 2 点 / 5-1 手順表 6 行（URL つき）/ 5-2 フォームの記入内容と用途説明の英文（Performance API の用途を追記し、前回ケースとの関係も末尾に書いた）/ 5-3 督促の英文 / 5-4 承認後に足すコードは無いことの確認表。
+
+**Claude 側は何も待っていない。**口コミの取得・返信（r37）、Google での見られ方（r97）、GBP への予約投稿（`src/lib/posts/`）はすべて実装・検証済みで、承認が下りれば **v4 を有効化するだけで動き出す**（Performance / Account Management / Business Information は有効化済み）。
+
+**注意**: 「確認済みで 60 日以上」の 60 日について、いま再確認を求められているため「確認済みになった日」がいつ扱いになるかは Google にしか分からない。推測で動かず、確認を完了させて申請し、却下されたら理由を見て判断する。
+
+ドキュメントのみの更新（コード変更なし）。
+
+### 2026-09-20（NAP チェック（表記ゆれの検出）を追加、r131）
+
+利用者の決定: 「入力を補助するような機能はやっぱりいらない。実装コストが高いのとすぐに実装できないので後回しにする。それより**登録されている内容がずれてないかを主機能にしたい**。網羅的な登録チェックは原理的に完成しない。表記揺れの検出は**一致か不一致しかないのでごまかしが効かない**」「自社サイトの NAP 構造化データ、Google マップ、Apple マップ、Yahoo マップ、ポータル電話帳などに書かれたデータが一致しているかをチェックできる機能」「入力項目は 4 つだけ。店名・住所・電話・サイトの URL。サイトを取得してフッターや会社概要・お問い合わせページから NAP を抽出し、事前に入力したものと一致か不一致かを評価。出力は直すべき箇所リスト」。
+
+**作ったもの**: `/tools/nap`（サイテーションの柱の先頭、ライト。機能 ID `nap`）
+
+| 見る媒体 | どう取るか | 要るもの |
+|---|---|---|
+| 自社サイト | トップページを取り、会社概要・会社案内・お問い合わせ・アクセス・店舗情報などへのリンク（文言とパスで採点）を最大 4 ページ辿る。構造化データ（JSON-LD の Organization / LocalBusiness 系。`@graph` や `publisher` の中も）は「1 つの媒体」、各ページのフッター・本文は「ページごと」に判定 | なし（SSRF 対策つきの `fetchText`） |
+| Google マップ | MEO の自社店舗の保存済み報告書に同じ店（法人格・空白の違いは無視）があればそれ（API を呼ばない）。無ければ Places で「店名 + 住所」を検索し、同じ店の詳細を 1 回取る（Enterprise + Atmosphere 区分） | `GOOGLE_PLACES_API_KEY`（無ければ「確認していない」と注意書き） |
+| 掲載ページ（控えた URL） | 「掲載」タブで掲載済みの媒体に控えた URL（`listing_profiles.states[*].url`）を全部開く | Supabase |
+| ウェブ検索で見つかった媒体 | DataForSEO で「店名 + 電話」「店名 + 住所」の 2 回検索し、既知の媒体（Yahoo!ロコ・iタウンページ・食べログなど）と、検索結果の文中に電話か住所が出ているページを最大 6 件開く。自社サイト・Google マップ・Apple マップ・SNS は開かない（JS 描画で本文が取れない） | `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` |
+
+**判定のルール（`src/lib/nap/compare.ts`、テストで固定）**
+- 一致とみなす表記ゆれ: 全角 / 半角、空白・中黒、ハイフンの種類、法人格の略記（(株)・㈱ ⇔ 株式会社）、丁目 / 番地 / 号 ⇔ ハイフン、〒 と「日本、」の有無、都道府県の省略、URL のスキーム・www・末尾のスラッシュ・大文字
+- 不一致（fail）: 上記以外の違い。店名は「法人格の有無が違う」「支店名・屋号の付け方が違う」「別の名前」を理由つきで。住所は「番地までは一致するが建物名・階が違う」「番地の書き方が違う」「別の住所」。電話は「別の番号」「複数の番号が書かれていてどれも違う」
+- 記載なし（warn）: その項目が読めない。「載っていない」と「画像や JS で描かれていて読めない」の両方を含む、と画面で必ず添える
+- 要確認（warn）: 建物名・階が書かれていない（一致扱いのまま）、Google マップの URL のページが違う、ページを取得できなかった
+- 自社ページの「サイト URL」は自分のページなので比べない。ウェブで見つけたページに自社サイトのリンクが無いのは出さない（ディレクトリはリンクを載せないことが多い）
+
+**出力**: ①直すべき箇所（不一致 → 要確認の順。同じ重さなら 構造化データ → 自社ページ → Google マップ → 掲載ページ → ウェブ の順 = 自分で直せるものが上。直し方と URL つき。CSV）②媒体ごとの突き合わせ表（4 項目 × 媒体。セルに書かれている値）③構造化データが無い・ずれているサイトに貼る JSON-LD（`toJsonLd` を再利用。〒 は `postalCode` に分ける）④確認していないこと（キー未設定・時間切れ・**Apple マップ / Yahoo!マップ / Bing は目視**）⑤履歴（ブラウザ側ストア `napHistory`、直近 10 回。`user_stores` にも写る）
+
+**API**: `POST /api/nap/check`（`src/app/api/nap/check/route.ts`。ライト。同じ利用者は 1 分に 1 回、80 秒で打ち切り、`maxDuration` 120）。費用は Places の詳細 1 回（保存済み報告書があれば 0）+ DataForSEO 2 回（数円）。外部ページの取得は 1 ページ 12 秒・2MB まで。
+
+**コード**: `src/lib/nap/`（`types` 型 / `compare` 正規化と突き合わせ / `extract` HTML から NAP / `site` 自社サイト / `google` Google マップ / `media` 掲載ページとウェブ / `report` 直すべき箇所・集計・JSON-LD / `store` 履歴）、`src/components/nap/NapTool.tsx`、`src/app/tools/nap/page.tsx`。機能一覧に `nap`（`optional: places / dataforseo / supabase`）、契約テスト（registry / plans / routes）・README・ARCHITECTURE・tool-map を更新。テスト 34 件。
+
+**検証**: lint / tsc / test（162 ファイル・1,778 件）/ build 通過。**本番の実サイトでの通し確認は未（#123）。**この環境から外部サイトへは出られないので、実際の HTML での抽出精度（フッターの住所の切り出し、会社概要ページの発見）は本番で確かめる。
+
+**できないこと・注意**: Apple マップ・Yahoo!マップ・Bing のページは JS 描画で本文が取れず、API も契約が要る（Apple Business Connect / LINEヤフー / Bing は CSV のみ）ので自動では見ない。画面の注意書きで管理画面の目視を頼む。Google マップは公開情報（Places）なのでオーナー権限は不要。判定は「一致 / 不一致 / 記載なし」をそのまま出し、スコアや点数にはしない（利用者の意図「ごまかしが効かない」）。
+
+**触っていないこと**: 掲載（サイテーション・基本情報掲載）・定期更新（r127）・決済・Clerk は変更なし。法人番号 Web-API は作らない（判断の経緯）。別セッションのブランチ `claude/clever-pasteur-82da6k` は引き続き未マージ。
 
 ### 2026-09-19（相談: 掲載の手順が顧客には多すぎる / SNS 連携と他の AIO 施策）
 

@@ -17,7 +17,9 @@ function siteFiles(overrides: Partial<SiteFiles> = {}): SiteFiles {
   return {
     origin: "https://example.test",
     robotsTxt: "User-agent: *\nAllow: /\n",
+    robots: { status: 200, html: false, length: 22 },
     sitemaps: [],
+    sitemapXml: { present: false, status: 404 },
     llmsTxt: { present: true, length: 420, status: 200 },
     llmsFullTxt: { present: false, length: 0 },
     ...overrides,

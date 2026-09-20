@@ -1,111 +1,82 @@
 /**
- * /api/posts … Google ビジネス プロフィールへの投稿（最新情報）。ログイン必須。
+ * /api/posts … Google ビジネス プロフィールの投稿。ログイン必須（スタンダード）。
  *
- * GET    ?locationName=…[&pageToken=…] → { posts, nextPageToken }
- * POST   { locationName, summary, action?, url?, photoUrl? } → { post }
- * DELETE { postName }
- *
- * 投稿は口コミ返信と同じ business.manage スコープで送れる（My Business v4）。
- * Business Profile API の利用申請（#5）が承認されるまでは 403 になり、
- * business-profile.ts の 403 の案内がそのまま画面に出る。
+ *   GET  ?placeId=  → { enabled, stores, google, aiEnabled, posts, nextRunAt }
+ *   POST { placeId, ...PostInput } → 手で 1 本作る（scheduledAt があれば予約済み、無ければ下書き）
  */
 import { z } from "zod";
-import { requireAuth } from "@/lib/auth/guard";
-import { createLocalPost, deleteLocalPost, isLocalPostName, isLocationName, listLocalPosts, type BpLocalPost } from "@/lib/google/business-profile";
-import { googleErrorResponse } from "@/lib/google/errors";
-import { LOCAL_POST_ACTIONS, LOCAL_POST_SUMMARY_MAX, actionNeedsUrl } from "@/lib/posts/constants";
+import { isAuthEnabled } from "@/lib/auth/config";
+import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
+import { canUse } from "@/lib/google/scopes";
+import { getGoogleConnection } from "@/lib/google/token";
+import { scheduleOf } from "@/lib/jobs/schedule";
+import { isAnthropicEnabled } from "@/lib/llm/anthropic";
+import { listStores } from "@/lib/maps/stores";
+import { badRequest, NO_STORE, PLACE_ID, PostInputSchema, readJson, requirePostsUser } from "@/lib/posts/api";
+import { validatePost } from "@/lib/posts/schedule";
+import { insertPosts, listPosts } from "@/lib/posts/store";
+import type { GbpPost } from "@/lib/posts/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const PHOTO_URL_MAX = 500;
-
-const CreateSchema = z
-  .object({
-    locationName: z.string().refine(isLocationName, "ビジネスの指定が正しくありません"),
-    summary: z.string().trim().min(1, "投稿の本文を入力してください").max(LOCAL_POST_SUMMARY_MAX, `投稿は ${LOCAL_POST_SUMMARY_MAX} 文字までです`),
-    action: z.enum(LOCAL_POST_ACTIONS).nullable().default(null),
-    url: z.string().trim().max(PHOTO_URL_MAX).default(""),
-    photoUrl: z.string().trim().max(PHOTO_URL_MAX).default(""),
-  })
-  // 「詳細」「予約」などは押したときの行き先が要る（CALL だけは電話番号を使うので URL 無し）
-  .refine((v) => !v.action || !actionNeedsUrl(v.action) || v.url.length > 0, {
-    message: "ボタンを付けるときはリンク先の URL を入力してください",
-    path: ["url"],
-  })
-  .refine((v) => !v.url || /^https:\/\//.test(v.url), { message: "リンク先は https:// で始まる URL を入力してください", path: ["url"] })
-  .refine((v) => !v.photoUrl || /^https:\/\//.test(v.photoUrl), { message: "写真は https:// で始まる URL を入力してください", path: ["photoUrl"] });
-
-const DeleteSchema = z.object({
-  postName: z.string().refine(isLocalPostName, "投稿の指定が正しくありません"),
-});
-
-export interface PostsListResponse {
-  posts: BpLocalPost[];
-  nextPageToken: string | null;
+export interface PostsResponse {
+  enabled: boolean;
+  stores: { placeId: string; name: string }[];
+  google: { authEnabled: boolean; connected: boolean; hasScope: boolean; email: string | null };
+  aiEnabled: boolean;
+  posts: GbpPost[];
+  nextRunAt: string;
 }
-
-export interface PostsCreateResponse {
-  post: BpLocalPost | null;
-}
-
-async function readJson(request: Request): Promise<unknown | Response> {
-  try {
-    return await request.json();
-  } catch {
-    return Response.json({ error: "リクエスト形式が不正です" }, { status: 400 });
-  }
-}
-
-const NO_STORE = { "cache-control": "no-store" } as const;
 
 export async function GET(request: Request) {
-  const denied = await requireAuth({ feature: "posts" });
-  if (denied) return denied;
-  const url = new URL(request.url);
-  const locationName = url.searchParams.get("locationName") ?? "";
-  if (!isLocationName(locationName)) return Response.json({ error: "ビジネスの指定が正しくありません" }, { status: 400 });
+  const userId = await requirePostsUser();
+  if (userId instanceof Response) return userId;
+  const placeId = new URL(request.url).searchParams.get("placeId");
+  if (placeId !== null && !PLACE_ID.test(placeId)) return badRequest("店舗の ID が正しくありません");
+  const body: PostsResponse = {
+    enabled: isSupabaseConfigured(),
+    stores: [],
+    google: { authEnabled: isAuthEnabled(), connected: false, hasScope: false, email: null },
+    aiEnabled: isAnthropicEnabled(),
+    posts: [],
+    nextRunAt: scheduleOf("gbp-posts").next(new Date()).toISOString(),
+  };
+  if (!body.enabled) return Response.json(body, { headers: NO_STORE });
   try {
-    const page = await listLocalPosts(locationName, url.searchParams.get("pageToken"));
-    const body: PostsListResponse = page;
-    return Response.json(body, { headers: NO_STORE });
+    body.stores = (await listStores(userId)).filter((s) => s.role === "own").map((s) => ({ placeId: s.placeId, name: s.name }));
+    body.posts = await listPosts(userId, placeId ?? undefined);
   } catch (err) {
-    return googleErrorResponse(err);
+    return dbErrorResponse(err);
   }
+  if (body.google.authEnabled) {
+    const conn = await getGoogleConnection();
+    body.google = { authEnabled: true, connected: conn.connected, hasScope: conn.connected && canUse(conn.scopes, "business-profile"), email: conn.email ?? null };
+  }
+  return Response.json(body, { headers: NO_STORE });
 }
 
+const CreateSchema = PostInputSchema.extend({ placeId: z.string().regex(PLACE_ID, "店舗の ID が正しくありません") });
+
 export async function POST(request: Request) {
-  const denied = await requireAuth({ feature: "posts" });
-  if (denied) return denied;
+  const userId = await requirePostsUser();
+  if (userId instanceof Response) return userId;
+  if (!isSupabaseConfigured()) return Response.json({ error: "投稿の保存には Supabase の設定が必要です", code: "not_configured" }, { status: 503, headers: NO_STORE });
   const raw = await readJson(request);
   if (raw instanceof Response) return raw;
   const parsed = CreateSchema.safeParse(raw);
-  if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "入力が正しくありません" }, { status: 400 });
-  const d = parsed.data;
+  if (!parsed.success) return badRequest(parsed.error.issues[0]?.message ?? "入力が正しくありません");
+  const { placeId, ...input } = parsed.data;
   try {
-    const post = await createLocalPost(d.locationName, {
-      summary: d.summary,
-      cta: d.action ? { actionType: d.action, url: d.url } : null,
-      photoUrl: d.photoUrl,
-    });
-    const body: PostsCreateResponse = { post };
-    return Response.json(body, { headers: NO_STORE });
+    const own = (await listStores(userId)).some((s) => s.role === "own" && s.placeId === placeId);
+    if (!own) return Response.json({ error: "その店舗は MEO の自社店舗に登録されていません" }, { status: 404, headers: NO_STORE });
+    if (input.scheduledAt) {
+      const errors = validatePost(input);
+      if (errors.length > 0) return badRequest(errors.join("。"));
+    }
+    const [post] = await insertPosts(userId, placeId, [{ ...input, status: input.scheduledAt ? "scheduled" : "draft" }]);
+    return Response.json({ post }, { status: 201, headers: NO_STORE });
   } catch (err) {
-    return googleErrorResponse(err);
-  }
-}
-
-export async function DELETE(request: Request) {
-  const denied = await requireAuth({ feature: "posts" });
-  if (denied) return denied;
-  const raw = await readJson(request);
-  if (raw instanceof Response) return raw;
-  const parsed = DeleteSchema.safeParse(raw);
-  if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "入力が正しくありません" }, { status: 400 });
-  try {
-    await deleteLocalPost(parsed.data.postName);
-    return new Response(null, { status: 204, headers: NO_STORE });
-  } catch (err) {
-    return googleErrorResponse(err);
+    return dbErrorResponse(err);
   }
 }

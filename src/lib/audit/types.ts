@@ -149,6 +149,12 @@ export interface AuditPage {
   jsonLd: JsonLdInfo;
   /** robots.txt が Googlebot にこの URL を許可しているか */
   robotsAllowed: boolean;
+  /**
+   * robots.txt が拒否している AI 検索用クローラ（OAI-SearchBot / PerplexityBot /
+   * Claude-SearchBot など）。Googlebot は許可しつつ AI だけ拒否しているサイトがあり、
+   * その状態は robotsAllowed では見えない。
+   */
+  aiCrawlersBlocked: string[];
 
   /* ---- サイトの構成・信頼の分析に使う項目（r55〜）。ルールは参照しない ---- */
 

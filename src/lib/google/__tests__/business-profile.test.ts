@@ -2,26 +2,18 @@
  * Business Profile API クライアント: 応答の解析（純関数）と、呼び出しの形（URL・メソッド・本文・エラー）。
  */
 import { describe, expect, it, vi } from "vitest";
-import { LOCAL_POSTS_PAGE_SIZE, LOCAL_POST_SUMMARY_MAX } from "@/lib/posts/constants";
 import {
-  createLocalPost,
-  deleteLocalPost,
   deleteReply,
-  isLocalPostName,
   isLocationName,
   isReviewName,
   listAllLocations,
-  listLocalPosts,
   listReviews,
-  parseLocalPost,
-  parseLocalPosts,
   parseAccounts,
   parseLocations,
   parseReviews,
   replyToReview,
   starToNumber,
   toInformationName,
-  toLocalPostBody,
   toLocationPatch,
   toTimeOfDay,
   updateLocationNap,
@@ -218,117 +210,5 @@ describe("updateLocationNap", () => {
     await expect(
       updateLocationNap("locations/2", { title: "a", phone: "", website: "", description: "", hours: [] }, { getToken: async () => "t" }),
     ).rejects.toThrow(GoogleLinkError);
-  });
-});
-
-describe("ビジネス プロフィールへの投稿（localPosts）", () => {
-  const POST = {
-    name: "accounts/1/locations/2/localPosts/abc",
-    languageCode: "ja",
-    summary: "秋の限定メニューを始めました。",
-    state: "LIVE",
-    topicType: "STANDARD",
-    searchUrl: "https://search.google.com/local/posts?q=1",
-    createTime: "2026-09-19T00:00:00Z",
-    updateTime: "2026-09-19T01:00:00Z",
-    callToAction: { actionType: "LEARN_MORE", url: "https://example.com/menu" },
-  };
-
-  it("投稿の名前の形を見分ける", () => {
-    expect(isLocalPostName("accounts/1/locations/2/localPosts/abc")).toBe(true);
-    expect(isLocalPostName("accounts/1/locations/2/reviews/abc")).toBe(false);
-    expect(isLocalPostName("locations/2/localPosts/abc")).toBe(false);
-  });
-
-  it("応答を解析する。名前の形が違うものは落とす", () => {
-    const page = parseLocalPosts({ localPosts: [POST, { name: "壊れた" }, null], nextPageToken: "next" });
-    expect(page.posts).toHaveLength(1);
-    expect(page.nextPageToken).toBe("next");
-    expect(page.posts[0]).toEqual({
-      name: POST.name,
-      summary: POST.summary,
-      state: "LIVE",
-      topicType: "STANDARD",
-      searchUrl: POST.searchUrl,
-      createdAt: POST.createTime,
-      updatedAt: POST.updateTime,
-      cta: { actionType: "LEARN_MORE", url: "https://example.com/menu" },
-    });
-  });
-
-  it("空の応答でも落ちない", () => {
-    expect(parseLocalPosts(null)).toEqual({ posts: [], nextPageToken: null });
-    expect(parseLocalPost({})).toBeNull();
-  });
-
-  it("本文を組み立てる: 最新情報として送り、空の項目は入れない", () => {
-    expect(toLocalPostBody({ summary: "  お知らせ  ", cta: null, photoUrl: "" })).toEqual({
-      languageCode: "ja",
-      summary: "お知らせ",
-      topicType: "STANDARD",
-    });
-  });
-
-  it("ボタンと写真を付ける", () => {
-    const body = toLocalPostBody({ summary: "お知らせ", cta: { actionType: "BOOK", url: "https://example.com/r" }, photoUrl: "https://example.com/p.jpg" });
-    expect(body.callToAction).toEqual({ actionType: "BOOK", url: "https://example.com/r" });
-    expect(body.media).toEqual([{ mediaFormat: "PHOTO", sourceUrl: "https://example.com/p.jpg" }]);
-  });
-
-  // CALL はビジネス プロフィールの電話番号を使う。URL を付けると Google が弾く
-  it("今すぐ電話には URL を付けない", () => {
-    expect(toLocalPostBody({ summary: "お知らせ", cta: { actionType: "CALL", url: "https://example.com" }, photoUrl: "" }).callToAction).toEqual({ actionType: "CALL" });
-  });
-
-  it("URL が空のボタンは付けない（Google が 400 を返すため）", () => {
-    expect(toLocalPostBody({ summary: "お知らせ", cta: { actionType: "SHOP", url: "  " }, photoUrl: "" }).callToAction).toBeUndefined();
-  });
-
-  it("上限を超えた本文は切る", () => {
-    const body = toLocalPostBody({ summary: "あ".repeat(LOCAL_POST_SUMMARY_MAX + 100), cta: null, photoUrl: "" });
-    expect((body.summary as string).length).toBe(LOCAL_POST_SUMMARY_MAX);
-  });
-
-  it("v4 に POST する", async () => {
-    const calls: { url: string; init?: RequestInit }[] = [];
-    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
-      calls.push({ url, init });
-      return Response.json(POST);
-    });
-    const post = await createLocalPost(
-      "accounts/1/locations/2",
-      { summary: "お知らせ", cta: null, photoUrl: "" },
-      { fetchImpl: fetchImpl as unknown as typeof fetch, getToken: async () => "t", reviewsEndpoint: "https://v4.test/v4" },
-    );
-    expect(calls[0]?.url).toBe("https://v4.test/v4/accounts/1/locations/2/localPosts");
-    expect(calls[0]?.init?.method).toBe("POST");
-    expect(post?.name).toBe(POST.name);
-  });
-
-  it("本文が空なら呼び出さない", async () => {
-    const fetchImpl = vi.fn();
-    await expect(
-      createLocalPost("accounts/1/locations/2", { summary: "  ", cta: null, photoUrl: "" }, { fetchImpl: fetchImpl as unknown as typeof fetch, getToken: async () => "t" }),
-    ).rejects.toThrow(GoogleLinkError);
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it("一覧と削除も v4", async () => {
-    const calls: { url: string; init?: RequestInit }[] = [];
-    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
-      calls.push({ url, init });
-      return init?.method === "DELETE" ? new Response(null, { status: 204 }) : Response.json({ localPosts: [POST] });
-    });
-    const options = { fetchImpl: fetchImpl as unknown as typeof fetch, getToken: async () => "t", reviewsEndpoint: "https://v4.test/v4" };
-    const page = await listLocalPosts("accounts/1/locations/2", null, options);
-    expect(page.posts).toHaveLength(1);
-    expect(calls[0]?.url).toBe(`https://v4.test/v4/accounts/1/locations/2/localPosts?pageSize=${LOCAL_POSTS_PAGE_SIZE}`);
-    await deleteLocalPost(POST.name, options);
-    expect(calls[1]?.url).toBe(`https://v4.test/v4/${POST.name}`);
-    expect(calls[1]?.init?.method).toBe("DELETE");
-  });
-
-  it("投稿の指定が正しくなければ例外（削除）", async () => {
-    await expect(deleteLocalPost("accounts/1/locations/2", { getToken: async () => "t" })).rejects.toThrow(GoogleLinkError);
   });
 });

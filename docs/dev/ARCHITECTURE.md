@@ -22,6 +22,9 @@
 | 診断 | `/tools/aio-topics` | （サイドバーから外した 2026-09-17。AI 検索モニタリングへ転送のみ。`hidden: true`。API は残る） | A5 | — |
 | 計測 | `/tools/rank` | 順位計測・AI Overviews 引用 | B1, B2, B3 | SERP |
 | 計測 | `/tools/geo` | AI 検索モニタリング（引用・参照の定点観測） | — | DataForSEO + Supabase（Anthropic は任意） |
+| 計測 | `/tools/reports` | 月次レポートとお知らせ（毎月 1 日に前月の数字をまとめる。順位の急落・サイトの事故などの知らせもここ。r127） | — | Supabase（メールは Resend 任意） |
+| 計測 | `/tools/monitor` | サイトの事故監視（毎週水曜に主要ページを確認。noindex・エラー・転送・SSL・リンク切れ。r127） | — | Supabase |
+| 生成 | `/tools/posts` | Google ビジネス プロフィールの投稿（AI 下書き → 承認して予約 → 毎日 5:00 に送信。r127） | — | Supabase + Google 連携（Business Profile API、要承認）。下書きは Anthropic |
 | 計測 | `/tools/llmo` | （提供終了 2026-09-17。AI 検索モニタリングへ転送のみ。API は 410） | B4, B8 | — |
 | 計測 | `/tools/prompt-expansion` | プロンプト拡張（サイドバーには出さない `hidden: true`。AI 検索モニタリングの設定画面からリンクで開く） | B7 | Anthropic |
 | 計測 | `/tools/search-estimate` | 検索パフォーマンス（推定。Search Console の連携なしで数字を出す） | — | DataForSEO |
@@ -35,10 +38,11 @@
 | 生成 | `/tools/posts` | ビジネス プロフィールへの投稿（最新情報）。My Business v4 の `localPosts` に送る。口コミ返信と同じ `business.manage` スコープなので追加の申請は要らない | — | Google 連携（Business Profile API、`business.manage`）。下書きは Anthropic 任意 |
 | 調査 | `/tools/keywords` | キーワード調査 | C1 | なし（意図分類は Anthropic 任意） |
 | 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
+| 基礎対策 | `/tools/nap` | NAP チェック（表記ゆれの検出。4 項目の「正」と、自社サイト・Google マップ・掲載ページに書かれている値を突き合わせ、直すべき箇所を一覧に。サイテーションの柱の先頭） | — | なし（Places / DataForSEO / Supabase は任意） |
 | 基礎対策 | `/tools/citations` | サイテーション（店名・電話・住所で Google を検索し、ウェブ上の掲載・言及と NAP の食い違いを一覧に。サイテーションの柱） | — | DataForSEO |
 | 基礎対策 | `/tools/listings` | 基本情報掲載（NAP 一括登録。サイテーションの柱） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
 | 基礎対策 | `/tools/llms-txt` | llms.txt 生成（サイテーションの柱） | D6 | なし |
-| 設定 | `/settings` | **ホームページ（自社サイト）の URL**・競合・データの書き出し / 読み込み（Google 連携のカードは 2026-09-17 に廃止。API キーの設定状況は `/admin`） | E1, E2 | なし |
+| 設定 | `/settings` | **ホームページ（自社サイト）の URL**・競合・データの書き出し / 読み込み・**ご意見の履歴**（右上の「ご意見・不具合」から送ったものと運営者の返答。2026-09-20）（Google 連携のカードは 2026-09-17 に廃止。API キーの設定状況は `/admin`） | E1, E2 | ご意見の履歴だけ Supabase |
 | 運用 | `/admin` | マスター画面（全登録者の契約状況・機能の個別開放・代理店の追加と担当の割り当て）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
 | 運用 | `/agency` | 代理店画面（担当として割り当てられた登録者だけを表示のみ）。`publicMetadata.role = "agency"` の人だけ。ほかは 404 | — | Clerk |
 | 共通 | `/legal/tokushoho` | 特定商取引法に基づく表記（ログイン不要） | — | なし |
@@ -81,9 +85,11 @@ src/
                               #   残りは検索・CrUX・クロールの数値を使い回す。採点は score.ts の純関数）
     page-report/              # A2/A3（画面は引退。HP 改修提案・PSI・llms.txt が使う）
     citations/                # サイテーション（sources = 既知の媒体、analyze = 純関数、dataforseo = 検索）
+    nap/                      # NAP チェック（compare = 正規化と突き合わせ、extract = HTML から NAP、site / google / media = 媒体ごとの確認、report = 直すべき箇所）
     serp/                     # SERP プロバイダ抽象（SerpApi 実装、未設定時は null）
     llm/                      # Anthropic クライアント、モデル定数、構造化出力ヘルパ
     llmo/（プロンプト拡張だけ）rank/ keywords/ writing/ llms-txt/ geo/ search-estimate/ ...
+    feedback/                 # ご意見・不具合の報告（types = 純関数と zod、store = Supabase の feedback テーブル）
     store/                    # ブラウザ側の永続化（localStorage + zod）。プロジェクト・キーワード・履歴
     integrations.ts           # 環境変数の有無を boolean で返す（キーの値は絶対に返さない）
     features/registry.ts      # サイドバー定義
@@ -138,7 +144,7 @@ src/
 | `OPENPAGERANK_API_KEY` | ドメインパワーの「外部からのリンクの評価」の代替（Open PageRank 0〜10）。DR が取れていればそちらを優先する。どちらも無ければその 25 点分を分母から外して採点する。**旧 API は 2026-09-30 に終了**するので新規に設定しない（#86） | 任意 |
 | `SEO_ANALYSIS_MONTHLY_LIMIT` | 精密診断の利用者ごとの月の回数（既定 10。`ADMIN_EMAILS` は無制限） | 任意 |
 | `GOOGLE_PLACES_API_KEY` | Google マップ・店舗情報（Places API (New)） | 任意 |
-| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗（`meo_stores`）と診断報告書の履歴（`meo_reports`）、口コミ支援（`review_forms` / `review_channels` / `review_responses`）、基本情報掲載（`listing_profiles`）。`src/lib/db/supabase.ts` が PostgREST を fetch で叩く。service_role は RLS を素通りするので行は必ず user_id で絞る | MEO に必須 |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | MEO の登録店舗（`meo_stores`）と診断報告書の履歴（`meo_reports`）、口コミ支援（`review_forms` / `review_channels` / `review_responses`）、基本情報掲載（`listing_profiles`）、ご意見・不具合の報告（`feedback`。`src/lib/feedback/`、送信は全ツール共通のトップバー、対応は `/admin`）。`src/lib/db/supabase.ts` が PostgREST を fetch で叩く。service_role は RLS を素通りするので行は必ず user_id で絞る | MEO に必須 |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_PRO` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。`src/lib/billing/`。Checkout → Webhook → Clerk の `publicMetadata.stripe`。3 つそろうと `/plans` に申し込みとお支払いの管理が出る | 有料販売に必須 |
 | `PROMO_CODES` | 割引コードの一覧（`src/lib/billing/promo.ts`。`CODE=pattern`。スタンダード専用・10 パターン。クーポンは `coupons.ts` が Stripe に自動で作る） | 任意 |
 | `STRIPE_TRIAL_DAYS` | 全員に付ける無料期間の日数（`src/lib/billing/trial.ts`。既定 0 = なし。無料期間は割引コードで相手ごとに） | 任意 |
@@ -147,7 +153,9 @@ src/
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援の回数制限（アンケートごとの 1 日の回答数 500 / AI 下書きの 1 日の全体上限 2,000） | 任意 |
 | `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | AI 検索モニタリング（`src/lib/geo/`）。ChatGPT / Gemini / AI Overviews の定期計測 | この機能に必須 |
 | `GEO_USD_JPY` / `GEO_PRICE_*` / `GEO_LOCALE` / `GEO_CHARGE_ON_CACHE_HIT` | 同上の為替・単価・ロケール・キャッシュ時の課金。**単価はコードに直書きせず、ここだけで変える** | 任意 |
-| `CRON_SECRET` | Vercel Cron（`vercel.json`）が `/api/cron/maps-refresh` を叩くときの Bearer。`src/lib/auth/cron.ts` で検証。未設定なら Cron は何もしない | MEO の一斉更新に必須 |
+| `CRON_SECRET` | Vercel Cron（`vercel.json`）が `/api/cron/daily`（日次の定期処理。曜日・日付でジョブを振り分ける `src/lib/jobs/`）と `/api/cron/geo-run` を叩くときの Bearer。`src/lib/auth/cron.ts` で検証。未設定なら Cron は何もしない | 定期処理（MEO の一斉更新・順位の自動計測・サイト監視・月次レポート・掲載の再チェック・投稿の送信・自動再診断）に必須 |
+| `RESEND_API_KEY` + `MAIL_FROM` | メール送信（Resend の REST API。`src/lib/mail/`）。月次レポートと変化の知らせ（順位の急落・サイトの事故・掲載の消失・低評価の回答・投稿の失敗）。`MAIL_FROM` は Resend で DNS 認証した送信ドメインのアドレス（例: `SEO Checker <noreply@seo-checker.tokyo>`）。無ければ画面の「お知らせ」にだけ残る | メール通知に必須 |
+| `POST_DRAFT_MODEL` | Google ビジネス プロフィールの投稿の下書き（`src/lib/posts/draft.ts`）のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `SITE_MAX_PAGES` | サイト診断（精密診断）のクロール上限（既定 300、上限 1000） | 任意 |
 | `FREE_SITE_MAX_PAGES` | クイック診断のサイト全体のページ数（既定 10、上限 50） | 任意 |
 | `ALLOW_PRIVATE_HOSTS` | 開発時のみ | 任意 |
@@ -171,6 +179,8 @@ src/
 - Route Handler は入力を zod で検証し、エラーは `{ error: string }` と適切な HTTP ステータスで返す（既存の analyze/site と同じ形）。
 - クロールを伴う API（`/api/site`）は同時実行を制限する。1 回の呼び出しが対象サイトへ最大 60（サイトマップ）+ ページ数上限（クイック診断は `FREE_SITE_MAX_PAGES`＝既定 10）回のリクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になる。現状はプロセス内で「同時 2 本まで・同一クライアント（`x-forwarded-for` の先頭 IP）1 本まで」、超過は `429` と `{ code: "busy" }`（`src/app/api/site/route.ts`）。複数インスタンスで動かすときは共有ストアの制限に置き換える。
 - Cron の入口（`/api/cron/*`）はログインが無いので `src/lib/auth/routes.ts` の公開 API に 1 本ずつ完全一致で入れ、ハンドラは `CRON_SECRET` で守る。MEO の数字は利用者が取り直せない（Google に問い合わせるのは店舗の登録直後と週 1 回の一斉更新だけ。`src/lib/maps/refresh.ts`）。
+- **定期処理は日次の 1 本（`/api/cron/daily`）にまとめる（r127）。**Vercel の Hobby プランは Cron が 2 本まで・1 日 1 回なので、`src/lib/jobs/schedule.ts` が曜日・日付でジョブを振り分ける（月: マップ診断の一斉更新 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断）。ジョブを足すときは `JOB_IDS`・`JOB_SCHEDULE`・`registry.ts` の 3 か所。実行記録は `cron_runs`（マスター画面の「定期処理の状況」）。利用者ごとのプランは `src/lib/plans/user.ts` で引き、契約の無い人のために実費の出る処理を走らせない。
+- **利用者への知らせは `notifyUser()`（`src/lib/notifications/notify.ts`）だけを通す。**画面の「お知らせ」（`notifications` テーブル）に必ず残し、設定（`notificationSettings` ストア）とメール（Resend）がそろっているときだけメールも送る。送れなかったものを「送った」と見せない。
 - 来店客向けアンケート（`/r/<slug>`、`/api/r/<slug>/*`）はログインが無い。`src/lib/auth/routes.ts` の公開接頭辞（`/r/`、`/api/r/`。接頭辞そのものは公開しない）で通し、ハンドラは IP ごとの回数制限とアンケートごとの 1 日の上限で守る（`src/lib/free/ratelimit.ts`）。来店客側の更新（投稿ボタンの押下、お店に直接伝える）は回答時に発行した `edit_token` を持つ人だけ。店舗側の管理 API（`/api/reviews/*`）は `review_responses` に user_id が無いので、必ず `review_forms` の所有（user_id）を確かめてから form_id で触る（`src/lib/reviews/api.ts` の `ownedForm`）。来店客に返すのは `PublicReviewForm`（質問と店名だけ。トーン・キーワード・投稿 URL・所有者は返さない）。来店客の画面は `Accept-Language` / `?lang=` で 5 言語に切り替わる（`src/lib/reviews/i18n.ts`、質問文の訳は `translate.ts`。選択肢は表示だけ訳し、送る値は日本語の原文）。
 - サイト診断の結果はキャッシュ 1 件で 1 MB 近い。`globalCache` の `maxEntries` を小さく（10 件）し、`SiteCheckSummary.affected` はサーバー側で 50 件までに間引く（件数は `counts` が持つ）。
 

@@ -86,3 +86,11 @@ export async function putListing(userId: string, placeId: string, profile: Listi
   if (!r) throw new Error("保存後の応答を読めませんでした");
   return r;
 }
+
+/** 全利用者の行（定期の再チェック用）。user_id を含めて返す */
+export async function listAllListingProfiles(limit = 1000): Promise<(ListingRecord & { userId: string })[]> {
+  const rows = await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&order=updated_at.desc&limit=${limit}`);
+  const parsed = z.array(RowSchema).safeParse(rows);
+  if (!parsed.success) throw new Error("基本情報の応答を読めませんでした");
+  return parsed.data.map((row) => ({ ...fromListingRow(row), userId: row.user_id }));
+}

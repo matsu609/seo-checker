@@ -367,3 +367,10 @@ export async function findChannelByCode(formId: string, code: string): Promise<R
   const rows = await supabaseRest<unknown>(`${CHANNELS}?select=${CHANNEL_COLUMNS}&form_id=${eq(formId)}&code=${eq(code)}&limit=1`);
   return parseChannels(rows)[0] ?? null;
 }
+
+/** アンケートの持ち主（user_id）。低評価の知らせの宛先に使う。無ければ null */
+export async function getFormOwner(formId: string): Promise<string | null> {
+  const rows = await supabaseRest<unknown>(`${FORMS}?select=user_id&id=${eq(formId)}&limit=1`);
+  const parsed = z.array(z.object({ user_id: z.string() })).safeParse(rows);
+  return parsed.success && parsed.data[0] ? parsed.data[0].user_id : null;
+}

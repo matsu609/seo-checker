@@ -22,7 +22,9 @@ function files(sitemaps: string[]): SiteFiles {
   return {
     origin,
     robotsTxt: null,
+    robots: { status: 404, html: false, length: 0 },
     sitemaps,
+    sitemapXml: { present: false, status: 404 },
     llmsTxt: { present: false, length: 0, status: 404 },
     llmsFullTxt: { present: false, length: 0 },
   };

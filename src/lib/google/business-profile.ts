@@ -4,13 +4,11 @@
  * 3 つの API を使う（どれも Google Cloud で有効化と、Business Profile API の利用申請の承認が要る）:
  *   - Account Management v1 … 自分が管理するアカウント（accounts/123）
  *   - Business Information v1 … アカウント配下のビジネス（locations/456。Place ID も返る）
- *   - My Business v4 … 口コミの一覧と返信、ビジネス プロフィールへの投稿（localPosts）。
- *                        この 2 つは新しい API 群に移されていないため v4 のまま
+ *   - My Business v4 … 口コミの一覧と返信（accounts/123/locations/456/reviews/…）
  *
  * アクセストークンはログイン中のユーザーのもの（token.ts、スコープ business.manage）。
  * エンドポイントは固定（ユーザー入力の URL ではない）。応答は落ちない純関数（parse*）で読む。
  */
-import { LOCAL_POSTS_PAGE_SIZE, LOCAL_POST_SUMMARY_MAX, type LocalPostAction } from "@/lib/posts/constants";
 import { GoogleLinkError, mapGoogleHttpError } from "./errors";
 import { getGoogleTokenFor } from "./token";
 
@@ -62,30 +60,6 @@ export interface BpReviewsPage {
   totalReviewCount: number | null;
 }
 
-/**
- * ビジネス プロフィールへの投稿（localPosts）。
- * STANDARD（最新情報）だけを扱う。イベント・特典は日程や特典コードの入力が要るので、
- * 必要になったら topicType と event / offer を足す（body の組み立ては toLocalPostBody に閉じてある）。
- */
-export interface BpLocalPost {
-  /** "accounts/123/locations/456/localPosts/789" */
-  name: string;
-  summary: string;
-  /** LIVE / REJECTED / PROCESSING など。Google が審査する */
-  state: string;
-  topicType: string;
-  /** Google 検索・マップ上の投稿の URL（掲載後に入る） */
-  searchUrl: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  cta: { actionType: string; url: string } | null;
-}
-
-export interface BpLocalPostsPage {
-  posts: BpLocalPost[];
-  nextPageToken: string | null;
-}
-
 export interface BusinessProfileOptions {
   accountEndpoint?: string;
   informationEndpoint?: string;
@@ -98,16 +72,12 @@ export interface BusinessProfileOptions {
 
 const LOCATION_NAME = /^accounts\/[A-Za-z0-9_-]+\/locations\/[A-Za-z0-9_-]+$/;
 const REVIEW_NAME = /^accounts\/[A-Za-z0-9_-]+\/locations\/[A-Za-z0-9_-]+\/reviews\/[A-Za-z0-9_-]+$/;
-const LOCAL_POST_NAME = /^accounts\/[A-Za-z0-9_-]+\/locations\/[A-Za-z0-9_-]+\/localPosts\/[A-Za-z0-9_-]+$/;
 
 export function isLocationName(value: string): boolean {
   return LOCATION_NAME.test(value);
 }
 export function isReviewName(value: string): boolean {
   return REVIEW_NAME.test(value);
-}
-export function isLocalPostName(value: string): boolean {
-  return LOCAL_POST_NAME.test(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -369,89 +339,48 @@ export async function updateLocationNap(locationName: string, nap: NapUpdate, op
   return true;
 }
 
-/* ───────────── ビジネス プロフィールへの投稿（localPosts） ───────────── */
+/* ───────────── 投稿（Local Posts。r127） ───────────── */
 
 export interface LocalPostInput {
+  topicType: "STANDARD" | "EVENT" | "OFFER";
   summary: string;
-  /** ボタン。付けないときは null */
-  cta: { actionType: LocalPostAction; url: string } | null;
-  /** 写真の URL（公開されていて Google から取得できること）。空なら付けない */
-  photoUrl: string;
+  title?: string;
+  ctaType?: string;
+  ctaUrl?: string;
+  /** YYYY-MM-DD */
+  eventStart?: string | null;
+  eventEnd?: string | null;
 }
 
-export function parseLocalPost(value: unknown): BpLocalPost | null {
-  if (!isRecord(value)) return null;
-  const name = str(value.name);
-  if (!isLocalPostName(name)) return null;
-  const cta = isRecord(value.callToAction) ? value.callToAction : null;
-  const actionType = cta ? str(cta.actionType) : "";
-  return {
-    name,
-    summary: str(value.summary),
-    state: str(value.state) || "UNKNOWN",
-    topicType: str(value.topicType) || "STANDARD",
-    searchUrl: strOrNull(value.searchUrl),
-    createdAt: strOrNull(value.createTime),
-    updatedAt: strOrNull(value.updateTime),
-    cta: actionType ? { actionType, url: cta ? str(cta.url) : "" } : null,
-  };
+function toGoogleDate(value: string): { year: number; month: number; day: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return null;
+  return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) };
 }
 
-export function parseLocalPosts(payload: unknown): BpLocalPostsPage {
-  const root = isRecord(payload) ? payload : {};
-  const list = Array.isArray(root.localPosts) ? root.localPosts : [];
-  const posts: BpLocalPost[] = [];
-  for (const x of list) {
-    const post = parseLocalPost(x);
-    if (post) posts.push(post);
+/** 送る本文（純粋関数）。イベント・クーポンは題名と期間、ボタンは種類と URL */
+export function toLocalPostBody(post: LocalPostInput): Record<string, unknown> {
+  const body: Record<string, unknown> = { languageCode: "ja", summary: post.summary.trim(), topicType: post.topicType };
+  if (post.topicType !== "STANDARD") {
+    const start = post.eventStart ? toGoogleDate(post.eventStart) : null;
+    const end = post.eventEnd ? toGoogleDate(post.eventEnd) : null;
+    body.event = { title: (post.title ?? "").trim(), schedule: { ...(start ? { startDate: start } : {}), ...(end ? { endDate: end } : {}) } };
   }
-  return { posts, nextPageToken: strOrNull(root.nextPageToken) };
-}
-
-/**
- * 送る本文を組み立てる（純粋関数）。
- * 空の項目は入れない。CALL には URL を付けない（Google が弾くため）。
- */
-export function toLocalPostBody(input: LocalPostInput): Record<string, unknown> {
-  const body: Record<string, unknown> = {
-    languageCode: "ja",
-    summary: input.summary.trim().slice(0, LOCAL_POST_SUMMARY_MAX),
-    topicType: "STANDARD",
-  };
-  if (input.cta) {
-    const url = input.cta.url.trim();
-    if (input.cta.actionType === "CALL") body.callToAction = { actionType: "CALL" };
-    else if (url) body.callToAction = { actionType: input.cta.actionType, url };
+  if (post.ctaType && post.ctaType !== "NONE") {
+    body.callToAction = post.ctaType === "CALL" ? { actionType: "CALL" } : { actionType: post.ctaType, url: (post.ctaUrl ?? "").trim() };
   }
-  const photo = input.photoUrl.trim();
-  if (photo) body.media = [{ mediaFormat: "PHOTO", sourceUrl: photo }];
   return body;
 }
 
-/** 投稿の一覧（新しい順に Google が返す） */
-export async function listLocalPosts(locationName: string, pageToken: string | null = null, options: BusinessProfileOptions = {}): Promise<BpLocalPostsPage> {
+/** 投稿を作る。返ってきた投稿の名前（accounts/…/localPosts/…）と検索用 URL */
+export async function createLocalPost(locationName: string, post: LocalPostInput, options: BusinessProfileOptions = {}): Promise<{ name: string | null; searchUrl: string | null }> {
   if (!isLocationName(locationName)) throw new GoogleLinkError("ビジネスの指定が正しくありません。", "not_selected");
-  const base = options.reviewsEndpoint ?? REVIEWS_ENDPOINT;
-  const params = new URLSearchParams({ pageSize: String(LOCAL_POSTS_PAGE_SIZE) });
-  if (pageToken) params.set("pageToken", pageToken);
-  return parseLocalPosts(await callApi(`${base}/${locationName}/localPosts?${params.toString()}`, { method: "GET" }, options));
-}
-
-/** 投稿する。返ってきた投稿（審査中は state が PROCESSING）を返す */
-export async function createLocalPost(locationName: string, input: LocalPostInput, options: BusinessProfileOptions = {}): Promise<BpLocalPost | null> {
-  if (!isLocationName(locationName)) throw new GoogleLinkError("ビジネスの指定が正しくありません。", "not_selected");
-  if (!input.summary.trim()) throw new GoogleLinkError("投稿の本文を入力してください。", "not_selected");
   const base = options.reviewsEndpoint ?? REVIEWS_ENDPOINT;
   const payload = await callApi(
     `${base}/${locationName}/localPosts`,
-    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(toLocalPostBody(input)) },
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(toLocalPostBody(post)) },
     options,
   );
-  return parseLocalPost(payload);
-}
-
-export async function deleteLocalPost(postName: string, options: BusinessProfileOptions = {}): Promise<void> {
-  if (!isLocalPostName(postName)) throw new GoogleLinkError("投稿の指定が正しくありません。", "not_selected");
-  const base = options.reviewsEndpoint ?? REVIEWS_ENDPOINT;
-  await callApi(`${base}/${postName}`, { method: "DELETE" }, options);
+  const root = isRecord(payload) ? payload : {};
+  return { name: strOrNull(root.name), searchUrl: strOrNull(root.searchUrl) };
 }

@@ -5,6 +5,7 @@
  * ページ単位では分からないもの（重複・孤立・canonical の循環・
  * サイトマップとの差分・サイト共通ファイルの有無）をここに集める。
  */
+import { countBySeverity, lintRobotsTxt } from "@/lib/analyzer/robots-syntax";
 import { AUDIT_THRESHOLDS, MAX_DETAIL_ITEMS } from "../config";
 import { signatureSimilarity } from "../similarity";
 import type { AuditContext, AuditPage, CrossRule, Issue } from "../types";
@@ -12,6 +13,9 @@ import { issue, listUrls, pathOnly } from "./helpers";
 import { resolveCanonical } from "./page";
 
 const T = AUDIT_THRESHOLDS;
+
+/** robots.txt の書式の指摘を課題 1 件にまとめるときの上限 */
+const MAX_LINT_ITEMS = 5;
 
 /** 同じ値を持つページをまとめる（空値は対象外） */
 function groupBy(pages: readonly AuditPage[], pick: (p: AuditPage) => string | null): Map<string, string[]> {
@@ -210,7 +214,32 @@ export const ruleOrphanPage: CrossRule = (pages, context) => {
 /** robots.txt / sitemap.xml / llms.txt の有無（サイト単位。URL はオリジン） */
 export const ruleSiteFiles: CrossRule = (_pages, context) => {
   const issues: Issue[] = [];
-  if (!context.robotsExists) {
+  const robots = context.siteFiles.robots;
+  if (robots.html) {
+    // 「無い」ではなく「robots.txt を求めたら HTML が返る」。書いたはずの Sitemap 行も
+    // Disallow も効いていない状態で、運用者からはふつう見えない
+    issues.push(
+      issue(
+        "ROBOTS_MISSING",
+        "基本的な設定",
+        "error",
+        context.origin,
+        `${context.origin}/robots.txt が HTTP ${robots.status} を返しますが、中身が HTML です（robots.txt として読まれません）`,
+        "ページが見つからないときの HTML（404 ページ）が robots.txt の代わりに返っています。クローラはこれを robots.txt として読まないため、書いたはずの Sitemap 行や Disallow がまったく効いていません。サイトのルートに、文字だけのファイルとして robots.txt を置いてください。",
+      ),
+    );
+  } else if (!context.robotsExists && (robots.status === 0 || robots.status >= 500)) {
+    issues.push(
+      issue(
+        "ROBOTS_MISSING",
+        "基本的な設定",
+        "error",
+        context.origin,
+        `${context.origin}/robots.txt が ${robots.status === 0 ? "取得できません" : `HTTP ${robots.status} を返します`}`,
+        "Google は robots.txt がサーバーエラー（5xx）を返す状態が続くと、安全側に倒してサイト全体のクロールを止めます。サーバーの設定を直し、ファイルが無いときは 404 を返すようにしてください（404 なら全許可として扱われます）。",
+      ),
+    );
+  } else if (!context.robotsExists) {
     issues.push(
       issue(
         "ROBOTS_MISSING",
@@ -219,6 +248,42 @@ export const ruleSiteFiles: CrossRule = (_pages, context) => {
         context.origin,
         `${context.origin}/robots.txt が見つかりません`,
         "robots.txt を置き、サイトマップの場所（Sitemap: 行）を書いてください。クローラが最初に読むファイルで、無いと巡回の手がかりが減ります。",
+      ),
+    );
+  }
+
+  // robots.txt の書式（クローラは誤った行を黙って読み飛ばすので、可否の判定だけでは気づけない）
+  if (context.siteFiles.robotsTxt !== null) {
+    const lint = lintRobotsTxt(context.siteFiles.robotsTxt);
+    const counts = countBySeverity(lint);
+    if (counts.error > 0 || counts.warn > 0) {
+      const shown = lint
+        .filter((i) => i.severity !== "info")
+        .slice(0, MAX_LINT_ITEMS)
+        .map((i) => (i.line > 0 ? `${i.line} 行目: ${i.message}` : i.message));
+      issues.push(
+        issue(
+          "ROBOTS_SYNTAX",
+          "基本的な設定",
+          counts.error > 0 ? "error" : "warning",
+          `${context.origin}/robots.txt`,
+          `robots.txt の書式に問題があります（${counts.error > 0 ? `効いていない行 ${counts.error} 件` : `気になる書き方 ${counts.warn} 件`}）：${shown.join(" / ")}`,
+          "robots.txt は 1 行ずつ「ディレクティブ: 値」で書きます。綴りの誤り・全角の空白・User-agent より前の Disallow・絶対 URL を書いた Disallow は、エラーにならず黙って無視されるため「書いたのに効いていない」状態になります。上の行番号の箇所を直してください。",
+        ),
+      );
+    }
+  }
+
+  // サイトマップはあるのに robots.txt に書いていない（クローラに場所を知らせていない）
+  if (context.robotsExists && context.sitemapFound && context.siteFiles.sitemaps.length === 0) {
+    issues.push(
+      issue(
+        "SITEMAP_MISSING",
+        "基本的な設定",
+        "info",
+        context.origin,
+        "robots.txt に Sitemap: の行がありません（サイトマップ自体は見つかりました）",
+        `robots.txt に「Sitemap: ${context.origin}/sitemap.xml」のように 1 行足してください。定番の場所にあるサイトマップはクローラも探しに来ますが、明示すると確実に見つかり、場所を変えたときにも追随できます。`,
       ),
     );
   }

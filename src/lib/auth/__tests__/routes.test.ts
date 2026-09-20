@@ -104,6 +104,7 @@ describe("保護パス", () => {
       "/api/maps/stores/0b2f0b8e-0000-4000-8000-000000000000/owner",
       "/api/maps/compare",
       "/api/maps/search",
+      "/api/nap/check",
       "/api/page-diagnosis",
       "/api/page-diagnosis/chat",
       "/api/page-report",
@@ -151,11 +152,11 @@ describe("公開パスの一覧", () => {
       "/sitemap.xml",
     ]);
     // 無料診断の API 5 本は 2026-09-18 にログイン必須へ（登録したメールアドレスごとに回数制限）
+    // r127: 日次の定期処理 /api/cron/daily を足した（maps-refresh は旧パスとして残す）
     expect(PUBLIC_PATHS.apis).toEqual([
+      "/api/cron/daily",
       "/api/cron/maps-refresh",
       "/api/cron/geo-run",
-      // 掲載の生存監視（2026-09-20 に追加）。Cron が叩くのでログインは無く、CRON_SECRET で守る
-      "/api/cron/listings-check",
       "/api/billing/webhook",
     ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);

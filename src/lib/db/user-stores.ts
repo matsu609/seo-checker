@@ -51,3 +51,23 @@ export async function removeUserStore(userId: string, name: string): Promise<voi
     prefer: "return=minimal",
   });
 }
+
+/** 1 ストアの値（無ければ undefined）。Cron が利用者ごとの設定を読むときに使う（全ストアを読まない） */
+export async function getUserStore(userId: string, name: string): Promise<unknown> {
+  const rows = await supabaseRest<unknown>(
+    `${TABLE}?select=value&user_id=eq.${encodeURIComponent(userId)}&name=eq.${encodeURIComponent(name)}&limit=1`,
+  );
+  const parsed = z.array(z.object({ value: z.unknown() })).safeParse(rows);
+  if (!parsed.success || parsed.data.length === 0) return undefined;
+  return parsed.data[0].value;
+}
+
+/** あるストアを持つ利用者の一覧（user_id と値）。定期処理が「対象の利用者」を集めるときに使う */
+export async function listStoreValues(name: string, limit = 1000): Promise<{ userId: string; value: unknown }[]> {
+  const rows = await supabaseRest<unknown>(
+    `${TABLE}?select=user_id,value&name=eq.${encodeURIComponent(name)}&order=updated_at.desc&limit=${limit}`,
+  );
+  const parsed = z.array(z.object({ user_id: z.string(), value: z.unknown() })).safeParse(rows);
+  if (!parsed.success) return [];
+  return parsed.data.map((r) => ({ userId: r.user_id, value: r.value }));
+}

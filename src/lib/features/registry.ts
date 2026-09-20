@@ -367,6 +367,31 @@ const DIAGNOSIS: readonly Feature[] = [
  */
 const FOUNDATION: readonly Feature[] = [
   {
+    id: "nap",
+    path: "/tools/nap",
+    label: "NAP チェック（表記ゆれの検出）",
+    shortLabel: "NAP チェック",
+    description:
+      "店名・住所・電話番号・サイト URL の 4 つを「正」として入れると、自社サイト（構造化データ・フッター・会社概要・お問い合わせ）、Google マップ、掲載ページに書かれている値を取りに行き、項目ごとに一致か不一致かで答えます。出てくるのは「直すべき箇所」の一覧です。",
+    details: [
+      "自社サイト: トップから会社概要・お問い合わせ・アクセスなどを最大 4 ページ辿り、構造化データ（JSON-LD）とフッター・本文の店名・住所・電話番号を突き合わせる",
+      "Google マップ: MEO の保存済み報告書か Places API で同じ店舗を見つけ、店名・住所・電話・サイトを突き合わせる",
+      "掲載ページ: 「掲載」タブで控えた URL と、検索で見つかった媒体のページ（最大 6 件）を開いて突き合わせる",
+      "全角 / 半角・空白・ハイフン・法人格の略記の違いは一致とみなし、それ以外は不一致。建物名だけの違いは要確認",
+      "直すべき箇所を「不一致 → 要確認」の順に、直し方と URL つきで一覧に（CSV）。構造化データが無い・ずれているサイトには貼る JSON-LD を出す",
+    ],
+    featureIds: [],
+    icon: "target",
+    status: "beta",
+    // 自社サイトの確認だけならキー不要。Google マップは Places、掲載ページの発見は DataForSEO、控えた URL は Supabase があれば増える
+    requires: [],
+    optional: ["places", "dataforseo", "supabase"],
+    group: "diagnosis",
+    category: "citation",
+    // 読む・測る系なのでライト。利用者の決定 2026-09-20「登録されている内容がずれていないかを主機能にする」
+    plan: "light",
+  },
+  {
     id: "citations",
     path: "/tools/citations",
     label: "掲載（ウェブ上の掲載チェックと NAP 登録）",
@@ -602,6 +627,47 @@ const MEASURE: readonly Feature[] = [
     // AI 検索モニタリングの設定画面からリンクで開く。ページと API はそのまま
     hidden: true,
   },
+  {
+    id: "monitor",
+    path: "/tools/monitor",
+    label: "サイトの事故監視",
+    shortLabel: "サイト監視",
+    description:
+      "ホームページの主要ページを毎週確認し、放っておくと検索からの流入が止まる事故（noindex の混入・robots.txt の全拒否・エラー・別サイトへの転送・SSL 証明書の期限・リンク切れ・構造化データの崩れ）が起きたときに知らせます。",
+    details: [
+      "毎週水曜 5:00 に自動で確認（トップ + 精密診断で重要度の高いページ + トップからの内部リンク）",
+      "前回は無かった事故だけを「お知らせ」とメールで知らせる（同じ事故を毎週知らせない）",
+      "SSL 証明書の残り日数、サイトマップと robots.txt の状態、ページごとの HTTP 状態と取得時間",
+    ],
+    featureIds: [],
+    icon: "dashboard",
+    status: "beta",
+    requires: ["supabase"],
+    group: "measure",
+    category: "seo",
+    plan: "light",
+  },
+  {
+    id: "reports",
+    path: "/tools/reports",
+    label: "月次レポートとお知らせ",
+    shortLabel: "月次レポート",
+    description:
+      "毎月 1 日に、前月の数字（検索順位・Google マップ・AI 検索・精密診断・掲載・口コミ）と、その月に起きたこと、来月やることを 1 枚にまとめます。順位の急落・サイトの事故・掲載の消失などの「お知らせ」もここに残ります。",
+    details: [
+      "前月との比較（上がった語・下がった語、MEO のスコアと口コミ、AI 検索の引用率、掲載の状況）",
+      "来月やること（数字の変化から自動で組み立てた優先順位）",
+      "メールでも受け取れる（設定で ON / OFF）。PDF でダウンロード",
+    ],
+    featureIds: [],
+    icon: "file-report",
+    status: "beta",
+    requires: ["supabase"],
+    optional: ["resend"],
+    group: "measure",
+    category: "aio",
+    plan: "light",
+  },
 ];
 
 const RESEARCH: readonly Feature[] = [
@@ -674,6 +740,27 @@ const GENERATE: readonly Feature[] = [
     category: "meo",
     // 2026-09-19: 「口コミ」に統合。プランのゲートと API はこの ID のまま使う
     hidden: true,
+    plan: "standard",
+  },
+  {
+    id: "posts",
+    path: "/tools/posts",
+    label: "Google ビジネス プロフィールの投稿（AI 下書き・予約投稿）",
+    shortLabel: "投稿",
+    description:
+      "Google マップに出る「最新情報・イベント・クーポン」の投稿を、店舗の情報と対策キーワードから AI が下書きし、承認した分を予約日時に自動で投稿します。週 1 回の投稿を続けることが MEO の理想状態です。",
+    details: [
+      "4 週分の下書きを一度に作る（季節・対策キーワード・店舗のカテゴリを踏まえる）",
+      "本文を直して「承認して予約」。毎日 5:00 の定期処理が予定時刻を過ぎた分を投稿",
+      "投稿の履歴と失敗の理由（Business Profile API の承認前は失敗として残る）",
+    ],
+    featureIds: [],
+    icon: "broadcast",
+    status: "beta",
+    requires: ["supabase", "google-business"],
+    optional: ["anthropic"],
+    group: "improve",
+    category: "meo",
     plan: "standard",
   },
 ];

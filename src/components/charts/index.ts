@@ -4,5 +4,6 @@ export { HBar, type HBarProps, type HBarRow } from "./HBar";
 export { Histogram, type HistogramBand, type HistogramProps } from "./Histogram";
 export { StackedBar, SegmentBar, type StackedBarProps, type StackedSeries, type SegmentBarSegment } from "./StackedBar";
 export { Sparkline, type SparklineProps } from "./Sparkline";
+export { LineChart, type LineChartProps, type LineSeries } from "./LineChart";
 export { HeatCell, heatCellClass, heatCellColors, type HeatCellProps } from "./HeatCell";
 export * from "./math";

@@ -31,7 +31,9 @@ const lineText = (line: CommentaryLine): string =>
 const SITE_FILES: SiteFiles = {
   origin: "https://example.com",
   robotsTxt: "User-agent: *\nAllow: /\n",
-  sitemaps: [],
+  robots: { status: 200, html: false, length: 22 },
+  sitemaps: ["https://example.com/sitemap.xml"],
+  sitemapXml: { present: true, status: 200 },
   llmsTxt: { present: true, length: 400, status: 200 },
   llmsFullTxt: { present: false, length: 0 },
 };

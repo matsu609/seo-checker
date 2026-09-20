@@ -21,6 +21,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { ListingsDescribeResponse } from "@/app/api/listings/describe/route";
 import type { ListingsProfileResponse } from "@/app/api/listings/profile/route";
 import type { ListingsPublishResponse } from "@/app/api/listings/publish/route";
+import type { ListingsRecheckResponse } from "@/app/api/listings/recheck/route";
+import { RECHECK_LABELS, RECHECK_TONE, type RecheckLine } from "@/lib/listings/recheck-labels";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
 import { useSharedSettings } from "@/lib/settings/client";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
@@ -47,9 +49,6 @@ import {
 import type { HoujinCandidate, HoujinSearchResponse } from "@/app/api/houjin/route";
 import { compareWithRegistry, prefillFromRegistry } from "@/lib/houjin/compare";
 import { CORPORATE_NUMBER_LENGTH, SEARCH_NAME_MIN } from "@/lib/houjin/constants";
-import type { ListingsCheckResponse } from "@/app/api/listings/check/route";
-import type { ListingCheckResult } from "@/lib/listings/check";
-import { CHECK_RESULT_LABELS, isCheckable, summarizeMonitor, type CheckResult } from "@/lib/listings/monitor";
 import { missingRequired, publishTargets, summarizeResults, type PublishFile, type PublishOutcome, type PublishResult } from "@/lib/listings/publish";
 import {
   ADDRESS_MAX,
@@ -129,14 +128,6 @@ const OUTCOME_TONE: Record<PublishOutcome, "pass" | "info" | "neutral" | "warn" 
 };
 const INTEGRATION_TONE: Record<MediaIntegration, "pass" | "info" | "neutral"> = { api: "pass", file: "info", manual: "neutral", monitor: "neutral" };
 
-/** 生存監視の結果の色。「確認できず」は警告にしない（読めなかっただけで、消えたとは限らない） */
-const CHECK_TONE: Record<CheckResult, "pass" | "warn" | "fail" | "neutral"> = {
-  live: "pass",
-  changed: "warn",
-  unknown: "neutral",
-  gone: "fail",
-  unreachable: "neutral",
-};
 
 /** 入稿ファイルを保存する（CSV。Excel で開けるよう BOM 付き） */
 function downloadFile(file: PublishFile) {
@@ -172,15 +163,13 @@ export function ListingsTool() {
   const [publish, setPublish] = useState<{ results: PublishResult[]; files: PublishFile[] } | null>(null);
   /** 上級の媒体（残り 25 件）も対象にするか。既定は off（利用者の指示 2026-09-19） */
   const [withAdvanced, setWithAdvanced] = useState(false);
-  /** 生存監視（控えてある掲載ページを実際に開いて、今も出ているかを見る） */
-  const [checking, setChecking] = useState(false);
-  const [checkError, setCheckError] = useState<string | null>(null);
-  const [checkResults, setCheckResults] = useState<ListingCheckResult[] | null>(null);
-
   /** 法人番号の照会（国税庁）。結果は保存せず、選んだ法人番号だけを基本情報に入れる */
   const [houjin, setHoujin] = useState<HoujinSearchResponse | null>(null);
   const [houjinLoading, setHoujinLoading] = useState(false);
   const [houjinError, setHoujinError] = useState<string | null>(null);
+  const [rechecking, setRechecking] = useState(false);
+  const [recheckError, setRecheckError] = useState<string | null>(null);
+  const [recheck, setRecheck] = useState<RecheckLine[] | null>(null);
 
   /** 選んだ店舗の記録を画面に読み込む */
   function selectStore(item: ListingsStoreItem | null) {
@@ -228,8 +217,6 @@ export function ListingsTool() {
   const text = useMemo(() => profileToText(profile), [profile]);
   const jsonLd = useMemo(() => jsonLdScript(profile, states), [profile, states]);
   const sameAs = useMemo(() => buildSameAs(profile, states), [profile, states]);
-  /** 生存監視の集計（既定の 7 媒体 + 上級も見たいときは全部） */
-  const monitor = useMemo(() => summarizeMonitor(states, (withAdvanced ? LISTING_MEDIA : CORE).map((m) => m.id)), [states, withAdvanced]);
   /** 一括登録に足りない必須項目と、今回の対象になる媒体 */
   const missing = useMemo(() => missingRequired(profile), [profile]);
   const targets = useMemo(() => publishTargets(states, { tier: withAdvanced ? "all" : "core" }), [states, withAdvanced]);
@@ -332,22 +319,21 @@ export function ListingsTool() {
     setSaveMessage(null);
   }
 
-  /** 控えてある掲載ページを今すぐ全部見に行く */
-  async function runCheck() {
+  /** 掲載済みで URL を控えた媒体のページを開き、店名・電話・住所が今も出ているかを確かめる（毎月 2 日の自動確認と同じ） */
+  async function runRecheck() {
     if (!store) return;
-    setChecking(true);
-    setCheckError(null);
-    setCheckResults(null);
+    setRechecking(true);
+    setRecheckError(null);
+    setRecheck(null);
     try {
-      const res = await request<ListingsCheckResponse>("/api/listings/check", { method: "POST", body: JSON.stringify({ placeId: store.placeId }) });
-      setCheckResults(res.results);
+      const res = await request<ListingsRecheckResponse>("/api/listings/recheck", { method: "POST", body: JSON.stringify({ placeId: store.placeId }) });
+      setRecheck(res.lines);
       setStates(res.record.states);
       setSavedAt(res.record.updatedAt);
-      setData((d) => (d ? { ...d, stores: d.stores.map((x) => (x.placeId === store.placeId ? { ...x, record: res.record } : x)) } : d));
     } catch (err) {
-      setCheckError(err instanceof Error ? err.message : "掲載の確認に失敗しました");
+      setRecheckError(err instanceof Error ? err.message : "確認できませんでした");
     } finally {
-      setChecking(false);
+      setRechecking(false);
     }
   }
 
@@ -800,75 +786,35 @@ export function ListingsTool() {
 
           <Card
             number={4}
-            title="今も正しく出ているか（生存監視）"
-            description="控えてある掲載ページを実際に開いて、店名と電話が今も出ているかを確かめます。毎週火曜 5:00 に自動でも回ります。"
+            title="媒体一覧"
+            description={`日本で効く ${CORE.length} 媒体を上から順に進めてください。各媒体で「登録画面を開く」→ 基本情報を貼り付け → 状況を控える。保存ボタンは上のカードにあります。状況を「掲載済み」にして掲載ページの URL を控えた媒体は、毎月 2 日にページを開いて店名・電話・住所が今も出ているかを自動で確かめます（消えていれば「お知らせ」で知らせます）。`}
             actions={
-              <Button type="button" size="sm" variant="secondary" onClick={runCheck} loading={checking} disabled={monitor.checkable === 0}>
-                今すぐ確認する
+              <Button type="button" size="sm" variant="secondary" onClick={() => void runRecheck()} loading={rechecking} disabled={dirty} title={dirty ? "先に保存してください" : undefined}>
+                掲載を今すぐ確認する
               </Button>
             }
           >
-            <Callout tone="info" className="mb-4">
-              「登録した」ではなく<strong>「今も正しく出ている」</strong>が、掲載で本当に価値のある状態です。媒体の統合・削除や情報の上書きで、気付かないうちに消えたり電話番号が古くなったりします。
-              確認できるのは<strong>媒体一覧で掲載ページの URL を控えたものだけ</strong>です。
-            </Callout>
-            {monitor.checkable === 0 ? (
-              <EmptyState
-                title="確認できる掲載ページがまだありません"
-                description="下の媒体一覧で、登録が済んだ媒体の状況を「掲載済み」にして、掲載ページの URL を控えてください。"
-              />
-            ) : (
-              <>
-                <dl className="flex flex-wrap gap-x-6 gap-y-1 text-[13px]">
-                  <div>
-                    <dt className="text-muted">確認できる掲載</dt>
-                    <dd className="font-bold text-ink">{monitor.checkable} 件</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">掲載を確認できたもの</dt>
-                    <dd className="font-bold text-ink">
-                      {monitor.live} / {monitor.checked} 件
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">手当てが要るもの</dt>
-                    <dd className={`font-bold ${monitor.problems > 0 ? "text-fail" : "text-ink"}`}>{monitor.problems} 件</dd>
-                  </div>
-                  {monitor.oldestCheckedAt && (
-                    <div>
-                      <dt className="text-muted">いちばん古い確認</dt>
-                      <dd className="text-ink">{formatDateTime(monitor.oldestCheckedAt)}</dd>
-                    </div>
-                  )}
-                </dl>
-                {checkError && (
-                  <Callout tone="fail" className="mt-4">
-                    {checkError}
-                  </Callout>
-                )}
-                {checkResults && checkResults.length > 0 && (
-                  <ul className="mt-4 divide-y divide-line border-y border-line">
-                    {checkResults.map((r) => (
-                      <li key={r.mediaId} className="flex flex-wrap items-start gap-x-3 gap-y-2 py-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-bold text-ink">{r.mediaName}</span>
-                            <Badge tone={CHECK_TONE[r.result]}>{CHECK_RESULT_LABELS[r.result]}</Badge>
-                          </div>
-                          <p className="mt-1 text-[12px] leading-relaxed text-muted">{r.message}</p>
-                        </div>
-                        <ButtonLink href={r.url} external size="sm" variant="ghost">
-                          掲載ページを開く
-                        </ButtonLink>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
+            {recheckError && (
+              <Callout tone="fail" className="mb-4">
+                {recheckError}
+              </Callout>
             )}
-          </Card>
-
-          <Card number={5} title="媒体一覧" description={`日本で効く ${CORE.length} 媒体を上から順に進めてください。各媒体で「登録画面を開く」→ 基本情報を貼り付け → 状況を控える。保存ボタンは上のカードにあります。`}>
+            {recheck && (
+              <div className="mb-4 rounded-sm border border-line bg-surface p-3">
+                <p className="text-[13px] font-bold text-ink">確認の結果（{recheck.length} 媒体）</p>
+                <ul className="mt-2 space-y-1 text-[12px]">
+                  {recheck.map((l) => (
+                    <li key={l.mediaId} className="flex flex-wrap items-baseline gap-x-2">
+                      <Badge tone={RECHECK_TONE[l.outcome.result]} icon={false}>
+                        {RECHECK_LABELS[l.outcome.result]}
+                      </Badge>
+                      <span className="font-bold text-ink">{l.mediaName}</span>
+                      <span className="text-muted">{l.outcome.detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="mb-4 flex flex-wrap gap-2">
               {(
                 [
@@ -990,14 +936,12 @@ function MediaRow({ media, status, onChange }: { media: ListingMedia; status: Re
             {media.priority === 2 && <Badge tone="neutral">推奨</Badge>}
             <Badge tone={INTEGRATION_TONE[media.integration]}>{MEDIA_INTEGRATION_LABELS[media.integration]}</Badge>
             <Badge tone={STATUS_TONE[status.status]}>{LISTING_STATUS_LABELS[status.status]}</Badge>
-            {status.checkResult && <Badge tone={CHECK_TONE[status.checkResult]}>{CHECK_RESULT_LABELS[status.checkResult]}</Badge>}
+            {status.check && (
+              <Badge tone={RECHECK_TONE[status.check.result]} icon={false} title={status.lastCheckedAt ? `最終確認 ${formatDateTime(status.lastCheckedAt)}` : undefined}>
+                {RECHECK_LABELS[status.check.result]}
+              </Badge>
+            )}
           </div>
-          {status.lastCheckedAt && (
-            <p className="mt-1 text-[12px] leading-relaxed text-muted">
-              {formatDateTime(status.lastCheckedAt)} に確認: {status.checkNote}
-            </p>
-          )}
-          {!status.lastCheckedAt && isCheckable(status) && <p className="mt-1 text-[12px] text-muted">掲載ページの URL を控えてあります。次の確認でここに結果が出ます。</p>}
           <p className="mt-1 text-[12px] leading-relaxed text-muted">
             {media.howTo}
             {fedBy.length > 0 && <span> 元の媒体: {fedBy.join("・")}。</span>}
@@ -1034,6 +978,11 @@ function MediaRow({ media, status, onChange }: { media: ListingMedia; status: Re
           <Field label="メモ" htmlFor={`lm-note-${media.id}`} hint={status.updatedAt ? `更新: ${formatDateTime(status.updatedAt)}` : undefined}>
             <Input id={`lm-note-${media.id}`} maxLength={LISTING_NOTE_MAX} value={status.note} onChange={(e) => onChange({ note: e.target.value })} />
           </Field>
+          {status.lastCheckedAt && status.check && (
+            <p className="text-[12px] text-muted md:col-span-2">
+              掲載の確認: {formatDateTime(status.lastCheckedAt)} に {RECHECK_LABELS[status.check.result]}（{status.check.detail}）。次回は {status.nextCheckAt ? formatDateTime(status.nextCheckAt) : "未定"}。
+            </p>
+          )}
         </div>
       )}
     </li>

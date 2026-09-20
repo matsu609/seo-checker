@@ -96,6 +96,7 @@ describe("機能とプランの対応", () => {
    */
   it("AI が成果物を作る機能はスタンダード", () => {
     const standard = features.filter((f) => f.plan === "standard").map((f) => f.id).sort();
+    // r127: 投稿（AI が本文を作って Google に送る）もスタンダード。サイト監視と月次レポートは「読む・測る」系なのでライト
     expect(standard).toEqual(["geo", "improvement", "listings", "llms-txt", "posts", "replies", "reviews", "seo-analysis", "writing"]);
   });
 
@@ -107,6 +108,8 @@ describe("機能とプランの対応", () => {
     expect(light).toContain("search-estimate");
     // サイテーション（ウェブ上の掲載・言及チェック）は読む・測る系なのでライト（2026-09-17）
     expect(light).toContain("citations");
+    // NAP チェック（表記ゆれの検出）も読む・測る系（2026-09-20）
+    expect(light).toContain("nap");
     expect(light).not.toContain("search-performance");
     expect(light.length).toBeGreaterThanOrEqual(9);
   });
