@@ -141,6 +141,58 @@ describe("サイト共通ファイル", () => {
     expect(ruleIds(ruleSiteFiles([], makeContext()))).toEqual(["LLMS_TXT_MISSING"]);
   });
 
+  // robots.txt が「無い」と「壊れている」は直し方が違う（2026-09-20 追加）
+  it("robots.txt の代わりに HTML が返る誤設定は重大にする", () => {
+    const context = makeContext({
+      robotsExists: false,
+      siteFiles: {
+        ...makeContext().siteFiles,
+        robotsTxt: null,
+        robots: { status: 200, html: true, length: 0 },
+      },
+    });
+    const found = ruleSiteFiles([], context).find((i) => i.ruleId === "ROBOTS_MISSING");
+    expect(found?.severity).toBe("error");
+    expect(found?.detail).toContain("中身が HTML");
+  });
+
+  it("robots.txt が 5xx を返すときは重大にする（サイト全体のクロールが止まる）", () => {
+    const context = makeContext({
+      robotsExists: false,
+      siteFiles: {
+        ...makeContext().siteFiles,
+        robotsTxt: null,
+        robots: { status: 503, html: false, length: 0 },
+      },
+    });
+    const found = ruleSiteFiles([], context).find((i) => i.ruleId === "ROBOTS_MISSING");
+    expect(found?.severity).toBe("error");
+    expect(found?.suggestion).toContain("5xx");
+  });
+
+  it("robots.txt の書式が誤っていれば ROBOTS_SYNTAX を出す", () => {
+    const context = makeContext({
+      siteFiles: {
+        ...makeContext().siteFiles,
+        robotsTxt: "User-agent: *\nDissallow: /admin/\n",
+      },
+    });
+    const found = ruleSiteFiles([], context).find((i) => i.ruleId === "ROBOTS_SYNTAX");
+    expect(found?.severity).toBe("error");
+    expect(found?.detail).toContain("2 行目");
+    // 書式に問題が無ければ出さない
+    expect(ruleIds(ruleSiteFiles([], makeContext()))).not.toContain("ROBOTS_SYNTAX");
+  });
+
+  it("サイトマップはあるのに robots.txt に Sitemap 行が無ければ情報として出す", () => {
+    const context = makeContext({
+      siteFiles: { ...makeContext().siteFiles, sitemaps: [] },
+    });
+    const found = ruleSiteFiles([], context).find((i) => i.ruleId === "SITEMAP_MISSING");
+    expect(found?.severity).toBe("info");
+    expect(found?.suggestion).toContain(`Sitemap: ${ORIGIN}/sitemap.xml`);
+  });
+
   // llms.txt は提案段階の仕様で、読み取りを表明した主要な AI クローラが無い。
   // 無いことを警告にする根拠が無いので info（任意）に留める
   it("llms.txt の不在は任意項目、あれば llms-full.txt を任意項目として案内する", () => {

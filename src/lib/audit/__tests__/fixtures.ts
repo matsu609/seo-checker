@@ -16,6 +16,8 @@ export interface FixtureOptions {
   status?: number;
   headers?: Record<string, string>;
   robotsAllowed?: boolean;
+  /** robots.txt が拒否している AI 検索用クローラ */
+  aiCrawlersBlocked?: string[];
   loadMs?: number | null;
 }
 
@@ -49,6 +51,7 @@ export function pageFrom(body: string, options: FixtureOptions = {}): AuditPage 
   const { page } = parseAuditPage(fetched, {
     requestedUrl: options.url ?? fetched.finalUrl,
     robotsAllowed: options.robotsAllowed ?? true,
+    aiCrawlersBlocked: options.aiCrawlersBlocked ?? [],
     loadMs: options.loadMs ?? null,
   });
   return page;
@@ -62,7 +65,9 @@ export function makeContext(overrides: Partial<AuditContext> = {}): AuditContext
     siteFiles: {
       origin: ORIGIN,
       robotsTxt: "User-agent: *\nAllow: /\n",
+      robots: { status: 200, html: false, length: 22 },
       sitemaps: [`${ORIGIN}/sitemap.xml`],
+      sitemapXml: { present: true, status: 200 },
       llmsTxt: { present: false, length: 0, status: 404 },
       llmsFullTxt: { present: false, length: 0 },
     },

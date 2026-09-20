@@ -13,7 +13,11 @@ import {
 } from "@/lib/analyzer/types";
 
 export const CHECK_WEIGHTS: Record<string, number> = {
-  // AI クローラ可否
+  // クローラ可否（robots.txt）
+  "robots-txt": 1,
+  "robots-syntax": 1,
+  "robots-sitemap": 1,
+  "search-crawlers-allowed": 3,
   "ai-crawlers-allowed": 3,
   "ai-crawlers-training": 0,
   noindex: 2,
@@ -71,7 +75,7 @@ export function categoryIndex(id: CategoryId): number {
 /** 付録 B「診断方法と採点基準」に載せる、カテゴリごとの主な確認内容 */
 export const CATEGORY_CRITERIA: Record<CategoryId, string> = {
   crawlers:
-    "robots.txt での AI 検索用クローラ（OAI-SearchBot・PerplexityBot・Claude-SearchBot など）の許可、noindex の有無。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページは、noindex も robots.txt での拒否も減点しません（サイト全体が拒否されている場合は減点します）。llms.txt の有無も採点します（中身は精密診断で見ます）。学習用クローラ（GPTBot など）の拒否は参考表示で、採点していません",
+    "robots.txt が正しく置かれているか（無い・HTML が返る誤設定・サーバーエラー）とその書式、検索エンジンのクローラ（Googlebot・Bingbot）と AI 検索用クローラ（OAI-SearchBot・PerplexityBot・Claude-SearchBot など）の許可、サイトマップの場所（robots.txt の Sitemap 行または /sitemap.xml）、noindex の有無。サイト内検索の結果・買い物かご・ログイン後の画面など、もともと検索に載せないページは、noindex も robots.txt での拒否も減点しません（サイト全体が拒否されている場合は減点します）。llms.txt の有無も採点します（中身は精密診断で見ます）。学習用クローラ（GPTBot など）の拒否は参考表示で、採点していません",
   structuredData:
     "JSON-LD の有無と文法、Organization / パンくず / sameAs（公式 SNS 等）。WebSite はトップページのみ、パンくずは階層のある下層ページのみ、FAQPage は画面に FAQ が実在するページのみを採点します",
   meta: "title・meta description の有無と長さ、OGP、canonical、html の lang 属性",

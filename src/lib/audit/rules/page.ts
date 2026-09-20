@@ -290,7 +290,7 @@ export const ruleNoindex: PageRule = (page) => {
 };
 
 export const ruleRobotsBlocked: PageRule = (page, ctx) => {
-  if (page.robotsAllowed) return [];
+  if (page.robotsAllowed) return aiCrawlerIssues(page, ctx);
   // サイト内検索の結果ページなどを robots.txt で止めるのも定石。ただしサイト全体が
   // 拒否されている（Disallow: /）ときは本物の問題なので、トップページが許可されて
   // いる場合だけ意図した拒否とみなす（判定は page-kind.ts）
@@ -318,6 +318,40 @@ export const ruleRobotsBlocked: PageRule = (page, ctx) => {
     ),
   ];
 };
+
+/**
+ * Googlebot は許可しているのに、AI 検索用クローラ（OAI-SearchBot / PerplexityBot /
+ * Claude-SearchBot など）だけを robots.txt で拒否している状態。
+ * 検索には出るが AI の回答に引用されなくなるため、Googlebot の拒否とは分けて出す。
+ * 学習用（GPTBot など）の拒否は正当な運用なので、ここでは見ない。
+ */
+function aiCrawlerIssues(page: AuditPage, ctx: AuditContext): Issue[] {
+  if (page.aiCrawlersBlocked.length === 0) return [];
+  const blocked = page.aiCrawlersBlocked.join(", ");
+  const intentional = ctx.rootRobotsAllowed ? notForSearch(page.url) : null;
+  if (intentional) {
+    return [
+      issue(
+        "AI_CRAWLER_BLOCKED",
+        "基本的な設定",
+        "info",
+        page.url,
+        `${intentional.label}のため、AI 検索用クローラを robots.txt で拒否しています（${blocked}）`,
+        `${intentional.reason}robots.txt で拒否したままで対応は不要です。`,
+      ),
+    ];
+  }
+  return [
+    issue(
+      "AI_CRAWLER_BLOCKED",
+      "基本的な設定",
+      "warning",
+      page.url,
+      `AI 検索用クローラが robots.txt で拒否されています（${blocked}）`,
+      "これらは AI が回答に引用元として載せるためにページを読みに来るクローラで、検索エンジンとは別の User-agent です。拒否していると、ChatGPT 検索や Perplexity の回答に引用される機会が無くなります。学習用（GPTBot・ClaudeBot など）とは別なので、学習だけ止めて検索用は許可する指定ができます。",
+    ),
+  ];
+}
 
 export const ruleDepth: PageRule = (page) => {
   if (page.depth === null || page.depth <= T.maxDepth) return [];

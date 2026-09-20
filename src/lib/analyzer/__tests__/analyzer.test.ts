@@ -166,7 +166,9 @@ describe("checkCrawlers の noindex", () => {
   const files: SiteFiles = {
     origin: "https://example.com",
     robotsTxt: "User-agent: *\nAllow: /",
+    robots: { status: 200, html: false, length: 24 },
     sitemaps: [],
+    sitemapXml: { present: false, status: 404 },
     llmsTxt: { present: false, length: 0, status: 404 },
     llmsFullTxt: { present: false, length: 0 },
   };
@@ -215,7 +217,9 @@ describe("checkCrawlers の robots.txt 拒否", () => {
   const filesWith = (robotsTxt: string | null): SiteFiles => ({
     origin: "https://example.com",
     robotsTxt,
+    robots: { status: robotsTxt === null ? 404 : 200, html: false, length: robotsTxt?.length ?? 0 },
     sitemaps: [],
+    sitemapXml: { present: false, status: 404 },
     llmsTxt: { present: false, length: 0, status: 404 },
     llmsFullTxt: { present: false, length: 0 },
   });
@@ -279,7 +283,9 @@ describe("searchExclusion", () => {
   const files = (robotsTxt: string | null): SiteFiles => ({
     origin: "https://example.com",
     robotsTxt,
+    robots: { status: robotsTxt === null ? 404 : 200, html: false, length: robotsTxt?.length ?? 0 },
     sitemaps: [],
+    sitemapXml: { present: false, status: 404 },
     llmsTxt: { present: false, length: 0, status: 404 },
     llmsFullTxt: { present: false, length: 0 },
   });
@@ -707,5 +713,132 @@ describe("summarizeCategories", () => {
     });
     // 全ページ同点のカテゴリは幅が出ない
     expect(byId.crawlers).toMatchObject({ score: 70, min: 70, max: 70 });
+  });
+});
+
+// robots.txt そのものの設置状態・書式・検索エンジンの可否・サイトマップの場所。
+// 2026-09-20 に追加（利用者の指示「1〜6 全部入れて」）。AI クローラの可否だけを見ていると、
+// Googlebot を名指しで拒否しているサイトや、robots.txt が HTML を返している誤設定を見逃す。
+describe("checkCrawlers の robots.txt / サイトマップ", () => {
+  const files = (overrides: Partial<SiteFiles> = {}): SiteFiles => ({
+    origin: "https://example.com",
+    robotsTxt: "User-agent: *\nAllow: /\nSitemap: https://example.com/sitemap.xml\n",
+    robots: { status: 200, html: false, length: 60 },
+    sitemaps: ["https://example.com/sitemap.xml"],
+    sitemapXml: { present: true, status: 200 },
+    llmsTxt: { present: false, length: 0, status: 404 },
+    llmsFullTxt: { present: false, length: 0 },
+    ...overrides,
+  });
+  const run = (overrides: Partial<SiteFiles> = {}, url = "https://example.com/service") =>
+    Object.fromEntries(
+      checkCrawlers(
+        new URL(url),
+        cheerio.load("<html><head></head><body></body></html>"),
+        new Headers(),
+        files(overrides),
+      ).map((r) => [r.id, r]),
+    );
+
+  describe("robots.txt の設置状態", () => {
+    it("置かれていれば pass", () => {
+      expect(run()["robots-txt"]).toMatchObject({ status: "pass", weight: 1 });
+    });
+
+    it("無い（404）なら warn。クロールは止まらないので fail にはしない", () => {
+      const byId = run({ robotsTxt: null, robots: { status: 404, html: false, length: 0 }, sitemaps: [] });
+      expect(byId["robots-txt"]).toMatchObject({ status: "warn", weight: 1 });
+      expect(byId["robots-txt"].label).toBe("robots.txt が置かれていない");
+    });
+
+    it("HTML が返る誤設定は fail（書いたはずの指定が効いていない）", () => {
+      const byId = run({ robotsTxt: null, robots: { status: 200, html: true, length: 0 }, sitemaps: [] });
+      expect(byId["robots-txt"]).toMatchObject({ status: "fail", weight: 1 });
+      expect(byId["robots-txt"].label).toBe("robots.txt の代わりに HTML が返っている");
+    });
+
+    it("5xx は fail（Google はサイト全体のクロールを止める）", () => {
+      const byId = run({ robotsTxt: null, robots: { status: 503, html: false, length: 0 }, sitemaps: [] });
+      expect(byId["robots-txt"].label).toBe("robots.txt がエラーを返している");
+      expect(byId["robots-txt"].advice).toContain("5xx");
+    });
+
+    it("robots.txt が無いページでは書式の項目を出さない", () => {
+      expect(run({ robotsTxt: null, robots: { status: 404, html: false, length: 0 } })["robots-syntax"]).toBeUndefined();
+    });
+  });
+
+  describe("書式", () => {
+    it("問題が無ければ pass", () => {
+      expect(run()["robots-syntax"]).toMatchObject({ status: "pass", weight: 1 });
+    });
+
+    it("効いていない行があれば fail にして行番号を出す", () => {
+      const byId = run({ robotsTxt: "User-agent: *\nDissallow: /admin/\n" });
+      expect(byId["robots-syntax"].status).toBe("fail");
+      expect(byId["robots-syntax"].details?.[0]).toContain("2 行目");
+    });
+
+    it("効いてはいるが気になる書き方は warn", () => {
+      const byId = run({ robotsTxt: "User-agent: *\nNoindex: /secret/\n" });
+      expect(byId["robots-syntax"].status).toBe("warn");
+    });
+  });
+
+  describe("検索エンジンのクローラ", () => {
+    it("拒否されていなければ pass（配点 3）", () => {
+      expect(run()["search-crawlers-allowed"]).toMatchObject({ status: "pass", weight: 3 });
+    });
+
+    // AI クローラだけを見ていたときに見逃していたのがこれ
+    it("Googlebot を名指しで拒否していれば warn", () => {
+      const byId = run({ robotsTxt: "User-agent: *\nAllow: /\nUser-agent: Googlebot\nDisallow: /" });
+      expect(byId["search-crawlers-allowed"].status).toBe("warn");
+      expect(byId["search-crawlers-allowed"].label).toContain("Googlebot");
+      // AI 用の User-agent は許可されたままなので、そちらは pass
+      expect(byId["ai-crawlers-allowed"].status).toBe("pass");
+    });
+
+    it("サイト全体を拒否していれば fail", () => {
+      expect(run({ robotsTxt: "User-agent: *\nDisallow: /" })["search-crawlers-allowed"].status).toBe("fail");
+    });
+
+    it("サイト内検索の結果ページの拒否は減点しない", () => {
+      const byId = run(
+        { robotsTxt: "User-agent: *\nAllow: /\nDisallow: /search" },
+        "https://example.com/search?q=seo",
+      );
+      expect(byId["search-crawlers-allowed"].status).toBe("pass");
+      expect(byId["search-crawlers-allowed"].label).toBe(
+        "サイト内検索の結果ページのため robots.txt での拒否は適切",
+      );
+    });
+
+    it("トップまで拒否されていれば、検索ページでも fail（Disallow: / の見逃し防止）", () => {
+      const byId = run({ robotsTxt: "User-agent: *\nDisallow: /" }, "https://example.com/search?q=seo");
+      expect(byId["search-crawlers-allowed"].status).toBe("fail");
+    });
+  });
+
+  describe("サイトマップの場所", () => {
+    it("robots.txt に Sitemap 行があれば pass", () => {
+      expect(run()["robots-sitemap"]).toMatchObject({ status: "pass", weight: 1 });
+    });
+
+    it("定番の場所にあるのに robots.txt に書いていなければ warn", () => {
+      const byId = run({ robotsTxt: "User-agent: *\nAllow: /\n", sitemaps: [] });
+      expect(byId["robots-sitemap"].status).toBe("warn");
+      expect(byId["robots-sitemap"].advice).toContain("Sitemap: https://example.com/sitemap.xml");
+    });
+
+    it("どちらにも無ければ fail", () => {
+      const byId = run({
+        robotsTxt: "User-agent: *\nAllow: /\n",
+        sitemaps: [],
+        sitemapXml: { present: false, status: 404 },
+      });
+      expect(byId["robots-sitemap"].status).toBe("fail");
+      expect(byId["robots-sitemap"].label).toBe("サイトマップが見つからない");
+    });
   });
 });
