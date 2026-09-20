@@ -84,7 +84,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r127 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r128 | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -190,6 +190,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 
 | # | 内容 | 担当 | 状態 |
 |---|---|---|---|
+| 122 | **ご意見・不具合の報告を本番で開く（r128）**: ① Supabase の SQL Editor で下の「ご意見・不具合の報告のテーブル（r128）」の SQL を実行 → ② Vercel の自動デプロイ後、ツールの右上「ご意見・不具合」から 1 件送る → ③ `/admin` の「お客様からのご意見・不具合」に出ること、状態と返答を書けること → ④ `/settings` の「ご意見の履歴」に返答が出ること。SQL を実行するまで `/admin` のカードには「feedback テーブルがありません」と出る（他の画面は影響なし） | 利用者 | 未 |
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
 | 111 | **サイドバーの整理の続き**: r94 で 3 つ外した。さらに減らす候補は ① ページ診断（競合比較。精密診断と役割が近い）② 順位計測（SerpApi）と検索パフォーマンス（推定）（DataForSEO）の一本化 ③ AIO 頻出トピック・ページ最適化レポートの API と `src/lib/aio-topics/` の削除（1〜2 か月後、転送ページと一緒に）。利用者の判断待ち（下の入力待ち） | 利用者（判断）→ Claude | 未 |
 | 112 | ~~タブの並び~~ | — | **不要（r95 で 3 タブをやめ、AIO 対策の中に SEO / MEO / サイテーションを入れ子にした）** |
@@ -931,7 +932,7 @@ alter table monthly_reports enable row level security;
 
 ### 入力待ち（利用者からの回答が要るもの）
 
-- **利用者の声の集め方（09-20 の相談）**: アプリ内フィードバック（Supabase 1 テーブル + `/admin` 一覧 + 利用者の設定画面に返答）で進めるか。入口の場所（右下 / 設定画面 / サイドバー下）、スクショ添付を初回から入れるか、Sentry（エラーの自動収集）を同時に入れるか。新着のメール通知は Resend の契約後
+- **ご意見・不具合の報告の続き（r128 のあと）**: 新着をメールで受けたいか（Resend 等の送信サービスの契約が要る。09-20 の定期更新の相談と同じ基盤）。スクショ添付を足すか（Supabase Storage が要る）。Sentry（エラーの自動収集）を入れるか
 - **定期更新（r127）の本番反映**: #118（SQL）・#119（Resend）・#120（Cron の確認）が済んだら一言。自動計測の語数の上限（#121: ライト 30 / スタンダード 100 / プレミアム 300）はこれでよいか
 - **チャートの色**: dataviz の検証ツールで、既存の 6 色（`palette.chart`）は 5・6 色目の区別が弱く（色覚多様性で ΔE 2.2）、全体に彩度が低いと出た。推移グラフは最初の 4 色を区別しやすい順に並べ替え、点の形・凡例・表で補っている。デザインの色そのものを変えるか（変えるなら `globals.css` と `palette.ts` の両方）
 - **登録つき無料診断（#117）**: 本番で開く前の作業（`DEFAULT_PLAN=free`・既存契約者の個別開放）が済んだら一言。
@@ -1168,6 +1169,34 @@ alter table review_channels
   add column if not exists place_id text,
   add column if not exists write_review_url text;
 ```
+
+### ご意見・不具合の報告のテーブル（r128、2026-09-20。Supabase SQL Editor で実行。**未実行**）
+
+```sql
+create table if not exists feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  email text not null default '',
+  name text not null default '',
+  kind text not null,
+  body text not null,
+  path text not null default '',
+  plan text not null default '',
+  user_agent text not null default '',
+  commit text not null default '',
+  release int not null default 0,
+  status text not null default 'open',
+  reply text,
+  replied_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists feedback_user_idx on feedback (user_id, created_at desc);
+create index if not exists feedback_status_idx on feedback (status, created_at desc);
+alter table feedback enable row level security;
+```
+
+`kind` は `bug` / `request` / `question` / `other`、`status` は `open` / `in_progress` / `done`（`src/lib/feedback/types.ts`）。`email` / `name` / `plan` / `user_agent` / `commit` / `release` は**送信時点の写し**（あとで契約が変わっても報告時の状態が残る）。本人の読み出しは `user_id` で絞り、運用者（`ADMIN_EMAILS`）だけが全件を読んで `status` / `reply` を書く（`/api/admin/feedback`）。
 
 `review_forms.questions` は `src/lib/reviews/questions.ts` の `QuestionsSchema`（最大 8 問、評価は 1 問）、`settings` は `ReviewFormSettingsSchema`（業種・トーン・キーワード最大 5・低評価の閾値）。`review_responses` には user_id が無いので、店舗側は必ず `review_forms`（user_id）経由で触る。`edit_token` は来店客が押下の記録・「お店に直接伝える」を送るための鍵（回答時に発行、画面にだけ返す）。
 
@@ -3859,6 +3888,27 @@ Yahoo!プレイスと Bing の入稿 CSV、残り 27 媒体の手順は**いま�
 - 本番で動かすには **#118（SQL）・#119（Resend）・#120（Cron の確認）**。手順は上の「定期更新（r127）を本番で動かす手順」。
 - 触っていないこと: 既存の Cron `geo-run`、Stripe、Clerk。既存機能の API と画面の動きは変えていない（順位計測の画面にサーバー分の取り込みと「推移」タブ、精密診断に「前回との比較」と「自動」バッジ、掲載の媒体一覧に確認の結果、マップ診断にカード 5 を足しただけ）。
 
+### 2026-09-20（ご意見・不具合の報告を実装、r128）
+
+利用者「#3 で進めてください」（09-20 の相談の ③ = アプリ内フィードバック）。入口の場所などは判断待ちにせず、こちらで決めて進めた。
+
+**決めたこと（利用者に確認していない。変えたければ言ってもらう）**
+- **入口はトップバーの右（ログイン状態の左隣）**。どのツール画面でも同じ場所にあり、スマホでもアイコンで出る。サイドバー下だとスマホではドロワーを開かないと見えず、右下の常設ボタンは PDF 化やレポートの操作と重なるため。
+- **スクショ添付は今回入れない**（Supabase Storage が要る。要望が出たら第 2 段）。
+- **Sentry も入れない**（別の判断。入力待ちに残した）。
+- 種類は 4 つ（不具合の報告 / こうしてほしい（要望）/ 使い方の質問 / その他のご意見）。1 人 1 日 20 件まで（プロセス内の簡易カウンタ）。代理ログイン中は 403（お客様の名前で記録が残るため。決済 API と同じ扱い）。
+
+**作ったもの**
+- `src/lib/feedback/types.ts`（種類・状態・zod・行 → 記録・UA の短縮・並び順。純関数）、`store.ts`（Supabase `feedback`。本人は `user_id` で絞る、運用者は全件）、テスト 7 件。
+- `/api/feedback`（GET 自分の履歴 50 件 / POST 送信。メール・表示名（会社名 → 担当者名 → 氏名）は Clerk、プランは判定結果、ブラウザは User-Agent ヘッダ、版は `buildInfo().commit` と `releaseCount()` をサーバーが付ける。ブラウザから来るのは種類・本文・開いていた画面のパスだけ）。
+- `/api/admin/feedback`（GET 一覧 300 件 `?status=` / PATCH 状態・返答。`requireAdmin`、他は 404）。
+- 画面: `src/components/feedback/FeedbackDialog.tsx`（トップバーのボタン + モーダル。Escape・フォーカストラップ・送信後の完了表示）、`FeedbackHistoryCard.tsx`（設定画面「ご意見の履歴」。返答つき）、`src/components/admin/FeedbackCard.tsx`（マスター画面。状態の切替・返答の編集。返答を書くと未対応 → 対応中に自動で進む。誰が / 画面 / プラン / ブラウザ / 版を 1 行で表示）。
+- マスター画面はサーバーで読んで渡す。Supabase 未設定や **テーブル未作成（404）のときはカードの中に理由を出す**だけで、画面全体は止めない。
+- README（設定・マスター画面）と ARCHITECTURE（設定の行・Supabase の行・ディレクトリ）を更新。
+
+**検証**: lint / tsc / test（1,642 件）/ build 通過。`next start` で `/api/feedback` が Supabase 未設定時に 503、`/api/admin/feedback` が非管理者に 404 を返すこと、Playwright でモーダル・設定画面のカード・スマホ表示を目視。
+
+**利用者にお願いすること**: 残タスク #122（Supabase で SQL を実行 → 本番で 1 件送って `/admin` と `/settings` を確認）。
 ### 2026-09-20（r127 の SQL を会話に貼った）
 
 - 利用者「1 の SQL はどれ」→ 上の「定期更新（r127）を本番で動かす手順」の SQL（6 テーブル）をそのまま会話に貼り、Supabase の SQL Editor での実行をお願いした（#118）。実行の報告待ち。

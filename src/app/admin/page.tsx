@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { AdminConsole } from "@/components/admin/AdminConsole";
+import { FeedbackCard } from "@/components/admin/FeedbackCard";
 import { IntegrationsCard } from "@/components/admin/IntegrationsCard";
 import { JobsCard } from "@/components/admin/JobsCard";
 import { VersionCard } from "@/components/admin/VersionCard";
@@ -9,6 +10,9 @@ import { Callout } from "@/components/ui/Callout";
 import { loadAgencies } from "@/lib/admin/agencies";
 import { loadClients } from "@/lib/admin/clients";
 import { isAdmin } from "@/lib/admin/guard";
+import { DbError, isSupabaseConfigured } from "@/lib/db/supabase";
+import { listAllFeedback } from "@/lib/feedback/store";
+import type { FeedbackRecord } from "@/lib/feedback/types";
 
 export const metadata: Metadata = {
   title: "マスター画面",
@@ -42,6 +46,22 @@ export default async function Page() {
     );
   }
 
+  // お客様からのご意見・不具合（Supabase）。読めなくても画面全体は止めない
+  let feedback: FeedbackRecord[] | null = null;
+  let feedbackError: string | null = null;
+  if (!isSupabaseConfigured()) {
+    feedbackError = "保存先（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）が未設定のため、ご意見は表示できません。";
+  } else {
+    try {
+      feedback = await listAllFeedback();
+    } catch (err) {
+      feedbackError =
+        err instanceof DbError && err.status === 404
+          ? "feedback テーブルがありません。docs/dev/OPERATIONS.md の SQL（r128）を Supabase の SQL Editor で実行してください。"
+          : "ご意見の一覧を取得できませんでした。時間をおいて開き直してください。";
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl @container">
       <h1 className="mb-1 flex items-center gap-3 text-xl font-bold text-ink">
@@ -58,6 +78,10 @@ export default async function Page() {
 
       <div className="mb-6">
         <IntegrationsCard />
+      </div>
+
+      <div className="mb-6">
+        <FeedbackCard initial={feedback} loadError={feedbackError} />
       </div>
 
       <div className="mb-6">
