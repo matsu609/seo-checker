@@ -709,6 +709,11 @@
       "commit": "c127128",
       "date": "2026-09-21",
       "summary": "AI 検索モニタリング: Claude / Perplexity / Google AI モードを追加、キーワードごとの推移を折れ線グラフに"
+    },
+    {
+      "commit": "abede89",
+      "date": "2026-09-21",
+      "summary": "AI 検索モニタリング: 業界の地図（LLM Mentions API。引用が多いサイトの順位表）を追加"
     }
   ]
 }
