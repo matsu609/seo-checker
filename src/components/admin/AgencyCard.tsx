@@ -51,10 +51,12 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
       if (!res.ok) throw new Error(body.error ?? `追加できませんでした（HTTP ${res.status}）`);
       if (body.agencies) onChange(body.agencies);
       setEmail("");
+      // メールが飛ぶのは「未登録だった」ときだけ。登録済みの相手に権限を付けただけのときに
+      // 同じ文面だと、来ないメールを待たせてしまう（利用者の報告 2026-09-21）ので必ず書き分ける
       setNotice(
         body.result?.kind === "invited"
-          ? `${body.result.email} に招待メールを送りました。相手が登録を済ませると、この一覧に並びます。`
-          : `${body.result?.email ?? value} を管理アカウントにしました。`,
+          ? `${body.result.email} に招待メールを送りました。相手が登録を済ませると、この一覧に並びます。届かないときは迷惑メールをご確認ください。`
+          : `${body.result?.email ?? value} を管理アカウントにしました。すでに登録済みのアカウントなので、招待メールは送っていません（このままログインすれば使えます）。続けて「顧客管理」で担当のお客様を割り当ててください。`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "追加できませんでした");
@@ -117,7 +119,7 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
             label="管理アカウントにするメールアドレス"
             htmlFor="agency-email"
             className="min-w-[16rem] flex-1"
-            hint="すでに登録済みの方はその場で管理アカウントになります。未登録の方には Clerk から招待メールを送ります。"
+            hint="すでに登録済みの方はその場で管理アカウントになります（この場合、メールは送りません）。未登録の方にだけ Clerk から招待メールを送ります。"
           >
             <Input
               id="agency-email"
