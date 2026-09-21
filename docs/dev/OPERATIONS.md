@@ -198,6 +198,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 |---|---|---|---|
 | 122 | ~~**ご意見・不具合の報告を本番で開く（r128）**~~ | 利用者 | **完了（09-20。SQL 実行 →「Success. No rows returned」→ 本番で利用者が「正しく使えた」と報告）** |
 | 123 | **NAP チェック（r131）の本番確認**: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/nap` を開く → 4 項目（設定の基本情報とホームページが初期値。MEO の登録店舗からも取り込める）→「チェックする」→ 1〜2 分で「直すべき箇所」「媒体ごとの突き合わせ」が出ること。自社サイトの値が正しく読めているか（構造化データ・フッター・会社概要）、Google マップが同じ店を見つけたか、誤判定（本当は同じなのに不一致 / 違うのに一致）があればその媒体と値を共有。費用は Places の詳細 1 回 + DataForSEO 2 回（数円） | 利用者 | 未 |
+| 126 | **LLM Mentions API（DataForSEO の未使用のエンドポイント）を足すか**: ブランド・ドメインが LLM の回答でどう言及されたかを**直接**返す API（自分でプロンプトを投げなくてよい。Live で平均 2 秒）。**Top Brands = 業界で誰が一番引用されているかのランキング**は、いまの機能では出せない数字で、競合比較の説得力が上がる。ただし対応は google（AI Overview）と chat_gpt の 2 つだけで、プロンプトを自分で選べないので、**いまの作り（LLM Responses）の置き換えではなく「業界の地図」カードとして足す**のが本線。単価は未確認。実装は 0.5〜1 日 | 利用者（判断）→ Claude | 判断待ち |
 | 124 | **AI 検索モニタリングを実際に回してグラフに数字を入れる（r132 / r142 の本番確認）**: 先に #19（`CRON_SECRET`）と #91 の 7〜9。① `/admin` の「外部連携」で DataForSEO が設定済みか ② `/tools/geo` →「プロンプトと計測対象」でプロンプトを 3〜5 本登録（モデルは ChatGPT / Gemini / Claude / Perplexity から選ぶ。**Perplexity だけ原価が約 3 倍**）③ 設定（/settings）の「対策キーワード」にキーワードが入っているか ④ 翌朝 5:00 JST の Cron のあと `/tools/geo` で棒グラフに数字が出ること ⑤ **2 週目以降**、折れ線に点が 2 つ以上ついて線になること。**数字が落ち着くまで 4 週かかる**（帯が広い・線が短いのは異常ではない）。DataForSEO の残高はお試し $1 のままなので、回すなら $50 の入金が先。**新しいエンドポイント 3 本（Claude / Perplexity / AI モード）は本番で初めて叩く**ので、404 が出たら画面のエラー文（`GEO_PATH_*` の案内）を共有してほしい | 利用者 | 未 |
 | 125 | ~~**キーワードの AI Overviews を週 1 回 → 週 3 回に増やすか**~~ | 利用者（判断） | **決定: 週 1 回のまま（09-21 利用者「週 1 回でいいです」）。**コードは変更なし（`RANK_PLAN` は `[1,0,0,0,0,0,0]` のまま）。そのぶん 1 週ぶんの点は n が小さいので、**棒グラフ（水準）は 4 週ローリング + 帯、折れ線（傾き）は週ごと**と役割を分けた |
 | 110 | **サイテーションの本番確認**（r94）: Vercel の自動デプロイ後、`https://app.seo-checker.tokyo/tools/citations` を開き、MEO の登録店舗から取り込む（または店名・電話・住所を入力）→「調べる」→ 言及しているサイトの一覧と主要媒体の掲載状況が出ること。DataForSEO の検索を 3 回使う（$0.006 前後）。出なければ「使った検索」のエラー文を共有 | 利用者 | 未 |
@@ -944,6 +945,8 @@ alter table monthly_reports enable row level security;
 
 ### 入力待ち（利用者からの回答が要るもの）
 
+- **AI の計測を DataForSEO 経由のままにするか、各社と直接 API 連携にするか（09-21 の質問）**: 回答は作業ログの「DataForSEO は何ができるのか」。要点は ①**Google AI Overviews と AI モードは公式 API が存在しない**ので直接連携では測れない ②OpenAI / Gemini API の答えは「ChatGPT / Gemini の製品の答え」とは別物 ③契約・鍵・障害の窓口が 1 → 4〜5 に増えるので**管理コストは直接連携のほうが増える** ④DataForSEO は 6 モデルすべてに対応済み（r142 で実装済み）。**提案は「DataForSEO のまま」**。この方針でよいか一言ください
+- **LLM Mentions API を足すか（#126）**: Top Brands（業界で誰が一番引用されているか）はいまの機能では出せない数字
 - **NAP チェック（r131）の使い勝手**: 本番で 1 回試した結果（#123）。誤判定があればその媒体と「書かれている値 / 正の値」。判定の緩さ（建物名だけの違いを不一致にするか要確認のままか、法人格の有無を不一致にするか）はここから調整する。Apple マップ・Yahoo!マップ・Bing は自動で読めないので目視のままでよいか
 - **ご意見・不具合の報告の続き（r128 のあと）**: 新着をメールで受けたいか（Resend 等の送信サービスの契約が要る。09-20 の定期更新の相談と同じ基盤）。スクショ添付を足すか（Supabase Storage が要る）。Sentry（エラーの自動収集）を入れるか
 - **定期更新（r127）の本番反映**: #118（SQL）・#119（Resend）・#120（Cron の確認）が済んだら一言。自動計測の語数の上限（#121: ライト 30 / スタンダード 100 / プレミアム 300）はこれでよいか
@@ -4579,3 +4582,78 @@ Business Profile API の前提条件の 1 番目は「**確認済み（verified�
 - Workspace の見せ方で強さが決まる: Gmail のアカウント表示（`…@wolf-info.org` + 自分の名前）→ **Google カレンダーの案件予定**（イベント会社の「予約システム」そのもの）→ **ドライブで「株式会社Wolf」の見積書・請求書 PDF を 1 つ開く**（= 社名入り書類も同時に満たす）→ 入れれば管理コンソールの組織名。顧客の個人情報・金額・口座番号はアップにしない。
 - **利用者の回答待ち**: 動画を送ったか / 「確認済み」に戻ったか。
 - 触っていないこと: コード・テスト・リリース番号。コードは別セッションの `r142` が最新（今回のマージで取り込み）。
+
+### 2026-09-21（利用者の質問: DataForSEO は何ができるのか。AI は各社と直接 API 連携したほうがよいか）
+
+**利用者の質問**「DataForSEO の API って何が取れるんでしたっけ? AI のやつは個別で API 連携しようかなと思ってます。全部を対応してないのであれば、管理コストが増えるので、それぞれの AI サービスで API 連携したいです。DataForSEO って何の機能ができるんで（…）」。**コードは触っていない**（調査と回答のみ。`r142` のまま）。
+
+#### 回答 1: DataForSEO は 11 の API 製品。このプロジェクトが使っているのは 4 つ
+
+| API 製品 | 何が取れるか | うちの利用 |
+|---|---|---|
+| **SERP API** | Google などの検索結果。順位・**AI Overviews**・**AI モード**・ローカルパック | ✅ AI 検索モニタリング / 掲載（サイテーション）/ NAP チェック |
+| **DataForSEO Labs API** | ドメインが順位を持つキーワード・検索数・競合・履歴（80 億キーワードの DB） | ✅ 検索パフォーマンス（推定） |
+| **AI Optimization API** | ① **LLM Responses**（ChatGPT / Gemini / Claude / Perplexity に質問して構造化で返す）② **LLM Mentions**（ブランド・ドメインが LLM 回答でどう言及されたか、AI 検索ボリューム、Top Brands） | ✅ ①だけ。**②は未使用（下の「気づき」）** |
+| Keyword Data API | Google 広告の検索数・CPC・トレンド | ❌ |
+| Backlinks API | 被リンク・参照ドメイン・アンカー | ❌（Ahrefs / Open PageRank） |
+| On-Page API | サイトのクロールと技術的 SEO | ❌（自前クローラ） |
+| Business Data API | Google ビジネスプロフィール・口コミ・Yelp・Tripadvisor | ❌（Places API） |
+| Domain Analytics / Merchant / App Data / Content Analysis | ドメインの技術スタック / ショッピング / アプリ / 言及分析 | ❌ |
+
+**キーと機能の対応**（`registry.ts`）: `requires: ["dataforseo"]` = 掲載（サイテーション）・検索パフォーマンス（推定）・AI 検索モニタリング（+ supabase）。`optional` = NAP チェック・順位計測。**順位計測の本体は SerpApi**（`requires: ["serpapi"]`）で DataForSEO は補助。
+
+#### 回答 2: 「各 AI サービスと直接 API 連携」は**半分しか成立しない**
+
+| 測りたいもの | 直接 API | 判定 |
+|---|---|---|
+| ChatGPT | OpenAI API はある | △ **API の答え ≠ ChatGPT（製品）の答え** |
+| Gemini | Gemini API はある | △ 同上 |
+| Claude | Anthropic API（+ web search tool）。**鍵は既にある** | ○ |
+| Perplexity | Sonar API（$1〜$3 / 1M + リクエスト課金） | ○ |
+| **Google AI Overviews** | **無い** | ✗ **直接連携は不可能** |
+| **Google AI モード** | **無い** | ✗ 同上 |
+
+- **Google は AI Overviews / AI モードの API を出していない。**広告収入のモデル上、検索結果を API で配れないという構造的な理由で、方針が変わる見込みは薄い。**Custom Search API も 2026-01 に「2027-01-01 で終了」と発表**され、後継は Vertex AI Search（= 自分のデータを検索するもので、Google 検索の結果ではない）。
+- 出典: [Google search APIs in 2026（Keirolabs）](https://keirolabs.cloud/blog/google-search-apis-2026)・[Best Google Search APIs in 2026（Since Google Won't Give You One）](https://getairefs.com/blog/best-serp-apis/)・[Google AI Search Developer Guide 2026](https://anycap.ai/page/en-US/ai/google-ai-search-developers-guide-2026)。
+- **AI Overviews は 2026 年時点で検索の約 48% に出る。**「AIO 対策の可視化ツール」（09-17 の位置づけ）を名乗って Google の AI 検索を測れないのは、商品として成立しない。
+
+**さらに重要な点: 「API の答え」と「製品の答え」は別物。**OpenAI API に聞いた答えと、人が ChatGPT の画面で聞いた答えは違う（製品側には独自の検索インデックス・システムプロンプト・パーソナライズ・ランキングがある）。お客様に「ChatGPT ではこう見えています」と報告する以上、測るべきは**製品の答え**。DataForSEO の LLM Responses は製品側の挙動を再現する作りになっている。
+
+#### 回答 3: 管理コストは直接連携のほうが**増える**
+
+| | DataForSEO 1 本（いま） | 各社と直接 |
+|---|---|---|
+| 契約・請求書 | **1** | 4〜5 |
+| API キー | 2（LOGIN / PASSWORD） | 5〜6 |
+| Google の AI 検索 | ✅ 測れる | ❌ **測れない** |
+| ChatGPT の「製品の答え」 | ✅ | ❌ API の答えになる |
+| 実装 | **済み（r142）** | 各社の SDK・レスポンス形式・レート制限を個別に実装 |
+| 障害・仕様変更の窓口 | 1 か所 | 4〜5 か所 |
+| 単価 | 基本料 + 各社の実費 | 実費のみ（基本料の分だけ安い） |
+
+**「全部に対応していないなら」という前提は成立していません。DataForSEO は 6 つすべてに対応しており、r142 で 6 つとも実装済みです。**安くなるのは基本料の分だけで、その代わりに Google の AI 検索（いちばん重要）を失います。
+
+**これは 09-17 に下した判断の逆戻りでもある**: あのとき OpenAI / Gemini / Perplexity の直接契約 3 つをやめて DataForSEO に一本化した。理由は「口座と請求が 3 つ減る」。戻すと同じ問題が再発する。
+
+#### 気づき: まだ使っていない **LLM Mentions API**（検討の価値あり）
+
+DataForSEO の AI Optimization API には、**いまの用途にもっと直接的に合う未使用のエンドポイント**がある。
+
+| | いまの作り（LLM Responses） | LLM Mentions API |
+|---|---|---|
+| やり方 | 自分でプロンプトを投げる → 回答本文から言及を判定（軽量 LLM） | **ブランド / ドメインの言及データを直接もらう** |
+| 返るもの | 回答本文・引用リンク | 言及数・出典・**AI 検索ボリューム**・**Top Brands（業界内のランキング）** |
+| 速さ | 標準キューは最大 45 分 | **Live で平均 2 秒** |
+| プラットフォーム | ChatGPT / Gemini / Claude / Perplexity | google（AI Overview）/ chat_gpt |
+
+- 出典: [LLM Mentions API](https://dataforseo.com/apis/ai-optimization-api/llm-mentions-api)・[search_mentions/live](https://docs.dataforseo.com/v3/ai_optimization-llm_mentions-search_mentions-live/)
+- **「Top Brands」は今の機能では出せない数字**（業界で誰が一番引用されているか）。競合比較の説得力が上がる可能性がある。
+- ただし **①対応プラットフォームが 2 つだけ（うちは 6 つ測っている）②自分でプロンプトを選べない（= お客様ごとの質問文で測れない）**ので、**いまの作りを置き換えるのではなく、足すなら「業界の地図」カードとして**。残タスク #126 に入れた。
+
+#### 結論（提案）
+
+**DataForSEO のままにする。**直接連携に切り替える理由が費用ではなく管理コストなら、切り替えると逆効果。
+
+例外的に直接連携の意味があるのは **Claude だけ**（`ANTHROPIC_API_KEY` は改修案・原稿・返信文の生成で既に持っているので、口座が増えない）。ただし measure したいのは「Claude 製品の答え」なので、**揃えて DataForSEO 経由のままにするほうが一貫する**（数字の意味が混ざらない）。
+
+**利用者の判断待ち**（下の「入力待ち」）。
