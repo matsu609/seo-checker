@@ -16,7 +16,7 @@ function payload(items: unknown[], over: Record<string, unknown> = {}, taskOver:
 
 const BRANDS = { own: ["sample-kobo.jp"], competitors: ["rival.co.jp"] };
 
-describe("業界の地図のパス（#126）", () => {
+describe("業界の地図のパス（#127）", () => {
   it("既定は改名後の top_mentioned_domains", () => {
     expect(topDomainsPath()).toBe("/ai_optimization/llm_mentions/top_mentioned_domains/live");
   });

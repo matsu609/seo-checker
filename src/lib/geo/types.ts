@@ -54,7 +54,7 @@ export function isLiveOnlyModel(model: GeoModel): boolean {
 }
 
 /**
- * 業界の地図（LLM Mentions。#126）が対応するプラットフォーム。
+ * 業界の地図（LLM Mentions。#127）が対応するプラットフォーム。
  * LLM Responses の 4 モデルとは別の軸で、いまは 2 つだけ。
  */
 export const MENTION_PLATFORMS = ["google", "chat_gpt"] as const;

@@ -110,7 +110,7 @@ describe("クレジット（§6）", () => {
     expect(f.remaining).toBe(380);
   });
 
-  it("業界の地図（#126）は行数課金で、残高が尽きたら止まる（定期実行は止めない）", () => {
+  it("業界の地図（#127）は行数課金で、残高が尽きたら止まる（定期実行は止めない）", () => {
     expect(mentionsCostUsd(30)).toBeCloseTo(30 * 0.0011);
     expect(mentionsCostUsd(0)).toBe(0);
     expect(mentionsCostUsd(-5)).toBe(0);

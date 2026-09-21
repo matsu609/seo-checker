@@ -107,7 +107,7 @@ export async function runLive(text: string, model: GeoModel): Promise<LiveResult
   return body;
 }
 
-/* ───────────── 業界の地図（LLM Mentions。#126） ───────────── */
+/* ───────────── 業界の地図（LLM Mentions。#127） ───────────── */
 
 export interface IndustryMapRow {
   domain: string;

@@ -1,5 +1,5 @@
 /**
- * POST /api/geo/mentions — 業界の地図（LLM Mentions。残タスク #126）。
+ * POST /api/geo/mentions — 業界の地図（LLM Mentions。残タスク #127）。
  *
  * トピックを 1 つ渡すと、その話題の AI 回答でよく引用されているドメインの順位表が返る。
  * **オンデマンドだけ**（Live しか無く費用が行数で増えるため、Cron には入れない。§7.4 の考え方）。

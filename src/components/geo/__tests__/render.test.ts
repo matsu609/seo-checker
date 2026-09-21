@@ -178,7 +178,7 @@ describe("TrendChart", () => {
   });
 });
 
-/* ───────────── 業界の地図（#126、利用者の指示 2026-09-21） ───────────── */
+/* ───────────── 業界の地図（#127、利用者の指示 2026-09-21） ───────────── */
 
 function renderMap(over: Partial<IndustryMapCardProps> = {}): string {
   return renderToStaticMarkup(

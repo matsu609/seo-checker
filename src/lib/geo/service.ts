@@ -173,7 +173,7 @@ function fail(message: string, balance: number): LiveRunResult {
   return { ok: false, message, creditsUsed: 0, balance, responseText: "", citations: [], mentioned: [] };
 }
 
-/* ───────────── 業界の地図（LLM Mentions。#126） ───────────── */
+/* ───────────── 業界の地図（LLM Mentions。#127） ───────────── */
 
 export interface IndustryMapResult {
   ok: boolean;

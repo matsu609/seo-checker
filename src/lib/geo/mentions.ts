@@ -1,5 +1,5 @@
 /**
- * LLM Mentions API（DataForSEO の AI Optimization。残タスク #126）。サーバー専用。
+ * LLM Mentions API（DataForSEO の AI Optimization。残タスク #127）。サーバー専用。
  *
  * **いまの計測（LLM Responses）との違い**:
  *   LLM Responses … 自分でプロンプトを投げて、回答本文から言及を数える（= お客様ごとの質問で測る）
