@@ -1,5 +1,5 @@
 /**
- * マスター画面と代理店画面に出す顧客一覧。サーバー専用。
+ * 顧客管理（/clients）に出す顧客一覧。サーバー専用。
  *
  * Clerk のユーザー一覧に、Billing の契約情報と機能の個別開放を重ねる。
  * ここでもデータベースは持たない。
@@ -15,7 +15,7 @@ import { overridesFromMetadata, toggleOverride, OVERRIDES_KEY } from "@/lib/plan
 import { resolveUserPlan, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
 import { summarizeStripeState, summarizeSubscription, type BillingSummary } from "./billing";
-import { agencyIdFromMetadata, canAssignAgency, withAgencyId } from "./roles";
+
 import { assignedPromoFromMetadata, patternById, withAssignedPromo } from "@/lib/billing/promo";
 import { leadFromMetadata, type LeadProfile } from "@/lib/free/lead";
 import { freeRunLimit } from "@/lib/free/quota";
@@ -61,8 +61,6 @@ export interface ClientRow {
   billing: BillingSummary;
   /** プランとは別に開放している機能 ID */
   overrides: string[];
-  /** 担当の代理店（Clerk のユーザー ID）。付いていなければ null */
-  agencyId: string | null;
   /** 登録フォームの情報（担当者名・会社名・電話・店舗の種類）。無ければ null */
   lead: LeadProfile | null;
   /** 無料診断を使った回数 */
@@ -159,7 +157,6 @@ export async function buildClientRows(users: ClerkUserLike[]): Promise<ClientRow
       planSource: source,
       billing,
       overrides,
-      agencyId: agencyIdFromMetadata(user.publicMetadata),
       lead: leadFromMetadata(user.publicMetadata, user.unsafeMetadata ?? null),
       freeRuns: freeRunsFromMetadata(user.privateMetadata ?? null),
       promo: assignedPromoFromMetadata(user.publicMetadata)?.pattern ?? null,
@@ -198,28 +195,6 @@ export async function toggleClientFeature(
     publicMetadata: { ...metadata, [OVERRIDES_KEY]: next },
   });
   return next;
-}
-
-/**
- * 登録者の担当代理店を差し替える（null で担当なし）。マスターだけ。
- *
- * 保存後の値を返す。canAssignAgency を通らない組み合わせ（自分自身を担当にする、
- * ユーザー ID の形が違う）はここで止める。
- */
-export async function assignClientAgency(
-  userId: string,
-  agencyId: string | null,
-): Promise<string | null> {
-  if (!canAssignAgency(userId, agencyId)) {
-    throw new Error("この担当の付け方はできません。");
-  }
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: withAgencyId(metadata, agencyId),
-  });
-  return agencyId;
 }
 
 /**

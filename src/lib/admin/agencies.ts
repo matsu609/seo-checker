@@ -10,27 +10,26 @@
  */
 import { clerkClient } from "@clerk/nextjs/server";
 import { adminEmails, isAdminEmail } from "./config";
-import {
-  buildClientRows,
-  listUsers,
-  type ClerkUserLike,
-  type ClientRow,
-} from "./clients";
-import { agencyIdFromMetadata, isAgencyMetadata, isUserId, withAgencyRole } from "./roles";
+import { listUsers, type ClerkUserLike } from "./clients";
+import { isAgencyMetadata, isUserId, pickAgencyInvitation, withAgencyRole } from "./roles";
 
 export interface AgencyRow {
   userId: string;
   email: string;
   name: string;
   createdAt: number;
-  /** この代理店が担当している登録者の数 */
-  clientCount: number;
 }
 
-/** 代理店を追加したときの結果。招待はまだ登録されていない相手に送る */
+/**
+ * 代理店を追加したときの結果。招待はまだ登録されていない相手に送る。
+ *
+ * 招待のときは**招待リンク（Clerk が返す URL）も返す**。メールが迷惑メールに入って
+ * 届かないことがあるため、運用者が画面からコピーして直接渡せるようにする
+ * （利用者の報告 2026-09-21）。リンクは招待そのものなので、相手以外に渡さない。
+ */
 export type AddAgencyResult =
   | { kind: "promoted"; email: string; userId: string }
-  | { kind: "invited"; email: string };
+  | { kind: "invited"; email: string; url: string | null };
 
 function displayName(user: ClerkUserLike): string {
   const full = [user.lastName, user.firstName].filter(Boolean).join(" ").trim();
@@ -43,18 +42,11 @@ function primaryEmail(user: ClerkUserLike): string {
 }
 
 /**
- * 代理店アカウントの一覧（新しい順）。担当している登録者の数も数える。
- * マスター画面と、担当の割り当て欄の選択肢に使う。
+ * 管理アカウントの一覧（新しい順）。マスター画面の「管理アカウント」と、
+ * 顧客一覧で「その行が管理アカウント本人か」を見分けるのに使う。
  */
 export async function loadAgencies(): Promise<AgencyRow[]> {
   const { users } = await listUsers();
-
-  const counts = new Map<string, number>();
-  for (const user of users) {
-    const agencyId = agencyIdFromMetadata(user.publicMetadata);
-    if (agencyId) counts.set(agencyId, (counts.get(agencyId) ?? 0) + 1);
-  }
-
   return users
     .filter((u) => isAgencyMetadata(u.publicMetadata))
     .map((user) => ({
@@ -62,7 +54,6 @@ export async function loadAgencies(): Promise<AgencyRow[]> {
       email: primaryEmail(user),
       name: displayName(user),
       createdAt: user.createdAt,
-      clientCount: counts.get(user.id) ?? 0,
     }));
 }
 
@@ -109,22 +100,21 @@ export async function addAgencyByEmail(email: string): Promise<AddAgencyResult> 
     return { kind: "promoted", email, userId: user.id };
   }
 
-  await client.invitations.createInvitation({
+  const invitation = await client.invitations.createInvitation({
     emailAddress: email,
     publicMetadata: withAgencyRole(null, true),
     // すでに招待済みのアドレスに送り直せるようにする（招待メールが届かなかったとき）
     ignoreExisting: true,
     notify: true,
   });
-  return { kind: "invited", email };
+  return { kind: "invited", email, url: invitation.url ?? null };
 }
 
 /**
  * 代理店を解除する（role を外す）。マスターだけ。
  *
- * 担当の割り当て（登録者側の agencyId）は消さない。解除した時点で代理店画面は
- * 開けなくなるので見えなくなり、付け直したいときは同じ相手を代理店に戻せば
- * 担当がそのまま戻る。数百件の書き換えを走らせない、という判断でもある。
+ * 解除した時点で顧客管理の画面が開けなくなり、ツールも契約どおりの範囲に戻る。
+ * 付け直したいときは同じ相手をもう一度追加すればよい。
  */
 export async function removeAgency(userId: string): Promise<void> {
   if (!isUserId(userId)) throw new Error("ユーザー ID の形が正しくありません。");
@@ -137,30 +127,51 @@ export async function removeAgency(userId: string): Promise<void> {
 }
 
 /**
- * その管理アカウントが担当している登録者の**ID だけ**。
+ * 登録直後に「自分あての管理アカウントの招待」を拾って role を付ける。付けたら true。
  *
- * 契約情報を引かないので、ご意見の絞り込みのように「誰の分か」だけが要る場面で使う
- * （loadAgencyClients は人数ぶん Billing を呼ぶので、ID だけ欲しいときには重すぎる）。
+ * **なぜ要るか**（利用者の報告 2026-09-21）: 招待メールのリンクは Clerk の招待フロー
+ * （チケット）を通る前提だが、このアプリの登録フォームは自前（メール + パスワード + 確認コード）で
+ * チケットを扱わない。そのため招待された人がふつうに登録すると、招待に載せた
+ * `publicMetadata.role = "agency"` が引き継がれず、ただのお客様として登録されてしまう
+ * （料金プランの画面に送られる）。ここで拾って本来の姿に直す。
+ *
+ * 突き合わせは確認済みのメールだけ・完全一致（pickAgencyInvitation）。拾えたら招待は使い切りとして
+ * 取り消す（取り消しに失敗しても role は付いているので、致命的ではない）。
+ * すでに管理アカウントの人、運用者のアドレスの人には何もしない。
  */
-export async function listAgencyClientIds(agencyId: string): Promise<string[]> {
-  if (!isUserId(agencyId)) return [];
-  const { users } = await listUsers();
-  return users
-    .filter((u) => u.id !== agencyId && agencyIdFromMetadata(u.publicMetadata) === agencyId && !isAgencyMetadata(u.publicMetadata))
-    .map((u) => u.id);
-}
+export async function claimAgencyInvitation(userId: string): Promise<boolean> {
+  if (!isUserId(userId)) return false;
 
-/**
- * その代理店が担当している登録者の一覧。顧客管理の画面に出す。
- *
- * 契約情報を引くのは絞り込んだあとだけ（人数ぶんの API 呼び出しになるため）。
- * 代理店自身は結果に含めない（担当に自分を入れられない作りだが、念のため落とす）。
- */
-export async function loadAgencyClients(agencyId: string): Promise<ClientRow[]> {
-  if (!isUserId(agencyId)) return [];
-  const { users } = await listUsers();
-  const mine = users.filter(
-    (u) => u.id !== agencyId && agencyIdFromMetadata(u.publicMetadata) === agencyId,
-  );
-  return buildClientRows(mine);
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  if (isAgencyMetadata(user.publicMetadata)) return true;
+
+  const allowed = adminEmails();
+  const verified = user.emailAddresses
+    .filter((e) => e.verification?.status === "verified")
+    .map((e) => e.emailAddress)
+    // 運用者のアドレスは管理アカウントにしない（addAgencyByEmail と同じ線引き）
+    .filter((e) => !isAdminEmail(e, allowed));
+  if (verified.length === 0) return false;
+
+  // 招待は宛先で絞って引く（1 アドレスにつき 1 回）。数は多くならないので上限は小さくてよい
+  const found = (
+    await Promise.all(
+      verified.map(async (email) => {
+        const { data } = await client.invitations.getInvitationList({ status: "pending", query: email, limit: 20 });
+        return pickAgencyInvitation(data, [email]);
+      }),
+    )
+  ).find((inv) => inv !== null);
+  if (!found) return false;
+
+  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
+  await client.users.updateUserMetadata(userId, { publicMetadata: withAgencyRole(metadata, true) });
+  try {
+    await client.invitations.revokeInvitation(found.id);
+  } catch {
+    // 取り消せなくても、role は付いているので画面は正しく動く
+  }
+  console.info(`[agency] 招待を引き継いで管理アカウントにしました: ${userId}`);
+  return true;
 }

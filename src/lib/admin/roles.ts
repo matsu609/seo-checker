@@ -1,15 +1,16 @@
 /**
- * 代理店アカウントと、担当する登録者の結びつき。純粋関数だけを置く。
+ * 管理アカウント（旧称: 代理店アカウント）の役割まわり。純粋関数だけを置く。
  *
  * 役割は 3 つある。
- *   マスター … 環境変数 ADMIN_EMAILS に書いたメールアドレス（src/lib/admin/config.ts）。
- *              全登録者が見え、代理店の追加・解除と担当の割り当てができる
- *   代理店   … publicMetadata.role が "agency" のユーザー。自分の担当分だけが見える
- *   登録者   … 上のどちらでもないふつうのお客様。publicMetadata.agencyId に担当代理店を持つ
+ *   マスター       … 環境変数 ADMIN_EMAILS に書いたメールアドレス（src/lib/admin/config.ts）。
+ *                    全登録者が見え、管理アカウントの追加・解除ができる。システム側（/admin）も見える
+ *   管理アカウント … publicMetadata.role が "agency" のユーザー。全登録者が見え、ツールも全部使えるが、
+ *                    システム側（/admin）は見えない（利用者の指示 2026-09-21。担当の割り当ては廃止）
+ *   登録者         … 上のどちらでもないふつうのお客様
  *
  * 保存先は Clerk の publicMetadata（plan / featureOverrides / stripe と同じ場所）。
  * ここでもデータベースは持たない。publicMetadata は Backend API からしか書けないので、
- * お客様が自分で代理店に化けたり、担当を付け替えたりはできない
+ * お客様が自分で管理アカウントに化けることはできない
  * （クライアントから書けるのは unsafeMetadata で、こちらは使っていない）。
  *
  * マスターを metadata に持たないのは意図的。運用者の権限だけは、Clerk の値ではなく
@@ -18,7 +19,6 @@
 
 /** publicMetadata のキー */
 export const ROLE_KEY = "role";
-export const AGENCY_KEY = "agencyId";
 
 /** role に入りうる値。いまは代理店だけ（マスターは環境変数、登録者は role なし） */
 export const AGENCY_ROLE = "agency";
@@ -46,15 +46,6 @@ export function isAgencyMetadata(metadata: unknown): boolean {
 }
 
 /**
- * publicMetadata から担当代理店のユーザー ID を取り出す。
- * 形が違う値（旧い書き方・手で入れた値）は null にして、担当なしとして扱う。
- */
-export function agencyIdFromMetadata(metadata: unknown): string | null {
-  const value = record(metadata)[AGENCY_KEY];
-  return isUserId(value) ? value : null;
-}
-
-/**
  * 代理店かどうかを切り替えた publicMetadata を作る（純粋）。
  *
  * 外すときはキーを消さずに null を入れる。Clerk の updateUserMetadata は
@@ -66,36 +57,40 @@ export function withAgencyRole(metadata: unknown, enabled: boolean): Record<stri
 }
 
 /**
- * 担当代理店を差し替えた publicMetadata を作る（純粋）。null で担当なし。
- * 形の違う ID は担当なしとして扱う（呼び出し側の取り違えを metadata に残さない）。
- */
-export function withAgencyId(metadata: unknown, agencyId: string | null): Record<string, unknown> {
-  return { ...record(metadata), [AGENCY_KEY]: isUserId(agencyId) ? agencyId : null };
-}
-
-/**
  * 管理アカウントがその登録者を扱ってよいか（純粋）。
  *
- * 見せる・触れるのは「自分が担当に付いている登録者」だけ。管理アカウント自身
- * （role が agency の相手）は、担当に付いていても扱えないようにする
- * （管理アカウントどうしで割引や機能開放を付け合えると、権限の出どころが追えなくなる）。
+ * **2026-09-21 から、担当かどうかは見ない**（利用者の指示「担当とか関係ない。管理アカウントから
+ * 全ユーザーが見れるように」）。管理アカウントは全登録者を見て、対応できる。
+ *
+ * 唯一の例外は**相手も管理アカウント（role が agency）のとき**。管理アカウントどうしで
+ * 割引や機能開放を付け合えると、権限の出どころが追えなくなるので触らせない
+ * （運用者のアカウントは代理ログイン側でも別途弾いている）。
  */
-export function isAssignedClient(metadata: unknown, agencyId: string): boolean {
-  if (!isUserId(agencyId)) return false;
-  if (isAgencyMetadata(metadata)) return false;
-  return agencyIdFromMetadata(metadata) === agencyId;
+export function isManageableClient(metadata: unknown): boolean {
+  return !isAgencyMetadata(metadata);
 }
 
 /**
- * その割り当てを保存してよいか。保存する前に必ず通す。
+ * 保留中の招待の中から「この人あての管理アカウントの招待」を選ぶ（純粋）。
  *
- * 自分自身を担当代理店にすると、代理店画面に自分が並び、
- * 解除の判断（誰の担当か）も追えなくなるので弾く。
+ * 招待リンクを使わずにふつうの登録フォームから登録すると、Clerk は招待の
+ * publicMetadata を引き継がない（登録が別物として作られるため）。そこで登録後に
+ * 「自分の確認済みメール宛に、role = agency の保留中の招待があるか」を見て拾う。
+ *
+ * 突き合わせは**確認済みのメールだけ**、かつ**完全一致（大文字小文字は無視）**で行う。
+ * 未確認のメールを含めると、他人のアドレスを名乗るだけで管理アカウントになれてしまう。
  */
-export function canAssignAgency(userId: string, agencyId: string | null): boolean {
-  if (agencyId === null) return true;
-  if (!isUserId(userId) || !isUserId(agencyId)) return false;
-  return userId !== agencyId;
+export function pickAgencyInvitation<T extends { id: string; emailAddress: string; publicMetadata: unknown }>(
+  invitations: readonly T[],
+  verifiedEmails: readonly string[],
+): T | null {
+  const mine = new Set(verifiedEmails.map((e) => normalizeEmail(e)).filter((e): e is string => e !== null));
+  if (mine.size === 0) return null;
+  return (
+    invitations.find(
+      (inv) => isAgencyMetadata(inv.publicMetadata) && mine.has(normalizeEmail(inv.emailAddress) ?? ""),
+    ) ?? null
+  );
 }
 
 /** メールアドレスの正規化（前後の空白を落として小文字に）。メールに見えなければ null */

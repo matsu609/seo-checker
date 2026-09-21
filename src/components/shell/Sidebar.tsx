@@ -253,17 +253,29 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                 </Link>
               </li>
             )}
-            {/* デモ用の無料診断（月 50 回。利用者の決定 2026-09-18）。画面は無料診断のシェルで開く */}
+            {/*
+              デモ用の無料クイック診断（月 50 回。利用者の決定 2026-09-18）。画面は無料診断のシェルで開く。
+              **必ず新しいタブで開く**（利用者の指示 2026-09-21）。いま開いている管理者用の画面が
+              無料診断に置き換わってしまうと、お客様の対応の途中で戻る手間がかかるため。
+              外部サイトではないが、新しいタブを開く以上 rel は付けておく。
+            */}
             {[
-              { href: "/", label: "無料診断（サイト）" },
-              { href: "/meo", label: "無料診断（店舗）" },
+              { href: "/", label: "無料クイック診断（サイト）" },
+              { href: "/meo", label: "無料クイック診断（店舗）" },
             ].map((demo) => (
               <li key={demo.href}>
-                <Link href={demo.href} onClick={onNavigate} className={`${ITEM_CLASS} ${IDLE_CLASS}`}>
+                <a
+                  href={demo.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={onNavigate}
+                  className={`${ITEM_CLASS} ${IDLE_CLASS}`}
+                  title={`${demo.label}を新しいタブで開きます`}
+                >
                   <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{demo.label}</span>
-                  <span className="text-[10px] text-on-brand-muted">デモ用</span>
-                </Link>
+                  <span className="text-[10px] text-on-brand-muted">別タブ</span>
+                </a>
               </li>
             ))}
           </ul>

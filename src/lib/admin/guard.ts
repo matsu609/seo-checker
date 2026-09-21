@@ -17,7 +17,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { adminEmails, isAdminEmail } from "./config";
-import { isAgencyMetadata, isAssignedClient } from "./roles";
+import { isAgencyMetadata, isManageableClient } from "./roles";
 
 export async function isAdmin(): Promise<boolean> {
   if (!isAuthEnabled()) return false;
@@ -98,9 +98,9 @@ export async function currentClientScope(): Promise<ClientScope | null> {
 /**
  * API ルート用。その顧客に触ってよいか調べ、だめなら 404 の Response を返す。
  *
- * 運用者は全員に触れる。管理アカウントは**担当に付いている登録者だけ**
- * （担当外・他の管理アカウント宛は 404。存在そのものを教えない）。
- * 担当の判定に使う ID は必ずセッションから取る（リクエストの値を信用しない）。
+ * 運用者と管理アカウントは、どちらも**全登録者**に触れる（利用者の指示 2026-09-21。
+ * 担当による絞り込みはやめた）。唯一触れないのは**他の管理アカウント**で、宛先がそれなら 404
+ * （存在そのものを教えない）。立場の判定は必ずセッションから取る（リクエストの値を信用しない）。
  */
 export async function requireClientAccess(userId: string): Promise<Response | null> {
   const scope = await currentClientScope();
@@ -110,7 +110,7 @@ export async function requireClientAccess(userId: string): Promise<Response | nu
   try {
     const client = await clerkClient();
     const target = await client.users.getUser(userId).catch(() => null);
-    if (!target || !isAssignedClient(target.publicMetadata, scope.agencyId)) return notFoundResponse();
+    if (!target || !isManageableClient(target.publicMetadata)) return notFoundResponse();
     return null;
   } catch {
     // 取れなければ触らせない（開ける方向には倒さない）

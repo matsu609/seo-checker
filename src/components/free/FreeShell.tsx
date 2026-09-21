@@ -22,16 +22,20 @@ export interface FreeShellProps {
   authEnabled: boolean;
   /** 登録・ログイン画面: ヘッダーのボタンとフッターを出さない（フォームの中に同じ導線があるため。利用者の指示 2026-09-18） */
   minimal?: boolean;
+  /** ロゴの横の「クイック診断・無料」。ログイン画面では出さない（利用者の指示 2026-09-21） */
+  badge?: boolean;
 }
 
-export function FreeShell({ children, authEnabled, minimal = false }: FreeShellProps) {
+export function FreeShell({ children, authEnabled, minimal = false, badge = true }: FreeShellProps) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="no-print sticky top-0 z-10 flex h-12 items-center gap-3 border-b border-line bg-panel px-4 md:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
           <LogoMark className="h-5 w-5 shrink-0 text-brand" />
           <span className="truncate text-sm font-bold text-ink">{SERVICE_NAME}</span>
-          <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">クイック診断・無料</span>
+          {badge && (
+            <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">クイック診断・無料</span>
+          )}
         </Link>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {minimal ? null : authEnabled ? (
