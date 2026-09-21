@@ -9,6 +9,7 @@
 - ルーティングと機能の一覧 → [ARCHITECTURE.md](./ARCHITECTURE.md)
 - **数字の出し方（配点・閾値・計算式）** → [scoring-reference.md](./scoring-reference.md)
 - いま何が設定済みかという**現在の状態** → [OPERATIONS.md](./OPERATIONS.md)
+- **画面で読む版**: マスター画面の「設計書」（`/admin/design`。サービスごとの役割・どの機能実装に使ったか・機能 × 連携の表を、連携の定義と registry の依存から自動で組む）と「外部連携」（設定の有無。基盤・ログイン・決済も含めて 18 件）、「月額費用の試算」（店舗数を横軸にした固定費 / 変動費。`src/lib/cost/model.ts`）。2026-09-21
 
 定義の正本はコード側にある。この図とずれたらコードが正しい。
 

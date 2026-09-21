@@ -18,16 +18,21 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
-import { INTEGRATIONS, INTEGRATION_KEYS, PRICING_CHECKED_AT, type IntegrationMeta } from "@/lib/features/integrations";
+import { INTEGRATIONS, INTEGRATION_GROUP_LABELS, integrationsByGroup, PRICING_CHECKED_AT, type IntegrationCheck, type IntegrationMeta } from "@/lib/features/integrations";
 import { expiryLabel, type KeyExpiry } from "@/lib/features/key-expiry";
 import { useIntegrations } from "@/lib/store/useIntegrations";
+
+/** 調べ方のチップ（環境変数以外のとき） */
+const CHECK_LABELS: Record<IntegrationCheck, string> = { env: "", oauth: "OAuth（鍵なし）", runtime: "実行環境が自動で付ける", manual: "鍵なし" };
+const ON_LABELS: Record<IntegrationCheck, string> = { env: "設定済み", oauth: "接続済み", runtime: "稼働中", manual: "手動確認" };
+const OFF_LABELS: Record<IntegrationCheck, string> = { env: "未設定", oauth: "未接続", runtime: "未検出", manual: "手動確認" };
 
 export function IntegrationsCard() {
   const { status, keyExpiry, loading, refreshing, checkedAt, error, reload } = useIntegrations();
   return (
     <Card
       title="外部連携（API キーの設定状況）"
-      description={`API キーは Vercel の環境変数（開発時は .env.local）にだけ置きます。ここには設定の有無しか出ません。変更後は Redeploy（開発時は再起動）が必要です。各行をタップすると料金・上限・このツールでの消費量と公式サイトへのリンクが開きます（料金・上限は ${PRICING_CHECKED_AT} に確認した値。単価は変わるので、リンク先で確かめてください）。`}
+      description={`このサービスが依存しているサービスを全部並べています（鍵の要る API、Google Cloud、ログイン・決済、データベース・メール・定期処理、基盤）。API キーは Vercel の環境変数（開発時は .env.local）にだけ置き、ここには設定の有無しか出ません。変更後は Redeploy（開発時は再起動）が必要です。各行をタップすると料金・上限・このツールでの消費量と公式サイトへのリンクが開きます（料金・上限は ${PRICING_CHECKED_AT} に確認した値。単価は変わるので、リンク先で確かめてください）。`}
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {/* 押しても表示が変わらないと「効いていない」と見えるので、確認できた時刻を出す */}
@@ -45,11 +50,23 @@ export function IntegrationsCard() {
           {error}
         </Callout>
       )}
-      <ul className="divide-y divide-line border-y border-line">
-        {INTEGRATION_KEYS.map((key) => (
-          <IntegrationRow key={key} meta={INTEGRATIONS[key]} on={status === null ? null : (status[key] ?? false)} expiry={keyExpiry[key] ?? null} />
+      {/* 見出しごとに区切る（利用者の指示 2026-09-21「漏らさず表示」。鍵の要る API だけでなく基盤・ログイン・決済も並べる） */}
+      <div className="space-y-5">
+        {integrationsByGroup().map(({ group, keys }) => (
+          <section key={group} aria-labelledby={`integrations-${group}`}>
+            <h3 id={`integrations-${group}`} className="text-[13px] font-bold text-ink">
+              {INTEGRATION_GROUP_LABELS[group].label}
+              <span className="ml-2 font-mono text-[10px] font-normal text-muted">{keys.length}</span>
+            </h3>
+            <p className="mb-1 text-[11px] leading-relaxed text-muted">{INTEGRATION_GROUP_LABELS[group].description}</p>
+            <ul className="divide-y divide-line border-y border-line">
+              {keys.map((key) => (
+                <IntegrationRow key={key} meta={INTEGRATIONS[key]} on={status === null ? null : (status[key] ?? false)} expiry={keyExpiry[key] ?? null} />
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
       <p className="mt-3 text-[12px] leading-relaxed text-muted">
         変数の一覧と書き方は <code className="font-mono">.env.example</code> を参照してください。
         <br />
@@ -71,8 +88,8 @@ function IntegrationRow({ meta, on, expiry }: { meta: IntegrationMeta; on: boole
               ▶
             </span>
             <span className="text-[13px] font-bold text-ink">{meta.label}</span>
-            {meta.auth === "oauth" && (
-              <code className="rounded-sm border border-line bg-surface px-1 font-mono text-[11px] text-muted">OAuth（鍵なし）</code>
+            {meta.check !== "env" && (
+              <code className="rounded-sm border border-line bg-surface px-1 font-mono text-[11px] text-muted">{CHECK_LABELS[meta.check]}</code>
             )}
             {meta.envVars.map((v) => (
               <code key={v} className="rounded-sm border border-line bg-surface px-1 font-mono text-[11px] text-ink">
@@ -81,13 +98,18 @@ function IntegrationRow({ meta, on, expiry }: { meta: IntegrationMeta; on: boole
             ))}
             <span className="ml-auto flex flex-wrap items-center gap-1.5">
               {expiry && <ExpiryBadge expiry={expiry} />}
-              {on === null ? (
+              {meta.check === "manual" ? (
+                // このアプリからは分からないものを「未設定」と出すと嘘になる。どこで見るかは statusNote
+                <Badge tone="neutral" icon={false}>
+                  手動確認
+                </Badge>
+              ) : on === null ? (
                 <span className="text-[12px] text-muted">確認中…</span>
               ) : on ? (
-                <Badge tone="pass">{meta.auth === "oauth" ? "接続済み" : "設定済み"}</Badge>
+                <Badge tone="pass">{ON_LABELS[meta.check]}</Badge>
               ) : (
                 <Badge tone="neutral" icon={false}>
-                  {meta.auth === "oauth" ? "未接続" : "未設定"}
+                  {OFF_LABELS[meta.check]}
                 </Badge>
               )}
             </span>

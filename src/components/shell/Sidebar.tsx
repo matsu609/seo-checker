@@ -289,6 +289,8 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
           <ul className="space-y-0.5">
             {[
               { href: "/admin", label: "マスター画面", exact: true, badge: 0 },
+              // どのサービスをどの機能に使っているか（利用者の指示 2026-09-21「設計書がそのタブから見れると」）
+              { href: "/admin/design", label: "設計書", exact: false, badge: 0 },
               { href: "/admin/accounts", label: "管理アカウント", exact: false, badge: 0 },
               // 未対応の件数を出す（利用者の指示 2026-09-21「ご意見・不具合が来たら通知を出す」）。
               // 件数は /api/plan が返す（1 ページにつき 1 回）。返答したあとは画面を開き直すと減る

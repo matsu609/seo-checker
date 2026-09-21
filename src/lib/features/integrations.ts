@@ -10,11 +10,18 @@ export const INTEGRATION_KEYS = [
   "pagespeed",
   "crux",
   "ahrefs",
+  "openpagerank",
   "places",
   "google-business",
+  "clerk",
   "stripe",
   "supabase",
   "resend",
+  "cron",
+  "vercel",
+  "github",
+  "cloudflare",
+  "onamae",
 ] as const;
 
 export type IntegrationKey = (typeof INTEGRATION_KEYS)[number];
@@ -27,9 +34,36 @@ export interface IntegrationLink {
   url: string;
 }
 
+/**
+ * マスター画面での見出し（利用者の指示 2026-09-21「表示されていない API もいっぱいあるので漏らさず」）。
+ * 鍵を入れる API だけでなく、このサービスが載っている基盤（GitHub / Vercel / Cloudflare / お名前.com）と
+ * ログイン・決済（Clerk / Stripe）も同じ一覧に並べ、「何に依存しているか」を 1 か所で見られるようにする。
+ */
+export const INTEGRATION_GROUPS = ["api", "google", "account", "data", "infra"] as const;
+export type IntegrationGroup = (typeof INTEGRATION_GROUPS)[number];
+
+export const INTEGRATION_GROUP_LABELS: Record<IntegrationGroup, { label: string; description: string }> = {
+  api: { label: "外部 API（従量・プラン制）", description: "運用者のキー 1 本で全ユーザー分を呼ぶ。実費が出るのはここ" },
+  google: { label: "Google Cloud（プロジェクト seo-checker-508104）", description: "Places・PageSpeed・CrUX・OAuth（ビジネス プロフィール）。同じプロジェクトの中で API ごとに有効化と割り当てがある" },
+  account: { label: "ログイン・決済", description: "お客様のアカウントと契約状態を持つ。このアプリ自身は DB を持たない" },
+  data: { label: "データベース・メール・定期処理", description: "保存と通知。Cron は Vercel が毎日 5:00 JST に叩く" },
+  infra: { label: "基盤（コード・実行環境・ドメイン）", description: "鍵は無い。このアプリからは稼働しか分からないので、詳細は各サービスの画面で見る" },
+};
+
+/**
+ * 「設定済み / 未設定」をどう調べるか。
+ *   env     … 環境変数の有無（キーの値は見ない）
+ *   oauth   … ログイン中の運用者自身の Google 接続（環境変数では分からない）
+ *   runtime … 実行環境が自動で付ける変数（Vercel 上で動いているか、GitHub から配備されたか）
+ *   manual  … このアプリからは分からない（Cloudflare の DNS・ドメインの契約）。画面で確かめる
+ */
+export type IntegrationCheck = "env" | "oauth" | "runtime" | "manual";
+
 export interface IntegrationMeta {
   key: IntegrationKey;
   label: string;
+  group: IntegrationGroup;
+  check: IntegrationCheck;
   /** .env.local に設定する変数名（複数のときは全部必要） */
   envVars: readonly string[];
   /** 何に使うか（設定画面・SetupNotice に出す） */
@@ -44,21 +78,18 @@ export interface IntegrationMeta {
   links: readonly IntegrationLink[];
   /** キーに寿命がある連携だけ。マスター画面に残り日数を出す */
   keyLifetime?: KeyLifetime;
-  /**
-   * 鍵ではなく OAuth（Clerk の Google 連携）で動く連携。設定の有無は環境変数では分からないので、
-   * /api/integrations がログイン中の運用者自身の Google 接続の状態を返す
-   */
-  auth?: "oauth";
-  /** 状態の横に出す補足（OAuth の連携で「誰の接続か」を示す） */
+  /** 状態の横に出す補足（OAuth の連携で「誰の接続か」、手動確認の連携で「どこを見るか」） */
   statusNote?: string;
 }
 
 /** 料金・上限を確認した日（マスター画面に出す。単価は変わるので、古くなったら見直す） */
-export const PRICING_CHECKED_AT = "2026-09-16";
+export const PRICING_CHECKED_AT = "2026-09-21";
 
 export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   anthropic: {
     key: "anthropic",
+    group: "api",
+    check: "env",
     label: "Anthropic（Claude）",
     envVars: ["ANTHROPIC_API_KEY"],
     description: "FAQ 生成・LLM サマリー・LLMO（Claude）・プロンプト拡張・AI ライティング・精密診断の専門家アドバイス",
@@ -74,6 +105,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   serpapi: {
     key: "serpapi",
+    group: "api",
+    check: "env",
     label: "SerpApi（Google 検索結果）",
     envVars: ["SERPAPI_KEY"],
     description: "順位計測・AI Overviews の引用チェック・ページ診断の上位 10 件取得・AIO 頻出トピック・精密診断の検索順位と site: 件数",
@@ -88,6 +121,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   dataforseo: {
     key: "dataforseo",
+    group: "api",
+    check: "env",
     label: "DataForSEO（検索パフォーマンス（推定）・AI 検索モニタリング・サイテーション）",
     envVars: ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"],
     description: "Google の通常検索（SEO）の推定: ドメインが順位を持っているキーワード・順位・月間検索数を取り、表示回数とクリック数を推定する（検索パフォーマンス（推定））。AI 検索モニタリング（ChatGPT / Gemini / Claude / Perplexity / AI Overviews / AI モード の定期計測）と、サイテーション（店名・電話・住所での Google 検索）も同じ鍵で動く",
@@ -103,6 +138,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   pagespeed: {
     key: "pagespeed",
+    group: "google",
+    check: "env",
     label: "PageSpeed Insights",
     envVars: ["PAGESPEED_API_KEY"],
     description: "表示速度・Core Web Vitals の取得（未設定でも低頻度なら動作）。同じキーで CrUX（実ユーザーの速度）も取る",
@@ -118,6 +155,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   crux: {
     key: "crux",
+    group: "google",
+    check: "env",
     label: "CrUX（Chrome UX Report。実ユーザーの表示速度）",
     envVars: ["CRUX_API_KEY"],
     description: "精密診断の「実ユーザーの速度」（Origin と主要 URL の Core Web Vitals の実測値と 25 週の推移）。PAGESPEED_API_KEY があればそれを使うので、この変数は省略できる（Google Cloud で Chrome UX Report API を有効にしておくこと）",
@@ -132,6 +171,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   ahrefs: {
     key: "ahrefs",
+    group: "api",
+    check: "env",
     label: "Ahrefs（Domain Rating）",
     envVars: ["AHREFS_API_KEY"],
     description: "ドメインパワーの DR（0〜100）。無料のドメインパワー測定サイトと同じ数値。無料の公開エンドポイントなので API ユニットは消費しない（表示に「Domain Rating by Ahrefs」の帰属表示が要る）",
@@ -153,6 +194,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   places: {
     key: "places",
+    group: "google",
+    check: "env",
     label: "Google マップ（Places API）",
     envVars: ["GOOGLE_PLACES_API_KEY"],
     description: "Google マップ・店舗情報（MEO）。自社と競合のビジネス プロフィールの比較と充実度の採点、クイック診断（店舗）",
@@ -168,9 +211,10 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   "google-business": {
     key: "google-business",
+    group: "google",
+    check: "oauth",
     label: "Google ビジネス プロフィール（OAuth。口コミ返信・Google での見られ方）",
     envVars: [],
-    auth: "oauth",
     statusNote: "ログイン中のあなたの Google アカウントの接続状態です（お客様ごとに別。設定画面の「Google 連携」で接続し、business.manage の権限を許可すると接続済みになります）",
     description: "お客様の Google アカウント（オーナー権限）で動く 4 つの API: ① My Business Account Management API v1（アカウント・店舗の一覧）② My Business Business Information API v1（店舗情報）③ Business Profile Performance API v1（Google での見られ方: 検索・マップの表示回数、電話・経路・サイトのクリック、検索語）④ Google My Business API v4（口コミの取得と返信。Google の承認が要る。2026-09-11 に申請）。鍵は無く、Clerk の Google SSO（独自のクレデンシャル + スコープ business.manage）で許可を受ける",
     pricing: "無料（Google Cloud の請求は発生しない。Places API とは別）",
@@ -188,6 +232,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   stripe: {
     key: "stripe",
+    group: "account",
+    check: "env",
     label: "Stripe（決済）",
     envVars: ["STRIPE_SECRET_KEY", "STRIPE_PRICE_STANDARD", "STRIPE_PRICE_LIGHT", "STRIPE_WEBHOOK_SECRET"],
     description: "料金プランの申し込み（Checkout）、お支払い方法の変更・請求書・解約（カスタマーポータル）、契約状態の反映（Webhook → Clerk）。割引はマスター画面・管理アカウント画面で顧客ごとに設定（クーポンは自動作成）。鍵が sk_test_ なら料金画面に「テストモード」と出る",
@@ -204,6 +250,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   resend: {
     key: "resend",
+    group: "data",
+    check: "env",
     label: "Resend（メール送信。月次レポート・変化の知らせ）",
     envVars: ["RESEND_API_KEY", "MAIL_FROM"],
     description: "月次レポートと、順位の急落・サイトの事故・掲載の消失・低評価の回答・投稿の失敗の知らせをメールで送る。未設定でも画面の「お知らせ」には残る",
@@ -219,6 +267,8 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
   },
   supabase: {
     key: "supabase",
+    group: "data",
+    check: "env",
     label: "Supabase（データベース）",
     envVars: ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
     description: "Google マップ・店舗情報（MEO）の登録店舗と診断報告書の履歴、口コミ支援、基本情報掲載、精密診断の実行記録（`analysis_runs`）",
@@ -231,6 +281,122 @@ export const INTEGRATIONS: Record<IntegrationKey, IntegrationMeta> = {
       { label: "無料プロジェクトの一時停止について", url: "https://supabase.com/docs/guides/platform/upgrading" },
     ],
   },
+  openpagerank: {
+    key: "openpagerank",
+    group: "api",
+    check: "env",
+    label: "Open PageRank（ドメインパワーの代替）",
+    envVars: ["OPENPAGERANK_API_KEY"],
+    description: "ドメインパワーの「外部からのリンクの評価」を、Ahrefs の DR が無いときに Open PageRank（0〜10）で埋める。DR が取れていればそちらを優先。どちらも無ければ配点 25 点分を分母から外して残り 7 指標で出す",
+    pricing: "無料（1 日 1,000 回）",
+    limits: "1 日 1,000 回。超えると「未取得」で報告書は続く。旧 API は 2026-09-30 に終了予定（Keywords Everywhere へ移行）。このツールはまだ旧エンドポイントを呼ぶので、新規の設定は保留（OPERATIONS.md #80）",
+    usage: "精密診断 1 回 = 自社 + 競合 2 件で最大 3 回（DR が取れたドメインは呼ばない）。同じドメインは 24 時間キャッシュ",
+    links: [
+      { label: "Open PageRank（公式）", url: "https://www.domcop.com/openpagerank/" },
+      { label: "API キー（登録）", url: "https://www.domcop.com/openpagerank/auth/signup" },
+    ],
+  },
+  clerk: {
+    key: "clerk",
+    group: "account",
+    check: "env",
+    label: "Clerk（ログイン・アカウント・契約状態の保管）",
+    envVars: ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"],
+    description: "ログイン（メール + パスワード / Google）、アカウント登録の 6 項目、運用者・管理アカウントの役割、プラン・割引・Stripe の契約状態（publicMetadata）、Google の OAuth トークンの保管。このアプリ自身はユーザー DB を持たず、すべて Clerk に預ける。両方そろわないと認証が無効になり、本番では全ツールが止まる",
+    pricing: "Free = $0（月間アクティブユーザー 10,000 人まで。本番インスタンス・独自ドメイン込み）。Pro = $25 / 月（Clerk のロゴ非表示・許可リストなどの有料機能。MAU の超過は 1 人 $0.02）",
+    limits: "MAU 10,000 を超えると課金。Production と Development はユーザーも設定も別（Production = clerk.seo-checker.tokyo、pk_live_ / sk_live_）。管理者判定は確認済みメールだけを見る",
+    usage: "お客様 1 人 = MAU 1。API の呼び出しは画面表示のたび（無料枠の範囲）",
+    links: [
+      { label: "料金", url: "https://clerk.com/pricing" },
+      { label: "ダッシュボード", url: "https://dashboard.clerk.com/" },
+      { label: "API Keys", url: "https://dashboard.clerk.com/last-active?path=api-keys" },
+      { label: "SSO Connections（Google）", url: "https://dashboard.clerk.com/last-active?path=user-authentication/sso-connections" },
+    ],
+  },
+  cron: {
+    key: "cron",
+    group: "data",
+    check: "env",
+    label: "Vercel Cron（定期処理の呼び出し）",
+    envVars: ["CRON_SECRET"],
+    description: "vercel.json の 2 本（/api/cron/daily = 投稿の送信・マップ診断の一斉更新・順位計測・サイト監視・月次レポート・掲載の再チェック・自動再診断、/api/cron/geo-run = AI 検索モニタリング）を毎日 5:00 JST に叩く。Vercel が呼び出しに Authorization: Bearer <CRON_SECRET> を付け、アプリ側はこの値で照合する。未設定なら Cron は 503 で何もしない（誰でも叩けて実費が出る状態にしない）",
+    pricing: "無料（Vercel のプランに含まれる。Hobby は Cron 2 本まで・1 日 1 回、Pro は 40 本まで・分単位）",
+    limits: "Hobby は関数の実行時間が短く（既定 10 秒、最長 60 秒。Fluid Compute で 300 秒）、重い処理は時間切れで次回に回る（minBudgetMs）。Hobby は Cron の実行時刻が 1 時間ぶれることがある",
+    usage: "毎日 2 回の呼び出し。処理の実費は呼ぶ先（Places / SerpApi / DataForSEO / Anthropic）の行に含めている",
+    links: [
+      { label: "Cron Jobs（公式）", url: "https://vercel.com/docs/cron-jobs" },
+      { label: "使用量と上限", url: "https://vercel.com/docs/cron-jobs/usage-and-pricing" },
+      { label: "プロジェクトの Cron 設定", url: "https://vercel.com/matsumatsu452-6233/seo-checker/settings/cron-jobs" },
+    ],
+  },
+  vercel: {
+    key: "vercel",
+    group: "infra",
+    check: "runtime",
+    statusNote: "Vercel 上で動いているとき（VERCEL_ENV がある）に「稼働中」。開発機では未検出になる",
+    label: "Vercel（実行環境・環境変数・自動デプロイ）",
+    envVars: [],
+    description: "Next.js アプリ本体の実行とビルド（app.seo-checker.tokyo）。main に push すると自動デプロイ。API キーはここの Environment Variables にだけ置く。Cron の呼び出し元。プロジェクト matsumatsu452-6233/seo-checker",
+    pricing: "Hobby = $0（個人・非商用に限る。商用で売るなら Pro が要る）。Pro = $20 / 月 / メンバー（帯域 1 TB・関数の実行時間・Cron 40 本などを含む。超過は従量）",
+    limits: "Hobby: 帯域 100 GB / 月、サーバーレス関数の実行 100 GB 時間、Cron 2 本・1 日 1 回、ビルド 6,000 分。いまは Hobby（OPERATIONS.md）。お客様に売る段階で Pro へ上げる（月額の試算は Pro で見込む）",
+    usage: "お客様 1 人あたりの帯域・実行時間は小さい（診断 1 回で数 MB・数十秒）。上限に当たるのは Cron の実行時間が先",
+    links: [
+      { label: "料金", url: "https://vercel.com/pricing" },
+      { label: "プロジェクト", url: "https://vercel.com/matsumatsu452-6233/seo-checker" },
+      { label: "環境変数", url: "https://vercel.com/matsumatsu452-6233/seo-checker/settings/environment-variables" },
+      { label: "使用量", url: "https://vercel.com/matsumatsu452-6233/~/usage" },
+      { label: "Hobby の利用条件（Fair Use）", url: "https://vercel.com/docs/limits/fair-use-guidelines" },
+    ],
+  },
+  github: {
+    key: "github",
+    group: "infra",
+    check: "runtime",
+    statusNote: "Vercel が GitHub から配備したとき（VERCEL_GIT_REPO_SLUG がある）に「稼働中」",
+    label: "GitHub（ソースコードの保管・版の記録）",
+    envVars: [],
+    description: "リポジトリ matsu609/seo-checker（紹介サイトのソース marketing/ も同居）。main へのマージ回数がそのままバージョン（rNN）。Vercel と Cloudflare Workers Builds の接続元",
+    pricing: "Free = $0（非公開リポジトリ・Actions 月 2,000 分）",
+    limits: "Actions は使っていないので上限に当たらない。リポジトリの容量は 1 GB 目安",
+    usage: "push のたびに Vercel のビルドが 1 回動く（Vercel 側の枠）",
+    links: [
+      { label: "リポジトリ", url: "https://github.com/matsu609/seo-checker" },
+      { label: "料金", url: "https://github.com/pricing" },
+    ],
+  },
+  cloudflare: {
+    key: "cloudflare",
+    group: "infra",
+    check: "manual",
+    statusNote: "このアプリからは分からない。DNS と Worker の状態は Cloudflare の画面で確かめる",
+    label: "Cloudflare（DNS・紹介サイトの配信）",
+    envVars: [],
+    description: "ゾーン seo-checker.tokyo の DNS（app. → Vercel、clerk. / accounts. / clkmail. → Clerk。Clerk の 5 件はプロキシを切って「DNS のみ」）と、紹介サイト（apex）を配信する Worker seo-checker-hp",
+    pricing: "Free = $0（DNS・Workers 1 日 100,000 リクエスト）",
+    limits: "Workers Free は 1 日 100,000 リクエスト・CPU 10 ms。紹介サイトの配信だけなので十分。Workers Paid は $5 / 月",
+    usage: "紹介サイトへのアクセス分だけ。アプリ本体（app.）は Vercel が配信するので Cloudflare を通らない",
+    links: [
+      { label: "ダッシュボード", url: "https://dash.cloudflare.com/" },
+      { label: "Workers の料金", url: "https://developers.cloudflare.com/workers/platform/pricing/" },
+    ],
+  },
+  onamae: {
+    key: "onamae",
+    group: "infra",
+    check: "manual",
+    statusNote: "このアプリからは分からない。更新期限はお名前.com Navi で確かめる",
+    label: "お名前.com（ドメイン seo-checker.tokyo の登録）",
+    envVars: [],
+    description: "ドメインの登録元（レジストラ）。ネームサーバーは Cloudflare に向けてある。更新を忘れると全部止まる（アプリ・ログイン・紹介サイト・確認メール）",
+    pricing: "年額（.tokyo の更新は 1,500〜2,000 円前後。契約画面で確認）",
+    limits: "期限切れで DNS が止まる。自動更新の設定と支払い方法の有効期限を確かめる",
+    usage: "年 1 回の更新のみ",
+    links: [
+      { label: "お名前.com Navi", url: "https://navi.onamae.com/" },
+      { label: "ドメインの料金", url: "https://www.onamae.com/service/d-renew/" },
+    ],
+  },
+
 };
 
 /** 連携ごとの設定有無。GET /api/integrations のレスポンス */
@@ -238,4 +404,9 @@ export type IntegrationStatus = Record<IntegrationKey, boolean>;
 
 export function integrationMeta(key: IntegrationKey): IntegrationMeta {
   return INTEGRATIONS[key];
+}
+
+/** マスター画面の並び: 見出し（group）ごとに、INTEGRATION_KEYS の順で */
+export function integrationsByGroup(): readonly { group: IntegrationGroup; keys: readonly IntegrationKey[] }[] {
+  return INTEGRATION_GROUPS.map((group) => ({ group, keys: INTEGRATION_KEYS.filter((k) => INTEGRATIONS[k].group === group) })).filter((g) => g.keys.length > 0);
 }

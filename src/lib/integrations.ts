@@ -30,6 +30,18 @@ const CHECKS: Record<IntegrationKey, () => boolean> = {
   supabase: () => has("SUPABASE_URL") && has("SUPABASE_SERVICE_ROLE_KEY"),
   // メール送信（Resend）。鍵と差出人の両方が要る
   resend: () => has("RESEND_API_KEY") && has("MAIL_FROM"),
+  // ドメインパワーの代替（Open PageRank）
+  openpagerank: () => has("OPENPAGERANK_API_KEY"),
+  // ログイン（Clerk）。公開鍵と秘密鍵の両方がそろって認証が有効になる（isAuthEnabled と同じ条件）
+  clerk: () => has("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY") && has("CLERK_SECRET_KEY"),
+  // 定期処理。未設定なら Cron は 503 で何もしない
+  cron: () => has("CRON_SECRET"),
+  // 実行環境。Vercel が自動で付ける変数（値は秘密ではないが、ここでも有無しか見ない）
+  vercel: () => has("VERCEL_ENV"),
+  github: () => has("VERCEL_GIT_REPO_SLUG"),
+  // このアプリからは分からない（DNS・ドメインの契約）。画面は「手動確認」と出すので、ここは常に false
+  cloudflare: () => false,
+  onamae: () => false,
 };
 
 /** 各連携が設定済みかどうか（値は含まない） */

@@ -2,7 +2,8 @@
  * マスター画面（運用者だけ）。
  *
  * ここに置くのは**システム・バックエンド側**のものだけ（利用者の指示 2026-09-20）。
- *   動いているコミットと版 / 外部連携（API キー）の設定状況 / 定期処理（Cron）の状況
+ *   動いているコミットと版 / 外部連携（API キー）の設定状況 / 月額費用の試算 / 定期処理（Cron）の状況
+ *   設計書（どのサービスをどの機能に使っているか）は /admin/design
  *
  * お客様の契約状況・ご利用状況は顧客管理（/clients。管理アカウントも開ける）、
  * ご意見・不具合への返答は /admin/feedback（運用者だけ）。サイドバーでは
@@ -12,6 +13,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import Link from "next/link";
+import { CostForecastCard } from "@/components/admin/CostForecastCard";
 import { IntegrationsCard } from "@/components/admin/IntegrationsCard";
 import { JobsCard } from "@/components/admin/JobsCard";
 import { VersionCard } from "@/components/admin/VersionCard";
@@ -38,7 +40,11 @@ export default async function Page() {
         マスター画面
       </h1>
       <p className="mb-6 text-[13px] leading-relaxed text-muted">
-        システム側（動いている版・外部連携の設定状況・定期処理）の確認を行います。管理アカウントの追加・解除は
+        システム側（動いている版・外部連携の設定状況・月額費用の試算・定期処理）の確認を行います。どのサービスをどの機能に使っているかは{" "}
+        <Link href="/admin/design" className="text-accent underline">
+          設計書
+        </Link>
+        に。管理アカウントの追加・解除は
         サイドバーの「管理アカウント」です。
         お客様からの{" "}
         <Link href="/admin/feedback" className="text-accent underline">
@@ -55,6 +61,11 @@ export default async function Page() {
 
       <div className="mb-6">
         <IntegrationsCard />
+      </div>
+
+      {/* 店舗数を横軸にした月額の原価（利用者の指示 2026-09-21）。外部連携の直下に置く */}
+      <div className="mb-6">
+        <CostForecastCard />
       </div>
 
       <JobsCard />
