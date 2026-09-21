@@ -65,7 +65,7 @@ const VENDOR: Record<GeoLlmModel, string> = {
 };
 
 /** 環境変数でパスを上書きする（未設定なら既定） */
-function pathOverride(name: string, fallback: string): string {
+export function pathOverride(name: string, fallback: string): string {
   const raw = process.env[name]?.trim();
   return raw ? raw : fallback;
 }
@@ -88,13 +88,57 @@ export function serpPath(kind: MeasurementKind): string {
     : pathOverride("GEO_PATH_SERP", "/serp/google/organic/live/advanced");
 }
 
+/* ───────────── 送信（LLM Mentions からも使う共有の口） ───────────── */
+
+export interface PostOptions {
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
+}
+
+export interface PostOutcome {
+  ok: boolean;
+  status: number;
+  payload: unknown;
+}
+
+/**
+ * DataForSEO に 1 タスク POST する。**本文は必ず配列で包む**（API の約束）。
+ * 鍵が無ければ叩かずに status 0 を返す（呼び出し側が「未設定」を出す）。
+ */
+export async function postDataForSeo(path: string, body: unknown, options: PostOptions = {}): Promise<PostOutcome> {
+  const credentials = dataForSeoCredentials();
+  if (!credentials) return { ok: false, status: 0, payload: null };
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const onAbort = () => controller.abort();
+  options.signal?.addEventListener("abort", onAbort, { once: true });
+  try {
+    const res = await fetchImpl(`${DATAFORSEO_BASE}${path}`, {
+      method: "POST",
+      headers: {
+        authorization: authHeader(credentials.login, credentials.password),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify([body]),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    const payload: unknown = res.ok ? await res.json() : null;
+    return { ok: res.ok, status: res.status, payload };
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", onAbort);
+  }
+}
+
 /* ───────────── 応答の読み取り（純関数。テストしやすいように分ける） ───────────── */
 
-function asArray(value: unknown): unknown[] {
+export function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function asRecord(value: unknown): Record<string, unknown> {
+export function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 }
 
@@ -213,32 +257,7 @@ export interface DataForSeoOptions {
 
 export function createDataForSeoProvider(options: DataForSeoOptions = {}): GeoProvider {
   const fetchImpl = options.fetchImpl ?? fetch;
-
-  async function post(path: string, body: unknown, signal?: AbortSignal): Promise<{ ok: boolean; status: number; payload: unknown }> {
-    const credentials = dataForSeoCredentials();
-    if (!credentials) return { ok: false, status: 0, payload: null };
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const onAbort = () => controller.abort();
-    signal?.addEventListener("abort", onAbort, { once: true });
-    try {
-      const res = await fetchImpl(`${DATAFORSEO_BASE}${path}`, {
-        method: "POST",
-        headers: {
-          authorization: authHeader(credentials.login, credentials.password),
-          "content-type": "application/json",
-        },
-        body: JSON.stringify([body]),
-        signal: controller.signal,
-        cache: "no-store",
-      });
-      const payload: unknown = res.ok ? await res.json() : null;
-      return { ok: res.ok, status: res.status, payload };
-    } finally {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
-    }
-  }
+  const post = (path: string, body: unknown, signal?: AbortSignal) => postDataForSeo(path, body, { fetchImpl, signal });
 
   return {
     id: "dataforseo",

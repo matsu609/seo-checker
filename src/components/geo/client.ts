@@ -4,7 +4,7 @@
  * AI 検索モニタリングの API クライアント（画面から呼ぶ薄い層）。
  */
 import type { LabeledTargetShare, WeeklySeries } from "@/lib/geo/aggregate";
-import type { GeoBrand, GeoKeyword, GeoModel, GeoPrompt } from "@/lib/geo/types";
+import type { GeoBrand, GeoKeyword, GeoModel, GeoPrompt, MentionPlatform } from "@/lib/geo/types";
 
 export interface GeoAccountView {
   userId: string;
@@ -102,6 +102,36 @@ export interface LiveResult {
 export async function runLive(text: string, model: GeoModel): Promise<LiveResult> {
   const res = await fetch("/api/geo/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, model }) });
   const body = (await res.json().catch(() => null)) as (LiveResult & { error?: string }) | null;
+  if (!body) throw new Error("応答を読めませんでした");
+  if (!res.ok && body.error) throw new Error(body.error);
+  return body;
+}
+
+/* ───────────── 業界の地図（LLM Mentions。#126） ───────────── */
+
+export interface IndustryMapRow {
+  domain: string;
+  mentions: number;
+  aiSearchVolume: number | null;
+  isOwn: boolean;
+  isCompetitor: boolean;
+}
+
+export interface IndustryMapResponse {
+  ok: boolean;
+  message: string;
+  creditsUsed: number;
+  balance: number;
+  report: { rows: IndustryMapRow[]; totalCount: number | null; ownRank: number | null; costUsd: number | null } | null;
+}
+
+export async function runIndustryMap(keyword: string, platform: MentionPlatform): Promise<IndustryMapResponse> {
+  const res = await fetch("/api/geo/mentions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ keyword, platform }),
+  });
+  const body = (await res.json().catch(() => null)) as (IndustryMapResponse & { error?: string }) | null;
   if (!body) throw new Error("応答を読めませんでした");
   if (!res.ok && body.error) throw new Error(body.error);
   return body;

@@ -5,6 +5,7 @@ import { palette } from "@/lib/ui/palette";
 import { PERCENT_DISPLAY_MIN_N } from "@/lib/geo/stats";
 import { TargetBars, type TargetBarsProps } from "../TargetBars";
 import { defaultSelection, MAX_SERIES, TrendChart, weekLabel, type TrendChartProps } from "../TrendChart";
+import { barColor, IndustryMapCard, type IndustryMapCardProps } from "../IndustryMapCard";
 import type { WeeklySeries } from "@/lib/geo/aggregate";
 import type { TargetRow } from "../client";
 
@@ -174,5 +175,57 @@ describe("TrendChart", () => {
     const html = renderTrend([serie()]);
     expect(html).toContain("100%");
     expect(html).toContain("0%");
+  });
+});
+
+/* ───────────── 業界の地図（#126、利用者の指示 2026-09-21） ───────────── */
+
+function renderMap(over: Partial<IndustryMapCardProps> = {}): string {
+  return renderToStaticMarkup(
+    createElement(IndustryMapCard, { balance: 100, keywords: ["SEO ツール", "AIO 対策"], ...over }),
+  );
+}
+
+describe("IndustryMapCard", () => {
+  it("押すまで取りに行かないことと、1 回あたりの費用を明示する", () => {
+    const html = renderMap();
+    expect(html).toContain("1 回 5 クレジット");
+    expect(html).toContain("押したときだけ取りに行きます（定期計測には入りません）");
+    // 結果はまだ無いのでグラフは描かない
+    expect(html).not.toContain("<svg");
+  });
+
+  it("設定の対策キーワードを候補に出す", () => {
+    const html = renderMap();
+    expect(html).toContain("SEO ツール");
+    expect(html).toContain("AIO 対策");
+    expect(html).toContain("geo-industry-keywords");
+  });
+
+  it("キーワードが無いときは設定への案内を出す", () => {
+    expect(renderMap({ keywords: [] })).toContain("設定の「対策キーワード」を登録すると");
+  });
+
+  it("残高が足りないときは実行させず、理由を出す", () => {
+    const html = renderMap({ balance: 1 });
+    expect(html).toContain("クレジットが足りません（必要 5）");
+    expect(html).toContain("disabled");
+  });
+
+  it("2 つのプラットフォームを選べる", () => {
+    const html = renderMap();
+    expect(html).toContain("Google の AI 検索（AI Overviews）");
+    expect(html).toContain("ChatGPT");
+  });
+
+  it("棒の色は 自社 / 競合 / その他 で分ける", () => {
+    const own = { domain: "a.jp", mentions: 1, aiSearchVolume: null, isOwn: true, isCompetitor: false };
+    const rival = { ...own, isOwn: false, isCompetitor: true };
+    const other = { ...own, isOwn: false, isCompetitor: false };
+    expect(barColor(own)).toBe(palette.chart[0]);
+    expect(barColor(rival)).toBe(palette.chart[3]);
+    expect(barColor(other)).toBe(palette.chart[4]);
+    // 3 つとも違う色
+    expect(new Set([barColor(own), barColor(rival), barColor(other)]).size).toBe(3);
   });
 });

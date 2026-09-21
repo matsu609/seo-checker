@@ -53,6 +53,18 @@ export function isLiveOnlyModel(model: GeoModel): boolean {
   return model === "perplexity";
 }
 
+/**
+ * 業界の地図（LLM Mentions。#126）が対応するプラットフォーム。
+ * LLM Responses の 4 モデルとは別の軸で、いまは 2 つだけ。
+ */
+export const MENTION_PLATFORMS = ["google", "chat_gpt"] as const;
+export type MentionPlatform = (typeof MENTION_PLATFORMS)[number];
+
+export const MENTION_PLATFORM_LABELS: Record<MentionPlatform, string> = {
+  google: "Google の AI 検索（AI Overviews）",
+  chat_gpt: "ChatGPT",
+};
+
 /** 実行モード。定期バッチは必ず standard（§1.2 / §7.4） */
 export type RunMode = "standard" | "live";
 
@@ -226,6 +238,7 @@ export type CreditAction =
   | "rank"
   | "aio"
   | "ai_mode"
+  | "llm_mentions"
   | "llm_standard"
   | "llm_live"
   | "weekly_report"
@@ -235,6 +248,7 @@ export const CREDIT_ACTION_LABELS: Record<CreditAction, string> = {
   rank: "順位計測",
   aio: "AI Overviews 取得",
   ai_mode: "AI モード取得",
+  llm_mentions: "業界の地図（LLM Mentions）",
   llm_standard: "LLM 計測（標準）",
   llm_live: "LLM 計測（今すぐ実行）",
   weekly_report: "週次レポート生成",

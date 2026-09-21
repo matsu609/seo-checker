@@ -17,6 +17,8 @@ export const CREDIT_RATES: Record<CreditAction, number> = {
   rank: 0.5,
   aio: 0.5,
   ai_mode: 0.5,
+  // 業界の地図は 1 回 30 行が既定（原価 約 $0.033）。オンデマンドなので残高で止める
+  llm_mentions: 5,
   llm_standard: 0.5,
   llm_live: 2,
   weekly_report: 30,
@@ -57,11 +59,14 @@ export interface CreditState {
   granted: number;
 }
 
+/** 利用者がボタンで起こす計測（= 残高で止める対象）。定期実行はここに入れない */
+const ON_DEMAND_ACTIONS: readonly CreditAction[] = ["llm_live", "llm_mentions"];
+
 /** ソフトキャップの判定（§6.1）。定期実行は残高に関わらず通す */
 export function canRun(state: CreditState, action: CreditAction): { allowed: boolean; reason: string | null } {
   const cost = creditCost(action);
-  // オンデマンド（Live）だけが残高で止まる
-  if (action === "llm_live") {
+  // オンデマンド（今すぐ実行・業界の地図）だけが残高で止まる
+  if (ON_DEMAND_ACTIONS.includes(action)) {
     if (state.balance < cost) {
       return { allowed: false, reason: `クレジットが足りません（残り ${round(state.balance)} / 必要 ${cost}）` };
     }

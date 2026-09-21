@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { canRun, consume, creditAction, creditCost, forecastStandardPlan, MONTHLY_CREDITS, needsReset, nextResetAt, resetMonthly } from "../credits";
 import { cacheKey, matchesDomain, normalizeDomain, normalizedHash, normalizeText } from "../normalize";
-import { costUsd, DEFAULT_UNIT_PRICES, toJpy, unitPrices, usdJpy } from "../pricing";
+import { costUsd, DEFAULT_UNIT_PRICES, toJpy, unitPrices, usdJpy, mentionsCostUsd } from "../pricing";
 import { jstWeekdayIndex, NORMAL_PLAN, PRECISION_PLAN, precisionWarning, repeatsToday, runDayOffsetFor, weeklyTotal, weekStart } from "../schedule";
 import { allowsPercent, compareRates, toBand, wilsonInterval } from "../stats";
 
@@ -12,7 +12,15 @@ afterEach(() => {
 
 describe("単価と為替（§0.2 / §1.1）", () => {
   it("既定値は仕様書のとおり", () => {
-    expect(DEFAULT_UNIT_PRICES).toEqual({ rank: 0.002, aio: 0.0026, aiMode: 0.002, llmStandard: 0.0012, llmPriority: 0.0024, llmLive: 0.004 });
+    expect(DEFAULT_UNIT_PRICES).toEqual({
+      rank: 0.002,
+      aio: 0.0026,
+      aiMode: 0.002,
+      llmStandard: 0.0012,
+      llmPriority: 0.0024,
+      llmLive: 0.004,
+      mentionsRow: 0.0011,
+    });
   });
 
   it("環境変数で単価を上書きできる（コードに直書きしない）", () => {
@@ -100,6 +108,16 @@ describe("クレジット（§6）", () => {
     expect(f.monthlyAnalysis).toBe(150);
     expect(f.total).toBe(1620);
     expect(f.remaining).toBe(380);
+  });
+
+  it("業界の地図（#126）は行数課金で、残高が尽きたら止まる（定期実行は止めない）", () => {
+    expect(mentionsCostUsd(30)).toBeCloseTo(30 * 0.0011);
+    expect(mentionsCostUsd(0)).toBe(0);
+    expect(mentionsCostUsd(-5)).toBe(0);
+    const empty = { balance: 0, granted: MONTHLY_CREDITS };
+    expect(canRun(empty, "llm_mentions").allowed).toBe(false);
+    expect(canRun(empty, "llm_standard").allowed).toBe(true);
+    expect(canRun({ balance: 5, granted: MONTHLY_CREDITS }, "llm_mentions").allowed).toBe(true);
   });
 
   it("ソフトキャップ: 残高が尽きても定期実行は止めず、Live だけ止める（§6.1）", () => {

@@ -5,9 +5,10 @@
  * ここだけが「本物の依存」を組み立て、run.ts 自体は純粋に保つ。
  */
 import { isAnthropicEnabled } from "@/lib/llm/anthropic";
-import { defaultLocale, getGeoProvider } from "./dataforseo";
+import { defaultLocale, getGeoProvider, isDataForSeoConfigured } from "./dataforseo";
+import { fetchTopDomains, type MentionsReport } from "./mentions";
 import { canRun, consume, creditAction, creditCost, needsReset, nextResetAt, resetMonthly } from "./credits";
-import { costUsd, unitPrices } from "./pricing";
+import { costUsd, mentionsCostUsd, unitPrices } from "./pricing";
 import { classifyDomain, judgeCitation, judgeMentions } from "./extract";
 import { resolveCitations } from "./resolve";
 import { planToday, runForAccount, type RunSummary } from "./run";
@@ -25,7 +26,7 @@ import {
 } from "./store";
 import { syncGeoFromSettings } from "./sync";
 import { loadSharedSettings } from "@/lib/settings/server";
-import type { GeoModel, GeoObservation } from "./types";
+import type { CreditAction, GeoModel, GeoObservation, MentionPlatform } from "./types";
 
 /** 定期バッチが 1 アカウント分を回す */
 export async function runDailyForUser(userId: string, options: { now?: Date; budgetMs?: number; signal?: AbortSignal } = {}): Promise<RunSummary> {
@@ -170,4 +171,69 @@ export async function runLive(userId: string, promptText: string, model: GeoMode
 
 function fail(message: string, balance: number): LiveRunResult {
   return { ok: false, message, creditsUsed: 0, balance, responseText: "", citations: [], mentioned: [] };
+}
+
+/* ───────────── 業界の地図（LLM Mentions。#126） ───────────── */
+
+export interface IndustryMapResult {
+  ok: boolean;
+  message: string;
+  creditsUsed: number;
+  balance: number;
+  report: MentionsReport | null;
+}
+
+/**
+ * 「業界の地図」を 1 回引く（オンデマンドのみ。定期実行には入れない）。
+ *
+ * 自社・競合のドメインは設定（/settings）から同期済みの geo_brands を使い、
+ * 表の中で自社と競合に印を付ける。**残高が足りなければ引かない**（Live と同じ扱い）。
+ * 失敗したときはクレジットを使わない（記帳もしない）。
+ */
+export async function runIndustryMap(
+  userId: string,
+  keyword: string,
+  platform: MentionPlatform,
+  options: { now?: Date; signal?: AbortSignal; limit?: number } = {},
+): Promise<IndustryMapResult> {
+  const now = options.now ?? new Date();
+  if (!isDataForSeoConfigured()) return mapFail("DataForSEO が未設定です（DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD）", 0);
+
+  const account = await ensureAccount(userId, now);
+  const action: CreditAction = "llm_mentions";
+  const gate = canRun({ balance: account.creditBalance, granted: 0 }, action);
+  if (!gate.allowed) return mapFail(gate.reason ?? "クレジットが足りません", account.creditBalance);
+
+  const brands = await listBrands(userId);
+  const outcome = await fetchTopDomains(
+    {
+      keyword,
+      platform,
+      limit: options.limit,
+      brands: {
+        own: brands.filter((b) => b.type === "own").flatMap((b) => b.domains),
+        competitors: brands.filter((b) => b.type === "competitor").flatMap((b) => b.domains),
+      },
+    },
+    { signal: options.signal },
+  );
+  // 取れなかったときはクレジットを使わない
+  if (!outcome.report) return mapFail(outcome.message ?? "業界の地図を取得できませんでした", account.creditBalance);
+
+  const credits = creditCost(action);
+  await recordCredit(userId, action, credits, null, false);
+  const balance = Math.round((account.creditBalance - credits) * 100) / 100;
+  await updateAccount(userId, { creditBalance: balance });
+
+  return {
+    ok: true,
+    message: `${outcome.report.rows.length} 件のドメインを取得しました（原価の目安 $${mentionsCostUsd(outcome.report.rows.length).toFixed(3)}）`,
+    creditsUsed: credits,
+    balance,
+    report: outcome.report,
+  };
+}
+
+function mapFail(message: string, balance: number): IndustryMapResult {
+  return { ok: false, message, creditsUsed: 0, balance, report: null };
 }

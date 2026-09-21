@@ -35,6 +35,12 @@ export interface UnitPrices {
   llmPriority: number;
   /** LLM Scraper Live。1 回（手動オンデマンドのみ） */
   llmLive: number;
+  /**
+   * LLM Mentions（業界の地図）。**1 行あたり**（行数課金）。
+   * 公開されている「$1.1 / 1,000 行」から 0.0011 を既定に置く。
+   * `GEO_PRICE_MENTIONS_ROW_USD` で上書きできる
+   */
+  mentionsRow: number;
 }
 
 export const DEFAULT_UNIT_PRICES: UnitPrices = {
@@ -44,6 +50,7 @@ export const DEFAULT_UNIT_PRICES: UnitPrices = {
   llmStandard: 0.0012,
   llmPriority: 0.0024,
   llmLive: 0.004,
+  mentionsRow: 0.0011,
 };
 
 function envNumber(name: string, fallback: number): number {
@@ -68,6 +75,7 @@ export function unitPrices(): UnitPrices {
     llmStandard: envNumber("GEO_PRICE_LLM_STANDARD_USD", DEFAULT_UNIT_PRICES.llmStandard),
     llmPriority: envNumber("GEO_PRICE_LLM_PRIORITY_USD", DEFAULT_UNIT_PRICES.llmPriority),
     llmLive: envNumber("GEO_PRICE_LLM_LIVE_USD", DEFAULT_UNIT_PRICES.llmLive),
+    mentionsRow: envNumber("GEO_PRICE_MENTIONS_ROW_USD", DEFAULT_UNIT_PRICES.mentionsRow),
   };
 }
 
@@ -83,6 +91,11 @@ export function costUsd(kind: MeasurementKind, mode: RunMode, prices: UnitPrices
   if (kind === "ai_mode") return prices.aiMode;
   const live = mode === "live" || (model !== undefined && isLiveOnlyModel(model));
   return live ? prices.llmLive : prices.llmStandard;
+}
+
+/** 業界の地図を 1 回引くときの原価（USD）。行数課金なので取る行数で決まる */
+export function mentionsCostUsd(rows: number, prices: UnitPrices = unitPrices()): number {
+  return Math.max(0, rows) * prices.mentionsRow;
 }
 
 export function toJpy(usd: number, rate: number = usdJpy()): number {

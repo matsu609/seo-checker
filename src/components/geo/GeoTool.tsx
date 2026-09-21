@@ -17,6 +17,7 @@ import { SetupPanel } from "./SetupPanel";
 import { ShareCard } from "./ShareCard";
 import { TargetBars } from "./TargetBars";
 import { TrendChart } from "./TrendChart";
+import { IndustryMapCard } from "./IndustryMapCard";
 import { fetchDashboard, fetchSetup, runLive, type DashboardResponse, type LiveResult, type SetupResponse } from "./client";
 
 type TabId = "dashboard" | "setup";
@@ -75,13 +76,25 @@ export function GeoTool() {
         ariaLabel="AI 検索モニタリングの表示切り替え"
       />
 
-      {tab === "dashboard" && dashboard && setup && <Dashboard data={dashboard} onGoSetup={() => setTab("setup")} />}
+      {tab === "dashboard" && dashboard && setup && (
+        <Dashboard data={dashboard} keywords={setup.keywords.map((k) => k.text)} onGoSetup={() => setTab("setup")} onChanged={reload} />
+      )}
       {tab === "setup" && setup && <SetupPanel setup={setup} onChanged={reload} />}
     </div>
   );
 }
 
-function Dashboard({ data, onGoSetup }: { data: DashboardResponse; onGoSetup: () => void }) {
+function Dashboard({
+  data,
+  keywords,
+  onGoSetup,
+  onChanged,
+}: {
+  data: DashboardResponse;
+  keywords: string[];
+  onGoSetup: () => void;
+  onChanged: () => void;
+}) {
   const own = data.brands.find((b) => b.type === "own") ?? null;
   const ownShare = own ? data.overall.find((r) => r.brandId === own.id) : undefined;
   const resetAt = new Date(data.account.creditResetAt).toLocaleDateString("ja-JP");
@@ -185,6 +198,8 @@ function Dashboard({ data, onGoSetup }: { data: DashboardResponse; onGoSetup: ()
       ))}
 
       {data.branded && data.branded.n > 0 && <BrandedCard branded={data.branded} />}
+
+      <IndustryMapCard balance={data.credits.balance} keywords={keywords} onRan={onChanged} />
 
       <CreditsCard credits={data.credits} resetAt={resetAt} />
       <LiveRunCard balance={data.credits.balance} />
