@@ -30,6 +30,20 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 招待リンク（メールが届かないときに、運用者が直接渡すため）
+  const [invite, setInvite] = useState<{ email: string; url: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function copyInvite(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 3000);
+    } catch {
+      // クリップボードが使えない環境（権限・古いブラウザ）では、リンクを選んで手でコピーしてもらう
+      setError("コピーできませんでした。リンクを選択してコピーしてください。");
+    }
+  }
 
   async function add() {
     const value = email.trim();
@@ -44,18 +58,24 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
         body: JSON.stringify({ email: value }),
       });
       const body = (await res.json().catch(() => ({}))) as {
-        result?: { kind: "promoted" | "invited"; email: string };
+        result?: { kind: "promoted" | "invited"; email: string; url?: string | null };
         agencies?: AgencyRow[];
         error?: string;
       };
       if (!res.ok) throw new Error(body.error ?? `追加できませんでした（HTTP ${res.status}）`);
       if (body.agencies) onChange(body.agencies);
       setEmail("");
+      setCopied(false);
+      setInvite(
+        body.result?.kind === "invited" && body.result.url
+          ? { email: body.result.email, url: body.result.url }
+          : null,
+      );
       // メールが飛ぶのは「未登録だった」ときだけ。登録済みの相手に権限を付けただけのときに
       // 同じ文面だと、来ないメールを待たせてしまう（利用者の報告 2026-09-21）ので必ず書き分ける
       setNotice(
         body.result?.kind === "invited"
-          ? `${body.result.email} に招待メールを送りました。相手が登録を済ませると、この一覧に並びます。届かないときは迷惑メールをご確認ください。`
+          ? `${body.result.email} に招待メールを送りました。相手が登録を済ませると、この一覧に並びます。メールは迷惑メールに入ることがあるので、下の招待リンクを直接お渡しいただいても構いません。`
           : `${body.result?.email ?? value} を管理アカウントにしました。すでに登録済みのアカウントなので、招待メールは送っていません（このままログインすれば使えます）。続けて「顧客管理」で担当のお客様を割り当ててください。`,
       );
     } catch (err) {
@@ -106,6 +126,31 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
           <Callout tone="info" title="保存しました">
             {notice}
           </Callout>
+        )}
+
+        {/*
+          招待リンク。メールが迷惑メールに入って届かないことがあるので、運用者が
+          その場でコピーして相手に直接渡せるようにする（利用者の報告 2026-09-21）。
+          リンクは招待そのもの（開いた人が管理アカウントとして登録できる）なので、
+          必ずご本人にだけ渡していただく。画面を開き直すと消える（保存はしない）。
+        */}
+        {invite && (
+          <div className="rounded-sm border border-line bg-surface p-3">
+            <p className="text-[12px] font-bold text-ink">
+              {invite.email} の招待リンク
+              <span className="ml-2 font-normal text-muted">
+                メールが届かないときは、これを本人にだけお渡しください（他の方に渡すとその方が管理アカウントになります）。
+              </span>
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <code className="min-w-0 flex-1 overflow-x-auto rounded-sm border border-line bg-panel px-2 py-1.5 font-mono text-[12px] text-ink">
+                {invite.url}
+              </code>
+              <Button variant="secondary" size="sm" onClick={() => void copyInvite(invite.url)}>
+                {copied ? "コピーしました" : "リンクをコピー"}
+              </Button>
+            </div>
+          </div>
         )}
 
         <form

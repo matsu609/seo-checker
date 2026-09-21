@@ -27,10 +27,16 @@ export interface AgencyRow {
   clientCount: number;
 }
 
-/** 代理店を追加したときの結果。招待はまだ登録されていない相手に送る */
+/**
+ * 代理店を追加したときの結果。招待はまだ登録されていない相手に送る。
+ *
+ * 招待のときは**招待リンク（Clerk が返す URL）も返す**。メールが迷惑メールに入って
+ * 届かないことがあるため、運用者が画面からコピーして直接渡せるようにする
+ * （利用者の報告 2026-09-21）。リンクは招待そのものなので、相手以外に渡さない。
+ */
 export type AddAgencyResult =
   | { kind: "promoted"; email: string; userId: string }
-  | { kind: "invited"; email: string };
+  | { kind: "invited"; email: string; url: string | null };
 
 function displayName(user: ClerkUserLike): string {
   const full = [user.lastName, user.firstName].filter(Boolean).join(" ").trim();
@@ -109,14 +115,14 @@ export async function addAgencyByEmail(email: string): Promise<AddAgencyResult> 
     return { kind: "promoted", email, userId: user.id };
   }
 
-  await client.invitations.createInvitation({
+  const invitation = await client.invitations.createInvitation({
     emailAddress: email,
     publicMetadata: withAgencyRole(null, true),
     // すでに招待済みのアドレスに送り直せるようにする（招待メールが届かなかったとき）
     ignoreExisting: true,
     notify: true,
   });
-  return { kind: "invited", email };
+  return { kind: "invited", email, url: invitation.url ?? null };
 }
 
 /**
