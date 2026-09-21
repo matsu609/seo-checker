@@ -5,8 +5,9 @@
  *   動いているコミットと版 / 外部連携（API キー）の設定状況 / 定期処理（Cron）の状況 /
  *   管理アカウントの追加・解除
  *
- * お客様の契約状況・ご利用状況・ご意見への返答は顧客管理（/clients）へ移した。
- * 管理アカウントにも同じ画面を見せ、お問い合わせをその画面で完結させるため。
+ * お客様の契約状況・ご利用状況は顧客管理（/clients。管理アカウントも開ける）、
+ * ご意見・不具合への返答は /admin/feedback（運用者だけ）。サイドバーでは
+ * 「管理者用」と「マスターアカウント用」の 2 つのタブに分けている（利用者の指示 2026-09-21）。
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -59,11 +60,15 @@ export default async function Page() {
       </h1>
       <p className="mb-6 text-[13px] leading-relaxed text-muted">
         システム側（動いている版・外部連携の設定状況・定期処理）の確認と、管理アカウントの追加・解除を行います。
-        お客様の契約状況・ご利用状況・ご意見への返答は{" "}
+        お客様からの{" "}
+        <Link href="/admin/feedback" className="text-accent underline">
+          ご意見・不具合
+        </Link>
+        も運用者だけが返答します。お客様の契約状況・ご利用状況は{" "}
         <Link href="/clients" className="text-accent underline">
           顧客管理
         </Link>
-        に移りました（管理アカウントからも同じ画面が開けます）。
+        で、こちらは管理アカウントからも開けます。
       </p>
 
       <VersionCard />

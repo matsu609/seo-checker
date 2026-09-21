@@ -2,9 +2,11 @@
  * 顧客管理の画面（サイドバー「管理者用」→「顧客管理」）。
  *
  * 運用者（マスター）と管理アカウントの両方が開く（利用者の決定 2026-09-20）。
- * お客様からお問い合わせ・クレームが来たとき、この 1 画面で完結させるための場所:
- *   ご意見・不具合の一覧と返答 → 契約状況・月額・次回請求 → 登録情報と無料診断の回数 →
- *   割引 → 機能の個別開放 → その方の画面を見る（代理ログイン）
+ * お客様からお問い合わせ・クレームが来たときに見る場所:
+ *   契約状況・月額・次回請求 → 登録情報と無料診断の回数 → 割引 → 機能の個別開放 →
+ *   その方の画面を見る（代理ログイン）
+ *
+ * ご意見・不具合の一覧と返答は 2026-09-21 に /admin/feedback へ移した（運用者だけが返答する）。
  *
  * 見えるお客様も、できる操作も**運用者と管理アカウントで同じ**（利用者の指示 2026-09-21。
  * 担当による絞り込みは仕組みごとやめた）。違いはマスター画面（システム側）が見えるかどうかだけ。
@@ -17,13 +19,9 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import Link from "next/link";
 import { ClientTable } from "@/components/admin/ClientTable";
-import { FeedbackCard } from "@/components/admin/FeedbackCard";
 import { Callout } from "@/components/ui/Callout";
 import { loadClients, type ClientRow } from "@/lib/admin/clients";
 import { currentClientScope } from "@/lib/admin/guard";
-import { DbError, isSupabaseConfigured } from "@/lib/db/supabase";
-import { listAllFeedback } from "@/lib/feedback/store";
-import type { FeedbackRecord } from "@/lib/feedback/types";
 import { freeRunLimit } from "@/lib/free/quota";
 
 export const metadata: Metadata = {
@@ -73,30 +71,13 @@ export default async function Page() {
     );
   }
 
-  // ご意見・不具合（Supabase）。読めなくても画面全体は止めない
-  let feedback: FeedbackRecord[] | null = null;
-  let feedbackError: string | null = null;
-  if (!isSupabaseConfigured()) {
-    feedbackError = "保存先（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）が未設定のため、ご意見は表示できません。";
-  } else {
-    try {
-      feedback = await listAllFeedback();
-    } catch (err) {
-      feedbackError =
-        err instanceof DbError && err.status === 404
-          ? "feedback テーブルがありません。docs/dev/OPERATIONS.md の SQL（r128）を Supabase の SQL Editor で実行してください。"
-          : "ご意見の一覧を取得できませんでした。時間をおいて開き直してください。";
-    }
-  }
-
   return (
     <div className="mx-auto w-full max-w-5xl @container">
       <Heading />
       <p className="mb-6 text-[13px] leading-relaxed text-muted">
         {master ? (
           <>
-            登録しているすべてのお客様の契約状況・月額・ご利用状況を確認し、ご意見への返答・割引・機能の個別開放・
-            担当の管理アカウントの割り当てができます。金額と契約状況は決済（Stripe）の値をそのまま出しています。
+            登録しているすべてのお客様の契約状況・月額・ご利用状況を確認し、割引・機能の個別開放ができます。金額と契約状況は決済（Stripe）の値をそのまま出しています。
             版・外部連携・定期処理などシステム側の確認は{" "}
             <Link href="/admin" className="text-accent underline">
               マスター画面
@@ -105,16 +86,11 @@ export default async function Page() {
           </>
         ) : (
           <>
-            登録しているすべてのお客様の契約状況・月額・ご利用状況です。ご意見への返答・割引の設定・
-            機能の個別開放・お客様の画面の確認（代理ログイン）ができます。プランの変更と担当の割り当ては
-            運用者にご依頼ください。
+            登録しているすべてのお客様の契約状況・月額・ご利用状況です。割引の設定・機能の個別開放・
+            お客様の画面の確認（代理ログイン）ができます。プランの変更は運用者にご依頼ください。
           </>
         )}
       </p>
-
-      <div className="mb-6">
-        <FeedbackCard initial={feedback} loadError={feedbackError} />
-      </div>
 
       <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px] text-muted">
         <span>

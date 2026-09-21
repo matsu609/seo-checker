@@ -2,8 +2,7 @@
  * ご意見・不具合の報告の保存（Supabase の `feedback` テーブル）。サーバー専用。
  *
  * 本人の読み出しは必ず user_id で絞る（service_role は RLS を素通りするので、ここが唯一の境界）。
- * 全件を読めるのは運営者（マスター）と管理アカウントだけ（どちらも画面は /clients）。
- * 権限の確認は API 側（currentClientScope / requireClientAccess）で行う。
+ * 全件を読めるのは運営者（マスター）だけ（画面は /admin/feedback）。権限の確認は API 側（requireAdmin）。
  * テーブル定義は docs/dev/OPERATIONS.md の SQL（r128）を参照。
  */
 import { z } from "zod";
@@ -84,13 +83,6 @@ export async function listAllFeedback(status?: FeedbackStatus): Promise<Feedback
   const filter = status ? `&status=${eq(status)}` : "";
   return parseRows(
     await supabaseRest<unknown>(`${TABLE}?select=${FEEDBACK_COLUMNS}${filter}&order=created_at.desc&limit=${ADMIN_FEEDBACK_LIMIT}`),
-  );
-}
-
-/** 1 件だけ読む（誰の報告かを確かめて権限を見るため）。無ければ null */
-export async function getFeedback(id: string): Promise<FeedbackRecord | null> {
-  return (
-    parseRows(await supabaseRest<unknown>(`${TABLE}?select=${FEEDBACK_COLUMNS}&id=${eq(id)}&limit=1`))[0] ?? null
   );
 }
 

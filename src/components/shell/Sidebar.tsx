@@ -234,8 +234,9 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         運用者・管理アカウントだけに出す。判定はサーバー（/api/plan）で、ここは表示の出し分けだけ。
         画面そのものも、その立場でなければ 404 を返す（src/app/admin・src/app/clients）。
 
-        マスター画面（システム・バックエンド）は運用者だけ。顧客管理（お客様の契約状況・
-        ご利用状況・ご意見）は両方に出す（利用者の指示 2026-09-20）。
+        タブは 2 つに分けてある（利用者の指示 2026-09-21）。
+          管理者用             … お客様の対応。運用者と管理アカウントの両方に出す
+          マスターアカウント用 … システム側とご意見への返答。運用者だけに出す
       */}
       {(access?.admin || access?.agency) && (
         <div>
@@ -252,19 +253,6 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                 <span className="min-w-0 flex-1 truncate">顧客管理</span>
               </Link>
             </li>
-            {access?.admin && (
-              <li>
-                <Link
-                  href="/admin"
-                  onClick={onNavigate}
-                  aria-current={pathname.startsWith("/admin") ? "page" : undefined}
-                  className={`${ITEM_CLASS} ${pathname.startsWith("/admin") ? ACTIVE_CLASS : IDLE_CLASS}`}
-                >
-                  <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">マスター画面</span>
-                </Link>
-              </li>
-            )}
             {/*
               デモ用の無料クイック診断（月 50 回。利用者の決定 2026-09-18）。画面は無料診断のシェルで開く。
               **必ず新しいタブで開く**（利用者の指示 2026-09-21）。いま開いている管理者用の画面が
@@ -290,6 +278,35 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                 </a>
               </li>
             ))}
+          </ul>
+        </div>
+      )}
+
+      {/* マスターアカウント用: システム側とご意見への返答（運用者だけ） */}
+      {access?.admin && (
+        <div>
+          <div className="mt-4 mb-1 px-4 text-[11px] text-on-brand-muted">マスターアカウント用</div>
+          <ul className="space-y-0.5">
+            {[
+              { href: "/admin", label: "マスター画面", exact: true },
+              { href: "/admin/feedback", label: "ご意見・不具合", exact: false },
+            ].map((item) => {
+              // 「マスター画面」はご意見のページでは現在地にしない（前方一致だと両方光る）
+              const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={`${ITEM_CLASS} ${active ? ACTIVE_CLASS : IDLE_CLASS}`}
+                  >
+                    <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
