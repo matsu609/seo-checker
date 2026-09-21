@@ -77,7 +77,13 @@ export function GeoTool() {
       />
 
       {tab === "dashboard" && dashboard && setup && (
-        <Dashboard data={dashboard} keywords={setup.keywords.map((k) => k.text)} onGoSetup={() => setTab("setup")} onChanged={reload} />
+        <Dashboard
+          data={dashboard}
+          keywords={setup.keywords.map((k) => k.text)}
+          prompts={setup.prompts.map((p) => p.text)}
+          onGoSetup={() => setTab("setup")}
+          onChanged={reload}
+        />
       )}
       {tab === "setup" && setup && <SetupPanel setup={setup} onChanged={reload} />}
     </div>
@@ -87,11 +93,13 @@ export function GeoTool() {
 function Dashboard({
   data,
   keywords,
+  prompts,
   onGoSetup,
   onChanged,
 }: {
   data: DashboardResponse;
   keywords: string[];
+  prompts: string[];
   onGoSetup: () => void;
   onChanged: () => void;
 }) {
@@ -99,25 +107,49 @@ function Dashboard({
   const ownShare = own ? data.overall.find((r) => r.brandId === own.id) : undefined;
   const resetAt = new Date(data.account.creditResetAt).toLocaleDateString("ja-JP");
 
+  // 準備が済んでいなくても**イメージのグラフは見せる**（利用者の指示 2026-09-21）。
+  // 「何が取れるのか分からないまま登録させない」ため、案内の下に破線の見本を出す。
   if (!own || data.promptCount === 0) {
     return (
-      <Callout tone="info" title="まず準備をしてください">
-        <p className="leading-relaxed">
-          {own
-            ? "計測するプロンプトを登録すると、翌日の定期計測から数字が入ります。"
-            : "自社のホームページ（URL・サイト名・ブランドの表記ゆれ）は「設定」に登録します。登録が済むと自社ブランドとして自動で取り込まれ、あとは計測するプロンプトを登録するだけです。"}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {!own && (
-            <ButtonLink href={SITE_SETTINGS_HREF} size="sm">
-              設定でホームページを登録する
-            </ButtonLink>
-          )}
-          <Button size="sm" variant={own ? "primary" : "secondary"} onClick={onGoSetup}>
-            プロンプトを登録する
-          </Button>
-        </div>
-      </Callout>
+      <>
+        <Callout tone="info" title="まず準備をしてください">
+          <p className="leading-relaxed">
+            {own
+              ? "計測するプロンプトを登録すると、翌日の定期計測から数字が入ります。下のグラフは、計測が始まったあとの見え方のイメージです。"
+              : "自社のホームページ（URL・サイト名・ブランドの表記ゆれ）は「設定」に登録します。登録が済むと自社ブランドとして自動で取り込まれ、あとは計測するプロンプトを登録するだけです。下のグラフは、計測が始まったあとの見え方のイメージです。"}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {!own && (
+              <ButtonLink href={SITE_SETTINGS_HREF} size="sm">
+                設定でホームページを登録する
+              </ButtonLink>
+            )}
+            <Button size="sm" variant={own ? "primary" : "secondary"} onClick={onGoSetup}>
+              プロンプトを登録する
+            </Button>
+          </div>
+        </Callout>
+
+        <TrendChart
+          weeks={data.trends.weeks}
+          series={[]}
+          title="キーワードごとの推移（週ごと）"
+          description="設定の「対策キーワード」1 語ずつに、その週の AI Overviews / AI モードで自社が引用された割合を並べます。上がっているか下がっているかを追うためのグラフです。"
+          emptyText="設定の「対策キーワード」を登録すると、週 1 回（月曜）の計測から実線が引かれます。"
+          unit="キーワード"
+          sampleLabels={keywords}
+        />
+
+        <TrendChart
+          weeks={data.trends.weeks}
+          series={[]}
+          title="プロンプトごとの推移（週ごと）"
+          description="登録したプロンプト 1 本ずつに、その週の回答本文で自社の名前が出た割合を並べます。"
+          emptyText="「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から実線が引かれます。"
+          unit="プロンプト"
+          sampleLabels={prompts}
+        />
+      </>
     );
   }
 
@@ -152,8 +184,9 @@ function Dashboard({
         series={data.trends.keyword}
         title="キーワードごとの推移（週ごと）"
         description="設定の「対策キーワード」1 語ずつに、その週の AI Overviews / AI モードで自社が引用された割合を並べたものです。上がっているか下がっているかを追うためのグラフです。"
-        emptyText="まだ計測結果がありません。設定の「対策キーワード」を登録すると、週 1 回（月曜）の計測から線が引かれます。"
+        emptyText="まだ計測結果がありません。設定の「対策キーワード」を登録すると、週 1 回（月曜）の計測から実線が引かれます。"
         unit="キーワード"
+        sampleLabels={keywords}
       />
 
       <TrendChart
@@ -161,8 +194,9 @@ function Dashboard({
         series={data.trends.prompt}
         title="プロンプトごとの推移（週ごと）"
         description="登録したプロンプト 1 本ずつに、その週の回答本文で自社の名前が出た割合を並べたものです。"
-        emptyText="まだ計測結果がありません。「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から線が引かれます。"
+        emptyText="まだ計測結果がありません。「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から実線が引かれます。"
         unit="プロンプト"
+        sampleLabels={prompts}
       />
 
       {/* キーワード・プロンプトごとの棒グラフ（利用者の指示 2026-09-20） */}

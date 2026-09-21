@@ -131,10 +131,41 @@ function renderTrend(series: WeeklySeries[], over: Partial<TrendChartProps> = {}
 }
 
 describe("TrendChart", () => {
-  it("行が無いときは案内だけを出し、グラフは描かない", () => {
+  it("行が無いときは「イメージ」の破線グラフを出す（利用者の指示 2026-09-21）", () => {
     const html = renderTrend([]);
     expect(html).toContain("まだ計測結果がありません。");
-    expect(html).not.toContain("<svg");
+    // 案内だけで終わらせず、グラフの形を見せる
+    expect(html).toContain("<svg");
+    expect(html).toContain("stroke-dasharray");
+  });
+
+  it("イメージは 4 か所で「実測ではない」と伝える（取り違えを防ぐ）", () => {
+    const html = renderTrend([], { sampleLabels: ["SEO ツール"] });
+    // ①カードのバッジ ②図の上の帯 ③系列名の「例:」 ④図の下の但し書き
+    expect(html).toContain("イメージ（まだ計測していません）");
+    expect(html).toContain("これは実測ではなく、グラフのイメージです");
+    expect(html).toContain("例: SEO ツール");
+    expect(html).toContain("破線はイメージで、実際に計測した値ではありません");
+  });
+
+  it("イメージの軸は 出現率（%） × 週 で、実測のグラフと揃える", () => {
+    const html = renderTrend([]);
+    expect(html).toContain("0%");
+    expect(html).toContain("100%");
+    expect(html).toContain("週（月曜）");
+    expect(html).toContain("縦軸は出現率");
+  });
+
+  it("実測があるときは破線を使わない（実線 = 実測）", () => {
+    const html = renderTrend([serie()]);
+    expect(html).not.toContain("stroke-dasharray");
+    expect(html).not.toContain("これは実測ではなく");
+    expect(html).not.toContain("イメージ（まだ計測していません）");
+  });
+
+  it("登録がまだ無ければ一般的な例の言葉を使う", () => {
+    const html = renderTrend([], { sampleLabels: [] });
+    expect(html).toContain("例: 地域名 + 業種");
   });
 
   it("週の目盛りを短く出す", () => {

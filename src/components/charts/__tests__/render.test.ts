@@ -7,6 +7,7 @@ import { HBar } from "../HBar";
 import { HeatCell, heatCellClass, heatCellColors } from "../HeatCell";
 import { Histogram } from "../Histogram";
 import { Pie } from "../Pie";
+import { LineChart } from "../LineChart";
 import { Sparkline } from "../Sparkline";
 import { SegmentBar, StackedBar } from "../StackedBar";
 
@@ -166,5 +167,32 @@ describe("Sparkline / HeatCell", () => {
     const html = renderToStaticMarkup(createElement("table", null, createElement("tbody", null, createElement("tr", null, createElement(HeatCell, { score: 42 })))));
     expect(html).toContain("bg-fail-soft");
     expect(html).toContain(">42</td>");
+  });
+});
+
+describe("LineChart の破線（実測でない線。2026-09-21）", () => {
+  const labels = ["9/14", "9/21", "9/28"];
+
+  it("dashed を付けた系列だけ破線になる", () => {
+    const html = renderToStaticMarkup(
+      createElement(LineChart, {
+        labels,
+        series: [
+          { id: "real", label: "実測", values: [10, 20, 30] },
+          { id: "sample", label: "見本", values: [40, 50, 60], dashed: true },
+        ],
+        ariaLabel: "推移",
+      }),
+    );
+    // 破線は 1 本だけ（線 + 凡例の見本で 2 か所に出る）
+    const dashes = html.match(/stroke-dasharray/g) ?? [];
+    expect(dashes.length).toBe(2);
+  });
+
+  it("dashed を付けなければ破線にしない（実線 = 実測を崩さない）", () => {
+    const html = renderToStaticMarkup(
+      createElement(LineChart, { labels, series: [{ id: "real", label: "実測", values: [10, 20, 30] }], ariaLabel: "推移" }),
+    );
+    expect(html).not.toContain("stroke-dasharray");
   });
 });

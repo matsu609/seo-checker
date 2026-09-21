@@ -5,6 +5,7 @@
  *
  * 決めごと（docs/dev/design-spec.md のチャートの約束 + dataviz の手順）:
  * - 線は 2px・丸い結合、点は半径 4px。色は palette.chart を系列の順に固定で割り当てる（循環させない）
+ * - **実測でない線（見本・予測）は `dashed` で破線にする。**実線 = 実測、破線 = 実測ではない、を崩さない
  * - 色だけに頼らない: 系列ごとに点の形を変え、凡例と線の端のラベル（4 系列まで）で名前を出す。表も付ける
  * - 十字線 + ツールチップ: 縦の細線が最も近い日付に吸い付き、その日の全系列の値を並べる（キーボードでも動く）
  * - 文字は palette の文字色（系列の色で文字を塗らない）
@@ -18,6 +19,11 @@ export interface LineSeries {
   label: string;
   /** labels と同じ長さ。null は欠測（線を切る） */
   values: readonly (number | null)[];
+  /**
+   * 破線で描く。**実測ではない線**（見本・予測・目標）に使う。
+   * 凡例と表の見た目も破線に合わせるので、実線と混ざらない。
+   */
+  dashed?: boolean;
 }
 
 export interface LineChartProps {
@@ -224,7 +230,15 @@ export function LineChart({ labels, series, invert = false, yMin, yMax, yTicks, 
             const color = SERIES_COLORS[si % SERIES_COLORS.length];
             return (
               <g key={s.id}>
-                <path d={paths[si]} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                <path
+                  d={paths[si]}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  strokeDasharray={s.dashed ? "6 4" : undefined}
+                />
                 {s.values.map((v, i) =>
                   v === null || !Number.isFinite(v) ? null : (
                     <g key={i}>
@@ -267,7 +281,15 @@ export function LineChart({ labels, series, invert = false, yMin, yMax, yTicks, 
           {series.map((s, si) => (
             <li key={s.id} className="flex items-center gap-1.5">
               <svg width={22} height={12} aria-hidden="true">
-                <line x1={0} x2={22} y1={6} y2={6} stroke={SERIES_COLORS[si % SERIES_COLORS.length]} strokeWidth={2} />
+                <line
+                  x1={0}
+                  x2={22}
+                  y1={6}
+                  y2={6}
+                  stroke={SERIES_COLORS[si % SERIES_COLORS.length]}
+                  strokeWidth={2}
+                  strokeDasharray={s.dashed ? "4 3" : undefined}
+                />
                 <MarkerShape kind={markerOf(si)} cx={11} cy={6} color={SERIES_COLORS[si % SERIES_COLORS.length]} r={3} />
               </svg>
               {s.label}

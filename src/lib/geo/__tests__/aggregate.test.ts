@@ -6,8 +6,13 @@ import {
   byTag,
   detectVersionChange,
   filterTargetsByModel,
+  comingWeekStarts,
   recentWeekStarts,
   rollingShares,
+  SAMPLE_FALLBACK_LABELS,
+  SAMPLE_SERIES_MAX,
+  SAMPLE_WEEKS,
+  sampleSeries,
   rollingTargetShares,
   shares,
   targetShares,
@@ -379,5 +384,71 @@ describe("weeklySeries", () => {
     const [s] = weeklySeries(rows, { brandId: "own", axis: "prompt", metric: "mention", labels, weeks: 4 }, NOW);
     expect(s.label).toBe("おすすめの SEO ツールは？");
     expect(s.latest).toBe(1);
+  });
+});
+
+/* ───────────── 見本の線（イメージ。利用者の指示 2026-09-21） ───────────── */
+
+describe("sampleSeries（実測ではない見本）", () => {
+  it("横軸は過去ではなく「これからの週」（もう測った数字に見せない）", () => {
+    // NOW = 2026-09-16（水）。その週の月曜は 09-14
+    expect(comingWeekStarts(SAMPLE_WEEKS, NOW)).toEqual(["2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05"]);
+    // recentWeekStarts（実測用）は逆に過去へ伸びる
+    expect(recentWeekStarts(SAMPLE_WEEKS, NOW)[0] < comingWeekStarts(SAMPLE_WEEKS, NOW)[0]).toBe(true);
+  });
+
+  it("利用者が登録した言葉を使う。無ければ一般的な例に置き換える", () => {
+    const weeks = comingWeekStarts(SAMPLE_WEEKS, NOW);
+    expect(sampleSeries(["SEO ツール", "AIO 対策"], weeks).map((s) => s.label)).toEqual(["SEO ツール", "AIO 対策"]);
+    expect(sampleSeries([], weeks).map((s) => s.label)).toEqual([...SAMPLE_FALLBACK_LABELS]);
+  });
+
+  it("線は多くても 3 本（図が読めなくならないように）", () => {
+    const weeks = comingWeekStarts(SAMPLE_WEEKS, NOW);
+    const many = ["a", "b", "c", "d", "e", "f"];
+    expect(sampleSeries(many, weeks)).toHaveLength(SAMPLE_SERIES_MAX);
+  });
+
+  it("**観測数は必ず 0**（実測と取り違えられる値を持たせない）", () => {
+    const weeks = comingWeekStarts(SAMPLE_WEEKS, NOW);
+    for (const s of sampleSeries(["SEO ツール"], weeks)) {
+      expect(s.totalN).toBe(0);
+      for (const p of s.points) {
+        expect(p.n).toBe(0);
+        expect(p.hits).toBe(0);
+      }
+    }
+  });
+
+  it("週の数だけ点を作り、率は 0〜1 に収まる", () => {
+    const weeks = comingWeekStarts(SAMPLE_WEEKS, NOW);
+    const [line] = sampleSeries(["SEO ツール"], weeks);
+    expect(line.points.map((p) => p.weekStart)).toEqual(weeks);
+    for (const p of line.points) {
+      expect(p.rate).not.toBeNull();
+      expect(p.rate as number).toBeGreaterThanOrEqual(0);
+      expect(p.rate as number).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("3 本は「上がる / 横ばい / まだ低い」で形が違う", () => {
+    const weeks = comingWeekStarts(SAMPLE_WEEKS, NOW);
+    const [up, flat, low] = sampleSeries(["a", "b", "c"], weeks);
+    const first = (s: (typeof up)) => s.points[0].rate as number;
+    const last = (s: (typeof up)) => s.points[s.points.length - 1].rate as number;
+    expect(last(up)).toBeGreaterThan(first(up) + 0.2); // はっきり上がる
+    expect(Math.abs(last(flat) - first(flat))).toBeLessThan(0.1); // 横ばい
+    expect(last(low)).toBeLessThan(0.3); // まだ低い
+  });
+
+  it("何度呼んでも同じ（乱数を使わない）", () => {
+    const weeks = comingWeekStarts(SAMPLE_WEEKS, NOW);
+    expect(sampleSeries(["SEO ツール"], weeks)).toEqual(sampleSeries(["SEO ツール"], weeks));
+  });
+
+  it("週数が 4 でなくても足りない分は最後の値で伸ばす", () => {
+    const [line] = sampleSeries(["a"], comingWeekStarts(6, NOW));
+    expect(line.points).toHaveLength(6);
+    expect(line.points[5].rate).toBe(line.points[3].rate);
   });
 });

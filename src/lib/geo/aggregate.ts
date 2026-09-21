@@ -327,6 +327,71 @@ export function weeklySeries(
   return out.sort((a, b) => (b.latest ?? -1) - (a.latest ?? -1) || b.totalN - a.totalN);
 }
 
+/* ───────────── 見本の線（イメージ。実測ではない） ───────────── */
+
+/**
+ * 計測を始める前に「こんな数字が取れます」を見せるための**作り物の線**
+ * （利用者の指示 2026-09-21「データがないうちは 4 週間分を破線で。実線は実測、破線はイメージ」）。
+ *
+ * **ここで作る値は実測ではない。**画面では必ず破線で描き、「イメージ」と明記し、
+ * 実測の線と同じカードに混ぜない。数字は固定（乱数を使わない）ので、
+ * 開くたびに変わったり、テストで揺れたりしない。
+ */
+
+/** 見本に使う週数（利用者の指定は 4 週） */
+export const SAMPLE_WEEKS = 4;
+
+/** 見本に描く線の本数の上限（多いと図が読めない） */
+export const SAMPLE_SERIES_MAX = 3;
+
+/** 登録がまだ無いときに使う、例としての言葉 */
+export const SAMPLE_FALLBACK_LABELS = ["例: 地域名 + 業種", "例: サービス名", "例: 〇〇 おすすめ"] as const;
+
+/**
+ * これから計測する週の始まり（月曜）を古い順に返す。
+ * **過去ではなく先の週**を使う: 見本を過去の日付で描くと「もう測った数字」に見えてしまうため。
+ */
+export function comingWeekStarts(weeks: number, now = new Date()): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < weeks; i += 1) {
+    out.push(weekStart(new Date(now.getTime() + i * 7 * 24 * 60 * 60 * 1000)));
+  }
+  return out;
+}
+
+/**
+ * 見本の形。3 本で「上がっている / 横ばい / まだ低い」を見せる。
+ * 率は 0〜1。週数が 4 でなくても足りない分は最後の値を伸ばす。
+ */
+const SAMPLE_SHAPES: readonly (readonly number[])[] = [
+  [0.18, 0.31, 0.44, 0.58],
+  [0.4, 0.36, 0.41, 0.39],
+  [0.06, 0.09, 0.08, 0.15],
+];
+
+/**
+ * 見本の線を作る。`labels` は利用者が登録済みの言葉（あればそれを使うほうが伝わる）。
+ * 空なら `SAMPLE_FALLBACK_LABELS` を使う。
+ */
+export function sampleSeries(labels: readonly string[], weeks: readonly string[]): WeeklySeries[] {
+  const names = (labels.length > 0 ? labels : SAMPLE_FALLBACK_LABELS).slice(0, SAMPLE_SERIES_MAX);
+  return names.map((label, i) => {
+    const shape = SAMPLE_SHAPES[i % SAMPLE_SHAPES.length];
+    const points: WeeklyPoint[] = weeks.map((week, w) => {
+      const rate = shape[Math.min(w, shape.length - 1)];
+      return { weekStart: week, n: 0, hits: 0, rate };
+    });
+    return {
+      targetId: `sample-${i}`,
+      label,
+      points,
+      latest: points.length > 0 ? (points[points.length - 1].rate as number) : null,
+      // 観測 0 件 = 実測ではないことが、この値からも分かるようにしておく
+      totalN: 0,
+    };
+  });
+}
+
 /* ───────────── 指名プロンプトの主指標（§3.2） ───────────── */
 
 export interface BrandedMetrics {
