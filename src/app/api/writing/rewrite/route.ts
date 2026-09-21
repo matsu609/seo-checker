@@ -11,6 +11,7 @@ import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { MAX_REWRITE_CHARS } from "@/lib/writing/prompt";
 import { streamRewrite } from "@/lib/writing/rewrite";
 import type { RewriteStreamEvent } from "@/lib/writing/types";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -59,6 +60,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("writing", 1, { step: "rewrite" });
+  if (over) return over;
   const encoder = new TextEncoder();
   const input = { ...parsed.data, signal: request.signal };
 

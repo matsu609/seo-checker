@@ -16,6 +16,7 @@ import { SerpError } from "@/lib/serp/serpapi";
 import { generateOutline, OUTLINE_MODEL } from "@/lib/writing/outline";
 import { researchTop10, type SerpBrief } from "@/lib/writing/research";
 import type { OutlineResult, OutlineSerpEntry } from "@/lib/writing/types";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 // 上位 5 ページの取得 + 構造化出力があるため 60 秒では足りない
@@ -72,6 +73,9 @@ export async function POST(request: NextRequest) {
     if (cached) return Response.json({ result: cached, cached: true });
   }
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("writing", 1, { step: "outline" });
+  if (over) return over;
   try {
     const notes: string[] = [];
     let entries: OutlineSerpEntry[] = [];

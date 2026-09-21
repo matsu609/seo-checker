@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
   if (quotaExceeded(quota)) {
     return Response.json(
-      { error: `今月の分析回数（${quota.limit} 回）を使い切りました。来月に再度お試しください`, code: "limit", quota },
+      { error: `今月の精密診断（${quota.limit} 回。毎月の自動再診断を含む）を使い切りました。翌月 1 日に戻ります`, code: "limit", quota },
       { status: 429 },
     );
   }

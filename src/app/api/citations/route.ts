@@ -15,6 +15,7 @@ import { globalCache } from "@/lib/cache";
 import { buildQueries, buildReport, type CitationInput, type CitationReport, type QueryOutcome } from "@/lib/citations";
 import { CitationError, searchGoogle } from "@/lib/citations/dataforseo";
 import { ADDRESS_MAX, NAME_MAX, PHONE_MAX, URL_MAX } from "@/lib/listings/profile";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -56,6 +57,9 @@ export async function POST(request: NextRequest) {
   const cached = cache.get(cacheKey);
   if (cached) return Response.json({ ...cached, cached: true });
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("citations", 1, { searches: queries.filter((q) => q.q).length });
+  if (over) return over;
   const outcomes: QueryOutcome[] = await Promise.all(
     queries
       .filter((q) => q.q)

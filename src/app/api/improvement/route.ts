@@ -12,6 +12,7 @@ import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { generateImprovement, type ImprovementResult } from "@/lib/improvement/generate";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 // ページ取得 + robots + AI 生成。AI が長いので広めに取る
@@ -60,6 +61,9 @@ export async function POST(request: NextRequest) {
     if (hit) return Response.json({ result: hit, cached: true });
   }
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("improvement");
+  if (over) return over;
   try {
     const result = await generateImprovement({ url, keyword, signal: request.signal });
     cache.set(key, result);

@@ -15,6 +15,7 @@ import { diagnosisId } from "@/lib/page-diagnosis/store";
 import type { DiagnosisResult } from "@/lib/page-diagnosis/types";
 import { getSerpProvider } from "@/lib/serp";
 import { SerpError } from "@/lib/serp/serpapi";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 // Top10 の取得（10 ページ）と LLM 分析があるため 60 秒では足りない
@@ -74,6 +75,9 @@ export async function POST(request: NextRequest) {
     if (cached) return Response.json({ result: cached, cached: true });
   }
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("page-diagnosis", 1, { step: "diagnose" });
+  if (over) return over;
   try {
     const result = await runDiagnosis({
       keyword,

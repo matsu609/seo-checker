@@ -10,6 +10,7 @@ import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { placesErrorResponse, searchPlaces } from "@/lib/maps/client";
 import type { PlaceSummary } from "@/lib/maps/types";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -52,6 +53,9 @@ export async function POST(request: Request) {
     return Response.json(body, { headers: { "cache-control": "no-store" } });
   }
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("maps-search");
+  if (over) return over;
   try {
     const places = await searchPlaces(query);
     cache.set(key, places);

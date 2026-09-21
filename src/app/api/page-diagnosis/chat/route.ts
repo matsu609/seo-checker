@@ -15,6 +15,7 @@ import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { streamChat } from "@/lib/page-diagnosis/chat";
 import { DiagnosisResultSchema } from "@/lib/page-diagnosis/store";
 import type { ChatStreamEvent, DiagnosisResult } from "@/lib/page-diagnosis/types";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -57,6 +58,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "診断結果と質問を送信してください" }, { status: 422 });
   }
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("page-diagnosis", 1, { step: "chat" });
+  if (over) return over;
   const encoder = new TextEncoder();
   // zod スキーマは types.ts と同じ形。features / relatedQuestions は文字列の緩い型なので明示的に渡す
   const result = parsed.data.result as unknown as DiagnosisResult;

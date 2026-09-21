@@ -98,9 +98,11 @@ export async function countThisMonth(userId: string, now = new Date()): Promise<
   const rows = await supabaseRest<unknown>(
     `${TABLE}?select=id,source:input->>source&user_id=${eq(userId)}&status=neq.failed&created_at=${gte(monthStartJst(now))}&limit=1000`,
   );
+  // 2026-09-21 利用者の決定: 毎月の自動再診断も月の回数に含める（それまでは手動だけを数えていた）。
+  // Claude Opus の実費は手動でも自動でも同じなので、原価の上限として数えるなら区別しない
   const parsed = z.array(z.object({ id: z.string(), source: z.string().nullable().optional() })).safeParse(rows);
   if (!parsed.success) return Array.isArray(rows) ? rows.length : 0;
-  return parsed.data.filter((r) => r.source !== "auto").length;
+  return parsed.data.length;
 }
 
 export interface CreateRunInput {

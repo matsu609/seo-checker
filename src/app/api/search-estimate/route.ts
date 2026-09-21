@@ -13,6 +13,7 @@ import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { DEFAULT_LIMIT, MAX_LIMIT, SearchEstimateError, fetchRankedKeywords, normalizeTarget, summarize } from "@/lib/search-estimate";
 import type { SearchEstimate } from "@/lib/search-estimate";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -59,6 +60,9 @@ export async function POST(request: NextRequest) {
   const cached = cache.get(cacheKey);
   if (cached) return Response.json({ ...cached, cached: true });
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("search-estimate");
+  if (over) return over;
   try {
     const keywords = await fetchRankedKeywords({ domain, limit, signal: request.signal });
     const result = summarize(domain, keywords, new Date().toISOString());

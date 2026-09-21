@@ -15,6 +15,7 @@ import { requireAuth } from "@/lib/auth/guard";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { llmYakkiJudge, runCopyCheck, runFactCheck, runYakkiCheck } from "@/lib/writing/check";
 import { MAX_CHECK_CHARS } from "@/lib/writing/prompt";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 // 主張ごとに Web 検索するため長くなる
@@ -54,6 +55,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 月の回数上限。Claude を呼ぶときだけ数える（薬機法チェックは Claude 無しならルールだけで動く）
+  if (kind !== "yakki" || anthropic) {
+    const over = await takeUsage("writing", 1, { step: `check:${kind}` });
+    if (over) return over;
+  }
   try {
     if (kind === "fact") {
       return Response.json({ result: await runFactCheck(markdown, { signal: request.signal }) });

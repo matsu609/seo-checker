@@ -284,7 +284,8 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | Places（詳細取得 1 回 ≒ 4 円） | 無料 MEO 診断は IP ごとの回数制限 + 1 日の全体上限（`FREE_MEO_DAILY_LIMIT` 既定 500 / `FREE_MEO_DAILY_SEARCH_LIMIT` 既定 1,500。`0` で停止）。有料側はログイン必須 |
 | SerpApi・各 LLM | ログイン必須 + プラン判定。公開しているのは無料診断の FAQ だけ（同じ URL と本文なら 1 時間キャッシュ） |
 | クロール | `SITE_MAX_PAGES`（コードの既定 300・最大 1,000。本番は 100 に設定）。クイック診断だけ `FREE_SITE_MAX_PAGES`（代表 10 ページ）。社内ホストへのアクセスは `ALLOW_PRIVATE_HOSTS=1` のときだけ許す |
-| 精密診断（AI + SerpApi） | 利用者ごとに月 `SEO_ANALYSIS_MONTHLY_LIMIT` 回（既定 10。運営者は無制限）。1 回の収集につき AI のやり直しは 3 回まで |
+| 精密診断（AI + SerpApi） | 利用者ごとに月 `SEO_ANALYSIS_MONTHLY_LIMIT` 回（既定 10。**2026-09-21 から毎月の自動再診断も含めて数える**。運営者は無制限）。1 回の収集につき AI のやり直しは 3 回まで |
+| **それ以外の有料機能（2026-09-21、r146）** | **月の回数上限**（`src/lib/usage/limits.ts`。記録は Supabase `usage_events`、判定は `takeUsage()`）。スタンダード: AI ライティング 30 回 / ページ診断 20 / HP 改修提案 20 / プロンプト拡張 10 / 手動の順位計測 300 検索 / サイテーション 10 / 検索パフォーマンス（推定）10 / NAP チェック 10 / 店舗の検索 100。プレミアムは 3 倍、運用者は無制限。**キャッシュに当たって外部 API を呼ばなかった分は数えない**。上限で 429（`code: "usage_limit"`）。残りは設定画面「今月の利用回数」。テーブルが無い・DB が落ちているときは**通す**（fail open。警告を 1 回ログに出す） |
 | Cron | `CRON_SECRET`。未設定なら一斉更新そのものを無効化 |
 
 ### 切り分けの順番

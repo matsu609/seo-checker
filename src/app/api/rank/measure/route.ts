@@ -13,6 +13,7 @@ import type { RankMeasureItem } from "@/lib/rank/types";
 import { getSerpProvider } from "@/lib/serp";
 import { SerpError } from "@/lib/serp/serpapi";
 import type { SerpResult } from "@/lib/serp/types";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 /** 30 キーワード x 同時 3 本。SERP の応答が遅いときのために長めに取る */
@@ -92,6 +93,11 @@ export async function POST(request: NextRequest) {
   if (targets.length === 0) {
     return Response.json({ error: "キーワードを 1 件以上指定してください" }, { status: 422 });
   }
+
+  // 月の回数上限（利用者の決定 2026-09-21）。実費の出る語 = 10 分キャッシュに無い語だけを数える
+  const uncached = targets.filter((t) => !serpCache.get(cacheKey(t.keyword, t.device, t.location))).length;
+  const over = await takeUsage("rank-measure", uncached, { keywords: uncached });
+  if (over) return over;
 
   let fatal: { status: number; message: string } | null = null;
 

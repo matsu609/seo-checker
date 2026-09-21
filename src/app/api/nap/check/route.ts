@@ -24,6 +24,7 @@ import { checkListingPages, checkWebPages, listListingPages } from "@/lib/nap/me
 import { buildNapResult } from "@/lib/nap/report";
 import { checkOwnSite } from "@/lib/nap/site";
 import type { NapInput, NapSource } from "@/lib/nap/types";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -58,6 +59,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "確認は 1 分に 1 回までです。少し待ってからもう一度お試しください" }, { status: 429, headers: NO_STORE });
   }
   cooldown.set(userId, Date.now());
+
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("nap");
+  if (over) return over;
 
   const deadline = Date.now() + BUDGET_MS;
   const notes: string[] = [];

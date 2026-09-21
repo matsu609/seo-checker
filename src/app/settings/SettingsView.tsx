@@ -29,6 +29,7 @@ import { exportAll, importAll, newId, resetAll, splitList, type Competitor, type
 import { useCurrentProject, useProjects } from "@/lib/store/hooks";
 import { useLeadProfile } from "@/lib/account/lead-client";
 import { NotificationsCard } from "@/components/settings/NotificationsCard";
+import { UsageCard } from "@/components/settings/UsageCard";
 import { BusinessCard, KeywordsCard, StoresCard } from "./SharedCards";
 
 const feature = requireFeature("settings");
@@ -60,6 +61,7 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
         <StoresCard />
         {googleSection}
         <NotificationsCard />
+        <UsageCard />
         <FeedbackHistoryCard />
         <DataCard />
       </div>

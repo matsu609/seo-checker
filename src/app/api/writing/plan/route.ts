@@ -13,6 +13,7 @@ import { generatePlan, PLAN_MODEL } from "@/lib/writing/plan";
 import { MAX_PLAN_CONTENT_CHARS } from "@/lib/writing/prompt";
 import type { PlanResult } from "@/lib/writing/types";
 import { MAX_PDF_BASE64_LENGTH, validatePdfUpload } from "@/lib/writing/upload";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 // PDF 読み込み + Web 検索が入ると 60 秒では足りない
@@ -68,6 +69,9 @@ export async function POST(request: NextRequest) {
     pdf = { name: check.name, data: check.data };
   }
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("writing", 1, { step: "plan" });
+  if (over) return over;
   try {
     const { plan, sources, searchQueries } = await generatePlan({
       content: parsed.data.content,

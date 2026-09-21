@@ -54,6 +54,7 @@
 
 - **PDF に出す折りたたみには `print:block` を使わない。** PDF は `@media print` ではなく DOM の複製（`.pdf-capture`）を画像化して作るので、Tailwind の `print:` 系は PDF にまったく効かない。画面で開かずに PDF を作ると中身が丸ごと抜ける。折りたたみは `hidden print-expand`、画面専用の操作は `no-print` を使う（`globals.css` に定義。`src/app/__tests__/pdf-capture-css.test.ts` で固定）。
 - 外部依存が未設定のときは、ページ内で `SetupNotice`（何を `.env.local` に設定すればよいか）を表示し、設定済みの部分だけ動かす。**ダミーデータで動いているように見せない。**
+- **実費の出る API ルートには月の回数上限を置く**（2026-09-21。利用者の決定「1 店舗の原価 3,000 円以内」）。本文の検証とキャッシュの確認が済んで**外部 API を呼ぶ直前**に `const over = await takeUsage("<feature>"); if (over) return over;`（`src/lib/usage/gate.ts`）。上限の値と数え方は `src/lib/usage/limits.ts` の 1 か所。新しく実費の出るルートを足すときは必ずここに載せる。精密診断だけは従来の `analysis_runs` の行数（自動再診断も含めて月 10 回）。
 - クイック診断（`/` と `/meo`）は本サービスから切り離した集客の入口。専用の公開シェル（`FreeShell`: ロゴ・申し込み・規約だけ）で出し、有料ツールのサイドバーは見せない。結果の下に `UpgradeCta`（無料の限界 → 精密診断で分かること → `/sign-up`）を必ず置く。管理画面のサイドバーでは最下部に「お客様に渡すクイック診断」として置き、見込み客に渡す公開リンクという位置づけにする（利用者の決定 2026-09-13）。`robots.ts` / `sitemap.ts` もクイック診断と規約類だけを開ける。
 
 ## ディレクトリ
@@ -98,6 +99,7 @@ src/
     features/registry.ts      # サイドバー定義
     features/integrations.ts  # 外部連携の定義（見出し group・調べ方 check・料金・上限・リンク。基盤も含めて 18 件）
     cost/                     # 月額費用の試算（model.ts = 店舗数 → 固定費 / 変動費の純関数。前提は A に集約）
+    usage/                    # 実費の出る機能の月の回数上限（limits.ts = 値と数え方、gate.ts = takeUsage()、store.ts = usage_events）
     design/                   # 設計書（blueprint.ts = サービスの役割・使った機能・やめたもの・資料。/admin/design）
 ```
 

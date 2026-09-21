@@ -19,6 +19,7 @@ import {
   MIN_COUNT,
   type ExpansionResult,
 } from "@/lib/llmo/expansion/types";
+import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -82,6 +83,9 @@ export async function POST(request: NextRequest) {
   const cached = resultCache.get(key);
   if (cached) return Response.json(cached);
 
+  // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+  const over = await takeUsage("prompt-expansion");
+  if (over) return over;
   const { context, error: siteError } = await fetchSiteContext(siteUrl);
 
   try {
