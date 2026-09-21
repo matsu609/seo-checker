@@ -86,7 +86,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r135（ログイン画面のバッジを外す。09-21） | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r136（招待リンクを画面に出す。09-21） | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -4281,3 +4281,27 @@ Business Profile API の前提条件の 1 番目は「**確認済み（verified�
 **直したこと（r135）**: ログイン画面（`/sign-in`・`/sso-callback`）のヘッダーから「**クイック診断・無料**」のバッジを外した。ログインしに来るのは既にお使いのお客様と運用者・管理アカウントなので、無料診断の宣伝が出ていると迷わせるため。**登録画面（`/sign-up`）は見込み客が来るのでバッジを残す。**`FreeShell` に `badge`（既定 true）を足し、`AppShell` が出し分ける。lint / tsc / test 1,808 件 / build 通過。
 
 **まだやっていない（セキュリティを上げるならこちら。URL を分けるより効く）**: Clerk の **2 段階認証（Multi-factor）を運用者・管理アカウントに必須**にする。Clerk の **Restrictions（許可リスト / 招待制）**（残タスク A-2 のまま）。
+
+### 2026-09-21（招待メールが迷惑メールに入る → 画面から招待リンクを渡せるように、r136）
+
+**利用者の報告**: 管理アカウントを追加したときの招待メールが迷惑メールフォルダに入る。SEO チェッカーからちゃんと届いているのか。
+
+**事実関係**:
+
+- 招待メールを送っているのは **Clerk**（このアプリからは 1 通も送っていない。Resend は未設定で、ご意見の通知にも使っていない）。
+- 差出人ドメインは `seo-checker.tokyo`。Clerk の DNS 5 件（`accounts` / `clkmail` / `clk._domainkey` / `clk2._domainkey` ほか）は 09-09 に **5/5 Verified**。つまり **DKIM は通っている**。
+- **足りていないもの**: ① **DMARC（`_dmarc` の TXT）が無い**（このメモに記録が無く、設定した形跡もない）② **Clerk のアプリ名が `My Application` のまま**（差出人名・メール本文・ログイン画面に出る。ブランド名と一致しないメールは迷惑メール判定でも受け手の印象でも不利）③ 招待メールの文面が Clerk の既定（英語）のまま ④ ドメインが新しく、送信の実績がほぼ無い（新規ドメインは最初のうち振り分けられやすい）。
+
+**コードでやったこと（r136）**: メールの配信はこちらで保証できないので、**届かなくても進める逃げ道**を作った。`addAgencyByEmail` が Clerk の返す**招待リンク（`invitation.url`）**を返し、マスター画面の「管理アカウント」に**追加した直後だけ**リンクとコピーボタンを出す。運用者がその URL を本人に直接（LINE・チャット・電話で読み上げ）渡せば、メールが届かなくても登録できる。リンクは招待そのものなので「本人にだけ渡す」旨を画面に明記し、保存はしない（開き直すと消える）。lint / tsc / test 1,808 件 / build 通過。
+
+**利用者の作業（迷惑メールに入りにくくする。効く順）**:
+
+| # | サービス・画面 | URL | やること |
+|---|---|---|---|
+| 1 | Clerk → Customization → Application name | https://dashboard.clerk.com/ | アプリ名を `My Application` → **`SEO Checker`** に。差出人名と本文に出るので、ここが一番効く |
+| 2 | Cloudflare → DNS → レコード | https://dash.cloudflare.com/ → seo-checker.tokyo → DNS | **`_dmarc` の TXT を追加**。値は `v=DMARC1; p=none; rua=mailto:contact@seo-checker.tokyo`（まず p=none で様子見。数週間後に quarantine へ）。DKIM だけより受信側の評価が上がる |
+| 3 | Clerk → Customization → Emails → Invitation | https://dashboard.clerk.com/ | 招待メールの文面を**日本語**にし、件名を「SEO Checker の管理アカウントのご招待」など具体的に（既定の英語のままは振り分けられやすい） |
+| 4 | Clerk → Customization → Emails（差出人） | https://dashboard.clerk.com/ | 差出人が `noreply@seo-checker.tokyo` など自ドメインになっているか確認（`@clerk.services` のままなら自ドメインに） |
+| 5 | 受け取る側（テストのとき） | — | 迷惑メールに入っていたら「迷惑メールではない」を押し、差出人を連絡先に追加。同じ宛先への次回から改善する |
+
+**注意**: SPF は Clerk の `clkmail` サブドメイン側で完結しているので、apex の SPF に Clerk を足す必要は無い（足すと Resend を入れるときに競合しやすい）。
