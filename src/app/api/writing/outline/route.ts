@@ -17,6 +17,8 @@ import { generateOutline, OUTLINE_MODEL } from "@/lib/writing/outline";
 import { researchTop10, type SerpBrief } from "@/lib/writing/research";
 import type { OutlineResult, OutlineSerpEntry } from "@/lib/writing/types";
 import { takeUsage } from "@/lib/usage/gate";
+import { currentKarteBrief } from "@/lib/karte/server";
+import { briefFingerprint } from "@/lib/karte/summary";
 
 export const runtime = "nodejs";
 // 上位 5 ページの取得 + 構造化出力があるため 60 秒では足りない
@@ -67,7 +69,9 @@ export async function POST(request: NextRequest) {
   const useSerp = parsed.data.useSerp !== false;
   const provider = useSerp ? getSerpProvider() : null;
 
-  const cacheKey = [keyword, tone, memo, targetChars ?? "", provider ? "serp" : "noserp"].join("|");
+  // カルテ（読者像・強み）を構成案に反映する。指紋をキーに混ぜないと別のお客様の構成案が出る
+  const brief = await currentKarteBrief();
+  const cacheKey = [keyword, tone, memo, targetChars ?? "", provider ? "serp" : "noserp", briefFingerprint(brief)].join("|");
   if (parsed.data.refresh !== true) {
     const cached = cache.get(cacheKey);
     if (cached) return Response.json({ result: cached, cached: true });
@@ -103,6 +107,7 @@ export async function POST(request: NextRequest) {
       ...(memo ? { memo } : {}),
       tone,
       ...(targetChars ? { targetChars } : {}),
+      ...(brief ? { brief } : {}),
       signal: request.signal,
     });
 

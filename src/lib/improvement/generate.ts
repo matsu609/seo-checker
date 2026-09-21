@@ -52,6 +52,8 @@ export interface GenerateImprovementOptions {
   url: string;
   keyword?: string;
   signal?: AbortSignal;
+  /** お客様カルテの要約（任意）。ルートが currentKarteBrief() で渡す */
+  brief?: string;
   /** テスト用。省略時は Anthropic を呼ぶ */
   generator?: ImprovementGenerator;
 }
@@ -77,7 +79,7 @@ export async function generateImprovement(
   const generate = options.generator ?? defaultGenerator;
   const { plan, usage } = await generate({
     system: SYSTEM_PROMPT,
-    prompt: buildImprovementPrompt({ report, bodyText: mainText, keyword: options.keyword }),
+    prompt: buildImprovementPrompt({ report, bodyText: mainText, keyword: options.keyword, brief: options.brief }),
     signal: options.signal,
   });
 

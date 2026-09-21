@@ -47,6 +47,8 @@ export interface ImprovementPromptInput {
   bodyText: string;
   /** 対策キーワード（任意） */
   keyword?: string;
+  /** お客様カルテの要約（任意）。強み・売りたい商品・客層を改修案に反映させる */
+  brief?: string;
 }
 
 /** ユーザーメッセージを組み立てる */
@@ -57,6 +59,10 @@ export function buildImprovementPrompt(input: ImprovementPromptInput): string {
 
   lines.push(...SAFETY_RULES);
   lines.push("");
+  if (input.brief?.trim()) {
+    lines.push(input.brief.trim());
+    lines.push("");
+  }
   lines.push("■ 対象ページ");
   lines.push(`URL: ${report.finalUrl}`);
   if (keyword?.trim()) lines.push(`対策キーワード: ${keyword.trim().slice(0, 200)}`);

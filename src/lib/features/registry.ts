@@ -763,6 +763,25 @@ const SETTINGS: readonly Feature[] = [
     plan: "free",
   },
   {
+    id: "karte",
+    path: "/karte",
+    label: "お客様カルテ（お店のことを教えてください）",
+    shortLabel: "お客様カルテ",
+    description:
+      "お店の強み・来てほしいお客様・よく聞かれる質問などを一度だけ教えていただくと、AI が書く文章（改修提案・原稿・口コミへの返信・Google マップの総評）が「どこにでもある一般論」から「お店の言葉」に変わります。業種に合わせた設問が出ます。ご要望の欄は運営者が必ず目を通し、次に作る機能を決める材料にします。",
+    details: [
+      "業種別の設問（飲食・クリニック・美容・整体・小売・不動産・士業・教室・宿泊・建築 ほか）",
+      "区切りごとに保存。全部埋めなくても、書いた分だけ文章が良くなります",
+      "答えは AI の文章に自動で反映（ご要望と過去のご不満の 2 問だけは運営者が読むだけで、AI には渡しません）",
+    ],
+    featureIds: [],
+    icon: "file-text",
+    status: "ready",
+    requires: ["supabase"],
+    group: "settings",
+    plan: "light",
+  },
+  {
     id: "settings",
     path: "/settings",
     label: "基本情報・ホームページ・競合・キーワード",

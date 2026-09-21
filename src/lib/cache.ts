@@ -29,6 +29,11 @@ export class TtlCache<T> {
     return entry.value;
   }
 
+  /** 1 件だけ捨てる（保存したあと、次の読み出しで新しい値を使わせたいとき） */
+  delete(key: string): void {
+    this.store.delete(key);
+  }
+
   set(key: string, value: T): void {
     if (this.store.size >= this.maxEntries) {
       // 最も古いものを 1 つ捨てる（Map は挿入順を保持する）

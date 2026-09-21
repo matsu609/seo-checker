@@ -56,6 +56,8 @@ export interface OutlineInput {
   tone?: WritingTone;
   /** 目標文字数（全体） */
   targetChars?: number;
+  /** お客様カルテの要約（任意）。読者像と強みを構成案に反映させる */
+  brief?: string;
   signal?: AbortSignal;
 }
 
@@ -65,6 +67,10 @@ export function buildOutlinePrompt(input: OutlineInput): string {
   lines.push(`対策キーワード: ${input.keyword}`);
   if (input.targetChars) lines.push(`記事全体の目標文字数: 約 ${input.targetChars} 文字`);
   lines.push(toneInstruction(input.tone ?? "desu"));
+  if (input.brief?.trim()) {
+    lines.push("");
+    lines.push(input.brief.trim());
+  }
   if (input.memo?.trim()) {
     lines.push("");
     lines.push("■ 依頼者からの補足");

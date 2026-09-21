@@ -7,6 +7,7 @@ import { requireAuth } from "@/lib/auth/guard";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { generateReplyDraft, OWNER_NOTE_MAX, SIGNATURE_MAX } from "@/lib/replies/draft";
 import { STORE_NAME_MAX, TONES } from "@/lib/reviews/questions";
+import { currentKarteBrief } from "@/lib/karte/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -40,9 +41,11 @@ export async function POST(request: Request) {
   const parsed = BodySchema.safeParse(raw);
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "入力が正しくありません" }, { status: 400 });
   const d = parsed.data;
+  // お客様カルテ（強み・客層・よくある質問）を返信案に反映する。未記入なら空文字
+  const brief = await currentKarteBrief();
   try {
     const draft = await generateReplyDraft(
-      { storeName: d.storeName, tone: d.tone, rating: d.rating, text: d.text, author: d.author ?? null, ownerNote: d.ownerNote ?? "", signature: d.signature ?? "" },
+      { storeName: d.storeName, tone: d.tone, rating: d.rating, text: d.text, author: d.author ?? null, ownerNote: d.ownerNote ?? "", signature: d.signature ?? "", brief },
       { signal: request.signal },
     );
     const body: RepliesDraftResponse = { draft };

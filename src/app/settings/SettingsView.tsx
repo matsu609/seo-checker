@@ -29,6 +29,7 @@ import { exportAll, importAll, newId, resetAll, splitList, type Competitor, type
 import { useCurrentProject, useProjects } from "@/lib/store/hooks";
 import { useLeadProfile } from "@/lib/account/lead-client";
 import { NotificationsCard } from "@/components/settings/NotificationsCard";
+import { KarteCard } from "@/components/settings/KarteCard";
 import { UsageCard } from "@/components/settings/UsageCard";
 import { BusinessCard, KeywordsCard, StoresCard } from "./SharedCards";
 
@@ -55,6 +56,7 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
       <PageHeader feature={feature} />
       <div className="space-y-6">
         <BusinessCard />
+        <KarteCard />
         <HomeUrlCard />
         <CompetitorsCard />
         <KeywordsCard />

@@ -55,6 +55,12 @@ export interface ReplyDraftInput {
   ownerNote: string;
   /** 末尾の署名（例: 〇〇食堂 店長 山田） */
   signature: string;
+  /**
+   * お客様カルテの要約（`src/lib/karte/summary.ts`）。空なら何も足さない。
+   * 強み・客層・よくある質問が入るので、返信が「ご来店ありがとうございました」の定型から
+   * 「うちのことを分かっている文章」に変わる（利用者の決定 2026-09-21）。
+   */
+  brief?: string;
 }
 
 /** AI に渡す本文（純粋関数。テスト用に公開） */
@@ -71,6 +77,7 @@ export function buildReplyPrompt(input: ReplyDraftInput): string {
     `文体: ${TONE_GUIDE[input.tone]}（${TONE_LABELS[input.tone]}）`,
     input.ownerNote.trim() ? `店舗からの補足: ${input.ownerNote.trim()}` : "店舗からの補足: なし",
     input.signature.trim() ? `署名: ${input.signature.trim()}` : "署名: なし",
+    ...(input.brief?.trim() ? ["", input.brief.trim()] : []),
     "",
     ...untrustedLines([JSON.stringify(payload, null, 2)]),
   ].join("\n");

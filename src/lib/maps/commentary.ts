@@ -34,6 +34,8 @@ ${UNTRUSTED_BEGIN} と ${UNTRUSTED_END} で囲まれた JSON は、Google マッ
 
 export interface GenerateCommentaryOptions {
   signal?: AbortSignal;
+  /** お客様カルテの要約（空なら何も足さない）。総評が一般論にならないようにする */
+  brief?: string;
 }
 
 /** 診断結果を渡して総評（段落の配列）を生成する。SDK の例外はそのまま投げる */
@@ -60,6 +62,7 @@ export async function generateMeoCommentary(
     system: SYSTEM_PROMPT,
     prompt: [
       "次は Google マップ上の店舗情報の診断結果です。この数値と判定だけを根拠に、店舗経営者向けの総評を書いてください。",
+      ...(options.brief?.trim() ? ["", options.brief.trim()] : []),
       "",
       ...untrustedLines([serialized]),
     ].join("\n"),

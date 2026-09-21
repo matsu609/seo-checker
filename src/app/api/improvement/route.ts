@@ -13,6 +13,8 @@ import { globalCache } from "@/lib/cache";
 import { generateImprovement, type ImprovementResult } from "@/lib/improvement/generate";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { takeUsage } from "@/lib/usage/gate";
+import { currentKarteBrief } from "@/lib/karte/server";
+import { briefFingerprint } from "@/lib/karte/summary";
 
 export const runtime = "nodejs";
 // ページ取得 + robots + AI 生成。AI が長いので広めに取る
@@ -55,7 +57,11 @@ export async function POST(request: NextRequest) {
   }
   const { url, keyword, refresh } = parsed.data;
 
-  const key = `${url}|${keyword ?? ""}`;
+  // お客様カルテ（強み・売りたい商品・客層）を改修案に反映する。未記入なら空文字
+  const brief = await currentKarteBrief();
+  // **指紋をキーに混ぜる。**混ぜないと、同じ URL を別のお客様が診断したときに
+  // 前の人のカルテが入った提案を返してしまう（キャッシュはプロセス内で共有）
+  const key = `${url}|${keyword ?? ""}|${briefFingerprint(brief)}`;
   if (!refresh) {
     const hit = cache.get(key);
     if (hit) return Response.json({ result: hit, cached: true });
@@ -65,7 +71,7 @@ export async function POST(request: NextRequest) {
   const over = await takeUsage("improvement");
   if (over) return over;
   try {
-    const result = await generateImprovement({ url, keyword, signal: request.signal });
+    const result = await generateImprovement({ url, keyword, brief, signal: request.signal });
     cache.set(key, result);
     return Response.json({ result, cached: false });
   } catch (err) {

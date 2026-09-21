@@ -44,6 +44,8 @@
 | 設定 | `/settings` | **ホームページ（自社サイト）の URL**・競合・データの書き出し / 読み込み・**ご意見の履歴**（右上の「ご意見・不具合」から送ったものと運営者の返答。2026-09-20）（Google 連携のカードは 2026-09-17 に廃止。API キーの設定状況は `/admin`） | E1, E2 | ご意見の履歴だけ Supabase |
 | 管理者用 | `/clients` | 顧客管理（契約状況・ご利用状況・ご意見への返答・割引・機能の個別開放・代理ログイン）。運用者・管理アカウントのどちらにも**全登録者**（2026-09-21。担当による絞り込みは廃止）。ほかは 404 | — | Clerk / Supabase（ご意見） |
 | マスターアカウント用 | `/admin` | マスター画面（**システム側だけ**: 版・外部連携の設定状況（鍵の要る API だけでなく Google Cloud・Clerk / Stripe・Supabase / Resend / Cron・Vercel / GitHub / Cloudflare / お名前.com まで全部。2026-09-21）・**月額費用の試算**（店舗数を横軸にした固定費 / 変動費のグラフ。`src/lib/cost/model.ts`）・定期処理）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
+| 設定 | `/karte` | お客様カルテ（業種別の設問。強み・客層・よく聞かれる質問・ご要望）。答えは AI の文章に自動で入り、ご要望は運営者の集計へ。2026-09-21 | — | Supabase（`karte_answers`） |
+| マスターアカウント用 | `/admin/karte` | カルテの集計（設問ごとに全お客様の答え。次に作る機能を決める画面。運用者だけ） | — | Supabase |
 | マスターアカウント用 | `/admin/design` | 設計書（どのサービスの上に載っていて、それぞれをどの機能実装に使ったか。全体像・サービスごとの役割と使っている機能・機能 × 連携の表・やめたもの・資料へのリンク。`src/lib/design/blueprint.ts` + `integrations.ts` + `registry.ts` の依存から自動で組む。2026-09-21） | — | なし |
 | マスターアカウント用 | `/admin/accounts` | 管理アカウントの追加（招待）・解除（**運用者だけ**。2026-09-21 にマスター画面から分離） | — | Clerk |
 | マスターアカウント用 | `/admin/feedback` | お客様からのご意見・不具合の一覧と返答（**運用者だけ**。2026-09-21 に顧客管理から分離）。未対応の件数はサイドバーにバッジで出す（`/api/plan` の `openFeedback`） | — | Supabase（`feedback`） |
@@ -54,6 +56,7 @@
 
 - **PDF に出す折りたたみには `print:block` を使わない。** PDF は `@media print` ではなく DOM の複製（`.pdf-capture`）を画像化して作るので、Tailwind の `print:` 系は PDF にまったく効かない。画面で開かずに PDF を作ると中身が丸ごと抜ける。折りたたみは `hidden print-expand`、画面専用の操作は `no-print` を使う（`globals.css` に定義。`src/app/__tests__/pdf-capture-css.test.ts` で固定）。
 - 外部依存が未設定のときは、ページ内で `SetupNotice`（何を `.env.local` に設定すればよいか）を表示し、設定済みの部分だけ動かす。**ダミーデータで動いているように見せない。**
+- **AI に文章を書かせるルートは、お客様カルテの要約を渡す**（2026-09-21）。`const brief = await currentKarteBrief();`（`src/lib/karte/server.ts`。未記入・未設定・エラーなら空文字）をプロンプトの入力に足す。**プロセス内キャッシュを持つルートは、キーに `briefFingerprint(brief)` を必ず混ぜる**（混ぜないと、同じ URL を診断した別のお客様に前の人のカルテが入った文章を返す）。設問を足すときは `usedBy` に行き先を書く（行き先の無い設問は作らない）。
 - **実費の出る API ルートには月の回数上限を置く**（2026-09-21。利用者の決定「1 店舗の原価 3,000 円以内」）。本文の検証とキャッシュの確認が済んで**外部 API を呼ぶ直前**に `const over = await takeUsage("<feature>"); if (over) return over;`（`src/lib/usage/gate.ts`）。上限の値と数え方は `src/lib/usage/limits.ts` の 1 か所。新しく実費の出るルートを足すときは必ずここに載せる。精密診断だけは従来の `analysis_runs` の行数（自動再診断も含めて月 10 回）。
 - クイック診断（`/` と `/meo`）は本サービスから切り離した集客の入口。専用の公開シェル（`FreeShell`: ロゴ・申し込み・規約だけ）で出し、有料ツールのサイドバーは見せない。結果の下に `UpgradeCta`（無料の限界 → 精密診断で分かること → `/sign-up`）を必ず置く。管理画面のサイドバーでは最下部に「お客様に渡すクイック診断」として置き、見込み客に渡す公開リンクという位置づけにする（利用者の決定 2026-09-13）。`robots.ts` / `sitemap.ts` もクイック診断と規約類だけを開ける。
 
@@ -100,6 +103,8 @@ src/
     features/integrations.ts  # 外部連携の定義（見出し group・調べ方 check・料金・上限・リンク。基盤も含めて 18 件）
     cost/                     # 月額費用の試算（model.ts = 店舗数 → 固定費 / 変動費の純関数。前提は A に集約）
     usage/                    # 実費の出る機能の月の回数上限（limits.ts = 値と数え方、gate.ts = takeUsage()、store.ts = usage_events）
+    karte/                    # お客様カルテ（questions.ts = 業種別の設問、summary.ts = AI に渡す文章と指紋、
+                              #   server.ts = currentKarteBrief()、store.ts = karte_answers、aggregate.ts = 運営者の集計）
     design/                   # 設計書（blueprint.ts = サービスの役割・使った機能・やめたもの・資料。/admin/design）
 ```
 

@@ -38,6 +38,8 @@ export interface SectionPromptInput {
   tone: WritingTone;
   /** すでに書き終えた部分の末尾（重複を避けるための文脈） */
   previousTail?: string;
+  /** お客様カルテの要約（任意）。本文が一般論にならないようにする */
+  brief?: string;
 }
 
 /** 見出し 1 本分のプロンプト（純関数・テスト対象） */
@@ -48,6 +50,7 @@ export function buildSectionPrompt(input: SectionPromptInput): string {
     `検索意図: ${input.outline.search_intent}`,
     `読者像: ${input.outline.audience}`,
     toneInstruction(input.tone),
+    ...(input.brief?.trim() ? ["", input.brief.trim()] : []),
     "",
     "■ 記事全体の構成（担当箇所以外は書かないでください）",
     ...input.outline.outline.map(
@@ -103,6 +106,8 @@ export interface BodyInput {
   keyword: string;
   outline: ArticleOutline;
   tone?: WritingTone;
+  /** お客様カルテの要約（任意）。見出しごとのプロンプトにそのまま渡す */
+  brief?: string;
   signal?: AbortSignal;
 }
 
@@ -145,6 +150,7 @@ export async function* streamBody(
         index,
         tone,
         ...(previousTail ? { previousTail } : {}),
+        ...(input.brief ? { brief: input.brief } : {}),
       }),
       // 想定文字数から必要トークン数を見積もる（日本語 1 文字 ≒ 1 トークン強）
       maxTokens: Math.min(8_000, Math.max(1_500, section.target_chars * 3)),

@@ -19,6 +19,7 @@ import { streamBody } from "@/lib/writing/body";
 import { MAX_SECTIONS } from "@/lib/writing/outline";
 import type { ArticleOutline, BodyStreamEvent } from "@/lib/writing/types";
 import { takeUsage } from "@/lib/usage/gate";
+import { currentKarteBrief } from "@/lib/karte/server";
 
 export const runtime = "nodejs";
 // 見出しの数だけ生成するため長くなる
@@ -97,11 +98,14 @@ export async function POST(request: NextRequest) {
   // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
   const over = await takeUsage("writing", 1, { step: "body" });
   if (over) return over;
+  // お客様カルテ（強み・読者像・よくある質問）を本文に反映する。未記入なら空文字
+  const brief = await currentKarteBrief();
   const encoder = new TextEncoder();
   const input = {
     keyword: parsed.data.keyword.trim(),
     outline,
     tone: parsed.data.tone ?? ("desu" as const),
+    ...(brief ? { brief } : {}),
     signal: request.signal,
   };
 

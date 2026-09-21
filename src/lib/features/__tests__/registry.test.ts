@@ -40,7 +40,7 @@ describe("AIO 対策（親）の中の 3 本の柱", () => {
       // r131: NAP チェック（表記ゆれの検出）を柱の先頭に（利用者の決定 2026-09-20「ずれていないかを主機能に」）
       ["citation", ["nap", "citations"]],
     ]);
-    expect(tree.common.map((f) => f.id)).toEqual(["plans", "settings"]);
+    expect(tree.common.map((f) => f.id)).toEqual(["plans", "karte", "settings"]);
     // 木に出るのは hidden でないツールの全部（漏れも重複も無い）
     const inTree = [...tree.umbrella, ...tree.pillars.flatMap((p) => p.features), ...tree.common].map((f) => f.id).sort();
     expect(inTree).toEqual(TOOL_FEATURES.filter((f) => !f.hidden).map((f) => f.id).sort());

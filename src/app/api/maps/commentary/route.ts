@@ -11,6 +11,8 @@ import { globalCache } from "@/lib/cache";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { generateMeoCommentary } from "@/lib/maps/commentary";
 import { MeoCommentaryInputSchema } from "@/lib/maps/commentary-input";
+import { currentKarteBrief } from "@/lib/karte/server";
+import { briefFingerprint } from "@/lib/karte/summary";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -55,7 +57,9 @@ export async function POST(request: NextRequest) {
   }
   const input = parsed.data;
 
-  const key = `${input.placeId}|${input.score}|${input.ratingCount}|${input.checks.map((c) => c.status[0]).join("")}`;
+  // カルテ（強み・客層・競合）を総評に反映する。指紋をキーに混ぜないと別のお客様の文章が出る
+  const brief = await currentKarteBrief();
+  const key = `${input.placeId}|${input.score}|${input.ratingCount}|${input.checks.map((c) => c.status[0]).join("")}|${briefFingerprint(brief)}`;
   const hit = cache.get(key);
   if (hit) {
     const res: MapsCommentaryResponse = { paragraphs: hit, cached: true };
@@ -63,7 +67,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const paragraphs = await generateMeoCommentary(input, { signal: request.signal });
+    const paragraphs = await generateMeoCommentary(input, { signal: request.signal, brief });
     cache.set(key, paragraphs);
     const res: MapsCommentaryResponse = { paragraphs, cached: false };
     return Response.json(res, { headers: { "cache-control": "no-store" } });
