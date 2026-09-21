@@ -86,6 +86,19 @@ export async function listAllFeedback(status?: FeedbackStatus): Promise<Feedback
   );
 }
 
+/**
+ * 未対応（open）の件数。サイドバーの通知バッジに出す（利用者の指示 2026-09-21）。
+ *
+ * 件数だけ知りたいので `id` だけを引く（本文まで運ばない）。上限は一覧と同じで、
+ * それを超えていたら「上限以上」として扱えばよい（バッジは目安なので厳密でなくてよい）。
+ */
+export async function countOpenFeedback(): Promise<number> {
+  const rows = await supabaseRest<unknown>(
+    `${TABLE}?select=id&status=${eq("open")}&limit=${ADMIN_FEEDBACK_LIMIT}`,
+  );
+  return Array.isArray(rows) ? rows.length : 0;
+}
+
 /** 運営者向け: 状態・返答を更新。見つからなければ null */
 export async function updateFeedback(id: string, patch: FeedbackUpdate, at = new Date()): Promise<FeedbackRecord | null> {
   const body: Record<string, unknown> = { updated_at: at.toISOString() };

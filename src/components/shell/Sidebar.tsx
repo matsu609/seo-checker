@@ -288,10 +288,13 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
           <div className="mt-4 mb-1 px-4 text-[11px] text-on-brand-muted">マスターアカウント用</div>
           <ul className="space-y-0.5">
             {[
-              { href: "/admin", label: "マスター画面", exact: true },
-              { href: "/admin/feedback", label: "ご意見・不具合", exact: false },
+              { href: "/admin", label: "マスター画面", exact: true, badge: 0 },
+              { href: "/admin/accounts", label: "管理アカウント", exact: false, badge: 0 },
+              // 未対応の件数を出す（利用者の指示 2026-09-21「ご意見・不具合が来たら通知を出す」）。
+              // 件数は /api/plan が返す（1 ページにつき 1 回）。返答したあとは画面を開き直すと減る
+              { href: "/admin/feedback", label: "ご意見・不具合", exact: false, badge: access?.openFeedback ?? 0 },
             ].map((item) => {
-              // 「マスター画面」はご意見のページでは現在地にしない（前方一致だと両方光る）
+              // 「マスター画面」は下の 2 つのページでは現在地にしない（前方一致だと両方光る）
               const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
               return (
                 <li key={item.href}>
@@ -303,6 +306,15 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
                   >
                     <FeatureIconSvg icon="dashboard" className="h-4 w-4 shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.badge > 0 && (
+                      <span
+                        aria-label={`未対応 ${item.badge} 件`}
+                        title={`未対応 ${item.badge} 件`}
+                        className="shrink-0 rounded-full bg-on-brand px-1.5 text-[10px] font-bold leading-4 text-brand tabular-nums"
+                      >
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

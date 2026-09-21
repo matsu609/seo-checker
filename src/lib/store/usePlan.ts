@@ -18,6 +18,8 @@ export interface Access {
   admin: boolean;
   /** 顧客管理の画面を出してよいか（管理アカウント）。お客様向けのツールは出さない */
   agency: boolean;
+  /** 未対応のご意見・不具合の件数（運用者だけ。サイドバーの通知バッジに出す） */
+  openFeedback: number;
 }
 
 let cache: Access | null = null;
@@ -34,6 +36,7 @@ export async function fetchAccess(force = false): Promise<Access> {
           features?: unknown;
           admin?: unknown;
           agency?: unknown;
+          openFeedback?: unknown;
         };
         return {
           plan: toPlanId(body.plan) ?? "free",
@@ -42,6 +45,7 @@ export async function fetchAccess(force = false): Promise<Access> {
             : [],
           admin: body.admin === true,
           agency: body.agency === true,
+          openFeedback: typeof body.openFeedback === "number" && Number.isFinite(body.openFeedback) ? body.openFeedback : 0,
         } satisfies Access;
       })
       .then((access) => {

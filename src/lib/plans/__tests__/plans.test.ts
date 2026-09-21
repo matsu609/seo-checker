@@ -257,7 +257,7 @@ describe("運用者は全機能・管理アカウントは開けない", () => {
 
   it("画面側の判定（canUseFeature）も同じ。管理アカウントでは開かない", async () => {
     const { canUseFeature } = await import("@/lib/store/usePlan");
-    const access = { plan: "free" as PlanId, overrides: [], admin: false, agency: false };
+    const access = { plan: "free" as PlanId, overrides: [], admin: false, agency: false, openFeedback: 0 };
     expect(canUseFeature(access, paidFeature, "standard")).toBe(false);
     expect(canUseFeature({ ...access, agency: true }, paidFeature, "standard")).toBe(false);
     expect(canUseFeature({ ...access, admin: true }, paidFeature, "standard")).toBe(true);
