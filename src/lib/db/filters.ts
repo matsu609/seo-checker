@@ -22,18 +22,3 @@ export function eq(value: string): string {
 export function gte(value: string): string {
   return `gte.${encodeURIComponent(value)}`;
 }
-
-/**
- * 複数の値のどれかに一致（`in.("a","b")`）。値が 1 件も無ければ null を返す
- * （問い合わせを組み立てず、呼び出し側で「0 件」を返すための合図）。
- *
- * PostgREST の `in` は括弧とカンマで区切り、値は二重引用符で囲む。値そのものに
- * 二重引用符やバックスラッシュが入ると囲みが壊れるので、**その形の値は捨てる**。
- * ここに渡してよいのは Clerk のユーザー ID のような短い識別子だけで、
- * 自由入力をそのまま渡さないこと。
- */
-export function inList(values: readonly string[]): string | null {
-  const safe = values.filter((v) => v.length > 0 && !/["\\]/.test(v));
-  if (safe.length === 0) return null;
-  return `in.(${safe.map((v) => encodeURIComponent(`"${v}"`)).join(",")})`;
-}

@@ -4,14 +4,13 @@
  * 顧客管理の画面（/clients）の顧客一覧（操作側）。
  *
  * 1 行 = 1 顧客。契約状況・月額・クーポンは読み取り専用で、
- * 触れるのは割引・機能の個別開放（チェックボックス）・担当の管理アカウント（選択）、
- * そして「この方の画面を見る」（代理ログイン）だけ。
+ * 触れるのは割引・機能の個別開放（チェックボックス）と、
+ * 「この方の画面を見る」（代理ログイン）だけ。
  *
- * 運用者（マスター）と管理アカウントで同じ表を使う。違いは 2 つだけで、
- *   ・管理アカウントに出るのは担当に割り当てられた登録者だけ（行を作る側で絞る）
- *   ・担当の付け替え（canAssign）は運用者だけ
- * 残りの操作（割引・機能の個別開放・代理ログイン）は同じ API を使い、
- * 担当外の相手には サーバーが 404 を返す（src/lib/admin/guard.ts の requireClientAccess）。
+ * 運用者（マスター）と管理アカウントで同じ表を使い、**どちらにも全登録者が出る**
+ * （利用者の指示 2026-09-21「担当とか関係ない」。担当の割り当ては仕組みごと外した）。
+ * 操作（割引・機能の個別開放・代理ログイン）はどちらも同じ API を使い、相手が
+ * 管理アカウントのときだけサーバーが 404 を返す（src/lib/admin/guard.ts の requireClientAccess）。
  *
  * 保存はどれも押した瞬間に行う。押した直後に見た目を戻さないよう、
  * 保存中は行の状態を先に進めておき、失敗したら元に戻す。
@@ -20,7 +19,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
-import { Select } from "@/components/ui/Field";
 import { toolGroupsForDisplay } from "@/lib/features/registry";
 import { planLabel } from "@/lib/plans/catalog";
 import type { AgencyRow } from "@/lib/admin/agencies";
@@ -31,17 +29,12 @@ import { PromoSelect } from "./PromoSelect";
 /** 個別開放の対象。設定・料金プランは誰でも使えるので出さない */
 const TOGGLEABLE = toolGroupsForDisplay();
 
-/** 担当なしを表す選択肢の値（空文字だと未選択と区別しにくいので明示する） */
-const NO_AGENCY = "none";
-
 export interface ClientTableProps {
   initial: ClientRow[];
   /** 無料診断の上限（回数の表示に使う） */
   freeRunLimit?: number;
-  /** 担当の管理アカウントの選択肢（運用者のときだけ渡す） */
+  /** 管理アカウントの一覧（その行が管理アカウント本人かを見分けるのに使う） */
   agencies?: AgencyRow[];
-  /** 担当の付け替えができるか（運用者だけ。管理アカウントには欄ごと出さない） */
-  canAssign?: boolean;
   /** 顧客が 1 人も居ないときの案内（立場で文面が変わる） */
   emptyTitle?: string;
   emptyDescription?: string;
@@ -51,7 +44,6 @@ export function ClientTable({
   initial,
   agencies = [],
   freeRunLimit = 2,
-  canAssign = false,
   emptyTitle = "まだ顧客がいません",
   emptyDescription = "ログインしたアカウントがここに並びます。",
 }: ClientTableProps) {
@@ -88,32 +80,6 @@ export function ClientTable({
       // サーバーが返した確定値で置き換える
       setRows((prev) =>
         prev.map((r) => (r.userId === userId ? { ...r, overrides: body.overrides ?? r.overrides } : r)),
-      );
-    } catch (err) {
-      setRows(before);
-      setError(err instanceof Error ? err.message : "保存できませんでした");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function assign(userId: string, value: string) {
-    const agencyId = value === NO_AGENCY ? null : value;
-    const key = `${userId}:agency`;
-    setBusy(key);
-    setError(null);
-    const before = rows;
-    setRows((prev) => prev.map((r) => (r.userId === userId ? { ...r, agencyId } : r)));
-    try {
-      const res = await fetch("/api/admin/clients/agency", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId, agencyId }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { agencyId?: string | null; error?: string };
-      if (!res.ok) throw new Error(body.error ?? `保存できませんでした（HTTP ${res.status}）`);
-      setRows((prev) =>
-        prev.map((r) => (r.userId === userId ? { ...r, agencyId: body.agencyId ?? null } : r)),
       );
     } catch (err) {
       setRows(before);
@@ -186,10 +152,8 @@ export function ClientTable({
       )}
 
       {rows.map((row) => {
+        // 管理アカウント本人の行には割引を出さない（金額の付け合いを作らない）
         const isAgency = agencies.some((a) => a.userId === row.userId);
-        // 代理店を解除したあとも担当の割り当ては残る。選択肢に無い値を
-        // 黙って「担当なし」に見せると、解除済みなのに気づけないので明示する
-        const orphan = row.agencyId !== null && !agencies.some((a) => a.userId === row.agencyId);
         return (
           <Card
             key={row.userId}
@@ -311,55 +275,7 @@ export function ClientTable({
                 <p className="text-[12px] text-muted">クーポンの適用はありません。</p>
               )}
 
-              {/* 担当の管理アカウント（旧称: 代理店）。付け替えは運用者だけ */}
-              {canAssign && (
-              <div>
-                <label
-                  className="text-[12px] font-bold text-ink"
-                  htmlFor={`agency-${row.userId}`}
-                >
-                  担当の管理アカウント
-                  <span className="ml-2 font-normal text-muted">
-                    選んだ管理アカウントの画面に、このお客様が出るようになります。
-                  </span>
-                </label>
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <Select
-                    id={`agency-${row.userId}`}
-                    className="max-w-xs"
-                    value={row.agencyId ?? NO_AGENCY}
-                    disabled={busy === `${row.userId}:agency` || isAgency}
-                    onChange={(e) => void assign(row.userId, e.target.value)}
-                  >
-                    <option value={NO_AGENCY}>担当なし</option>
-                    {agencies
-                      .filter((a) => a.userId !== row.userId)
-                      .map((a) => (
-                        <option key={a.userId} value={a.userId}>
-                          {a.email || a.name || a.userId}
-                        </option>
-                      ))}
-                    {orphan && (
-                      <option value={row.agencyId as string}>
-                        解除済みの管理アカウント（{row.agencyId}）
-                      </option>
-                    )}
-                  </Select>
-                  {isAgency && (
-                    <span className="text-[12px] text-muted">
-                      このアカウントは管理アカウントです（管理アカウントに担当は付けません）。
-                    </span>
-                  )}
-                  {orphan && !isAgency && (
-                    <span className="text-[12px] text-warn">
-                      いまの担当は管理アカウントではありません（解除済み）。見えていない状態です。
-                    </span>
-                  )}
-                </div>
-              </div>
-              )}
-
-              {/* 割引（スタンダード専用）。管理アカウント画面からも同じものを設定できる */}
+              {/* 割引（スタンダード専用）。運用者・管理アカウントのどちらからも設定できる */}
               {!isAgency && <PromoSelect userId={row.userId} value={row.promo} endpoint="/api/admin/promo" subscribed={row.billing.status === "active" || row.billing.status === "trial"} />}
 
               {/* 機能の個別開放 */}

@@ -10,21 +10,14 @@
  */
 import { clerkClient } from "@clerk/nextjs/server";
 import { adminEmails, isAdminEmail } from "./config";
-import {
-  buildClientRows,
-  listUsers,
-  type ClerkUserLike,
-  type ClientRow,
-} from "./clients";
-import { agencyIdFromMetadata, isAgencyMetadata, isUserId, pickAgencyInvitation, withAgencyRole } from "./roles";
+import { listUsers, type ClerkUserLike } from "./clients";
+import { isAgencyMetadata, isUserId, pickAgencyInvitation, withAgencyRole } from "./roles";
 
 export interface AgencyRow {
   userId: string;
   email: string;
   name: string;
   createdAt: number;
-  /** この代理店が担当している登録者の数 */
-  clientCount: number;
 }
 
 /**
@@ -49,18 +42,11 @@ function primaryEmail(user: ClerkUserLike): string {
 }
 
 /**
- * 代理店アカウントの一覧（新しい順）。担当している登録者の数も数える。
- * マスター画面と、担当の割り当て欄の選択肢に使う。
+ * 管理アカウントの一覧（新しい順）。マスター画面の「管理アカウント」と、
+ * 顧客一覧で「その行が管理アカウント本人か」を見分けるのに使う。
  */
 export async function loadAgencies(): Promise<AgencyRow[]> {
   const { users } = await listUsers();
-
-  const counts = new Map<string, number>();
-  for (const user of users) {
-    const agencyId = agencyIdFromMetadata(user.publicMetadata);
-    if (agencyId) counts.set(agencyId, (counts.get(agencyId) ?? 0) + 1);
-  }
-
   return users
     .filter((u) => isAgencyMetadata(u.publicMetadata))
     .map((user) => ({
@@ -68,7 +54,6 @@ export async function loadAgencies(): Promise<AgencyRow[]> {
       email: primaryEmail(user),
       name: displayName(user),
       createdAt: user.createdAt,
-      clientCount: counts.get(user.id) ?? 0,
     }));
 }
 
@@ -128,9 +113,8 @@ export async function addAgencyByEmail(email: string): Promise<AddAgencyResult> 
 /**
  * 代理店を解除する（role を外す）。マスターだけ。
  *
- * 担当の割り当て（登録者側の agencyId）は消さない。解除した時点で代理店画面は
- * 開けなくなるので見えなくなり、付け直したいときは同じ相手を代理店に戻せば
- * 担当がそのまま戻る。数百件の書き換えを走らせない、という判断でもある。
+ * 解除した時点で顧客管理の画面が開けなくなり、ツールも契約どおりの範囲に戻る。
+ * 付け直したいときは同じ相手をもう一度追加すればよい。
  */
 export async function removeAgency(userId: string): Promise<void> {
   if (!isUserId(userId)) throw new Error("ユーザー ID の形が正しくありません。");
@@ -140,35 +124,6 @@ export async function removeAgency(userId: string): Promise<void> {
   await client.users.updateUserMetadata(userId, {
     publicMetadata: withAgencyRole(metadata, false),
   });
-}
-
-/**
- * その管理アカウントが担当している登録者の**ID だけ**。
- *
- * 契約情報を引かないので、ご意見の絞り込みのように「誰の分か」だけが要る場面で使う
- * （loadAgencyClients は人数ぶん Billing を呼ぶので、ID だけ欲しいときには重すぎる）。
- */
-export async function listAgencyClientIds(agencyId: string): Promise<string[]> {
-  if (!isUserId(agencyId)) return [];
-  const { users } = await listUsers();
-  return users
-    .filter((u) => u.id !== agencyId && agencyIdFromMetadata(u.publicMetadata) === agencyId && !isAgencyMetadata(u.publicMetadata))
-    .map((u) => u.id);
-}
-
-/**
- * その代理店が担当している登録者の一覧。顧客管理の画面に出す。
- *
- * 契約情報を引くのは絞り込んだあとだけ（人数ぶんの API 呼び出しになるため）。
- * 代理店自身は結果に含めない（担当に自分を入れられない作りだが、念のため落とす）。
- */
-export async function loadAgencyClients(agencyId: string): Promise<ClientRow[]> {
-  if (!isUserId(agencyId)) return [];
-  const { users } = await listUsers();
-  const mine = users.filter(
-    (u) => u.id !== agencyId && agencyIdFromMetadata(u.publicMetadata) === agencyId,
-  );
-  return buildClientRows(mine);
 }
 
 /**

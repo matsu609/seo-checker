@@ -6,9 +6,8 @@
  *   ご意見・不具合の一覧と返答 → 契約状況・月額・次回請求 → 登録情報と無料診断の回数 →
  *   割引 → 機能の個別開放 → その方の画面を見る（代理ログイン）
  *
- * 見える範囲は立場で変える。
- *   運用者         … 全登録者。担当の管理アカウントの付け替えもここで行う
- *   管理アカウント … 担当に割り当てられた登録者だけ（担当外は API も 404）
+ * 見えるお客様も、できる操作も**運用者と管理アカウントで同じ**（利用者の指示 2026-09-21。
+ * 担当による絞り込みは仕組みごとやめた）。違いはマスター画面（システム側）が見えるかどうかだけ。
  *
  * システム寄りのもの（版・外部連携・定期処理・管理アカウントの追加）はマスター画面
  * （/admin）に残してある。管理アカウントにはそちらを見せない。
@@ -20,11 +19,11 @@ import Link from "next/link";
 import { ClientTable } from "@/components/admin/ClientTable";
 import { FeedbackCard } from "@/components/admin/FeedbackCard";
 import { Callout } from "@/components/ui/Callout";
-import { listAgencyClientIds, loadAgencies, loadAgencyClients, type AgencyRow } from "@/lib/admin/agencies";
+import { loadAgencies, type AgencyRow } from "@/lib/admin/agencies";
 import { loadClients, type ClientRow } from "@/lib/admin/clients";
 import { currentClientScope } from "@/lib/admin/guard";
 import { DbError, isSupabaseConfigured } from "@/lib/db/supabase";
-import { listAllFeedback, listFeedbackForUsers } from "@/lib/feedback/store";
+import { listAllFeedback } from "@/lib/feedback/store";
 import type { FeedbackRecord } from "@/lib/feedback/types";
 import { freeRunLimit } from "@/lib/free/quota";
 
@@ -59,17 +58,13 @@ export default async function Page() {
   let truncated = 0;
   let limit = freeRunLimit();
   try {
-    if (scope.kind === "master") {
-      const [clients, list] = await Promise.all([loadClients(), loadAgencies()]);
-      rows = clients.rows;
-      agencies = list;
-      totalCount = clients.totalCount;
-      truncated = clients.truncated;
-      limit = clients.freeRunLimit;
-    } else {
-      rows = await loadAgencyClients(scope.agencyId);
-      totalCount = rows.length;
-    }
+    // 見えるお客様は立場によらず全員。管理アカウントの一覧も要る（行が管理アカウントかどうかの判定に使う）
+    const [clients, list] = await Promise.all([loadClients(), loadAgencies()]);
+    rows = clients.rows;
+    agencies = list;
+    totalCount = clients.totalCount;
+    truncated = clients.truncated;
+    limit = clients.freeRunLimit;
   } catch {
     return (
       <div className="mx-auto w-full max-w-5xl @container">
@@ -88,9 +83,7 @@ export default async function Page() {
     feedbackError = "保存先（SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY）が未設定のため、ご意見は表示できません。";
   } else {
     try {
-      feedback = master
-        ? await listAllFeedback()
-        : await listFeedbackForUsers(await listAgencyClientIds(scope.agencyId));
+      feedback = await listAllFeedback();
     } catch (err) {
       feedbackError =
         err instanceof DbError && err.status === 404
@@ -115,7 +108,7 @@ export default async function Page() {
           </>
         ) : (
           <>
-            担当としてお預かりしているお客様の契約状況・月額・ご利用状況です。ご意見への返答・割引の設定・
+            登録しているすべてのお客様の契約状況・月額・ご利用状況です。ご意見への返答・割引の設定・
             機能の個別開放・お客様の画面の確認（代理ログイン）ができます。プランの変更と担当の割り当ては
             運用者にご依頼ください。
           </>
@@ -128,24 +121,12 @@ export default async function Page() {
 
       <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px] text-muted">
         <span>
-          {master ? "顧客" : "担当のお客様"}{" "}
-          <span className="font-bold text-ink tabular-nums">{totalCount}</span> 件
+          顧客 <span className="font-bold text-ink tabular-nums">{totalCount}</span> 件
         </span>
         {truncated > 0 && <span>（新しい順に {rows.length} 件を表示）</span>}
       </div>
 
-      <ClientTable
-        initial={rows}
-        agencies={agencies}
-        freeRunLimit={limit}
-        canAssign={master}
-        emptyTitle={master ? "まだ顧客がいません" : "担当のお客様がまだいません"}
-        emptyDescription={
-          master
-            ? "ログインしたアカウントがここに並びます。"
-            : "お客様が登録したあと、運用者が担当としてお客様をこの画面に割り当てます。お心当たりのあるお客様が出てこない場合は、運用者にお知らせください。"
-        }
-      />
+      <ClientTable initial={rows} agencies={agencies} freeRunLimit={limit} />
     </div>
   );
 }
