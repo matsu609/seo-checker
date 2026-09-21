@@ -126,7 +126,7 @@ export function PromptExpansionTool() {
   /**
    * 選んだプロンプトを AI 検索モニタリング（/tools/geo）に登録する。
    * 2026-09-17 に LLMO モニタリングを引退させ、AI の計測を AI 検索モニタリングに一本化した。
-   * 登録先は Supabase（PUT /api/geo/setup）。モデルは通常計測の既定（ChatGPT / Gemini）。
+   * 登録先は Supabase（PUT /api/geo/setup）。モデルは通常計測の既定（ChatGPT / Gemini）。Claude / Perplexity は AI 検索モニタリング側で足せる。
    */
   async function registerToGeo() {
     if (!result || registering) return;

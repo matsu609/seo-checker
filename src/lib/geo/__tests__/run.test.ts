@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dedupeCitations, llmPath, localeParams, parseLlmResult, parseSerpResult, unwrapTask } from "../dataforseo";
+import { dedupeCitations, llmPath, localeParams, parseLlmResult, parseSerpResult, serpPath, unwrapTask } from "../dataforseo";
+import { costUsd, DEFAULT_UNIT_PRICES } from "../pricing";
+import { creditAction } from "../credits";
 import type { GeoProvider, ProviderOutcome, ProviderRequest } from "../provider";
 import { needsResolution, resolveCitations } from "../resolve";
 import { planToday, runForAccount, type RunDeps, type RunItem } from "../run";
@@ -59,17 +61,31 @@ describe("当日の実行計画（§2.3）", () => {
     expect(planToday([prompt()], [], 0, tuesday).filter((i) => i.kind === "llm")).toHaveLength(0);
   });
 
-  it("順位と AIO は週 1 回（月曜）だけ", () => {
+  it("順位・AI Overviews・AI モードは週 1 回（月曜）だけ（利用者の決定 2026-09-21）", () => {
     const monday = planToday([], [keyword()], 0, MONDAY);
     expect(monday.filter((i) => i.kind === "rank")).toHaveLength(1);
     expect(monday.filter((i) => i.kind === "aio")).toHaveLength(1);
+    expect(monday.filter((i) => i.kind === "ai_mode")).toHaveLength(1);
     const wednesday = new Date("2026-09-16T03:00:00Z");
     expect(planToday([], [keyword()], 0, wednesday)).toHaveLength(0);
   });
 
-  it("プロンプトの aio モデルは LLM 計測に混ぜない（検索側で取る）", () => {
-    const items = planToday([prompt({ models: ["aio"] })], [], 0, MONDAY);
-    expect(items).toHaveLength(0);
+  it("trackAio を外すと AI Overviews も AI モードも測らない（順位は残る）", () => {
+    const monday = planToday([], [keyword({ trackAio: false })], 0, MONDAY);
+    expect(monday.filter((i) => i.kind === "aio")).toHaveLength(0);
+    expect(monday.filter((i) => i.kind === "ai_mode")).toHaveLength(0);
+    expect(monday.filter((i) => i.kind === "rank")).toHaveLength(1);
+  });
+
+  it("プロンプトの検索側モデル（aio / ai_mode）は LLM 計測に混ぜない", () => {
+    expect(planToday([prompt({ models: ["aio"] })], [], 0, MONDAY)).toHaveLength(0);
+    expect(planToday([prompt({ models: ["ai_mode"] })], [], 0, MONDAY)).toHaveLength(0);
+  });
+
+  it("Claude と Perplexity もプロンプトの計測に入る（#109、2026-09-21）", () => {
+    const items = planToday([prompt({ models: ["claude", "perplexity"] })], [], 0, MONDAY);
+    expect(items.map((i) => i.model).sort()).toEqual(["claude", "perplexity"]);
+    expect(items.every((i) => i.kind === "llm")).toBe(true);
   });
 });
 
@@ -251,10 +267,41 @@ describe("DataForSEO の応答（§1.1）", () => {
     expect(dedupeCitations(list)).toHaveLength(1);
   });
 
-  it("標準キューと Live はパスが別（設定では切り替えられない。§7.4）", () => {
+  it("標準キューと Live はパスが別（§7.4）", () => {
     expect(llmPath("chatgpt", "standard")).toContain("task_post");
     expect(llmPath("chatgpt", "live")).toContain("/live");
+    expect(llmPath("chatgpt", "standard")).toContain("chat_gpt"); // 綴りが違うのはここだけ
     expect(llmPath("gemini", "standard")).toContain("gemini");
+    expect(llmPath("claude", "standard")).toBe("/ai_optimization/claude/llm_responses/task_post");
+  });
+
+  it("Perplexity は標準キューが無いので、standard を頼まれても Live を返す（§7.4 の例外）", () => {
+    expect(llmPath("perplexity", "standard")).toBe("/ai_optimization/perplexity/llm_responses/live");
+    expect(llmPath("perplexity", "live")).toBe("/ai_optimization/perplexity/llm_responses/live");
+  });
+
+  it("Perplexity は定期実行でも Live 単価・Live のクレジットで数える", () => {
+    expect(costUsd("llm", "standard", DEFAULT_UNIT_PRICES, "perplexity")).toBe(DEFAULT_UNIT_PRICES.llmLive);
+    expect(costUsd("llm", "standard", DEFAULT_UNIT_PRICES, "chatgpt")).toBe(DEFAULT_UNIT_PRICES.llmStandard);
+    expect(creditAction("llm", "standard", "perplexity")).toBe("llm_live");
+    expect(creditAction("llm", "standard", "chatgpt")).toBe("llm_standard");
+  });
+
+  it("AI モードは AI Overviews とは別のエンドポイント・別の単価", () => {
+    expect(serpPath("ai_mode")).toBe("/serp/google/ai_mode/live/advanced");
+    expect(serpPath("aio")).toBe("/serp/google/organic/live/advanced");
+    expect(serpPath("rank")).toBe("/serp/google/organic/live/advanced");
+    expect(costUsd("ai_mode", "standard", DEFAULT_UNIT_PRICES)).toBe(DEFAULT_UNIT_PRICES.aiMode);
+    expect(creditAction("ai_mode", "standard")).toBe("ai_mode");
+  });
+
+  it("パスは環境変数で差し替えられる（ドキュメントを開けないので逃げ道を残す）", () => {
+    process.env.GEO_PATH_AI_MODE = "/serp/google/ai_mode/task_post";
+    expect(serpPath("ai_mode")).toBe("/serp/google/ai_mode/task_post");
+    process.env.GEO_PATH_LLM_CLAUDE_STANDARD = "/ai_optimization/claude/llm_responses/live";
+    expect(llmPath("claude", "standard")).toBe("/ai_optimization/claude/llm_responses/live");
+    delete process.env.GEO_PATH_AI_MODE;
+    delete process.env.GEO_PATH_LLM_CLAUDE_STANDARD;
   });
 
   it("ロケールは日本を既定にする（§11 の決定）", () => {

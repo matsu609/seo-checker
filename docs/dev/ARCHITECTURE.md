@@ -158,7 +158,7 @@ src/
 | `REVIEW_DRAFT_MODEL` | 口コミ支援の AI 下書きと質問文の訳のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_REPLY_MODEL` | 口コミ返信案のモデル（既定 `LLM_FAST_MODEL`） | 任意 |
 | `REVIEW_FORM_DAILY_LIMIT` / `REVIEW_AI_DAILY_LIMIT` | 口コミ支援の回数制限（アンケートごとの 1 日の回答数 500 / AI 下書きの 1 日の全体上限 2,000） | 任意 |
-| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | AI 検索モニタリング（`src/lib/geo/`）。ChatGPT / Gemini / AI Overviews の定期計測 | この機能に必須 |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | AI 検索モニタリング（`src/lib/geo/`）。ChatGPT / Gemini / Claude / Perplexity / AI Overviews / AI モード の定期計測 | この機能に必須 |
 | `GEO_USD_JPY` / `GEO_PRICE_*` / `GEO_LOCALE` / `GEO_CHARGE_ON_CACHE_HIT` | 同上の為替・単価・ロケール・キャッシュ時の課金。**単価はコードに直書きせず、ここだけで変える** | 任意 |
 | `CRON_SECRET` | Vercel Cron（`vercel.json`）が `/api/cron/daily`（日次の定期処理。曜日・日付でジョブを振り分ける `src/lib/jobs/`）と `/api/cron/geo-run` を叩くときの Bearer。`src/lib/auth/cron.ts` で検証。未設定なら Cron は何もしない | 定期処理（MEO の一斉更新・順位の自動計測・サイト監視・月次レポート・掲載の再チェック・投稿の送信・自動再診断）に必須 |
 | `RESEND_API_KEY` + `MAIL_FROM` | メール送信（Resend の REST API。`src/lib/mail/`）。月次レポートと変化の知らせ（順位の急落・サイトの事故・掲載の消失・低評価の回答・投稿の失敗）。`MAIL_FROM` は Resend で DNS 認証した送信ドメインのアドレス（例: `SEO Checker <noreply@seo-checker.tokyo>`）。無ければ画面の「お知らせ」にだけ残る | メール通知に必須 |

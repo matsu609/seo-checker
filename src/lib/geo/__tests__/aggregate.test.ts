@@ -6,11 +6,13 @@ import {
   byTag,
   detectVersionChange,
   filterTargetsByModel,
+  recentWeekStarts,
   rollingShares,
   rollingTargetShares,
   shares,
   targetShares,
   toAggregates,
+  weeklySeries,
   withinDays,
   type AggregateInput,
   type LabeledTargetShare,
@@ -296,5 +298,86 @@ describe("filterTargetsByModel", () => {
   it("availableModels は内訳にあるモデルだけを返す", () => {
     expect(availableModels([labeled()])).toEqual(["chatgpt", "gemini"]);
     expect(availableModels([])).toEqual([]);
+  });
+});
+
+/* ───────────── 週ごとの推移（折れ線。利用者の指示 2026-09-21） ───────────── */
+
+describe("weeklySeries", () => {
+  // NOW = 2026-09-16（水）。その週の月曜は 09-14
+  const LABELS = new Map([
+    ["k1", "SEO ツール"],
+    ["k2", "AIO 対策"],
+  ]);
+  const opts = { brandId: "own", axis: "keyword" as const, metric: "citation" as const, labels: LABELS, weeks: 4 };
+
+  it("週の枠を必ず weeks 本ぶん作り、古い順に並べる", () => {
+    const weeks = recentWeekStarts(4, NOW);
+    expect(weeks).toEqual(["2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14"]);
+    const [s] = weeklySeries([obs({ promptId: null, keywordId: "k1", cited: true })], opts, NOW);
+    expect(s.points.map((p) => p.weekStart)).toEqual(weeks);
+  });
+
+  it("観測の無い週は 0% ではなく null にする（線を切って「未計測」と分かるように）", () => {
+    const rows = [
+      obs({ promptId: null, keywordId: "k1", cited: true, executedAt: "2026-09-15T03:00:00Z" }),
+      obs({ promptId: null, keywordId: "k1", cited: false, executedAt: "2026-08-25T03:00:00Z" }),
+    ];
+    const [s] = weeklySeries(rows, opts, NOW);
+    expect(s.points.map((p) => p.rate)).toEqual([0, null, null, 1]);
+    expect(s.points.map((p) => p.n)).toEqual([1, 0, 0, 1]);
+  });
+
+  it("同じ週の複数の観測はまとめて率にする", () => {
+    const rows = [
+      obs({ promptId: null, keywordId: "k1", cited: true, executedAt: "2026-09-14T03:00:00Z" }),
+      obs({ promptId: null, keywordId: "k1", cited: false, executedAt: "2026-09-15T03:00:00Z" }),
+      obs({ promptId: null, keywordId: "k1", cited: true, executedAt: "2026-09-16T03:00:00Z" }),
+    ];
+    const [s] = weeklySeries(rows, opts, NOW);
+    const last = s.points[s.points.length - 1];
+    expect(last).toMatchObject({ n: 3, hits: 2 });
+    expect(last.rate).toBeCloseTo(2 / 3);
+    expect(s.totalN).toBe(3);
+  });
+
+  it("latest は直近で値のある週。全部未計測なら null", () => {
+    const rows = [obs({ promptId: null, keywordId: "k1", cited: true, executedAt: "2026-08-25T03:00:00Z" })];
+    expect(weeklySeries(rows, opts, NOW)[0].latest).toBe(1);
+    expect(weeklySeries([], opts, NOW)).toEqual([]);
+  });
+
+  it("枠の外（古すぎる）観測は捨てる", () => {
+    const rows = [obs({ promptId: null, keywordId: "k1", cited: true, executedAt: "2026-06-01T03:00:00Z" })];
+    expect(weeklySeries(rows, opts, NOW)).toEqual([]);
+  });
+
+  it("ラベルの無い対象（設定から消えたキーワード）は線にしない", () => {
+    const rows = [obs({ promptId: null, keywordId: "消えた", cited: true })];
+    expect(weeklySeries(rows, opts, NOW)).toEqual([]);
+  });
+
+  it("競合の観測は混ぜない", () => {
+    const rows = [
+      obs({ promptId: null, keywordId: "k1", cited: true }),
+      obs({ brandId: "rival", promptId: null, keywordId: "k1", cited: true }),
+    ];
+    expect(weeklySeries(rows, opts, NOW)[0].totalN).toBe(1);
+  });
+
+  it("並びは直近の率が高い順", () => {
+    const rows = [
+      obs({ promptId: null, keywordId: "k1", cited: false }),
+      obs({ promptId: null, keywordId: "k2", cited: true }),
+    ];
+    expect(weeklySeries(rows, opts, NOW).map((s) => s.targetId)).toEqual(["k2", "k1"]);
+  });
+
+  it("プロンプト軸では言及を数える", () => {
+    const labels = new Map([["p1", "おすすめの SEO ツールは？"]]);
+    const rows = [obs({ promptId: "p1", mentioned: true, cited: false })];
+    const [s] = weeklySeries(rows, { brandId: "own", axis: "prompt", metric: "mention", labels, weeks: 4 }, NOW);
+    expect(s.label).toBe("おすすめの SEO ツールは？");
+    expect(s.latest).toBe(1);
   });
 });

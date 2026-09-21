@@ -6,7 +6,16 @@
  * 集計は純関数（lib/geo/aggregate.ts）なので、ここは組み立てるだけ。
  */
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
-import { brandedMetrics, byModel, rollingShares, rollingTargetShares, type AggregateInput, type TargetShare } from "@/lib/geo/aggregate";
+import {
+  brandedMetrics,
+  byModel,
+  recentWeekStarts,
+  rollingShares,
+  rollingTargetShares,
+  weeklySeries,
+  type AggregateInput,
+  type TargetShare,
+} from "@/lib/geo/aggregate";
 import { forecastStandardPlan } from "@/lib/geo/credits";
 import { ensureAccount, listBrands, listKeywords, listLedger, listModelVersionEvents, listObservations, listPrompts } from "@/lib/geo/store";
 import type { DomainClass, GeoModel } from "@/lib/geo/types";
@@ -14,6 +23,9 @@ import { requireUser } from "@/lib/auth/guard";
 import { monthStartJst } from "@/lib/seo-analysis/runs";
 
 export const runtime = "nodejs";
+
+/** 折れ線グラフで見せる週数。8 週 = 2 か月弱（4 週ローリングの見出しの倍） */
+const TREND_WEEKS = 8;
 
 export async function GET() {
   const userId = await requireUser({ feature: "geo" });
@@ -62,6 +74,14 @@ export async function GET() {
     const perPrompt = own ? withLabel(rollingTargetShares(observations, { brandId: own.id, axis: "prompt", metric: "mention" }, now), promptLabels) : [];
     const perKeyword = own ? withLabel(rollingTargetShares(observations, { brandId: own.id, axis: "keyword", metric: "citation" }, now), keywordLabels) : [];
 
+    // 週ごとの推移（折れ線グラフ。利用者の指示 2026-09-21）
+    const weeks = TREND_WEEKS;
+    const trends = {
+      weeks: recentWeekStarts(weeks, now),
+      prompt: own ? weeklySeries(observations, { brandId: own.id, axis: "prompt", metric: "mention", labels: promptLabels, weeks }, now) : [],
+      keyword: own ? weeklySeries(observations, { brandId: own.id, axis: "keyword", metric: "citation", labels: keywordLabels, weeks }, now) : [],
+    };
+
     // クレジットの消費内訳（今月）
     const spentByAction: Record<string, number> = {};
     for (const entry of ledger) spentByAction[entry.action] = Math.round(((spentByAction[entry.action] ?? 0) + entry.credits) * 100) / 100;
@@ -77,6 +97,7 @@ export async function GET() {
         perModel,
         perPrompt,
         perKeyword,
+        trends,
         keywordCount: keywords.length,
         branded: own ? brandedMetrics(observations, own.id) : null,
         versions,

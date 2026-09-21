@@ -237,6 +237,96 @@ export function filterTargetsByModel(rows: readonly LabeledTargetShare[], model:
   return out;
 }
 
+/* ───────────── 週ごとの推移（折れ線グラフ用） ───────────── */
+
+/**
+ * 「キーワードごとに順位を追うような折れ線」（利用者の指示 2026-09-21）。
+ *
+ * x = 週（月曜始まり）、y = その週の出現率、1 本の線 = キーワード 1 語 or プロンプト 1 本。
+ *
+ * **観測が 1 件も無い週は null にする**（0% と区別する）。LineChart は null で線を切るので、
+ * 「その週は測っていない」と「その週は 0 回だった」が図の上で別物に見える。
+ * ここを 0 で埋めると、計測が止まっただけなのに「急落した」と読めてしまう。
+ */
+export interface WeeklyPoint {
+  /** 週の始まり（月曜。YYYY-MM-DD） */
+  weekStart: string;
+  n: number;
+  hits: number;
+  /** 0〜1。観測が無い週は null */
+  rate: number | null;
+}
+
+export interface WeeklySeries {
+  targetId: string;
+  label: string;
+  points: WeeklyPoint[];
+  /** 直近で値のある週の率（並べ替えと既定の選択に使う）。1 つも無ければ null */
+  latest: number | null;
+  /** 期間内の観測の合計 */
+  totalN: number;
+}
+
+/** 直近 `weeks` 週ぶんの週初（古い順）を返す */
+export function recentWeekStarts(weeks: number, now = new Date()): string[] {
+  const out: string[] = [];
+  for (let i = weeks - 1; i >= 0; i -= 1) {
+    out.push(weekStart(new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000)));
+  }
+  return out;
+}
+
+/**
+ * 計測対象ごとの週次推移。`weeks` 週ぶんの枠を必ず作り、観測の無い週は null で埋める。
+ * 並びは「直近の率が高い順 → 観測数の多い順」。
+ */
+export function weeklySeries(
+  observations: readonly AggregateInput[],
+  options: { brandId: string; axis: "prompt" | "keyword"; metric: HitMetric; labels: ReadonlyMap<string, string>; weeks?: number },
+  now = new Date(),
+): WeeklySeries[] {
+  const weeks = options.weeks ?? 8;
+  const frame = recentWeekStarts(weeks, now);
+  const frameIndex = new Map(frame.map((w, i) => [w, i]));
+
+  // targetId → 週 → { n, hits }
+  const byTarget = new Map<string, Map<string, { n: number; hits: number }>>();
+  for (const o of observations) {
+    if (o.brandId !== options.brandId) continue;
+    const targetId = options.axis === "prompt" ? o.promptId : o.keywordId;
+    if (!targetId || !options.labels.has(targetId)) continue;
+    const t = Date.parse(o.executedAt);
+    if (!Number.isFinite(t)) continue;
+    const week = weekStart(new Date(t));
+    if (!frameIndex.has(week)) continue;
+    const weeksOf = byTarget.get(targetId) ?? new Map<string, { n: number; hits: number }>();
+    const cell = weeksOf.get(week) ?? { n: 0, hits: 0 };
+    cell.n += 1;
+    if (isHit(o, options.metric)) cell.hits += 1;
+    weeksOf.set(week, cell);
+    byTarget.set(targetId, weeksOf);
+  }
+
+  const out: WeeklySeries[] = [];
+  for (const [targetId, weeksOf] of byTarget) {
+    const points: WeeklyPoint[] = frame.map((week) => {
+      const cell = weeksOf.get(week);
+      // 観測の無い週は null（0% ではない）
+      return cell ? { weekStart: week, n: cell.n, hits: cell.hits, rate: cell.hits / cell.n } : { weekStart: week, n: 0, hits: 0, rate: null };
+    });
+    const withValue = points.filter((p) => p.rate !== null);
+    out.push({
+      targetId,
+      label: options.labels.get(targetId) ?? targetId,
+      points,
+      latest: withValue.length > 0 ? (withValue[withValue.length - 1].rate as number) : null,
+      totalN: points.reduce((a, p) => a + p.n, 0),
+    });
+  }
+
+  return out.sort((a, b) => (b.latest ?? -1) - (a.latest ?? -1) || b.totalN - a.totalN);
+}
+
 /* ───────────── 指名プロンプトの主指標（§3.2） ───────────── */
 
 export interface BrandedMetrics {

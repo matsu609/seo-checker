@@ -14,7 +14,7 @@ import { normalizedHash } from "@/lib/geo/normalize";
 import { precisionWarning } from "@/lib/geo/schedule";
 import { deletePrompt, ensureAccount, listPrompts, savePrompt } from "@/lib/geo/store";
 import { syncGeoFromSettings } from "@/lib/geo/sync";
-import { GEO_MODELS } from "@/lib/geo/types";
+import { GEO_LLM_MODELS } from "@/lib/geo/types";
 import { loadSharedSettings } from "@/lib/settings/server";
 import { requireUser } from "@/lib/auth/guard";
 
@@ -26,7 +26,8 @@ const PromptSchema = z.object({
   text: z.string().trim().min(1).max(500),
   isBranded: z.boolean().default(false),
   precisionMode: z.boolean().default(false),
-  models: z.array(z.enum(GEO_MODELS)).min(1).max(3),
+  // プロンプトを投げるのは LLM だけ（AI Overviews と AI モードはキーワード側で測る）
+  models: z.array(z.enum(GEO_LLM_MODELS)).min(1).max(GEO_LLM_MODELS.length),
   tags: z.array(z.string().trim().max(40)).max(10).default([]),
 });
 

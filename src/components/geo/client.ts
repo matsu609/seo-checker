@@ -3,7 +3,7 @@
 /**
  * AI 検索モニタリングの API クライアント（画面から呼ぶ薄い層）。
  */
-import type { LabeledTargetShare } from "@/lib/geo/aggregate";
+import type { LabeledTargetShare, WeeklySeries } from "@/lib/geo/aggregate";
 import type { GeoBrand, GeoKeyword, GeoModel, GeoPrompt } from "@/lib/geo/types";
 
 export interface GeoAccountView {
@@ -51,6 +51,8 @@ export interface DashboardResponse {
   perPrompt: TargetRow[];
   /** キーワードごとの AI Overviews 引用率 */
   perKeyword: TargetRow[];
+  /** 週ごとの推移（折れ線グラフ）。weeks は週初（月曜）の並び */
+  trends: { weeks: string[]; prompt: WeeklySeries[]; keyword: WeeklySeries[] };
   keywordCount: number;
   branded: {
     ownCitationRate: number;

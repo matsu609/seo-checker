@@ -10,12 +10,13 @@ import { useEffect, useState } from "react";
 import { Badge, Button, ButtonLink, Callout, Card, Field, Input, StatCard, Tabs } from "@/components/ui";
 import { SITE_SETTINGS_HREF } from "@/components/site/RegisteredSite";
 import { NORMAL_REPEATS_PER_WEEK, PRECISION_REPEATS_PER_WEEK } from "@/lib/geo/schedule";
-import { CREDIT_ACTION_LABELS, GEO_MODEL_LABELS, type CreditAction, type GeoModel } from "@/lib/geo/types";
+import { CREDIT_ACTION_LABELS, GEO_LLM_MODELS, GEO_MODEL_LABELS, type CreditAction, type GeoModel } from "@/lib/geo/types";
 import { pct } from "@/lib/report/format";
 import { BrandedCard } from "./BrandedCard";
 import { SetupPanel } from "./SetupPanel";
 import { ShareCard } from "./ShareCard";
 import { TargetBars } from "./TargetBars";
+import { TrendChart } from "./TrendChart";
 import { fetchDashboard, fetchSetup, runLive, type DashboardResponse, type LiveResult, type SetupResponse } from "./client";
 
 type TabId = "dashboard" | "setup";
@@ -132,6 +133,25 @@ function Dashboard({ data, onGoSetup }: { data: DashboardResponse; onGoSetup: ()
         description="登録したプロンプト全体で、回答本文に各ブランドの名前が出た割合です。1 週間の上下は誤差に埋もれるため、見出しは 4 週分をまとめた数字にしています。"
       />
 
+      {/* キーワードごとの推移（折れ線。利用者の指示 2026-09-21） */}
+      <TrendChart
+        weeks={data.trends.weeks}
+        series={data.trends.keyword}
+        title="キーワードごとの推移（週ごと）"
+        description="設定の「対策キーワード」1 語ずつに、その週の AI Overviews / AI モードで自社が引用された割合を並べたものです。上がっているか下がっているかを追うためのグラフです。"
+        emptyText="まだ計測結果がありません。設定の「対策キーワード」を登録すると、週 1 回（月曜）の計測から線が引かれます。"
+        unit="キーワード"
+      />
+
+      <TrendChart
+        weeks={data.trends.weeks}
+        series={data.trends.prompt}
+        title="プロンプトごとの推移（週ごと）"
+        description="登録したプロンプト 1 本ずつに、その週の回答本文で自社の名前が出た割合を並べたものです。"
+        emptyText="まだ計測結果がありません。「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から線が引かれます。"
+        unit="プロンプト"
+      />
+
       {/* キーワード・プロンプトごとの棒グラフ（利用者の指示 2026-09-20） */}
       <TargetBars
         rows={data.perPrompt}
@@ -160,7 +180,7 @@ function Dashboard({ data, onGoSetup }: { data: DashboardResponse; onGoSetup: ()
           rows={rows}
           brands={data.brands}
           title={`モデル別: ${GEO_MODEL_LABELS[model as GeoModel] ?? model}`}
-          description="モデルごとに引用の癖が違います。片方だけ落ちたときはモデル更新を疑ってください（下の「モデルの更新」を参照）。"
+          description="モデルごとに引用の癖が違います。1 つだけ落ちたときはモデル更新を疑ってください（下の「モデルの更新」を参照）。"
         />
       ))}
 
@@ -223,8 +243,11 @@ function LiveRunCard({ balance }: { balance: number }) {
             value={model}
             onChange={(e) => setModel(e.target.value as GeoModel)}
           >
-            <option value="chatgpt">{GEO_MODEL_LABELS.chatgpt}</option>
-            <option value="gemini">{GEO_MODEL_LABELS.gemini}</option>
+            {GEO_LLM_MODELS.map((m) => (
+              <option key={m} value={m}>
+                {GEO_MODEL_LABELS[m]}
+              </option>
+            ))}
           </select>
         </Field>
         <Button

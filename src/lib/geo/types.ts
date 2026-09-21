@@ -1,27 +1,63 @@
 /**
  * AI 検索モニタリング（GEO）の型。docs/dev/geo-monitoring-spec.md の §8 データモデル。
  *
- * ChatGPT / Gemini / Google AI Overviews で、自社ブランドがどれだけ
- * 「引用（citation）」「参照（mention）」されているかを定期計測し、競合と比べる。
+ * ChatGPT / Gemini / Claude / Perplexity / Google AI Overviews / Google AI モードで、
+ * 自社ブランドがどれだけ「引用（citation）」「参照（mention）」されているかを
+ * 定期計測し、競合と比べる。
  *
  * 純粋な型だけを置く（ブラウザでもサーバーでも読む）。
  */
 
-/** 計測対象のモデル。定期バッチはこの 3 つ（§2.1） */
-export const GEO_MODELS = ["chatgpt", "gemini", "aio"] as const;
+/**
+ * 計測対象のモデル（利用者の指示 2026-09-21 で Claude / Perplexity / AI モードを追加）。
+ *
+ * 前の 3 つ（chatgpt / gemini / aio）は先頭に置いたまま増やす。保存済みの
+ * 観測はモデル名を文字列で持っているので、並びを変えても読み替えは要らない。
+ */
+export const GEO_MODELS = ["chatgpt", "gemini", "claude", "perplexity", "aio", "ai_mode"] as const;
 export type GeoModel = (typeof GEO_MODELS)[number];
 
 export const GEO_MODEL_LABELS: Record<GeoModel, string> = {
   chatgpt: "ChatGPT",
   gemini: "Gemini",
+  claude: "Claude",
+  perplexity: "Perplexity",
   aio: "AI Overviews",
+  ai_mode: "AI モード（Google）",
 };
+
+/**
+ * プロンプトを投げて答えてもらうモデル（LLM）。
+ * `aio` と `ai_mode` は Google の検索結果側から取るので、ここには入らない。
+ */
+export const GEO_LLM_MODELS = ["chatgpt", "gemini", "claude", "perplexity"] as const;
+export type GeoLlmModel = (typeof GEO_LLM_MODELS)[number];
+
+export function isLlmModel(model: GeoModel): model is GeoLlmModel {
+  return (GEO_LLM_MODELS as readonly string[]).includes(model);
+}
+
+/**
+ * 検索キーワード側で取るモデル（Google の検索結果から抜く）。
+ * `trackAio` が立っているキーワードは **両方**を週 1 回ずつ測る
+ * （利用者の決定 2026-09-21「週 1 回でいい」「AI モードも追加したい」）。
+ */
+export const GEO_SERP_MODELS = ["aio", "ai_mode"] as const;
+
+/**
+ * **Perplexity は DataForSEO に標準キュー（task_post）が無く Live だけ**。
+ * そのため定期バッチでも Live を呼ぶ（仕様書 §7.4 の例外。判断の経緯に記録）。
+ * 原価と消費クレジットも Live 相当で数える。
+ */
+export function isLiveOnlyModel(model: GeoModel): boolean {
+  return model === "perplexity";
+}
 
 /** 実行モード。定期バッチは必ず standard（§1.2 / §7.4） */
 export type RunMode = "standard" | "live";
 
-/** 計測の種類 */
-export type MeasurementKind = "llm" | "rank" | "aio";
+/** 計測の種類。`ai_mode` は AI Overviews とは別のエンドポイント */
+export type MeasurementKind = "llm" | "rank" | "aio" | "ai_mode";
 
 /** ブランドの区分 */
 export type BrandType = "own" | "competitor";
@@ -189,6 +225,7 @@ export interface GeoModelVersionEvent {
 export type CreditAction =
   | "rank"
   | "aio"
+  | "ai_mode"
   | "llm_standard"
   | "llm_live"
   | "weekly_report"
@@ -197,6 +234,7 @@ export type CreditAction =
 export const CREDIT_ACTION_LABELS: Record<CreditAction, string> = {
   rank: "順位計測",
   aio: "AI Overviews 取得",
+  ai_mode: "AI モード取得",
   llm_standard: "LLM 計測（標準）",
   llm_live: "LLM 計測（今すぐ実行）",
   weekly_report: "週次レポート生成",

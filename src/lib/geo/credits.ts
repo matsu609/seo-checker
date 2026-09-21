@@ -6,7 +6,8 @@
  * 上限に達してもソフトキャップ: **定期実行は止めず、オンデマンド（Live）だけ止める**。
  * 超過課金は初期は行わない。
  */
-import type { CreditAction, MeasurementKind, RunMode } from "./types";
+import { isLiveOnlyModel } from "./types";
+import type { CreditAction, GeoModel, MeasurementKind, RunMode } from "./types";
 
 /** 標準プランの月間付与（§6.1） */
 export const MONTHLY_CREDITS = 2000;
@@ -15,17 +16,23 @@ export const MONTHLY_CREDITS = 2000;
 export const CREDIT_RATES: Record<CreditAction, number> = {
   rank: 0.5,
   aio: 0.5,
+  ai_mode: 0.5,
   llm_standard: 0.5,
   llm_live: 2,
   weekly_report: 30,
   monthly_analysis: 150,
 };
 
-/** 計測の種類と実行モードから、記帳するアクションを決める */
-export function creditAction(kind: MeasurementKind, mode: RunMode): CreditAction {
+/**
+ * 計測の種類と実行モードから、記帳するアクションを決める。
+ * `model` を渡すと **Perplexity は Live 相当（2 クレジット）**で記帳する。
+ */
+export function creditAction(kind: MeasurementKind, mode: RunMode, model?: GeoModel): CreditAction {
   if (kind === "rank") return "rank";
   if (kind === "aio") return "aio";
-  return mode === "live" ? "llm_live" : "llm_standard";
+  if (kind === "ai_mode") return "ai_mode";
+  const live = mode === "live" || (model !== undefined && isLiveOnlyModel(model));
+  return live ? "llm_live" : "llm_standard";
 }
 
 export function creditCost(action: CreditAction): number {
@@ -103,7 +110,8 @@ export interface UsageForecast {
 }
 
 export function forecastStandardPlan(granted = MONTHLY_CREDITS): UsageForecast {
-  const rankAio = (800 + 200) * CREDIT_RATES.rank;
+  // 順位 800 + AI Overviews 200 + AI モード 200（2026-09-21 に AI モードを追加）
+  const rankAio = (800 + 200 + 200) * CREDIT_RATES.rank;
   const llmStandard = 1080 * CREDIT_RATES.llm_standard;
   const llmPrecision = 420 * CREDIT_RATES.llm_standard;
   const weeklyReport = 4 * CREDIT_RATES.weekly_report;

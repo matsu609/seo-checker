@@ -1,21 +1,29 @@
 /**
  * DataForSEO のクライアント（仕様書 §1.1）。サーバー専用。
  *
- * 使うエンドポイントは 3 つだけ:
- *   検索順位  POST /v3/serp/google/organic/task_post（+ task_get）
- *   AIO      同上 + `load_async_ai_overview: true`
- *   LLM 計測  POST /v3/ai_optimization/{chat_gpt|gemini}/llm_responses/task_post（標準キュー）
- *            Live は /live/... （**オンデマンドのみ**。§7.4）
+ * 使うエンドポイント:
+ *   検索順位   POST /v3/serp/google/organic/live/advanced
+ *   AI Overviews 同上 + `load_async_ai_overview: true`
+ *   AI モード  POST /v3/serp/google/ai_mode/live/advanced
+ *   LLM 計測   POST /v3/ai_optimization/{chat_gpt|gemini|claude|perplexity}/llm_responses/...
  *
  * 認証は Basic（login:password を base64）。`DATAFORSEO_LOGIN` と
  * `DATAFORSEO_PASSWORD` の両方が無ければ何もしない。
  *
  * **定期実行から Live を呼ぶ経路は作らない**（§7.4）。`mode: "live"` は
  * オンデマンド API からしか渡ってこないよう、呼び出し側で保証する。
+ * **例外は Perplexity**（DataForSEO に標準キューが無く Live だけ。2026-09-21 に
+ * 公式ドキュメントで確認）。`isLiveOnlyModel()` が真のモデルは定期実行でも
+ * Live のパスを使い、原価とクレジットも Live 相当で数える。
+ *
+ * **パスは環境変数で差し替えられる**（`GEO_PATH_*`）。この環境から
+ * dataforseo.com へ出られずドキュメントを直接開けないため、パスが違っていても
+ * デプロイなしで直せるようにしてある（`DATAFORSEO_LABS_RANKED_PATH` と同じ考え方）。
  */
 import { normalizeDomain } from "./normalize";
 import type { GeoProvider, ProviderOutcome, ProviderRequest, ProviderResult } from "./provider";
-import type { GeoCitation } from "./types";
+import { isLiveOnlyModel, isLlmModel } from "./types";
+import type { GeoCitation, GeoLlmModel, MeasurementKind } from "./types";
 
 export const DATAFORSEO_BASE = "https://api.dataforseo.com/v3";
 const TIMEOUT_MS = 30_000;
@@ -48,12 +56,36 @@ export function localeParams(locale: string): { locationName: string; languageCo
   return LOCATION_BY_LOCALE[locale] ?? LOCATION_BY_LOCALE.ja;
 }
 
-/** LLM 計測のパス。標準キュー（task_post）と Live を明確に分ける */
-export function llmPath(model: "chatgpt" | "gemini", mode: "standard" | "live"): string {
-  const vendor = model === "chatgpt" ? "chat_gpt" : "gemini";
-  return mode === "live"
-    ? `/ai_optimization/${vendor}/llm_responses/live`
-    : `/ai_optimization/${vendor}/llm_responses/task_post`;
+/** DataForSEO 側のベンダー名（URL の一部）。`chatgpt` だけ綴りが違う */
+const VENDOR: Record<GeoLlmModel, string> = {
+  chatgpt: "chat_gpt",
+  gemini: "gemini",
+  claude: "claude",
+  perplexity: "perplexity",
+};
+
+/** 環境変数でパスを上書きする（未設定なら既定） */
+function pathOverride(name: string, fallback: string): string {
+  const raw = process.env[name]?.trim();
+  return raw ? raw : fallback;
+}
+
+/**
+ * LLM 計測のパス。標準キュー（task_post）と Live を分ける。
+ * **Perplexity は標準キューが無いので、どちらを頼まれても Live を返す。**
+ */
+export function llmPath(model: GeoLlmModel, mode: "standard" | "live"): string {
+  const vendor = VENDOR[model];
+  const live = isLiveOnlyModel(model) || mode === "live";
+  const fallback = live ? `/ai_optimization/${vendor}/llm_responses/live` : `/ai_optimization/${vendor}/llm_responses/task_post`;
+  return pathOverride(`GEO_PATH_LLM_${model.toUpperCase()}_${live ? "LIVE" : "STANDARD"}`, fallback);
+}
+
+/** Google の検索結果側のパス。AI Overviews は通常の SERP、AI モードは別の口 */
+export function serpPath(kind: MeasurementKind): string {
+  return kind === "ai_mode"
+    ? pathOverride("GEO_PATH_AI_MODE", "/serp/google/ai_mode/live/advanced")
+    : pathOverride("GEO_PATH_SERP", "/serp/google/organic/live/advanced");
 }
 
 /* ───────────── 応答の読み取り（純関数。テストしやすいように分ける） ───────────── */
@@ -139,7 +171,8 @@ export function parseSerpResult(payload: unknown, targetDomains: readonly string
       }
     }
 
-    if (type === "ai_overview" || type === "ai_overview_element") {
+    // AI モードの応答も同じ形（references / items / text）で返るので同じ枝で読む
+    if (type === "ai_overview" || type === "ai_overview_element" || type === "ai_mode" || type === "ai_mode_element") {
       for (const rawRef of [...asArray(item.references), ...asArray(item.items)]) {
         const ref = asRecord(rawRef);
         const url = str(ref.url);
@@ -217,15 +250,19 @@ export function createDataForSeoProvider(options: DataForSeoOptions = {}): GeoPr
 
       try {
         if (request.kind === "llm") {
-          if (request.model === "aio") {
-            return { result: null, failure: "unsupported", message: "AI Overviews は検索結果側から取得します" };
+          if (!isLlmModel(request.model)) {
+            return {
+              result: null,
+              failure: "unsupported",
+              message: `${request.model === "aio" ? "AI Overviews" : "AI モード"}は検索結果側から取得します`,
+            };
           }
           const path = llmPath(request.model, request.mode);
           const res = await post(
             path,
             {
               user_prompt: request.text,
-              // 標準キューを既定にする。Live はパスそのものが別（§7.4）
+              // 標準キューを既定にする。Live はパスそのものが別（§7.4。Perplexity だけは例外で常に Live）
               web_search: true,
               language_code: languageCode,
             },
@@ -238,9 +275,9 @@ export function createDataForSeoProvider(options: DataForSeoOptions = {}): GeoPr
             : { result: null, failure: "upstream", message: "DataForSEO の応答を解釈できませんでした" };
         }
 
-        // 検索順位・AI Overviews は同じ SERP のエンドポイント（§1.1）
+        // 検索順位・AI Overviews は同じ SERP、AI モードは別のエンドポイント（§1.1）
         const res = await post(
-          "/serp/google/organic/live/advanced",
+          serpPath(request.kind),
           {
             keyword: request.text,
             location_name: locationName,
@@ -265,6 +302,13 @@ function httpFailure(status: number): ProviderOutcome {
   if (status === 429) return { result: null, failure: "rate-limit", message: "DataForSEO の回数制限に達しました" };
   if (status === 401 || status === 403) {
     return { result: null, failure: "no-key", message: "DataForSEO の認証に失敗しました（DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD を確認してください）" };
+  }
+  if (status === 404) {
+    return {
+      result: null,
+      failure: "unsupported",
+      message: "DataForSEO にそのエンドポイントがありません（HTTP 404）。パスは GEO_PATH_* の環境変数で差し替えられます",
+    };
   }
   return { result: null, failure: "upstream", message: `DataForSEO がエラーを返しました（HTTP ${status}）` };
 }

@@ -12,7 +12,7 @@ import { useState } from "react";
 import { Badge, Button, ButtonLink, Callout, Card, Field, Input } from "@/components/ui";
 import { SITE_SETTINGS_HREF } from "@/components/site/RegisteredSite";
 import { PRECISION_REPEATS_PER_WEEK, NORMAL_REPEATS_PER_WEEK } from "@/lib/geo/schedule";
-import { GEO_MODEL_LABELS, GEO_MODELS, type GeoBrand, type GeoKeyword, type GeoModel, type GeoPrompt } from "@/lib/geo/types";
+import { GEO_LLM_MODELS, GEO_MODEL_LABELS, isLiveOnlyModel, type GeoBrand, type GeoKeyword, type GeoModel, type GeoPrompt } from "@/lib/geo/types";
 import { saveSetup, type SetupResponse } from "./client";
 
 /** 設定画面のキーワードカードへの直リンク */
@@ -198,7 +198,7 @@ function PromptForm({ prompts, precisionSlots, onChanged }: { prompts: GeoPrompt
           <input type="checkbox" className="h-4 w-4 accent-accent" checked={precisionMode} onChange={(e) => setPrecisionMode(e.target.checked)} />
           高精度枠（週 {PRECISION_REPEATS_PER_WEEK} 回）
         </label>
-        {GEO_MODELS.filter((m) => m !== "aio").map((model) => (
+        {GEO_LLM_MODELS.map((model) => (
           <label key={model} className="inline-flex items-center gap-1.5">
             <input
               type="checkbox"
@@ -207,9 +207,14 @@ function PromptForm({ prompts, precisionSlots, onChanged }: { prompts: GeoPrompt
               onChange={(e) => setModels((prev) => (e.target.checked ? [...prev, model] : prev.filter((m) => m !== model)))}
             />
             {GEO_MODEL_LABELS[model]}
+            {/* Perplexity は標準キューが無く Live だけなので原価が約 3 倍（判断の経緯 2026-09-21） */}
+            {isLiveOnlyModel(model) && <span className="text-[11px] text-muted">（原価 約 3 倍）</span>}
           </label>
         ))}
       </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-muted">
+        AI Overviews と AI モード（Google）は、プロンプトではなく設定の「対策キーワード」から週 1 回まとめて測ります。
+      </p>
 
       <Button className="mt-3" size="sm" loading={busy} disabled={!text.trim() || models.length === 0} onClick={() => void submit()}>
         追加する

@@ -18,6 +18,7 @@ import type { GeoProvider } from "./provider";
 import { resolveCitations, type ResolveOptions } from "./resolve";
 import { RANK_PLAN, repeatsToday, weekPlan } from "./schedule";
 import { detectVersionChange } from "./aggregate";
+import { GEO_SERP_MODELS, isLlmModel } from "./types";
 import type { CreditAction, GeoBrand, GeoKeyword, GeoMeasurement, GeoModel, GeoObservation, GeoPrompt, MeasurementKind } from "./types";
 
 /** 1 つの実行単位（プロンプト or キーワード × モデル × 反復番号） */
@@ -49,8 +50,8 @@ export function planToday(
     const repeats = repeatsToday(weekPlan(prompt.precisionMode), runDayOffset, now);
     for (let r = 1; r <= repeats; r += 1) {
       for (const model of prompt.models) {
-        // AI Overviews はプロンプトではなくキーワード側で取る
-        if (model === "aio") continue;
+        // AI Overviews と AI モードはプロンプトではなくキーワード側で取る
+        if (!isLlmModel(model)) continue;
         items.push({ kind: "llm", text: prompt.text, hash: prompt.normalizedHash, model, promptId: prompt.id, keywordId: null, repeat: r });
       }
     }
@@ -62,8 +63,12 @@ export function planToday(
       if (keyword.trackRank) {
         items.push({ kind: "rank", text: keyword.text, hash: keyword.normalizedHash, model: "aio", promptId: null, keywordId: keyword.id, repeat: 1 });
       }
+      // `trackAio` は「AI 検索を測る」の印。AI Overviews と AI モードを 1 回ずつ
+      // （利用者の決定 2026-09-21「週 1 回でいい」「AI モードも追加したい」）
       if (keyword.trackAio) {
-        items.push({ kind: "aio", text: keyword.text, hash: keyword.normalizedHash, model: "aio", promptId: null, keywordId: keyword.id, repeat: 1 });
+        for (const model of GEO_SERP_MODELS) {
+          items.push({ kind: model, text: keyword.text, hash: keyword.normalizedHash, model, promptId: null, keywordId: keyword.id, repeat: 1 });
+        }
       }
     }
   }
@@ -164,7 +169,8 @@ export async function runForAccount(
         text: item.text,
         model: item.model,
         locale: deps.locale,
-        // 定期バッチは必ず標準キュー（§7.4）
+        // 定期バッチは必ず標準キュー（§7.4）。Perplexity だけは Live しか無いので
+        // llmPath() 側で Live に落ちる（mode はここでは standard のまま = 会計は下で補正）
         mode: "standard",
         signal: options.signal,
       });
@@ -180,7 +186,8 @@ export async function runForAccount(
       }
 
       const citations = await resolveCitations(outcome.result.citations, deps.resolveOptions);
-      const estimated = costUsd(item.kind, "standard", prices);
+      // Perplexity は標準キューが無く Live しか無いので、原価も Live で数える
+      const estimated = costUsd(item.kind, "standard", prices, item.model);
       measurement = await deps.saveMeasurement({
         kind: item.kind,
         normalizedHash: item.hash,
@@ -236,7 +243,7 @@ export async function runForAccount(
     summary.observations += rows.length;
 
     // --- クレジット記帳（§6 / §11 の決定） ---
-    const action = creditAction(item.kind, "standard");
+    const action = creditAction(item.kind, "standard", item.model);
     if (!cacheHit || chargeOnCacheHit()) {
       const credits = creditCost(action);
       await deps.recordCredit(userId, action, credits, measurement.id, cacheHit);

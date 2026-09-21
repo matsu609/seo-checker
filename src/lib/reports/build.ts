@@ -183,7 +183,7 @@ export function suggestActions(r: Omit<MonthlyReport, "actions" | "summary">): s
     if (todo > 0) out.push(`未登録の媒体 ${todo} 件に登録する（掲載の画面の「一括登録」）`);
   }
   if (!r.rank && r.siteDomain) out.push("順位計測にキーワードを登録する（毎週火曜に自動で測って、この表に載る）");
-  if (!r.ai) out.push("AI 検索モニタリングにプロンプトを登録する（ChatGPT / Gemini / AI Overviews で引用される割合を測る）");
+  if (!r.ai) out.push("AI 検索モニタリングにプロンプトを登録する（ChatGPT / Gemini / Claude / Perplexity / AI Overviews / AI モード で引用される割合を測る）");
   if (r.reviews && r.reviews.low > 0) out.push(`低評価の回答 ${r.reviews.low} 件に対応する（口コミの画面。対応状態を「対応済み」に）`);
   return out.slice(0, 8);
 }

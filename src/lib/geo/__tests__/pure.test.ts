@@ -12,7 +12,7 @@ afterEach(() => {
 
 describe("単価と為替（§0.2 / §1.1）", () => {
   it("既定値は仕様書のとおり", () => {
-    expect(DEFAULT_UNIT_PRICES).toEqual({ rank: 0.002, aio: 0.0026, llmStandard: 0.0012, llmPriority: 0.0024, llmLive: 0.004 });
+    expect(DEFAULT_UNIT_PRICES).toEqual({ rank: 0.002, aio: 0.0026, aiMode: 0.002, llmStandard: 0.0012, llmPriority: 0.0024, llmLive: 0.004 });
   });
 
   it("環境変数で単価を上書きできる（コードに直書きしない）", () => {
@@ -90,15 +90,16 @@ describe("クレジット（§6）", () => {
     expect(creditAction("rank", "standard")).toBe("rank");
   });
 
-  it("標準構成の消費見込みは約 1,520 で、残りがオンデマンド枠（§6.3）", () => {
+  it("標準構成の消費見込みは約 1,620 で、残りがオンデマンド枠（§6.3）", () => {
     const f = forecastStandardPlan();
-    expect(f.rankAio).toBe(500);
+    // 順位 800 + AI Overviews 200 + AI モード 200（2026-09-21 に AI モードを追加）
+    expect(f.rankAio).toBe(600);
     expect(f.llmStandard).toBe(540);
     expect(f.llmPrecision).toBe(210);
     expect(f.weeklyReport).toBe(120);
     expect(f.monthlyAnalysis).toBe(150);
-    expect(f.total).toBe(1520);
-    expect(f.remaining).toBe(480);
+    expect(f.total).toBe(1620);
+    expect(f.remaining).toBe(380);
   });
 
   it("ソフトキャップ: 残高が尽きても定期実行は止めず、Live だけ止める（§6.1）", () => {

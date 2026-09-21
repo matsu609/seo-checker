@@ -9,7 +9,7 @@ import { z } from "zod";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { isDataForSeoConfigured } from "@/lib/geo/dataforseo";
 import { runLive } from "@/lib/geo/service";
-import { GEO_MODELS } from "@/lib/geo/types";
+import { GEO_LLM_MODELS, GEO_MODEL_LABELS, GEO_MODELS, isLlmModel } from "@/lib/geo/types";
 import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
@@ -36,8 +36,13 @@ export async function POST(request: NextRequest) {
   }
   const parsed = BodySchema.safeParse(raw);
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "入力が正しくありません" }, { status: 400 });
-  if (parsed.data.model === "aio") {
-    return Response.json({ error: "AI Overviews は検索キーワード側で計測します（今すぐ実行の対象は ChatGPT と Gemini です）" }, { status: 400 });
+  if (!isLlmModel(parsed.data.model)) {
+    return Response.json(
+      {
+        error: `${GEO_MODEL_LABELS[parsed.data.model]}は検索キーワード側で計測します（今すぐ実行の対象は ${GEO_LLM_MODELS.map((m) => GEO_MODEL_LABELS[m]).join(" / ")} です）`,
+      },
+      { status: 400 },
+    );
   }
 
   try {

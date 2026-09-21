@@ -104,7 +104,7 @@ export const PLANS: readonly Plan[] = [
     summary: "ライトのすべて（精密診断を含む診断と計測）に加えて、AI が改修案・原稿・返信文まで作ります。「どう直すか」の方針で終わらず、直したものが出てくる段階です。",
     highlights: [
       "ライトのすべて（SEO・AIO・MEO の診断と計測）",
-      "AIO の土台: 30 媒体への基本情報の一括掲載（NAP）と llms.txt 生成。AI 検索モニタリング（ChatGPT / Gemini / Google AI Overviews で自社が引用・参照される割合を毎週計測し、競合と比較）",
+      "AIO の土台: 30 媒体への基本情報の一括掲載（NAP）と llms.txt 生成。AI 検索モニタリング（ChatGPT / Gemini / Claude / Perplexity / Google AI Overviews / AI モード で自社が引用・参照される割合を毎週計測し、競合と比較）",
       "SEO: HP 改修提案（直すべき箇所を before → after の形で AI が作成）と AI ライティング・エディター",
       "MEO: 口コミ支援（店内 QR のアンケート）と、口コミへの AI 返信案",
       "ライトとの差は月 12,000 円。AI が作る 7 つのツールがすべて開きます",
