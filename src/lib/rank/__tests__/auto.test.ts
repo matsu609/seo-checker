@@ -30,8 +30,10 @@ describe("自動計測の対象", () => {
     expect(selectAutoTargets({ projects: "x", rankKeywords: keywords }, 5)).toEqual([]);
   });
 
-  it("プランの上限", () => {
-    expect(RANK_AUTO_LIMITS).toEqual({ free: 0, light: 30, standard: 100, premium: 300 });
+  it("プランの上限（2026-09-21 利用者の決定: スタンダード 20 語。上下の段は順序が崩れないように）", () => {
+    expect(RANK_AUTO_LIMITS).toEqual({ free: 0, light: 10, standard: 20, premium: 50 });
+    expect(RANK_AUTO_LIMITS.light).toBeLessThan(RANK_AUTO_LIMITS.standard);
+    expect(RANK_AUTO_LIMITS.standard).toBeLessThan(RANK_AUTO_LIMITS.premium);
   });
 
   // 運用者・管理アカウントは契約が無くてもツールを全部使える立場なので、上限も最上段に合わせる

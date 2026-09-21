@@ -6,14 +6,15 @@
  * - 前回（直前の自動計測または手動計測）と比べて大きく下がった語を知らせる
  */
 import type { PlanId } from "@/lib/plans/catalog";
+import { RANK_AUTO_LIMITS } from "./limits";
 import { rankKeywordsStore, RankKeywordSchema, type RankKeyword, type RankSnapshot } from "./store";
 import { ProjectsSchema, type Project } from "@/lib/store/projects";
 import { z } from "zod";
 
 export { rankKeywordsStore };
 
-/** 1 週間に自動で測る語数の上限（プランごと） */
-export const RANK_AUTO_LIMITS: Record<PlanId, number> = { free: 0, light: 30, standard: 100, premium: 300 };
+/** 1 週間に自動で測る語数の上限（プランごと）。値は limits.ts（費用の試算と共有） */
+export { RANK_AUTO_LIMITS };
 
 /**
  * その人に適用する上限。運用者（ADMIN_EMAILS）は契約が無くてもいちばん上の段として扱う

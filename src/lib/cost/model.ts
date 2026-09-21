@@ -20,6 +20,7 @@
 import type { IntegrationKey } from "@/lib/features/integrations";
 import { DEFAULT_UNIT_PRICES, DEFAULT_USD_JPY } from "@/lib/geo/pricing";
 import { PLAN_BY_ID, type PlanId } from "@/lib/plans/catalog";
+import { RANK_AUTO_LIMITS } from "@/lib/rank/limits";
 
 /** 1 か月の週数（週 1 回の定期処理を月に換算する） */
 export const WEEKS_PER_MONTH = 52 / 12;
@@ -67,8 +68,8 @@ export const SERPAPI_TIERS = [
   { label: "Big Data", searches: 30_000, usd: 275 },
 ] as const;
 
-/** 順位計測（自動）の 1 店舗あたりの登録キーワード上限（src/lib/rank/auto.ts の RANK_AUTO_LIMITS と同じ値） */
-export const RANK_KEYWORDS: Record<CostPlan, number> = { light: 30, standard: 100 };
+/** 順位計測（自動）の 1 店舗あたりの語数上限。定期処理と同じ値を読む（値を 2 か所に持たない） */
+export const RANK_KEYWORDS: Record<CostPlan, number> = { light: RANK_AUTO_LIMITS.light, standard: RANK_AUTO_LIMITS.standard };
 
 /** 前提の数値（この 1 か所だけを直す） */
 export const A = {
