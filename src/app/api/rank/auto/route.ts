@@ -7,7 +7,7 @@
 import { requireUser } from "@/lib/auth/guard";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { scheduleOf } from "@/lib/jobs/schedule";
-import { isAdmin, isAgency } from "@/lib/admin/guard";
+import { isAdmin } from "@/lib/admin/guard";
 import { getCurrentPlan } from "@/lib/plans/current";
 import { rankAutoLimit } from "@/lib/rank/auto";
 import { lastRankRunDate, listRankSnapshots } from "@/lib/rank/server-store";
@@ -33,8 +33,8 @@ export async function GET() {
   if (userId instanceof Response) return userId;
   const nextRunAt = scheduleOf("rank-weekly").next(new Date()).toISOString();
   const { plan } = await getCurrentPlan();
-  // 運用者・管理アカウントは契約が無くてもいちばん上の段（定期処理の側と同じ扱い）
-  const limit = rankAutoLimit(plan, (await isAdmin()) || (await isAgency()));
+  // 運用者は契約が無くてもいちばん上の段（定期処理の側と同じ扱い）
+  const limit = rankAutoLimit(plan, await isAdmin());
   if (!isSupabaseConfigured()) {
     const body: RankAutoResponse = { enabled: false, snapshots: [], nextRunAt, lastRunDate: null, limit };
     return Response.json(body, { headers: NO_STORE });

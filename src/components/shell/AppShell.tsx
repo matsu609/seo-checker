@@ -3,9 +3,11 @@
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { FreeShell } from "@/components/free/FreeShell";
+import { useAccess } from "@/lib/store/usePlan";
 import { findFeatureByPath } from "@/lib/features/registry";
 import { StoreSync } from "@/lib/store/StoreSync";
 import { ImpersonationBanner } from "./ImpersonationBanner";
+import { ManagerNotice } from "./ManagerNotice";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -45,6 +47,16 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
   const isFree = feature?.group === "free" || isAuthPage;
   // 来店客向けのアンケート（/r/<slug>）はサイドバーもトップバーも出さない（店舗の画面ではない）
   const isBare = pathname.startsWith("/r/");
+  /**
+   * 管理アカウントがお客様向けの画面（ツール・設定・料金プラン）を開いたときは、中身の代わりに
+   * 案内を出す（利用者の指示 2026-09-21）。サイドバーからは消してあるので、URL を直接開いた・
+   * 古いブックマークから来た場合の受け皿。運用者（マスター）は自分で確かめるのでそのまま出す。
+   * 判定が取れるまで（access が null）は何も差し替えない。
+   */
+  const access = useAccess();
+  const forCustomersOnly = pathname.startsWith("/tools") || pathname === "/settings" || pathname === "/plans";
+  const managerBlocked = access?.agency === true && access.admin !== true && forCustomersOnly;
+  const body = managerBlocked ? <ManagerNotice /> : children;
   const drawerId = useId();
 
   const [open, setOpen] = useState(false);
@@ -149,7 +161,7 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
           drawerId={drawerId}
           authEnabled={authEnabled}
         />
-        <main className="flex-1 px-4 py-6 md:px-8 print:m-0 print:max-w-none print:p-0">{children}</main>
+        <main className="flex-1 px-4 py-6 md:px-8 print:m-0 print:max-w-none print:p-0">{body}</main>
       </div>
 
       {/* モバイルのドロワー */}

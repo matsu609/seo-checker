@@ -9,6 +9,7 @@
  *
  * 運用者（マスター）と管理アカウントで同じ表を使い、**どちらにも全登録者が出る**
  * （利用者の指示 2026-09-21「担当とか関係ない」。担当の割り当ては仕組みごと外した）。
+ * 管理アカウント自身は顧客ではないので、この表には出てこない（loadClients で外している）。
  * 操作（割引・機能の個別開放・代理ログイン）はどちらも同じ API を使い、相手が
  * 管理アカウントのときだけサーバーが 404 を返す（src/lib/admin/guard.ts の requireClientAccess）。
  *
@@ -21,7 +22,6 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { toolGroupsForDisplay } from "@/lib/features/registry";
 import { planLabel } from "@/lib/plans/catalog";
-import type { AgencyRow } from "@/lib/admin/agencies";
 import type { ClientRow } from "@/lib/admin/clients";
 import { formatDate, planSourceLabel, STATUS_TONE } from "./format";
 import { PromoSelect } from "./PromoSelect";
@@ -33,8 +33,6 @@ export interface ClientTableProps {
   initial: ClientRow[];
   /** 無料診断の上限（回数の表示に使う） */
   freeRunLimit?: number;
-  /** 管理アカウントの一覧（その行が管理アカウント本人かを見分けるのに使う） */
-  agencies?: AgencyRow[];
   /** 顧客が 1 人も居ないときの案内（立場で文面が変わる） */
   emptyTitle?: string;
   emptyDescription?: string;
@@ -42,7 +40,6 @@ export interface ClientTableProps {
 
 export function ClientTable({
   initial,
-  agencies = [],
   freeRunLimit = 2,
   emptyTitle = "まだ顧客がいません",
   emptyDescription = "ログインしたアカウントがここに並びます。",
@@ -152,8 +149,6 @@ export function ClientTable({
       )}
 
       {rows.map((row) => {
-        // 管理アカウント本人の行には割引を出さない（金額の付け合いを作らない）
-        const isAgency = agencies.some((a) => a.userId === row.userId);
         return (
           <Card
             key={row.userId}
@@ -276,7 +271,7 @@ export function ClientTable({
               )}
 
               {/* 割引（スタンダード専用）。運用者・管理アカウントのどちらからも設定できる */}
-              {!isAgency && <PromoSelect userId={row.userId} value={row.promo} endpoint="/api/admin/promo" subscribed={row.billing.status === "active" || row.billing.status === "trial"} />}
+              <PromoSelect userId={row.userId} value={row.promo} endpoint="/api/admin/promo" subscribed={row.billing.status === "active" || row.billing.status === "trial"} />
 
               {/* 機能の個別開放 */}
               <div>

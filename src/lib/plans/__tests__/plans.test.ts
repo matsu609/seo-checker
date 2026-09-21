@@ -232,33 +232,34 @@ describe("Clerk Billing（Stripe）のプラン識別子", () => {
 });
 
 /**
- * 運用者・管理アカウントの扱い（利用者の決定 2026-09-20）。
- * 管理アカウントは、カードの登録なしでツールを全部使える。ログイン中の判定
- * （checkPlanForFeature）と定期処理の判定（accessAllows）で食い違うと、
- * 「画面では使えるのに自動処理だけ動かない」が起きるので、ここで固定する。
+ * 運用者と管理アカウントの扱い。
+ *
+ * 運用者（ADMIN_EMAILS）は契約が無くても全ツールを使える（本番の DEFAULT_PLAN が free のため）。
+ * **管理アカウントはツールを使わない立場**（2026-09-21 の利用者の指示で、画面からも消した）なので、
+ * ここで開いてはいけない。ログイン中の判定（checkPlanForFeature）と定期処理の判定（accessAllows）、
+ * 画面の鍵表示（canUseFeature）で食い違わないよう、まとめて固定する。
  */
-describe("運用者・管理アカウントは全機能", () => {
-  const base = { userId: "user_1", plan: "free" as PlanId, overrides: [], admin: false, agency: false, email: null, missing: false };
+describe("運用者は全機能・管理アカウントは開けない", () => {
+  const base = { userId: "user_1", plan: "free" as PlanId, overrides: [], admin: false, email: null, missing: false };
   // 無料プランでは使えない機能（レジストリから 1 つ拾う）
   const paidFeature = features.find((f) => f.plan !== "free")?.featureIds[0] ?? "rank";
 
-  it("無料プランのままでも、運用者と管理アカウントには開く", async () => {
+  it("無料プランのままでも、運用者には開く", async () => {
     const { accessAllows } = await import("@/lib/plans/user");
     expect(accessAllows(base, paidFeature)).toBe(false);
     expect(accessAllows({ ...base, admin: true }, paidFeature)).toBe(true);
-    expect(accessAllows({ ...base, agency: true }, paidFeature)).toBe(true);
   });
 
   it("Clerk から読めなかった人には、立場に関わらず開かない", async () => {
     const { accessAllows } = await import("@/lib/plans/user");
-    expect(accessAllows({ ...base, agency: true, missing: true }, paidFeature)).toBe(false);
+    expect(accessAllows({ ...base, admin: true, missing: true }, paidFeature)).toBe(false);
   });
 
-  it("画面側の判定（canUseFeature）も同じ", async () => {
+  it("画面側の判定（canUseFeature）も同じ。管理アカウントでは開かない", async () => {
     const { canUseFeature } = await import("@/lib/store/usePlan");
     const access = { plan: "free" as PlanId, overrides: [], admin: false, agency: false };
     expect(canUseFeature(access, paidFeature, "standard")).toBe(false);
-    expect(canUseFeature({ ...access, agency: true }, paidFeature, "standard")).toBe(true);
+    expect(canUseFeature({ ...access, agency: true }, paidFeature, "standard")).toBe(false);
     expect(canUseFeature({ ...access, admin: true }, paidFeature, "standard")).toBe(true);
   });
 });

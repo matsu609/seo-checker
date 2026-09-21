@@ -19,7 +19,6 @@ import Link from "next/link";
 import { ClientTable } from "@/components/admin/ClientTable";
 import { FeedbackCard } from "@/components/admin/FeedbackCard";
 import { Callout } from "@/components/ui/Callout";
-import { loadAgencies, type AgencyRow } from "@/lib/admin/agencies";
 import { loadClients, type ClientRow } from "@/lib/admin/clients";
 import { currentClientScope } from "@/lib/admin/guard";
 import { DbError, isSupabaseConfigured } from "@/lib/db/supabase";
@@ -53,15 +52,13 @@ export default async function Page() {
   const master = scope.kind === "master";
 
   let rows: ClientRow[];
-  let agencies: AgencyRow[] = [];
   let totalCount = 0;
   let truncated = 0;
   let limit = freeRunLimit();
   try {
-    // 見えるお客様は立場によらず全員。管理アカウントの一覧も要る（行が管理アカウントかどうかの判定に使う）
-    const [clients, list] = await Promise.all([loadClients(), loadAgencies()]);
+    // 見えるお客様は立場によらず全員（管理アカウント自身は顧客ではないので含まれない）
+    const clients = await loadClients();
     rows = clients.rows;
-    agencies = list;
     totalCount = clients.totalCount;
     truncated = clients.truncated;
     limit = clients.freeRunLimit;
@@ -126,7 +123,7 @@ export default async function Page() {
         {truncated > 0 && <span>（新しい順に {rows.length} 件を表示）</span>}
       </div>
 
-      <ClientTable initial={rows} agencies={agencies} freeRunLimit={limit} />
+      <ClientTable initial={rows} freeRunLimit={limit} />
     </div>
   );
 }

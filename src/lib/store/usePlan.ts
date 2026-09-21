@@ -16,7 +16,7 @@ export interface Access {
   overrides: string[];
   /** マスター画面を出してよいか（運用者） */
   admin: boolean;
-  /** 顧客管理の画面を出してよいか（管理アカウント）。ツールは全部使える */
+  /** 顧客管理の画面を出してよいか（管理アカウント）。お客様向けのツールは出さない */
   agency: boolean;
 }
 
@@ -79,8 +79,9 @@ export function useAccess(): Access | null {
 /** 機能が使えるか。取得前は「使える」に倒す（鍵を出さない） */
 export function canUseFeature(access: Access | null, featureId: string, required: PlanId): boolean {
   if (!access) return true;
-  // 運用者と管理アカウントは全ツールを使える（サーバーの checkPlanForFeature と同じ）
-  if (access.admin || access.agency) return true;
+  // 運用者は全ツールを使える（サーバーの checkPlanForFeature と同じ）。
+  // 管理アカウントはツールを使わない立場なので、ここでも開けない（2026-09-21）
+  if (access.admin) return true;
   if (access.overrides.includes(featureId)) return true;
   return PLAN_RANK[access.plan] >= PLAN_RANK[required];
 }

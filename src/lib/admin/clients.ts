@@ -15,6 +15,7 @@ import { overridesFromMetadata, toggleOverride, OVERRIDES_KEY } from "@/lib/plan
 import { resolveUserPlan, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
 import { summarizeStripeState, summarizeSubscription, type BillingSummary } from "./billing";
+import { isAgencyMetadata } from "./roles";
 
 import { assignedPromoFromMetadata, patternById, withAssignedPromo } from "@/lib/billing/promo";
 import { leadFromMetadata, type LeadProfile } from "@/lib/free/lead";
@@ -171,9 +172,15 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
     orderBy: "-created_at",
   });
 
-  const rows = await buildClientRows(users as ClerkUserLike[]);
+  // 管理アカウントは顧客ではない（サービスの利用者ではなく、対応する側）。
+  // 一覧に混ぜると契約状況が空の行が並んで紛らわしいので外す（利用者の指示 2026-09-21）
+  const all = users as ClerkUserLike[];
+  const customers = all.filter((u) => !isAgencyMetadata(u.publicMetadata));
+  const rows = await buildClientRows(customers);
+  // 総数からも外す。全体をなめていない（limit で切っている）ので、外した分だけ引く
+  const total = Math.max(0, totalCount - (all.length - customers.length));
 
-  return { rows, freeRunLimit: freeRunLimit(), totalCount, truncated: Math.max(0, totalCount - rows.length) };
+  return { rows, freeRunLimit: freeRunLimit(), totalCount: total, truncated: Math.max(0, total - rows.length) };
 }
 
 /**

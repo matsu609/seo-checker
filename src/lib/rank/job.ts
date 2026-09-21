@@ -61,7 +61,7 @@ export async function runRankWeekly(ctx: JobContext, deps: RankJobDeps = default
       continue;
     }
     const stores = await deps.loadStores(u.userId);
-    const targets = selectAutoTargets({ projects: stores.projects, rankKeywords: u.value }, rankAutoLimit(access.plan, access.admin || access.agency));
+    const targets = selectAutoTargets({ projects: stores.projects, rankKeywords: u.value }, rankAutoLimit(access.plan, access.admin));
     if (targets.length === 0) {
       summary.skippedEmpty += 1;
       continue;

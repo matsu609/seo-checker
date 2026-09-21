@@ -134,6 +134,13 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
   const { status } = useIntegrations();
   const access = useAccess();
   const linkProps = { pathname, status, access, onNavigate };
+  /**
+   * 管理アカウントにはお客様向けのツールを出さない（利用者の指示 2026-09-21「紛らわしい」）。
+   * 管理アカウントはサービスの利用者ではなく、お客様の対応をする立場なので、
+   * 出すのは「管理者用」（顧客管理・デモ用の無料クイック診断）だけにする。
+   * 運用者（マスター）は自分で動作を確かめるので、従来どおり全部出す。
+   */
+  const managerOnly = access?.agency === true && access.admin !== true;
 
   return (
     <nav aria-label="メインナビゲーション" className="flex min-h-full flex-col text-on-brand">
@@ -154,6 +161,9 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
         )}
       </div>
 
+      {/* お客様向けのツール（管理アカウントには出さない） */}
+      {!managerOnly && (
+      <>
       {/* 親のくくり: AIO 対策 */}
       <div className="mt-5 px-4">
         <div className="flex items-center gap-2">
@@ -217,6 +227,8 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
           ))}
         </ul>
       </div>
+      </>
+      )}
 
       {/*
         運用者・管理アカウントだけに出す。判定はサーバー（/api/plan）で、ここは表示の出し分けだけ。
