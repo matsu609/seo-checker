@@ -106,7 +106,7 @@
 | PageSpeed Insights | キー作成済み（利用者報告） | Vercel への反映・Redeploy は要確認 |
 | Anthropic（Claude） | **本番で「未設定」と表示される** | Vercel には `ANTHROPIC_API_KEY` が登録されているのに `process.env` で空。値の貼り直し → Redeploy が必要 |
 | Supabase | **プロジェクト・テーブル・Vercel の環境変数まで完了**（`matsu609の組織` / `matsu609のプロジェクト`、Free プラン、ref `qcdkatzxvdgplgibevlc`） | Vercel への環境変数登録と Redeploy は利用者側で作業中。コード（r19）は完成 |
-| Business Profile API | **09-11 に申請（ケース ID `0-4126000041187`）→ 返信なし。09-20、利用者の決定「株式会社Wolf と関係なく `matsumatsu452@gmail.com`（個人）で取る」。**前回も同じアカウントから送っており、**変えるべきなのはアカウントではなくフォーム 1 画面目で選ぶ「確認済みプロフィール」**（Wolf しか出なかった）。**法人登記は不要**（個人事業・屋号で可。条件は「対面でお客様と接する実在のビジネス」）。3 つの道（A 翠煙を借りる / B SEO 研究所を新規登録して 60 日待つ / C 他の確認済みプロフィール）は**利用者の選択待ち** | 手順は [google-oauth-verification.md](./google-oauth-verification.md) **§6**（§5 のオーナー `wolf@` 案は §6 で置き換え）。Google の審査制（最大 2 週間）。承認後に足すコードは無い（r37 / r97 / 投稿まで実装済み）。**進捗を見るページは Google に無い**（ケース ID はメールだけ）。承認の合否は Google Cloud の「割り当て」で判定する — https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 が **0 = 未承認 / 300 = 承認済み**。もう一つのランプは v4 がライブラリに出るかどうか。詳細は §5-5 |
+| Business Profile API | **09-11 に申請（ケース ID `0-4126000041187`）→ 返信なし。09-20、利用者の決定「株式会社Wolf と関係なく `matsumatsu452@gmail.com`（個人）で取る」。**前回も同じアカウントから送っており、**変えるべきなのはアカウントではなくフォーム 1 画面目で選ぶ「確認済みプロフィール」**（Wolf しか出なかった）。**法人登記は不要**（個人事業・屋号で可。条件は「対面でお客様と接する実在のビジネス」）。**09-21 に道 B（SEO 研究所を新規登録）は消えた**（利用者の説明「対面で伺うビジネスではない。SaaS で代理店にお願いする形」= Google のガイドライン上は登録できない）。→ **入口は「他人の確認済みプロフィールを 1 つ管理させてもらう」以外に無い**（公式に「管理しているクライアントのプロフィールでもよい」と明記。資本関係は問われない）。候補は ①Wolf（60 日はクリア済み、残る障害は 09-19 の確認だけ＝**最短**）②翠煙（どのアカウントで登録したかが不明）③これからの代理店・お客様（**本命**） | 手順は [google-oauth-verification.md](./google-oauth-verification.md) **§6**（§5 のオーナー `wolf@` 案は §6 で置き換え）。Google の審査制（最大 2 週間）。承認後に足すコードは無い（r37 / r97 / 投稿まで実装済み）。**進捗を見るページは Google に無い**（ケース ID はメールだけ）。承認の合否は Google Cloud の「割り当て」で判定する — https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 が **0 = 未承認 / 300 = 承認済み**。もう一つのランプは v4 がライブラリに出るかどうか。詳細は §5-5 |
 | 定期処理（`/api/cron/daily`、r127） | **本番で動作を確認（09-20 22:52、サイトの事故監視を「今すぐ実行」で成功。記録も `cron_runs` に残った）** | 毎日 5:00 JST。月: マップ診断 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断。記録はマスター画面の「定期処理（Cron）の状況」 |
 | Resend（メール送信、r127） | **未設定**（`RESEND_API_KEY` / `MAIL_FROM`） | #119 の手順。無くても画面の「お知らせ」には残る |
 | Stripe（直結） | **本番モードで割引付きの Checkout まで確認済み（2026-09-18 21:30）。Webhook（決済後に契約中になるか）は未確認** | 利用者は Stripe アカウント作成済み。#58 の手順（商品・価格 → Webhook → ポータル → 環境変数）。Clerk Billing はドルのみのため使わない。プランは `DEFAULT_PLAN=pro` のまま（r63 の読み替えで `standard` = スタンダードとして動く） |
@@ -218,7 +218,7 @@ Clerk の 5 件は Domain Connect で自動登録済み。すべて **DNS のみ
 | 45 | r27 の SQL を Supabase で実行（`meo_owner_inputs`） | 利用者 | **完了（09-11 17:21、画面で Success を確認）**。残りは本番 `/tools/maps` の「オーナー情報の入力」で保存できるかの確認 |
 | 19 | **`CRON_SECRET`** を Vercel に登録（Secret、Production）→ Redeploy。登録後、Vercel の Settings → Cron Jobs に `/api/cron/daily`（`0 20 * * *`。r127 で日次に統合）と `/api/cron/geo-run` の 2 本が出ることを確認 | 利用者 | 未 |
 | 4 | フェーズ 2 のコード: 診断結果の保存・履歴・「最新診断結果」カード | Claude | **完了（r19、r21 で「保存」ボタンは廃止し自動保存に）** |
-| 5 | Business Profile API の利用申請 | 利用者 | **09-11 20:52 に申請（ケース ID `0-4126000041187`）→ 9 日経っても返信なし。09-20、利用者の決定で Wolf を切り離し、`matsumatsu452@gmail.com`（個人）で取り直す。**落ちた最有力の理由は **60 日ルール**（Wolf は 7/14 のオーナー通知から 09-11 で 59 日目）。**次にやること: どのプロフィールで申請するかを決める**（A 翠煙のオーナーに `matsumatsu452@gmail.com` を追加してもらう / B SEO 研究所を新規登録して 60 日待つ / C 他の確認済みプロフィール）。**代わりが手に入るまで Wolf から自分を外さない**（外すとフォームで選べるものが 0 になる）。手順とコピペ用の記入内容は [google-oauth-verification.md](./google-oauth-verification.md) **§6** |
+| 5 | Business Profile API の利用申請 | 利用者 | **09-11 20:52 に申請（ケース ID `0-4126000041187`）→ 9 日経っても返信なし。09-20、利用者の決定で Wolf を切り離し、`matsumatsu452@gmail.com`（個人）で取り直す。**落ちた最有力の理由は **60 日ルール**（Wolf は 7/14 のオーナー通知から 09-11 で 59 日目）。**09-21: 自前のプロフィールを作る道は消えた**（SaaS は Google のガイドライン上、対面事業ではないので登録できない）。**次にやること: ①Wolf の確認（https://business.google.com/n/4773232117026925181/profile/verify 。メールは `wolf@wolf-info.org` に届いている）を終わらせて Wolf で申請する（最短）②あわせて翠煙をどの Google アカウントで登録したか探す ③最初の代理店・お客様が決まればその店舗で申請（本命）**。**代わりが手に入るまで Wolf から自分を外さない**（外すとフォームで選べるものが 0 になる）。手順とコピペ用の記入内容は [google-oauth-verification.md](./google-oauth-verification.md) **§6** |
 | 6 | 運営者情報（連絡先・事業者名・所在地）→ `src/lib/legal/operator.ts` | 利用者 → Claude | **完了（r23, r24）** |
 | 29 | **紹介サイトのビルド元をこのリポジトリに切り替える**: Cloudflare → Compute（Workers） → `seo-checker-hp` → Settings → Build → Git repository を `matsu609/seo-checker`（ブランチ `main`）に、**Root directory を `marketing`** に変更 → Save → 新しいコミットでビルド → `https://seo-checker.tokyo/` の表示を確認 | 利用者 | **切り替え完了（09-11 0:04、バージョン `9ef76797` = コミット `c60fe42` がアクティブ）**。残りは `https://seo-checker.tokyo/` の表示確認と、旧リポジトリのアーカイブだけ |
 | 30 | 紹介サイトの文面反映（運営者情報、SEO/AIO/MEO の説明、Google 連携の説明、フッターのリンク、CTA をアプリへ） | Claude | **完了。09-11 1:00 に本番 https://seo-checker.tokyo/ の表示を利用者の画面で確認** |
@@ -670,7 +670,7 @@ alter table user_stores enable row level security;
 | B-4 | 58-⑧ | Stripe 復旧後: 本番モードで商品・Webhook・ポータル → Vercel の `STRIPE_*` を本番の値に → Redeploy → `/plans` で申し込みが通ることを確認。ここで初めて「申し込む」を開ける | 利用者 | 1 時間 |
 | C-1 | 83 / 90 | Ahrefs の新しいキーを Vercel `AHREFS_API_KEY`（+ `AHREFS_API_KEY_ISSUED_AT=2026-09-16`）に → Redeploy → `/admin` で「設定済み」。無いと報告書のドメインパワーから DR の 25 点分が抜けるだけ | 利用者 | 10 分 |
 | C-2 | 13 | Google OAuth の本番公開申請（審査 2〜6 週間）。お客様が増えたらテストユーザー 100 人の上限と 7 日失効が効いてくる | 利用者 + Claude | 申請は来週でも可 |
-| C-3 | 5 / 54 | **Business Profile API の再申請（09-20）。**前回ケース `0-4126000041187` は返信なし。Wolf を切り離し `matsumatsu452@gmail.com`（個人）で取り直す。①申請に使うプロフィールを決める（A 翠煙 / B SEO 研究所を新規 / C 他）→②再申請 →③前回ケースの締め（[google-oauth-verification.md](./google-oauth-verification.md) **§6**）。承認まで口コミ返信は「段階 1（コピーして GBP へ）」で運用 | 利用者 | ①次第 |
+| C-3 | 5 / 54 | **Business Profile API の再申請（09-20）。**前回ケース `0-4126000041187` は返信なし。Wolf を切り離し `matsumatsu452@gmail.com`（個人）で取り直す。①申請に使うプロフィールを決める（**自前は不可。Wolf / 翠煙 / これからのお客様の 3 択**）→②再申請 →③前回ケースの締め（[google-oauth-verification.md](./google-oauth-verification.md) **§6**）。承認まで口コミ返信は「段階 1（コピーして GBP へ）」で運用 | 利用者 | ①次第 |
 | C-5 | 91 | **AI 検索モニタリング（r76）を動かす**: Supabase の SQL → DataForSEO 登録（前払い $50 程度）→ Vercel に `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` → Redeploy → `/tools/geo` でブランドとプロンプトを登録。下の「AI 検索モニタリングを有効にする手順」に 8 手順の表がある。**明日のリリースには不要**（新機能で、数値が安定するまで 4 週かかるため、落ち着いてから） | 利用者 | 40 分 + 翌朝の確認 |
 | C-6 | 93 | AI 検索モニタリングをライトに含めるかスタンダードのままかを決める（下の #93） | 利用者 | 5 分 |
 | C-4 | 12 | 規約・特商法の専門家レビュー（r41 の文面は Claude の仮置き。少なくとも運営責任者名・解約条件を利用者が一読する） | 利用者 | 30 分 |
@@ -953,8 +953,8 @@ alter table monthly_reports enable row level security;
 - **明日の公開の形（09-16 提案）**: Stripe が止まっているあいだ、最初のお客様の初月（無料）は管理画面の個別開放で使ってもらい、2 か月目の請求は ①Stripe 復旧を待って Checkout で ②請求書（銀行振込）で、のどちらにするか。②なら請求書の発行方法（Stripe の請求書機能は決済停止中は使えない可能性が高いので、手書き / 会計ソフト）
 - 運営者名・連絡先メール・所在地（#6）
 - Supabase の SQL 実行と Vercel の環境変数登録が済んだという連絡（#3。URL もキーも会話に貼らなくてよい）
-- **Business Profile API をどのプロフィールで申請するか（#5 / #54 ①。09-20 の最優先の未決）。**利用者の決定で Wolf は切り離す。**A**: 翠煙のオーナーに `matsumatsu452@gmail.com` を追加してもらう（最短・推奨） / **B**: SEO 研究所を新規登録して確認 → 60 日待つ（11 月下旬以降。お客様を訪問している場合のみ） / **C**: `business.google.com` に Wolf 以外の確認済みプロフィールが出る（その名前と確認完了時期）。選んだら [google-oauth-verification.md](./google-oauth-verification.md) §6-3 の手順へ。送信後の**新しいケース ID**も共有してもらう
-- **SEO 研究所はお客様のところへ訪問しているか**（上の B の可否を決める。Google は「対面で接する事業」だけを対象にしており、Zoom とツールだけで完結しているとガイドライン上は登録できない）
+- **Business Profile API をどのプロフィールで申請するか（#5 / #54 ①。最優先の未決）。**09-21 に**自前のプロフィールを作る道は消えた**（SaaS は対面事業ではないため）。残る 3 択: **①Wolf**（60 日クリア済み。09-19 の確認を終わらせるだけ＝最短。「関係ない会社」でも資本関係は問われず、Wolf は何も所有しない） / **②翠煙**（どの Google アカウントで登録したかを思い出す・探す） / **③最初の代理店・お客様の店舗**（本命だが契約待ち）。選んだら [google-oauth-verification.md](./google-oauth-verification.md) §6-3 の手順へ。送信後の**新しいケース ID**も共有してもらう
+- **翠煙のプロフィールをどの Google アカウントで登録したか**（09-11 に `matsumatsu452@gmail.com` でフォームを開いたときは出なかったので別アカウントのはず）
 - **Business Profile API の割り当ての数字**（進捗チェック。§5-5）。https://console.cloud.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/quotas?project=seo-checker-508104 の「1 分あたりのリクエスト数」が **0 か 300 か**。0 なら未承認のまま、300 なら承認済みなので v4 の有効化（#116）に進む
 - 口コミ支援の課金（スタンダードに含めたまま = 現状。店舗数課金にするなら 2 店舗目以降の単価）と、低評価のメール通知を足すか（送信サービスが要る）
 - **Clerk のユーザーで `publicMetadata.plan` に `standard` を手で割り当てた人がいないか**（r63 で `standard` の意味が「診断・計測のみ」から「全機能」に変わったため。いれば `light` に直す。誰にも割り当てていなければ何もしなくてよい）。画面: https://dashboard.clerk.com/ → Users → 各ユーザー → Metadata
@@ -4213,3 +4213,19 @@ Business Profile API の前提条件の 1 番目は「**確認済み（verified�
 - §6 には再申請の手順表（7 手順・URL つき）、フォームの記入内容（個人事業版・英文コピペ用）、前回ケースを締める英文も入れた。
 - **利用者の回答待ち**: ①どの道（A / B / C）で進めるか ②SEO 研究所はお客様のところへ訪問しているか（B の可否を決める）。
 - 触っていないこと: コード・テスト・リリース番号。`r131` のまま。
+
+### 2026-09-21（Business Profile API: 自前のプロフィールを作る道が消え、他社のプロフィールを借りる 3 択に）
+
+- 利用者の説明「お客さんと直接会って伺うビジネスではない。もちろん会うこともできるが、SaaS というかシステム提供なので、代理店にお願いする形になる」「翠煙は代理で適当に登録しただけで、あまり関係はない」。コードは触っていない（調査と手順の記録のみ）。
+- **確定 1: 道 B（SEO 研究所のプロフィールを新規登録）は消えた。**Google のガイドラインは対面で接する事業だけを対象にしており、SaaS・システム提供は対象外。無理に登録しても確認で落ちるか、後で停止される。**停止されたプロフィールは API 申請にも響く**ので、やってはいけない。
+- **確定 2: 入口は「他人の確認済みプロフィールを 1 つ管理させてもらう」以外に無い。**これは Google が想定している正規の形で、公式の前提条件に「自社のオフィス・本社のプロフィールでも、**管理しているクライアントのプロフィールでもよい**」と明記されている。**Google が見ているのは「実際に確認済みプロフィールを管理しているか」だけで、資本関係は問われない。**承認は `seo-checker-508104` に付くので、選んだプロフィールの持ち主が何かを所有することにもならない。
+- **残る 3 択（[google-oauth-verification.md](./google-oauth-verification.md) §6-6 の表）**:
+  - **① 株式会社Wolf — 最短。**60 日条件は 09-21 時点でクリア済み（7/13〜14 のオーナー / 管理者通知から 69 日）。**残る障害は 09-19 の「確認が外れている」だけ**で、確認 URL は https://business.google.com/n/4773232117026925181/profile/verify 、メールは `wolf@wolf-info.org` に届いている。利用者は「関係ない」と言うが、上のとおり資本関係は問われない。
+  - **② 翠煙 — どの Google アカウントで登録したかが不明。**09-11 に `matsumatsu452@gmail.com` でフォームを開いたときに出なかったので、別のアカウントで登録したはず。そのアカウントが分かれば即使える。
+  - **③ これからの代理店・お客様の店舗 — 本命。**代理店モデルなら本来の形。最初の 1 社が決まった時点で確実に申請できる。
+- **承認が無くてもサービスは売れる**ことを §6-6 に表で明記した。止まるのは GBP に書き込む機能（口コミの全件取得と返信投稿・Google での見られ方・予約投稿・MEO の 9 項目の自動取得）だけで、MEO 診断・NAP チェック・順位計測・サイト診断・精密診断・AI 検索モニタリング・口コミ支援は全部動く。**口コミ返信も「段階 1（AI が案を出す → コピーして GBP に貼る）」で実運用できる。**最初のお客様を取るのを止める理由にはならない。
+- **並行して勧めたこと**: Google の**代理店（組織）アカウント**の登録（無料。https://support.google.com/business/answer/9199701?hl=ja → https://business.google.com/ ）。申請が「空の開発プロジェクト」ではなく「実在の代理店の本物の用途」に見えるようになり、お客様が増えたときの管理も楽になる。
+- 申請フォームの連絡先 `contact@seo-checker.tokyo` はサイトと同じドメインで要件どおり。ログインするアカウントが Gmail のフリーアドレスである点は弱みになりうるが必須ではないので今回は変えない。
+- 出典: [Prerequisites | Google Business Profile APIs](https://developers.google.com/my-business/content/prereqs)、[Overview for agencies](https://support.google.com/business/answer/9199701?hl=en)、[Business Profile third-party policies](https://support.google.com/business/answer/7353941?hl=en-GB)、[ビジネスの適格性とオーナー権限に関するガイドライン](https://support.google.com/business/answer/13763036?hl=ja)。
+- **利用者の回答待ち**: ①3 択のどれで進めるか（おすすめは ① を今すぐ + ③ を本線） ②翠煙をどの Google アカウントで登録したか。
+- 触っていないこと: コード・テスト・リリース番号。`r133` のまま。
