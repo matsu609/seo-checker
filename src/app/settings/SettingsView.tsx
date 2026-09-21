@@ -30,6 +30,7 @@ import { useCurrentProject, useProjects } from "@/lib/store/hooks";
 import { useLeadProfile } from "@/lib/account/lead-client";
 import { NotificationsCard } from "@/components/settings/NotificationsCard";
 import { KarteCard } from "@/components/settings/KarteCard";
+import { SurveyCard } from "@/components/settings/SurveyCard";
 import { UsageCard } from "@/components/settings/UsageCard";
 import { BusinessCard, KeywordsCard, StoresCard } from "./SharedCards";
 
@@ -55,6 +56,7 @@ export function SettingsView({ googleSection }: { googleSection?: ReactNode }) {
     <div className="mx-auto w-full max-w-6xl">
       <PageHeader feature={feature} />
       <div className="space-y-6">
+        <SurveyCard />
         <BusinessCard />
         <KarteCard />
         <HomeUrlCard />

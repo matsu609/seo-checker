@@ -293,6 +293,8 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
               { href: "/admin/design", label: "設計書", exact: false, badge: 0 },
               // お客様の声を集めた場所（次に何を作るかを決める画面。利用者の決定 2026-09-21）
               { href: "/admin/karte", label: "カルテの集計", exact: false, badge: 0 },
+              // ツールを使っている事業者（B）へのアンケート。来店客向けの口コミアンケートとは別物
+              { href: "/admin/survey", label: "アンケートの集計", exact: false, badge: 0 },
               { href: "/admin/accounts", label: "管理アカウント", exact: false, badge: 0 },
               // 未対応の件数を出す（利用者の指示 2026-09-21「ご意見・不具合が来たら通知を出す」）。
               // 件数は /api/plan が返す（1 ページにつき 1 回）。返答したあとは画面を開き直すと減る

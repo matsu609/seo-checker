@@ -45,6 +45,7 @@
 | 管理者用 | `/clients` | 顧客管理（契約状況・ご利用状況・ご意見への返答・割引・機能の個別開放・代理ログイン）。運用者・管理アカウントのどちらにも**全登録者**（2026-09-21。担当による絞り込みは廃止）。ほかは 404 | — | Clerk / Supabase（ご意見） |
 | マスターアカウント用 | `/admin` | マスター画面（**システム側だけ**: 版・外部連携の設定状況（鍵の要る API だけでなく Google Cloud・Clerk / Stripe・Supabase / Resend / Cron・Vercel / GitHub / Cloudflare / お名前.com まで全部。2026-09-21）・**月額費用の試算**（店舗数を横軸にした固定費 / 変動費のグラフ。`src/lib/cost/model.ts`）・定期処理）。`ADMIN_EMAILS` の人だけ。ほかは 404 | — | Clerk |
 | 設定 | `/karte` | お客様カルテ（業種別の設問。強み・客層・よく聞かれる質問・ご要望）。答えは AI の文章に自動で入り、ご要望は運営者の集計へ。2026-09-21 | — | Supabase（`karte_answers`） |
+| マスターアカウント用 | `/admin/survey` | アンケートの集計（ツールを使っている事業者 = B への定期アンケート。14 日 / 3 か月 / 1 年。運用者だけ） | — | Supabase（`survey_answers`） |
 | マスターアカウント用 | `/admin/karte` | カルテの集計（設問ごとに全お客様の答え。次に作る機能を決める画面。運用者だけ） | — | Supabase |
 | マスターアカウント用 | `/admin/design` | 設計書（どのサービスの上に載っていて、それぞれをどの機能実装に使ったか。全体像・サービスごとの役割と使っている機能・機能 × 連携の表・やめたもの・資料へのリンク。`src/lib/design/blueprint.ts` + `integrations.ts` + `registry.ts` の依存から自動で組む。2026-09-21） | — | なし |
 | マスターアカウント用 | `/admin/accounts` | 管理アカウントの追加（招待）・解除（**運用者だけ**。2026-09-21 にマスター画面から分離） | — | Clerk |
@@ -105,6 +106,8 @@ src/
     usage/                    # 実費の出る機能の月の回数上限（limits.ts = 値と数え方、gate.ts = takeUsage()、store.ts = usage_events）
     karte/                    # お客様カルテ（questions.ts = 業種別の設問、summary.ts = AI に渡す文章と指紋、
                               #   server.ts = currentKarteBrief()、store.ts = karte_answers、aggregate.ts = 運営者の集計）
+    survey/                   # ツールについてのアンケート（相手は B = 利用している事業者。definitions.ts = 14 日 / 3 か月 / 1 年の 3 回、
+                              #   due.ts = いつ出すか、store.ts = survey_answers、aggregate.ts = 設問ごとの集計。答えは AI に渡さない）
     design/                   # 設計書（blueprint.ts = サービスの役割・使った機能・やめたもの・資料。/admin/design）
 ```
 
