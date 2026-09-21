@@ -13,6 +13,7 @@ import {
   canAssignAgency,
   isAgencyMetadata,
   isAssignedClient,
+  pickAgencyInvitation,
   isUserId,
   normalizeEmail,
   withAgencyId,
@@ -151,5 +152,37 @@ describe("担当の登録者かどうか", () => {
   it("担当側の ID の形が違えば扱えない", () => {
     expect(isAssignedClient({ [AGENCY_KEY]: AGENCY }, "")).toBe(false);
     expect(isAssignedClient({ [AGENCY_KEY]: "org_1" }, "org_1")).toBe(false);
+  });
+});
+
+/**
+ * 招待の取りこぼしを拾う判定（r137）。ここが緩むと、他人のアドレス宛の招待で
+ * 管理アカウントになれてしまう。確認済みのメールだけ・完全一致だけを通す。
+ */
+describe("自分あての管理アカウントの招待を選ぶ", () => {
+  const agencyInvite = { id: "inv_1", emailAddress: "staff@example.com", publicMetadata: { [ROLE_KEY]: AGENCY_ROLE } };
+  const plainInvite = { id: "inv_2", emailAddress: "client@example.com", publicMetadata: {} };
+
+  it("確認済みのメール宛で role が agency のものを拾う", () => {
+    expect(pickAgencyInvitation([plainInvite, agencyInvite], ["staff@example.com"])).toBe(agencyInvite);
+  });
+
+  it("大文字・前後の空白は無視して突き合わせる", () => {
+    expect(pickAgencyInvitation([agencyInvite], ["  Staff@Example.COM "])).toBe(agencyInvite);
+  });
+
+  it("宛先が違えば拾わない（部分一致でも拾わない）", () => {
+    expect(pickAgencyInvitation([agencyInvite], ["other@example.com"])).toBeNull();
+    expect(pickAgencyInvitation([agencyInvite], ["staff@example.com.evil.jp"])).toBeNull();
+    expect(pickAgencyInvitation([agencyInvite], ["taff@example.com"])).toBeNull();
+  });
+
+  it("管理アカウントの招待でなければ拾わない", () => {
+    expect(pickAgencyInvitation([plainInvite], ["client@example.com"])).toBeNull();
+  });
+
+  it("確認済みのメールが無ければ拾わない", () => {
+    expect(pickAgencyInvitation([agencyInvite], [])).toBeNull();
+    expect(pickAgencyInvitation([agencyInvite], ["メールではない値"])).toBeNull();
   });
 });

@@ -98,6 +98,29 @@ export function canAssignAgency(userId: string, agencyId: string | null): boolea
   return userId !== agencyId;
 }
 
+/**
+ * 保留中の招待の中から「この人あての管理アカウントの招待」を選ぶ（純粋）。
+ *
+ * 招待リンクを使わずにふつうの登録フォームから登録すると、Clerk は招待の
+ * publicMetadata を引き継がない（登録が別物として作られるため）。そこで登録後に
+ * 「自分の確認済みメール宛に、role = agency の保留中の招待があるか」を見て拾う。
+ *
+ * 突き合わせは**確認済みのメールだけ**、かつ**完全一致（大文字小文字は無視）**で行う。
+ * 未確認のメールを含めると、他人のアドレスを名乗るだけで管理アカウントになれてしまう。
+ */
+export function pickAgencyInvitation<T extends { id: string; emailAddress: string; publicMetadata: unknown }>(
+  invitations: readonly T[],
+  verifiedEmails: readonly string[],
+): T | null {
+  const mine = new Set(verifiedEmails.map((e) => normalizeEmail(e)).filter((e): e is string => e !== null));
+  if (mine.size === 0) return null;
+  return (
+    invitations.find(
+      (inv) => isAgencyMetadata(inv.publicMetadata) && mine.has(normalizeEmail(inv.emailAddress) ?? ""),
+    ) ?? null
+  );
+}
+
 /** メールアドレスの正規化（前後の空白を落として小文字に）。メールに見えなければ null */
 export function normalizeEmail(value: unknown): string | null {
   if (typeof value !== "string") return null;

@@ -16,7 +16,7 @@ import {
   type ClerkUserLike,
   type ClientRow,
 } from "./clients";
-import { agencyIdFromMetadata, isAgencyMetadata, isUserId, withAgencyRole } from "./roles";
+import { agencyIdFromMetadata, isAgencyMetadata, isUserId, pickAgencyInvitation, withAgencyRole } from "./roles";
 
 export interface AgencyRow {
   userId: string;
@@ -169,4 +169,54 @@ export async function loadAgencyClients(agencyId: string): Promise<ClientRow[]> 
     (u) => u.id !== agencyId && agencyIdFromMetadata(u.publicMetadata) === agencyId,
   );
   return buildClientRows(mine);
+}
+
+/**
+ * 登録直後に「自分あての管理アカウントの招待」を拾って role を付ける。付けたら true。
+ *
+ * **なぜ要るか**（利用者の報告 2026-09-21）: 招待メールのリンクは Clerk の招待フロー
+ * （チケット）を通る前提だが、このアプリの登録フォームは自前（メール + パスワード + 確認コード）で
+ * チケットを扱わない。そのため招待された人がふつうに登録すると、招待に載せた
+ * `publicMetadata.role = "agency"` が引き継がれず、ただのお客様として登録されてしまう
+ * （料金プランの画面に送られる）。ここで拾って本来の姿に直す。
+ *
+ * 突き合わせは確認済みのメールだけ・完全一致（pickAgencyInvitation）。拾えたら招待は使い切りとして
+ * 取り消す（取り消しに失敗しても role は付いているので、致命的ではない）。
+ * すでに管理アカウントの人、運用者のアドレスの人には何もしない。
+ */
+export async function claimAgencyInvitation(userId: string): Promise<boolean> {
+  if (!isUserId(userId)) return false;
+
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  if (isAgencyMetadata(user.publicMetadata)) return true;
+
+  const allowed = adminEmails();
+  const verified = user.emailAddresses
+    .filter((e) => e.verification?.status === "verified")
+    .map((e) => e.emailAddress)
+    // 運用者のアドレスは管理アカウントにしない（addAgencyByEmail と同じ線引き）
+    .filter((e) => !isAdminEmail(e, allowed));
+  if (verified.length === 0) return false;
+
+  // 招待は宛先で絞って引く（1 アドレスにつき 1 回）。数は多くならないので上限は小さくてよい
+  const found = (
+    await Promise.all(
+      verified.map(async (email) => {
+        const { data } = await client.invitations.getInvitationList({ status: "pending", query: email, limit: 20 });
+        return pickAgencyInvitation(data, [email]);
+      }),
+    )
+  ).find((inv) => inv !== null);
+  if (!found) return false;
+
+  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
+  await client.users.updateUserMetadata(userId, { publicMetadata: withAgencyRole(metadata, true) });
+  try {
+    await client.invitations.revokeInvitation(found.id);
+  } catch {
+    // 取り消せなくても、role は付いているので画面は正しく動く
+  }
+  console.info(`[agency] 招待を引き継いで管理アカウントにしました: ${userId}`);
+  return true;
 }
