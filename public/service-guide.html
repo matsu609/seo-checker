@@ -367,11 +367,12 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
           <p class="plan-price">38,000<small> 円 / 月</small></p>
           <p class="plan-summary">検索の実測値とサイト・店舗の分析結果を継続して確認できます（AI が現状分析と改善案を書く精密診断も含みます）。AI が原稿・改修案そのものを作るツールは含みません。</p>
           <ul>
-            <li>精密診断（サイト全体の診断 + AI の現状分析と改善案）・ページ最適化レポート・ページ診断</li>
-            <li>検索パフォーマンス（推定）。Google 連携なしで、その日から数字が出ます</li>
-            <li>順位計測・AI Overviews 引用・LLMO モニタリング</li>
-            <li>キーワード調査・AIO トピック</li>
-            <li>Google マップの店舗診断・競合 5 店舗との比較</li>
+            <li>精密診断（サイト全体をクロールして AI が現状分析と優先順位つきの改善案を書く。月 10 回）</li>
+            <li>ページ改善の「競合と比べる」（対策キーワードの上位 10 件と自社ページの差）</li>
+            <li>順位計測・AI Overviews の引用・検索パフォーマンス（推定。Google 連携なしで、その日から数字が出ます）</li>
+            <li>NAP チェック（店名・住所・電話の表記ゆれ）・掲載（ウェブ上の掲載状況）</li>
+            <li>Google マップの店舗診断・競合 5 店舗との比較・毎週の自動更新</li>
+            <li>サイトの事故監視・月次レポートとお知らせ</li>
           </ul>
         </div>        <div class="plan is-lead">
           <p class="plan-name">スタンダード</p>
@@ -379,11 +380,12 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
           <p class="plan-summary">ライトの内容に加え、AI が改修案・原稿・返信文を作ります。</p>
           <ul>
             <li>ライトのすべて</li>
-            <li>精密診断（AI の現状分析と改善案）</li>
-            <li>HP 改修提案（そのまま貼って使える before → after）</li>
-            <li>AI ライティング（企画・構成・本文・リライト・校正）</li>
-            <li>口コミ支援（店内 QR）と口コミへの AI 返信案</li>
-            <li>26 媒体への基本情報の一括掲載・llms.txt の生成</li>
+            <li>FAQ 提案（AI 検索に引用させる想定問答。そのまま貼れる HTML と構造化データまで）</li>
+            <li>ページ改善の「改修案を作る」（そのまま貼れる before → after）</li>
+            <li>AI 検索モニタリング（ChatGPT / Gemini / Claude / Perplexity / AI Overviews / AI モードでの引用・参照を毎週計測）</li>
+            <li>口コミ支援（店内 QR のアンケート）と口コミへの AI 返信案</li>
+            <li>Google ビジネス プロフィールへの投稿（AI 下書き・予約投稿）</li>
+            <li>30 媒体への基本情報の一括掲載・llms.txt の生成</li>
           </ul>
         </div>
         <div class="plan">
@@ -393,11 +395,9 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
           <ul>
             <li>スタンダードのすべて</li>
             <li>月 1 回の報告ミーティング（オンライン）</li>
-            <li>Search Console・Google アナリティクスの初期設定の代行</li>
-            <li>Search Console の実測値（検索パフォーマンス）</li>
-            <li>GA4 を使う分析（サイトレポート・生成 AI 流入分析）。計測タグの設置が前提のため、ご相談のうえ有効にします</li>
             <li>月次レポートの作成と、改善作業の代行</li>
             <li>優先サポート（メール・チャット）</li>
+            <li>店舗数・対策キーワード数の上限をご要望に合わせて設定</li>
           </ul>
         </div>
       </div>
@@ -406,77 +406,80 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
 
     <section>
       <h2>ご提供するツール</h2>
+      <p>
+        <strong>SEO・AIO は「いまどうなっているか（事実）」と「どう直すか（改善案）」までをお出しします。</strong>
+        ホームページの書き換えはこのツールでは行いません。そのまま貼れる形（改修案・FAQ・構造化データ）までを作り、反映はお客様または弊社の作業になります。
+        <strong>MEO だけは反映まで行います。</strong>Google ビジネス プロフィールを接続していただくと、口コミへの返信と投稿をこの画面から送れます。
+      </p>
 
       <div class="group">
-        <h3>診断</h3>
+        <h3>SEO（お持ちのホームページ）</h3>
         <div class="tools">
           <div class="tool">
             <p class="tool-head"><span class="tool-name">精密診断</span><span class="badge">ライト</span></p>
-            <p>ドメイン配下をクロールし、重複 title・canonical・リダイレクト・リンク切れなど 10 カテゴリの課題を件数化。さらにサイトの構成・信頼の手がかり・表示速度・検索順位・llms.txt の有無まで 1 枚の事実シートにまとめ、AI がその数字だけを根拠に現状分析と改善案を書きます。CSV 出力と履歴に対応。</p>
+            <p>ドメイン配下をクロールし、重複 title・canonical・リダイレクト・リンク切れなど 10 カテゴリの課題を件数化。さらにサイトの構成・信頼の手がかり・表示速度・検索順位・llms.txt の有無まで 1 枚の事実シートにまとめ、AI がその数字だけを根拠に現状分析と優先順位つきの改善案を書きます。CSV 出力と履歴に対応。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">ページ最適化レポート</span><span class="badge">ライト</span></p>
-            <p>1 URL の AI フレンドリー度を 0〜100 点で評価し、項目ごとの測定値・理由・改善提案を表にまとめます。表示速度と Core Web Vitals も併記。</p>
+            <p class="tool-head"><span class="tool-name">ページ改善</span><span class="badge">ライト</span><span class="badge is-pro">改修案はスタンダード</span></p>
+            <p>対策キーワードの検索上位 10 件と自社ページを比べ、検索意図・不足要素・title / description 案を出します。スタンダードでは、そのまま貼って使える改修案（before → after）まで AI が作ります。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">ページ診断</span><span class="badge">ライト</span></p>
-            <p>対策キーワードの検索上位 10 件と自社ページを比較し、検索意図・不足要素・title / description 案を提案します。</p>
+            <p class="tool-head"><span class="tool-name">FAQ 提案</span><span class="badge is-pro">スタンダード</span></p>
+            <p>AI 検索は、質問と答えが対になっている文章をそのまま引用します。いまのページに FAQ が入っているか（構造化データ・画面に見える FAQ・両者の食い違い）を確かめ、ページに書かれている事実だけを根拠に「入れるべき FAQ」を提案し、そのまま貼れる HTML と構造化データ（FAQPage）にします。根拠の無い質問は答えを作らず、確認していただく形で出します。</p>
           </div>
-          <div class="tool">
-            <p class="tool-head"><span class="tool-name">AIO 頻出トピック</span><span class="badge">ライト</span></p>
-            <p>AI Overviews の本文からトピックを抽出・正規化し、出現割合と自社ページに不足しているトピックを表示します。</p>
-          </div>
-          <div class="tool">
-            <p class="tool-head"><span class="tool-name">HP 改修提案</span><span class="badge is-pro">スタンダード</span></p>
-            <p>URL を入れてボタンを押すだけで、ページを診断し、そのまま貼って使える改修案を AI が作ります。反映は運用者が行います。</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="group">
-        <h3>計測</h3>
-        <div class="tools">
           <div class="tool">
             <p class="tool-head"><span class="tool-name">順位計測</span><span class="badge">ライト</span></p>
-            <p>登録キーワードの Google 順位とランディング URL を取得し、AI Overviews に自社・競合が引用されているかを確認します。</p>
+            <p>登録キーワードの Google 順位とランディング URL を取得し、AI Overviews に自社・競合が引用されているかを確認します。毎週の自動計測と推移、順位が落ちたときのお知らせつき。同じ画面で「検索パフォーマンス（推定）」（Google 連携なしで表示回数・クリック数を推定）と「キーワード調査」も行えます。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">検索パフォーマンス</span><span class="badge">プレミアム</span></p>
-            <p>連携した Search Console から、クリック数・表示回数・CTR・平均掲載順位を取得します。推定ではなく Google の実測値です。</p>
-          </div>
-          <div class="tool">
-            <p class="tool-head"><span class="tool-name">LLMO モニタリング</span><span class="badge">ライト</span></p>
-            <p>登録プロンプトを Claude / ChatGPT / Gemini / Perplexity に投げ、ブランド言及率・ドメイン引用率と回答原文を記録します。</p>
-          </div>
-          <div class="tool">
-            <p class="tool-head"><span class="tool-name">プロンプト拡張</span><span class="badge">ライト</span></p>
-            <p>参考プロンプトと対象サイトから、利用者が AI に聞きそうな関連プロンプトをカテゴリ付きで生成します。</p>
-          </div>
-          <div class="tool">
-            <p class="tool-head"><span class="tool-name">生成 AI 流入分析</span><span class="badge">プレミアム</span></p>
-            <p>GA4 の参照元から生成 AI チャネルを切り出し、セッション・流入ページ・キーイベントを集計します。</p>
-          </div>
-          <div class="tool">
-            <p class="tool-head"><span class="tool-name">サイトレポート</span><span class="badge">プレミアム</span></p>
-            <p>GA4 の KPI（ユーザー数・エンゲージメント・自然検索セッション・CV）の前期比と、登録キーワードの平均順位をひとつにまとめます。</p>
+            <p class="tool-head"><span class="tool-name">サイトの事故監視</span><span class="badge">ライト</span></p>
+            <p>毎週、主要ページを確認し、放っておくと検索からの流入が止まる事故（noindex の混入・robots.txt の全拒否・エラー・別サイトへの転送・SSL の期限・リンク切れ・構造化データの崩れ）が起きたときだけお知らせします。</p>
           </div>
         </div>
       </div>
 
       <div class="group">
-        <h3>調査・生成</h3>
+        <h3>MEO（Google マップ・口コミ）</h3>
         <div class="tools">
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">キーワード調査</span><span class="badge">ライト</span></p>
-            <p>種キーワードから Google サジェスト・関連キーワードを展開し、検索意図を分類して一覧にします。CSV 出力と順位計測への登録に対応。</p>
+            <p class="tool-head"><span class="tool-name">Google マップ・店舗情報</span><span class="badge">ライト</span></p>
+            <p>店名で検索して自社と競合（5 件まで）を登録すると、ビジネス プロフィールを基本情報・投稿・写真・レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF）を作ります。数字は毎週月曜に自動で取り直し、前回との差分と競合比較表を表示します。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">AI ライティング</span><span class="badge is-pro">スタンダード</span></p>
-            <p>キーワードから構成・見出し・本文を生成し、エディターでリライト・校正・ファクトチェック・薬機法 NG 表現のチェックまで行います。</p>
+            <p class="tool-head"><span class="tool-name">口コミ支援</span><span class="badge is-pro">スタンダード</span></p>
+            <p>店内の QR からアンケートに答えていただき、AI が作った下書きを来店客が編集して Google マップに投稿できます。届いた口コミへの返信案もこの画面で作り、<strong>ビジネス プロフィールを接続していれば投稿まで行えます</strong>。低評価は先に店舗だけにお知らせします。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">llms.txt 生成</span><span class="badge is-pro">スタンダード</span></p>
-            <p>サイト情報を入力するウィザードで、AI クローラ向けの <span class="mono">llms.txt</span> を生成します。</p>
+            <p class="tool-head"><span class="tool-name">投稿（最新情報・イベント・クーポン）</span><span class="badge is-pro">スタンダード</span></p>
+            <p>店舗の情報と対策キーワードから AI が 4 週分の下書きを作り、承認したものを予約日時に<strong>自動で投稿します</strong>。週 1 回の投稿を続けることが MEO の理想状態です。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>サイテーション（基礎情報の掲載）</h3>
+        <div class="tools">
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">NAP チェック</span><span class="badge">ライト</span></p>
+            <p>店名・住所・電話番号・サイト URL を「正」として、自社サイト（構造化データ・フッター・会社概要）・Google マップ・掲載ページに書かれている値と突き合わせ、直すべき箇所を一覧にします。生成 AI は、複数の媒体で一致した基本情報を「実在する事業者」と認識します。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">掲載（サイテーション）</span><span class="badge">ライト</span><span class="badge is-pro">一括掲載はスタンダード</span></p>
+            <p>店名・電話・住所で検索して、ウェブ上のどこに載っているか・食い違いが無いかを一覧にします。スタンダードでは、未掲載の 30 媒体（Google / Apple / Bing / Yahoo! ほか）へ同じ内容で登録していけます。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>AI 検索の成果を見る</h3>
+        <div class="tools">
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">AI 検索モニタリング</span><span class="badge is-pro">スタンダード</span></p>
+            <p>ChatGPT / Gemini / Claude / Perplexity / Google AI Overviews / AI モード で、自社が「引用」「参照」される割合を毎週はかり、競合と並べます。1 回の結果では語らず、4 週ローリングと信頼区間で「言えることだけ」を出します。</p>
+          </div>
+          <div class="tool">
+            <p class="tool-head"><span class="tool-name">月次レポートとお知らせ</span><span class="badge">ライト</span></p>
+            <p>毎月 1 日に、前月の数字（検索順位・Google マップ・AI 検索・精密診断・掲載・口コミ）と、その月に起きたこと、来月やることを 1 枚にまとめます。順位の急落・サイトの事故・掲載の消失もここに残ります。</p>
           </div>
         </div>
       </div>
@@ -485,10 +488,10 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
     <section>
       <h2>改修案は「そのまま使える形」で</h2>
       <p>
-        スタンダード以上では、診断結果をもとに AI が改修案を作ります。
+        スタンダード以上では、診断結果をもとに AI が改修案と FAQ を作ります。
         「〜を検討してください」という助言ではなく、
         <strong>変更前と変更後を並べた、そのまま貼れる文面</strong>でお渡しします。
-        対象はタイトル・説明文・見出し・本文・構造化データ・画像の代替テキストです。
+        対象はタイトル・説明文・見出し・本文・構造化データ・画像の代替テキスト、そして FAQ（質問と答え・FAQPage の構造化データ）です。
       </p>
       <ul class="checks">
         <li>提案ごとに「なぜ直すか」「期待できること」「優先度」「手間」を表示</li>
@@ -514,12 +517,12 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
           <p>カード決済でお申し込みいただくと、そのままツールが開きます。プランの変更・解約もお客様側で行えます。</p>
         </li>
         <li>
-          <span class="step-name">Search Console と GA4 を接続する</span>
-          <p>設定画面からお客様の Google アカウントを接続し、対象サイトとプロパティを選びます。要求するのは読み取り専用の権限だけです。</p>
+          <span class="step-name">ホームページ・キーワード・店舗を登録する</span>
+          <p>設定画面で 1 回だけご登録いただくと、以降すべてのツールがその対象で動きます。<strong>Google Search Console や Google アナリティクスの設定は不要です</strong>（本サービスは使いません。検索の状況はドメインから推定します）。口コミへの返信と投稿まで行う場合だけ、Google ビジネス プロフィールを接続していただきます。</p>
         </li>
         <li>
           <span class="step-name">毎月、確認して直す</span>
-          <p>お客様は画面で数値と改善点を確認します。反映をご希望の場合は運用者にご連絡ください。作業は運用者が行います。</p>
+          <p>お客様は画面で数値と改善点を確認します。ホームページへの反映をご希望の場合は運用者にご連絡ください。作業は運用者が行います（MEO の返信・投稿はこの画面から送れます）。</p>
         </li>
       </ol>
     </section>
@@ -533,36 +536,34 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
             <li>AI に読まれる状態が整っているか</li>
             <li>どのページの、どこを直すべきか</li>
             <li>直した後の具体的な文面</li>
-            <li>Search Console と GA4 の実測値の推移</li>
+            <li>AI 検索（ChatGPT / Gemini / AI Overviews ほか）で引用・参照される割合の推移</li>
           </ul>
         </div>
         <div>
           <h3>わからないこと</h3>
           <ul class="no">
             <li>検索順位そのもの（スコアは順位ではありません）</li>
-            <li>実際に AI に引用された回数</li>
-            <li>表示速度・被リンク（スコアには含みません）</li>
+            <li>サイト内の行動（訪問者数・問い合わせ数）。計測タグを使わないため取得できません</li>
+            <li>表示速度・被リンク（クイック診断のスコアには含みません。精密診断では別途お出しします）</li>
           </ul>
         </div>
       </div>
       <p class="note" style="margin-top: 1rem;">
-        スコアは技術チェック表の達成率です。成果の確認には Search Console の表示回数、
-        問い合わせの転換、Core Web Vitals をご利用ください。
+        スコアは技術チェック表の達成率です。成果の確認には、順位計測の推移・AI 検索モニタリングの引用率・
+        Google マップの表示回数・実際のお問い合わせ数をご利用ください。
       </p>
     </section>
 
     <section>
       <h2>お問い合わせ</h2>
       <p>導入のご相談、無料診断の結果についてのご質問は下記まで承ります。</p>
-      <!-- ▼ 配布前に、ここを自社の連絡先に置き換えてください ▼ -->
       <div class="contact">
         <h3>ご相談窓口</h3>
         <p>
-          <span class="fill">会社名・サービス名をご記入ください</span><br>
-          <span class="fill">メールアドレス / 電話番号 / お問い合わせフォーム URL</span>
+          SEO 研究所（SEO Checker）<br>
+          contact@seo-checker.tokyo ／ https://seo-checker.tokyo/
         </p>
       </div>
-      <!-- ▲ ここまで ▲ -->
     </section>
 
   </main>
@@ -570,7 +571,7 @@ footer p { font-size: .74rem; line-height: 1.8; color: var(--muted); max-width: 
   <footer>
     <p>
       本資料の内容は 2026 年 9 月時点のものです。掲載順位や成果を保証するものではありません。
-      料金は月額・税込です。外部サービス（Google Search Console / GA4 など）の仕様変更により、
+      料金は月額・税込です。外部サービス（Google マップ・検索結果・各 AI サービス）の仕様変更により、
       取得できる項目が変わる場合があります。
     </p>
   </footer>
