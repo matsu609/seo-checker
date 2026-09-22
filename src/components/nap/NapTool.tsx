@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
-import { Badge, Button, Callout, Card, DataTable, EmptyState, Field, Input, Select, StatCard, type BadgeTone, type Column } from "@/components/ui";
+import { Badge, Button, Callout, Card, DataTable, EmptyState, Field, Select, StatCard, type BadgeTone, type Column } from "@/components/ui";
 import { csvFileName, downloadCsv } from "@/lib/export/csv";
 import { napHistoryStore, pushNapHistory, removeNapHistory, type NapHistoryItem } from "@/lib/nap/store";
 import {
@@ -28,6 +28,7 @@ import {
   type NapSource,
 } from "@/lib/nap/types";
 import { useSharedSettings } from "@/lib/settings/client";
+import { BasicInfoNotice, missingFields } from "@/components/site/BasicInfoNotice";
 import { useStore } from "@/lib/store/hooks";
 import { useToolRun } from "@/lib/tools/run";
 
@@ -157,13 +158,15 @@ function Result({ data }: { data: NapCheckResult }) {
   const fails = data.issues.filter((i) => i.severity === "fail");
   return (
     <>
-      <Card title="サマリー" description={`確認日時: ${formatDate(data.checkedAt)}。正: ${data.input.name} / ${data.input.address || "住所なし"} / ${data.input.phone || "電話なし"} / ${data.input.website || "サイトなし"}`}>
-        <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-4">
-          <StatCard label="確認できた媒体" value={data.summary.sources} unit="件" hint="ページを開いて値を読めたもの（自社サイトはページごとに 1 件）" />
-          <StatCard label="一致" value={data.summary.match} unit="項目" hint="全角 / 半角・空白・ハイフン・法人格の略記の違いは一致とみなす" />
-          <StatCard label="不一致" value={data.summary.mismatch} unit="項目" hint={fails.length > 0 ? "下の「直すべき箇所」を上から直す" : "食い違いはありません"} />
-          <StatCard label="記載なし" value={data.summary.missing} unit="項目" hint="書かれていないか、自動では読めない書き方" />
-        </div>
+      <Card
+        title="外部サイトの掲載状況"
+        description="正の値と、各媒体に書かれている値を項目ごとに比べた結果です。セルにマウスを乗せると書かれている値が出ます。自社サイトのページの「サイト URL」は自分のページなので比べません（—）。"
+      >
+        {data.sources.length === 0 ? (
+          <EmptyState title="確認できた媒体がありません" description="サイト URL を入れるか、MEO で店舗を登録するか、「掲載」タブで掲載ページの URL を控えると、ここに並びます。" />
+        ) : (
+          <DataTable columns={SOURCE_COLUMNS} rows={data.sources} rowKey={(r, i) => `${r.kind}-${r.url ?? r.label}-${i}`} stickyHeader />
+        )}
       </Card>
 
       <Card
@@ -213,15 +216,13 @@ function Result({ data }: { data: NapCheckResult }) {
         )}
       </Card>
 
-      <Card
-        title="媒体ごとの突き合わせ"
-        description="正の値と、各媒体に書かれている値を項目ごとに比べた結果です。セルにマウスを乗せると書かれている値が出ます。自社サイトのページの「サイト URL」は自分のページなので比べません（—）。"
-      >
-        {data.sources.length === 0 ? (
-          <EmptyState title="確認できた媒体がありません" description="サイト URL を入れるか、MEO で店舗を登録するか、「掲載」タブで掲載ページの URL を控えると、ここに並びます。" />
-        ) : (
-          <DataTable columns={SOURCE_COLUMNS} rows={data.sources} rowKey={(r, i) => `${r.kind}-${r.url ?? r.label}-${i}`} stickyHeader />
-        )}
+      <Card title="サマリー" description={`確認日時: ${formatDate(data.checkedAt)}。正: ${data.input.name} / ${data.input.address || "住所なし"} / ${data.input.phone || "電話なし"} / ${data.input.website || "サイトなし"}`}>
+        <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-4">
+          <StatCard label="確認できた媒体" value={data.summary.sources} unit="件" hint="ページを開いて値を読めたもの（自社サイトはページごとに 1 件）" />
+          <StatCard label="一致" value={data.summary.match} unit="項目" hint="全角 / 半角・空白・ハイフン・法人格の略記の違いは一致とみなす" />
+          <StatCard label="不一致" value={data.summary.mismatch} unit="項目" hint={fails.length > 0 ? "下の「直すべき箇所」を上から直す" : "食い違いはありません"} />
+          <StatCard label="記載なし" value={data.summary.missing} unit="項目" hint="書かれていないか、自動では読めない書き方" />
+        </div>
       </Card>
 
       {data.jsonLdSuggestion && (
@@ -270,7 +271,9 @@ export function NapTool() {
   }, []);
 
   const website = websiteTouched || form.website.trim() ? form.website : site.siteUrl;
-  const canRun = form.name.trim().length > 0 && (website.trim() || form.address.trim() || form.phone.trim()) && !running;
+  // 店名は必須。加えて突き合わせる先が 1 つは要る（サイト・住所・電話のどれか）
+  const hasTarget = Boolean(website.trim() || form.address.trim() || form.phone.trim());
+  const canRun = missingFields({ name: form.name, phone: form.phone, address: form.address, website }).length === 0 && hasTarget && !running;
 
   function applyStore(placeId: string) {
     setStoreId(placeId);
@@ -305,53 +308,41 @@ export function NapTool() {
         </p>
       </Callout>
 
-      <Card
-        title="正しい基本情報（正）"
-        description="お客様が「これが正しい」と決めた表記を入れてください。店名は法人格（株式会社など）まで、住所は建物名・階まで、電話番号は市外局番から。"
-        actions={
+      <BasicInfoNotice
+        value={{ name: form.name, phone: form.phone, address: form.address, website }}
+        overridden={edits !== null}
+        onChange={(next) => {
+          setWebsiteTouched(true);
+          setForm(next);
+        }}
+        onReset={() => {
+          setEdits(null);
+          setWebsiteTouched(false);
+          setStoreId("");
+        }}
+        action={
+          <>
+            <Button onClick={() => void submit()} disabled={!canRun}>
+              {running ? "確認中…（最大 1〜2 分）" : "掲載状況を確かめる"}
+            </Button>
+            <span className="text-[11px] text-muted">外部のページを最大 15 ほど開きます。Google マップの詳細 1 回と Google の検索 2 回を使います（数円）。1 分に 1 回まで。</span>
+          </>
+        }
+        storePicker={
           stores.length > 0 ? (
-            <Field label="MEO の登録店舗から取り込む" className="min-w-[16rem]">
+            <Field label="別の店舗で調べる" className="min-w-[14rem]">
               <Select value={storeId} onChange={(e) => applyStore(e.target.value)} disabled={running}>
-                <option value="">選択…</option>
-                {stores.map((s) => (
-                  <option key={s.placeId} value={s.placeId}>
-                    {s.record?.profile.name || s.name}
+                <option value="">設定の基本情報</option>
+                {stores.map((st) => (
+                  <option key={st.placeId} value={st.placeId}>
+                    {st.record?.profile.name || st.name}
                   </option>
                 ))}
               </Select>
             </Field>
           ) : undefined
         }
-      >
-        <div className="grid gap-3 @2xl:grid-cols-2">
-          <Field label="店名（必須）" hint="例: 株式会社〇〇 / 〇〇歯科クリニック。Google マップと同じ表記にする">
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="例: 〇〇歯科クリニック" disabled={running} />
-          </Field>
-          <Field label="住所" hint="番地・建物名・階まで。〒 があれば付ける">
-            <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="〒100-0005 東京都千代田区丸の内1-1-1 〇〇ビル3F" disabled={running} />
-          </Field>
-          <Field label="電話番号" hint="例: 03-1234-5678（ハイフンの有無・全角は気にしなくてよい）">
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="03-1234-5678" disabled={running} />
-          </Field>
-          <Field label="サイト URL" hint="設定に登録したホームページを初期値にします。トップから会社概要・お問い合わせなどを最大 4 ページ辿ります">
-            <Input
-              value={website}
-              onChange={(e) => {
-                setWebsiteTouched(true);
-                setForm({ ...form, website: e.target.value });
-              }}
-              placeholder="https://example.co.jp/"
-              disabled={running}
-            />
-          </Field>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button onClick={() => void submit()} disabled={!canRun}>
-            {running ? "確認中…（最大 1〜2 分）" : "チェックする"}
-          </Button>
-          <span className="text-[11px] text-muted">外部のページを最大 15 ほど開きます。Google マップの詳細 1 回と Google の検索 2 回を使います（数円）。1 分に 1 回まで。</span>
-        </div>
-      </Card>
+      />
 
       {state.phase === "error" && (
         <Callout tone="fail" title="確認できませんでした">

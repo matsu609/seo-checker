@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
+import { BasicInfoNotice, missingFields } from "@/components/site/BasicInfoNotice";
 import { useSharedSettings } from "@/lib/settings/client";
 import {
   Badge,
@@ -21,7 +22,6 @@ import {
   DataTable,
   EmptyState,
   Field,
-  Input,
   Select,
   StatCard,
   type BadgeTone,
@@ -121,7 +121,7 @@ export function CitationsTool() {
   }, []);
 
   const website = websiteTouched || form.website.trim() ? form.website : site.siteUrl;
-  const canRun = form.name.trim().length > 0 && !running;
+  const canRun = missingFields({ name: form.name, phone: form.phone, address: form.address, website }).length === 0 && !running;
 
   function applyStore(placeId: string) {
     setStoreId(placeId);
@@ -149,53 +149,41 @@ export function CitationsTool() {
         </p>
       </Callout>
 
-      <Card
-        title="基本情報"
-        description="基本情報掲載で決めた内容と同じにしてください。電話番号・住所が空でも店名だけで調べられます（その分、見つかるサイトは減ります）。"
-        actions={
+      <BasicInfoNotice
+        value={{ name: form.name, phone: form.phone, address: form.address, website }}
+        overridden={edits !== null}
+        onChange={(next) => {
+          setWebsiteTouched(true);
+          setForm(next);
+        }}
+        onReset={() => {
+          setEdits(null);
+          setWebsiteTouched(false);
+          setStoreId("");
+        }}
+        action={
+          <>
+            <Button onClick={() => void submit()} disabled={!canRun}>
+              {running ? "検索中…" : "掲載状況を調べる"}
+            </Button>
+            <span className="text-[11px] text-muted">Google の検索を最大 3 回使います（数円）。同じ条件は 24 時間、前回の結果を返します。</span>
+          </>
+        }
+        storePicker={
           stores.length > 0 ? (
-            <Field label="MEO の登録店舗から取り込む" className="min-w-[16rem]">
+            <Field label="別の店舗で調べる" className="min-w-[14rem]">
               <Select value={storeId} onChange={(e) => applyStore(e.target.value)} disabled={running}>
-                <option value="">選択…</option>
-                {stores.map((s) => (
-                  <option key={s.placeId} value={s.placeId}>
-                    {s.record?.profile.name || s.name}
+                <option value="">設定の基本情報</option>
+                {stores.map((st) => (
+                  <option key={st.placeId} value={st.placeId}>
+                    {st.record?.profile.name || st.name}
                   </option>
                 ))}
               </Select>
             </Field>
           ) : undefined
         }
-      >
-        <div className="grid gap-3 @2xl:grid-cols-2">
-          <Field label="店名・屋号（必須）" hint="Google マップの表記と同じにする">
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="例: 〇〇歯科クリニック" disabled={running} />
-          </Field>
-          <Field label="電話番号" hint="例: 03-1234-5678">
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="03-1234-5678" disabled={running} />
-          </Field>
-          <Field label="住所" hint="番地まで。建物名は自動で外して検索します">
-            <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="東京都千代田区丸の内1-1-1 〇〇ビル3F" disabled={running} />
-          </Field>
-          <Field label="自社サイトの URL" hint="設定に登録したホームページを初期値にします。自社サイト以外の言及だけを数えます">
-            <Input
-              value={website}
-              onChange={(e) => {
-                setWebsiteTouched(true);
-                setForm({ ...form, website: e.target.value });
-              }}
-              placeholder="https://example.co.jp/"
-              disabled={running}
-            />
-          </Field>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button onClick={() => void submit()} disabled={!canRun}>
-            {running ? "検索中…" : "調べる"}
-          </Button>
-          <span className="text-[11px] text-muted">Google の検索を最大 3 回使います（数円）。同じ条件は 24 時間、前回の結果を返します。</span>
-        </div>
-      </Card>
+      />
 
       {state.phase === "error" && (
         <Callout tone="fail" title="取得できませんでした">
@@ -205,23 +193,9 @@ export function CitationsTool() {
 
       {data && (
         <>
-          <Card title="サマリー" description={data.cached ? "24 時間以内の結果を表示しています。" : undefined}>
-            <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-4">
-              <StatCard label="言及しているサイト" value={data.summary.sites} unit="件" hint="自社サイト以外。1 サイト 1 件で数える" />
-              <StatCard label="電話番号が一致" value={data.summary.phoneMatch} unit="件" hint={data.summary.phoneMismatch > 0 ? `別の番号が出ているサイト ${data.summary.phoneMismatch} 件` : "検索結果の文中で確認できたもの"} />
-              <StatCard label="住所が一致" value={data.summary.addressMatch} unit="件" hint="検索結果の文中で確認できたもの" />
-              <StatCard label="主要媒体の掲載" value={`${data.summary.mediaFound} / ${data.summary.mediaTotal}`} hint="検索結果に出る媒体だけを数える" />
-            </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-muted">
-              電話番号・住所の一致は、検索結果に出た短い文（タイトルとスニペット）の中だけで見ています。「—」は「載っていない」ではなく「短い文には出ていない」です。
-              「別の番号（要確認）」は、そのサイトの文中に基本情報と違う電話番号が出ていた状態です。複数店舗をまとめたページでも起こるので、ページを開いて確かめてください。
-              {!data.summary.ownFound && data.input.website.trim() && " 自社サイトは今回の検索結果には出ていません（店名で検索して 30 位以内に無い場合はここに出ません）。"}
-            </p>
-          </Card>
-
           <Card
-            title="主要媒体の掲載状況"
-            description="通常の検索結果に出てくる媒体だけを数えています。地図アプリ（Google / Apple / Bing など）は登録していても検索結果にほとんど出ないので、ここには出しません。掲載状況の管理と登録は、上の「掲載先に登録する」タブで行います。"
+            title="外部サイトの掲載状況"
+            description="この機能の目的は、外部の媒体に同じ基本情報を載せることです。載っている媒体は掲載ページを、載っていない媒体は登録画面をそのまま開けます。地図アプリ（Google / Apple / Bing など）は登録していても通常の検索結果にほとんど出ないため、ここには出しません。"
           >
             <ul className="divide-y divide-line border-y border-line">
               {data.coverage.map((c) => (
@@ -248,6 +222,20 @@ export function CitationsTool() {
                 見つからない媒体は、未登録か、登録していても店名の表記が違う可能性があります。基本情報掲載の「登録画面を開く」から、ここと同じ店名・住所・電話番号で登録してください。
               </p>
             )}
+          </Card>
+
+          <Card title="サマリー" description={data.cached ? "24 時間以内の結果を表示しています。" : undefined}>
+            <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-4">
+              <StatCard label="言及しているサイト" value={data.summary.sites} unit="件" hint="自社サイト以外。1 サイト 1 件で数える" />
+              <StatCard label="電話番号が一致" value={data.summary.phoneMatch} unit="件" hint={data.summary.phoneMismatch > 0 ? `別の番号が出ているサイト ${data.summary.phoneMismatch} 件` : "検索結果の文中で確認できたもの"} />
+              <StatCard label="住所が一致" value={data.summary.addressMatch} unit="件" hint="検索結果の文中で確認できたもの" />
+              <StatCard label="主要媒体の掲載" value={`${data.summary.mediaFound} / ${data.summary.mediaTotal}`} hint="検索結果に出る媒体だけを数える" />
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-muted">
+              電話番号・住所の一致は、検索結果に出た短い文（タイトルとスニペット）の中だけで見ています。「—」は「載っていない」ではなく「短い文には出ていない」です。
+              「別の番号（要確認）」は、そのサイトの文中に基本情報と違う電話番号が出ていた状態です。複数店舗をまとめたページでも起こるので、ページを開いて確かめてください。
+              {!data.summary.ownFound && data.input.website.trim() && " 自社サイトは今回の検索結果には出ていません（店名で検索して 30 位以内に無い場合はここに出ません）。"}
+            </p>
           </Card>
 
           <Card
