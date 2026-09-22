@@ -3,11 +3,19 @@
 /**
  * サイトの事故監視の画面。最新の確認結果（事故の一覧・ページごとの状態・リンク切れ・SSL）と履歴。
  * 「今すぐ確認」は毎週水曜の自動確認と同じ中身（知らせは出さない）。
+ *
+ * 利用者の指示 2026-09-22:「すべての計測データはグラフにして、デモデータを入れて、
+ * 最初からこう表示されると分かるように」。履歴は日付と件数の箇条書きだったので**折れ線**にし、
+ * まだ 2 回確認していないときは破線のイメージを描く。
  */
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { MonitorResponse } from "@/app/api/monitor/route";
+import { LineChart, SampleBadge, SampleChart } from "@/components/charts";
 import { Badge, Button, Callout, Card, DataTable, EmptyState, StatStrip, type Column } from "@/components/ui";
+import { dayLabel } from "@/lib/demo/dates";
+import { sampleIncidentChecks } from "@/lib/demo/site";
+import { jstDateKey } from "@/lib/time/jst";
 import { INCIDENT_LABELS, type Incident, type MonitorDiff, type MonitorSnapshot, type PageCheck } from "@/lib/monitor/types";
 import { formatDateTime } from "@/lib/report/format";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
@@ -195,20 +203,74 @@ export function MonitorTool() {
         </Card>
       )}
 
-      {data && data.history.length > 1 && (
-        <Card title="確認の履歴" headingLevel={2}>
-          <ul className="divide-y divide-line border-y border-line text-[13px]">
-            {data.history.map((h) => (
-              <li key={h.id} className="flex items-center gap-3 py-1.5">
-                <span className="tabular-nums text-muted">{formatDateTime(h.checkedAt)}</span>
-                <Badge tone={h.incidents === 0 ? "pass" : "warn"} icon={false}>
-                  {h.incidents === 0 ? "問題なし" : `${h.incidents} 件`}
-                </Badge>
-              </li>
-            ))}
-          </ul>
+      {data?.enabled && (
+        <Card
+          title="事故の件数の推移"
+          headingLevel={2}
+          description="確認のたびに、見つかった事故（重大 + 注意）の件数を並べます。0 件が続いているのが正常です。"
+          actions={data.history.length < 2 ? <SampleBadge label="イメージ（確認がまだ 1 回以下です）" /> : undefined}
+        >
+          {data.history.length < 2 ? (
+            <IncidentSample checked={data.history.length} />
+          ) : (
+            <>
+              <LineChart
+                labels={[...data.history].reverse().map((h) => dayLabel(jstDateKey(new Date(h.checkedAt))))}
+                series={[{ id: "incidents", label: "事故の件数", values: [...data.history].reverse().map((h) => h.incidents), fill: true }]}
+                yMin={0}
+                height={200}
+                format={(v) => (v === null ? "—" : `${Math.round(v)} 件`)}
+                xHeader="確認日"
+                ariaLabel="確認のたびに見つかった事故の件数の推移"
+              />
+              <ul className="mt-4 divide-y divide-line border-y border-line text-[13px]">
+                {data.history.map((h) => (
+                  <li key={h.id} className="flex items-center gap-3 py-1.5">
+                    <span className="tabular-nums text-muted">{formatDateTime(h.checkedAt)}</span>
+                    <Badge tone={h.incidents === 0 ? "pass" : "warn"} icon={false}>
+                      {h.incidents === 0 ? "問題なし" : `${h.incidents} 件`}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </Card>
       )}
     </div>
+  );
+}
+
+/* ───────────── 確認前のイメージ（破線） ───────────── */
+
+function IncidentSample({ checked }: { checked: number }) {
+  const { dates, incidents } = sampleIncidentChecks();
+  return (
+    <SampleChart
+      lead={
+        checked === 0
+          ? "まだ 1 回も確認していません。「今すぐ確認する」を押すか、毎週水曜 5:00 の自動確認を待つと、この形の実線に置き換わります。"
+          : "確認は 1 回ぶんだけです。線としてつながるのは 2 回目からです。"
+      }
+      note={
+        <>
+          縦軸は見つかった事故の件数（重大 + 注意）、横軸は確認日です。
+          <strong className="font-bold">0 件が続いているのが正常</strong>で、線が跳ね上がった週に何が起きたかを上の「事故と注意」で確かめます。
+          毎週水曜 5:00 に自動で確認し、前回は無かった事故だけをお知らせします。
+        </>
+      }
+    >
+      <LineChart
+        labels={dates.map(dayLabel)}
+        series={[{ id: "sample-incidents", label: "事故の件数", values: incidents, dashed: true }]}
+        yMin={0}
+        yMax={4}
+        yTicks={[0, 1, 2, 3, 4]}
+        height={200}
+        format={(v) => (v === null ? "—" : `${Math.round(v)} 件`)}
+        xHeader="確認日（水曜）"
+        ariaLabel="確認を重ねたあとの見え方のイメージ（実測ではありません）。縦軸は事故の件数、横軸はこれからの 4 回"
+      />
+    </SampleChart>
   );
 }

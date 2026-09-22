@@ -38,6 +38,7 @@ import { useStore } from "@/lib/store/hooks";
 import { mapsViewStore } from "@/lib/store/maps";
 import { useToolRun } from "@/lib/tools/run";
 import { formatCount, formatRating, hostOf, statusLabel } from "./format";
+import { CompareChart } from "./CompareChart";
 import { MeoHistoryCard } from "./MeoHistoryCard";
 import { RankTrendCard } from "./RankTrendCard";
 import { OwnerInputCard } from "./OwnerInputCard";
@@ -611,7 +612,7 @@ export function MapsTool() {
       <Card
         number={7}
         title="競合との比較"
-        description="自社と登録した競合を、最新の一斉更新の数字で並べます。口コミは Google が返す最大 5 件です。"
+        description="自社と登録した競合を、最新の一斉更新の数字で並べます。まず充実度の棒で順番を見て、細かい内訳は下の表で確かめてください。口コミは Google が返す最大 5 件です。"
         className="no-print"
       >
         {!own && !stores.loading && (
@@ -626,6 +627,8 @@ export function MapsTool() {
 
         {own && compare.data && (
           <div className="space-y-4">
+            {/* まず棒で「自社が何番目か」を見せ、細かい内訳は下の表に任せる（利用者の指示 2026-09-22） */}
+            <CompareChart results={compare.data.results} ownName={own.name} />
             <DataTable
               rows={compare.data.results}
               columns={compareColumns}

@@ -30,6 +30,7 @@ import { formatDateTime } from "@/lib/report/format";
 import { useStore } from "@/lib/store/hooks";
 import { repliesSettingsStore } from "@/lib/store/replies";
 import { ConnectBusinessButton } from "./ConnectBusinessButton";
+import { ReviewMixCard } from "./ReviewMixCard";
 
 const GBP_REVIEWS_URL = "https://business.google.com/reviews";
 
@@ -293,8 +294,11 @@ export function RepliesTool() {
         </p>
       </Card>
 
+      {/* 口コミの一覧の前に集計を出す（利用者の指示 2026-09-22。口コミが無くても見本を描く） */}
+      <ReviewMixCard number={3} rows={rows} total={meta.total} averageRating={meta.averageRating} connected={gbpMode} />
+
       <Card
-        number={3}
+        number={4}
         title="口コミ"
         description={
           gbpMode

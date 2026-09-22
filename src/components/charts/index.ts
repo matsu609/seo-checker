@@ -6,4 +6,5 @@ export { StackedBar, SegmentBar, type StackedBarProps, type StackedSeries, type 
 export { Sparkline, type SparklineProps } from "./Sparkline";
 export { LineChart, type LineChartProps, type LineSeries } from "./LineChart";
 export { HeatCell, heatCellClass, heatCellColors, type HeatCellProps } from "./HeatCell";
+export { SampleChart, SampleBadge, type SampleChartProps } from "./SampleChart";
 export * from "./math";

@@ -2,11 +2,20 @@
 
 /**
  * 回答の集計。押下率は「Google の投稿ボタンを押した割合」であり、実際の投稿数ではないことを明記する。
+ *
+ * 利用者の指示 2026-09-22:「すべての計測データはグラフにしてください。デモデータを入れて、
+ * 最初からグラフがこう表示される・データがこう集計されると直感的に分かるように」。
+ * ①週別の推移は表の前に折れ線 ②評価の分布は共通の棒グラフ部品
+ * ③**回答が 0 件のときは空の表ではなく破線のイメージ**を描く。
  */
+import { Histogram, LineChart, SampleBadge, SampleChart } from "@/components/charts";
 import { Card } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatStrip } from "@/components/ui/StatCard";
+import { dayLabel } from "@/lib/demo/dates";
+import { SAMPLE_RATING_DISTRIBUTION, sampleSurveyWeeks } from "@/lib/demo/meo";
 import type { ChannelStat, ReviewMetrics, WeekStat } from "@/lib/reviews/metrics";
+import { palette } from "@/lib/ui/palette";
 
 export interface MetricsCardProps {
   number: number;
@@ -41,8 +50,28 @@ const WEEK_COLUMNS: readonly Column<WeekStat>[] = [
   { key: "clicks", header: "投稿ボタン押下", accessor: (r) => r.reviewClicks, render: (r) => `${r.reviewClicks}（${rate(r.reviewClicks, r.total)}）`, align: "right" },
 ];
 
+/** 1〜5 の件数 → 棒グラフの区分（星の多い順に左から。表の並びと同じ） */
+export function ratingBands(distribution: readonly number[]) {
+  return [5, 4, 3, 2, 1].map((n) => ({
+    label: `★${n}`,
+    count: distribution[n - 1] ?? 0,
+    // 低評価（1〜2）だけ色を変える。ここが対応すべき回答
+    color: n <= 2 ? palette.chart[3] : palette.chart[0],
+  }));
+}
+
 export function MetricsCard({ number, metrics, limit, filtered }: MetricsCardProps) {
-  const max = Math.max(1, ...metrics.distribution);
+  // 回答が 1 件も無いときは、空の表ではなく「これから何が出るか」を見せる
+  if (metrics.total === 0) {
+    return (
+      <Card number={number} title="集計" description="回答数・評価・投稿ボタンの押下率をグラフにします。" actions={<SampleBadge label="イメージ（まだ回答がありません）" />}>
+        <MetricsSample />
+      </Card>
+    );
+  }
+
+  const weeks = [...metrics.byWeek].reverse();
+
   return (
     <Card
       number={number}
@@ -63,27 +92,70 @@ export function MetricsCard({ number, metrics, limit, filtered }: MetricsCardPro
         <strong>実際に投稿された数は計測できません。</strong>近似値としてお使いください。口コミ件数の実数は「Google マップ・店舗情報」の週次更新で追えます。
       </p>
 
+      {weeks.length > 0 && (
+        <>
+          <h3 className="mt-6 text-sm font-bold text-ink">週別の推移（直近 {weeks.length} 週）</h3>
+          <LineChart
+            className="mt-2"
+            labels={weeks.map((w) => dayLabel(w.weekStart))}
+            series={[
+              { id: "total", label: "回答数", values: weeks.map((w) => w.total), fill: true },
+              { id: "clicks", label: "投稿ボタン押下", values: weeks.map((w) => w.reviewClicks) },
+              { id: "low", label: "低評価", values: weeks.map((w) => w.low) },
+            ]}
+            yMin={0}
+            height={220}
+            format={(v) => (v === null ? "—" : `${Math.round(v)} 件`)}
+            xHeader="週（月曜から）"
+            ariaLabel={`週ごとの回答数・投稿ボタンの押下数・低評価の推移（${weeks[0]?.weekStart} 週から）`}
+          />
+        </>
+      )}
+
       <h3 className="mt-6 text-sm font-bold text-ink">評価の分布</h3>
-      <ol className="mt-2 space-y-1">
-        {[5, 4, 3, 2, 1].map((n) => {
-          const count = metrics.distribution[n - 1]!;
-          return (
-            <li key={n} className="flex items-center gap-2 text-[13px]">
-              <span className="w-6 shrink-0 text-right tabular-nums text-muted">{n}</span>
-              <span className="h-3 flex-1 rounded-sm bg-surface">
-                <span className="block h-3 rounded-sm bg-accent" style={{ width: `${(count / max) * 100}%` }} aria-hidden />
-              </span>
-              <span className="w-12 shrink-0 text-right tabular-nums text-ink">{count} 件</span>
-            </li>
-          );
-        })}
-      </ol>
+      <Histogram className="mt-2" bands={ratingBands(metrics.distribution)} ariaLabel="評価ごとの回答数" />
+      <p className="mt-1 text-[11px] text-muted">色の濃い棒（★1・★2）が、先に対応すべき低評価です。</p>
 
       <h3 className="mt-6 text-sm font-bold text-ink">店舗・経路別（QR ごと）</h3>
       <DataTable className="mt-2" rows={metrics.byChannel} columns={CHANNEL_COLUMNS} rowKey={(r) => r.channelId ?? "none"} dense emptyText="回答がまだありません。" />
 
-      <h3 className="mt-6 text-sm font-bold text-ink">週別の推移（直近 8 週）</h3>
+      <h3 className="mt-6 text-sm font-bold text-ink">週別の内訳（表）</h3>
       <DataTable className="mt-2" rows={metrics.byWeek} columns={WEEK_COLUMNS} rowKey={(r) => r.weekStart} dense emptyText="回答がまだありません。" />
     </Card>
+  );
+}
+
+/* ───────────── 回答が入る前のイメージ（破線） ───────────── */
+
+function MetricsSample() {
+  const { weeks, answers, clicks } = sampleSurveyWeeks();
+  return (
+    <SampleChart
+      lead="まだ回答がありません。QR コードを店内に置いて読み取ってもらうと、この形の実線に置き換わります。"
+      note={
+        <>
+          横軸は週（月曜から）です。回答が入った翌日から点が増え、
+          <strong className="font-bold">2 週目から線としてつながります</strong>。
+          「投稿ボタン押下」は Google マップへの投稿ボタンを押した回数で、実際に投稿された数ではありません。
+        </>
+      }
+    >
+      <LineChart
+        labels={weeks.map(dayLabel)}
+        series={[
+          { id: "sample-total", label: "回答数", values: answers, dashed: true },
+          { id: "sample-clicks", label: "投稿ボタン押下", values: clicks, dashed: true },
+        ]}
+        yMin={0}
+        height={220}
+        format={(v) => (v === null ? "—" : `${Math.round(v)} 件`)}
+        xHeader="週（月曜から）"
+        ariaLabel="回答が集まったあとの見え方のイメージ（実測ではありません）。縦軸は件数、横軸はこれからの 4 週"
+      />
+      <div>
+        <h3 className="text-sm font-bold text-ink">評価の分布（イメージ）</h3>
+        <Histogram className="mt-2" bands={ratingBands(SAMPLE_RATING_DISTRIBUTION)} ariaLabel="評価ごとの回答数の見え方のイメージ（実測ではありません）" />
+      </div>
+    </SampleChart>
   );
 }

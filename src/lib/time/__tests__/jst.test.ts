@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, daysBetween, formatJstShort, isMonthKey, jstDate, jstDateKey, jstMonthKey, jstParts, monthRangeJst, nextMonthDayAtJst, nextWeekdayAtJst, previousMonthKey } from "../jst";
+import { addDays, daysBetween, formatJstShort, isMonthKey, jstDate, jstDateKey, jstMonthKey, jstParts, jstWeekStart, monthRangeJst, nextMonthDayAtJst, nextWeekdayAtJst, previousMonthKey } from "../jst";
 
 describe("日本時間の計算", () => {
   it("UTC の 15:00 は日本の翌日 0:00", () => {
@@ -32,6 +32,19 @@ describe("日本時間の計算", () => {
     expect(nextMonthDayAtJst(sun, 1, 5).toISOString()).toBe("2026-09-30T20:00:00.000Z");
     expect(nextMonthDayAtJst(new Date("2026-09-30T20:00:00Z"), 1, 5).toISOString()).toBe("2026-10-31T20:00:00.000Z");
     expect(formatJstShort(new Date("2026-09-21T20:00:00Z"))).toBe("9/22（火）5:00");
+  });
+
+  it("週の始まり（月曜）", () => {
+    // 2026-09-22 は火曜 → その週の月曜は 9/21
+    expect(jstWeekStart(new Date("2026-09-22T03:00:00Z"))).toBe("2026-09-21");
+    // 月曜そのもの
+    expect(jstWeekStart(new Date("2026-09-21T03:00:00Z"))).toBe("2026-09-21");
+    // 日曜は前の月曜（週の最終日）
+    expect(jstWeekStart(new Date("2026-09-27T03:00:00Z"))).toBe("2026-09-21");
+    // UTC では日曜でも、日本時間で月曜ならその週
+    expect(jstWeekStart(new Date("2026-09-20T23:00:00Z"))).toBe("2026-09-21");
+    // 月をまたぐ
+    expect(jstWeekStart(new Date("2026-10-01T03:00:00Z"))).toBe("2026-09-28");
   });
 
   it("日数", () => {

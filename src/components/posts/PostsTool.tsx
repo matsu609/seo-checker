@@ -27,6 +27,7 @@ import {
 } from "@/lib/posts/types";
 import { formatDateTime } from "@/lib/report/format";
 import { WEEKDAY_LABELS_JA } from "@/lib/time/jst";
+import { CadenceCard } from "./CadenceCard";
 
 const STATUS_TONE: Record<GbpPost["status"], "pass" | "info" | "warn" | "fail" | "neutral"> = { draft: "neutral", scheduled: "info", published: "pass", failed: "fail", cancelled: "neutral" };
 
@@ -188,7 +189,10 @@ export function PostsTool() {
         </p>
       </Card>
 
-      <Card number={2} title={`投稿の一覧${store ? `（${store.name}）` : ""}`} description="予約が近い順。本文を直してから「承認して予約」。投稿済みは編集できません。">
+      {/* 一覧の前に「週 1 回を続けられているか」の図を出す（利用者の指示 2026-09-22） */}
+      <CadenceCard number={2} posts={posts} storeName={store?.name ?? null} />
+
+      <Card number={3} title={`投稿の一覧${store ? `（${store.name}）` : ""}`} description="予約が近い順。本文を直してから「承認して予約」。投稿済みは編集できません。">
         {posts.length === 0 && <EmptyState title="投稿はまだありません" description="上の「AI で下書きを作る」か、手で作る場合は下書きを 1 本作ってください。" />}
         <ul className="divide-y divide-line border-y border-line">
           {posts.map((p) => (

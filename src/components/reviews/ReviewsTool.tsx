@@ -66,6 +66,20 @@ interface DetailState {
 
 const EMPTY_DETAIL: DetailState = { channels: [], responses: [], metrics: null, limit: 0, loading: false, error: null };
 
+/** まだ集計が届いていないとき（読み込み中・Supabase 未設定）に渡す空の集計。画面は見本を描く */
+const EMPTY_METRICS: ReviewMetrics = {
+  total: 0,
+  averageRating: null,
+  distribution: [0, 0, 0, 0, 0],
+  low: 0,
+  lowOpen: 0,
+  reviewClicks: 0,
+  reviewClickRate: null,
+  directMessages: 0,
+  byChannel: [],
+  byWeek: [],
+};
+
 export function ReviewsTool() {
   const [forms, setForms] = useState<FormsState>({ forms: [], stores: [], loading: true, error: null });
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -302,7 +316,8 @@ export function ReviewsTool() {
         <>
           <FormEditor number={2} form={current} onSave={onSaveForm} onDelete={onDeleteForm} />
           <ChannelsCard number={3} form={current} channels={detail.channels} stores={forms.stores} onAdd={onAddChannel} onBulkFromStores={onBulkChannels} onRemove={onRemoveChannel} />
-          {detail.metrics && <MetricsCard number={4} metrics={detail.metrics} limit={detail.limit} filtered={filtered} />}
+          {/* 回答 0 件でも出す（集計のイメージを見せるため。利用者の指示 2026-09-22） */}
+          <MetricsCard number={4} metrics={detail.metrics ?? EMPTY_METRICS} limit={detail.limit} filtered={filtered} />
           <ResponsesCard
             number={5}
             form={current}

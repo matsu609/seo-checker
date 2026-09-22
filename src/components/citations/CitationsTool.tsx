@@ -8,12 +8,19 @@
  * 3. サマリー → 主要媒体の掲載状況（見つからなければ基本情報掲載へ）→ 言及しているサイトの一覧（CSV）
  *
  * スニペットは短いので「電話・住所が出ていない」は「載っていない」ではない。画面で必ずそう添える。
+ *
+ * 利用者の指示 2026-09-22:「すべての計測データはグラフにして、デモデータを入れて、
+ * サービスの使い始めでも、こう集計されると直感的に分かるように」。
+ * 調べる前は空っぽの画面だったので、**何が出るのかを見本の帯で先に見せる**。
  */
 import { useEffect, useMemo, useState } from "react";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
 import { BasicInfoNotice, missingFields } from "@/components/site/BasicInfoNotice";
+import { SampleChart, SegmentBar } from "@/components/charts";
+import { SAMPLE_COVERAGE } from "@/lib/demo/site";
 import { useSharedSettings } from "@/lib/settings/client";
+import { palette } from "@/lib/ui/palette";
 import {
   Badge,
   Button,
@@ -191,13 +198,21 @@ export function CitationsTool() {
         </Callout>
       )}
 
+      {/* 調べる前に「何が出るのか」を見せる（利用者の指示 2026-09-22） */}
+      {!data && state.phase !== "error" && (
+        <Card title="掲載状況の見え方" description="「掲載状況を調べる」を押すと、ここに主要媒体の掲載の集計が出ます。">
+          <CoverageSample />
+        </Card>
+      )}
+
       {data && (
         <>
           <Card
             title="外部サイトの掲載状況"
             description="この機能の目的は、外部の媒体に同じ基本情報を載せることです。載っている媒体は掲載ページを、載っていない媒体は登録画面をそのまま開けます。地図アプリ（Google / Apple / Bing など）は登録していても通常の検索結果にほとんど出ないため、ここには出しません。"
           >
-            <ul className="divide-y divide-line border-y border-line">
+            <CoverageBar found={data.summary.mediaFound} total={data.summary.mediaTotal} />
+            <ul className="mt-4 divide-y divide-line border-y border-line">
               {data.coverage.map((c) => (
                 <li key={c.mediaId} className="flex flex-wrap items-center gap-2 py-2 text-[13px]">
                   <Badge tone={c.found ? "pass" : "neutral"} icon={false}>
@@ -269,5 +284,52 @@ export function CitationsTool() {
         </>
       )}
     </div>
+  );
+}
+
+/* ───────────── 掲載の集計（帯） ───────────── */
+
+/** 主要媒体のうち何件に載っているか。一覧の前に置く */
+function CoverageBar({ found, total }: { found: number; total: number }) {
+  return (
+    <div>
+      <SegmentBar
+        segments={[
+          { label: "載っている", value: found, color: palette.chart[0] },
+          { label: "載っていない", value: Math.max(0, total - found), color: palette.chartTrack },
+        ]}
+        ariaLabel={`主要媒体 ${total} 件のうち、載っている ${found} 件`}
+      />
+      <p className="mt-2 text-[12px] leading-relaxed text-muted">
+        主要媒体 {total} 件のうち<strong className="font-bold">{found} 件</strong>で見つかりました。
+        この帯を右に伸ばしていくこと（＝登録を増やすこと）が、この機能でやることです。
+      </p>
+    </div>
+  );
+}
+
+/* ───────────── 調べる前のイメージ（淡い色） ───────────── */
+
+function CoverageSample() {
+  const { found, missing, sites } = SAMPLE_COVERAGE;
+  return (
+    <SampleChart
+      lead="まだ調べていません。上の「掲載状況を調べる」を押すと、Google を 3 通りで検索して、この形の集計に置き換わります（数円・1 回 1〜2 分）。"
+      note={
+        <>
+          帯は「主要媒体のうち、何件に載っているか」です。載っていない媒体は登録画面をその場で開けます。
+          あわせて、<strong className="font-bold">店名で言及しているサイト</strong>（この例では {sites} 件）の一覧と、
+          電話番号・住所の食い違いも出ます。同じ条件で 24 時間は前回の結果を返すので、費用は増えません。
+        </>
+      }
+    >
+      <SegmentBar
+        segments={[
+          { label: "載っている", value: found, color: palette.chart[0] },
+          { label: "載っていない", value: missing, color: palette.chartTrack },
+        ]}
+        ariaLabel="調べたあとの見え方のイメージ（実測ではありません）"
+      />
+    </SampleChart>
   );
 }

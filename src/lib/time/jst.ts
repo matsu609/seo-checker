@@ -41,6 +41,17 @@ export function jstDateKey(date: Date): string {
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
+/**
+ * その日が属する週の月曜（日本時間、YYYY-MM-DD）。
+ * 週ごとの集計（投稿の頻度・アンケートの回答数）はすべてここを通す。
+ */
+export function jstWeekStart(date: Date): string {
+  const p = jstParts(date);
+  const back = (p.weekday + 6) % 7; // 月曜 = 0
+  const d = new Date(Date.UTC(p.year, p.month - 1, p.day - back));
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
 /** 日本時間の月キー（YYYY-MM） */
 export function jstMonthKey(date: Date): string {
   const p = jstParts(date);

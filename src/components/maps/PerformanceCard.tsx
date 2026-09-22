@@ -7,9 +7,14 @@
  * 接続後は当月の 6 指標（前月比）・ユーザーアクション・月別の推移・流入キーワード（伸びた / 落ちた TOP3）。
  * 競合ツールの月次レポート（2026-09-17 に利用者が共有した PDF）と同じ並びにしてある。
  * データは /api/maps/performance が Google から取り、同じ月は 6 時間キャッシュ。
+ *
+ * 利用者の指示 2026-09-22:「すべての計測データはグラフにして、デモデータを入れて、
+ * 最初からこう表示されると分かるように」。①月別の推移は**表の前に折れ線**を置く
+ * ②接続前は「—」の空枠ではなく、**破線のイメージ**で何が入るのかを見せる。
  */
 import { useEffect, useState } from "react";
 import type { MapsPerformanceResponse } from "@/app/api/maps/performance/route";
+import { LineChart, SampleBadge, SampleChart, type LineSeries } from "@/components/charts";
 import { ConnectBusinessButton } from "@/components/replies/ConnectBusinessButton";
 import { Badge } from "@/components/ui/Badge";
 import { Callout } from "@/components/ui/Callout";
@@ -17,10 +22,17 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Select } from "@/components/ui/Field";
 import { StatCard } from "@/components/ui/StatCard";
+import { monthLabel as shortMonth } from "@/lib/demo/dates";
+import { sampleInsightTrend } from "@/lib/demo/meo";
 import { PERFORMANCE_LABELS, type KeywordChange, type MonthRow, type PerformanceKey } from "@/lib/google/performance-types";
 
 const CARD_KEYS: readonly PerformanceKey[] = ["impressions", "impressionsMaps", "impressionsSearch", "calls", "websiteClicks", "directions"];
 const TABLE_KEYS: readonly PerformanceKey[] = ["impressions", "impressionsMaps", "impressionsSearch", "calls", "websiteClicks", "directions", "conversations", "bookings"];
+/** 折れ線に出す指標。表示回数と「行動」は桁が違うので 2 枚に分ける */
+const TREND_IMPRESSION_KEYS: readonly PerformanceKey[] = ["impressions", "impressionsMaps", "impressionsSearch"];
+const TREND_ACTION_KEYS: readonly PerformanceKey[] = ["calls", "websiteClicks", "directions"];
+/** 折れ線に出す月数（直近から。多いと目盛りが潰れる） */
+const TREND_MONTHS = 12;
 
 function n(value: number): string {
   return value.toLocaleString("ja-JP");
@@ -86,7 +98,9 @@ export function PerformanceCard({ number, placeId, storeName }: PerformanceCardP
       description="表示回数・電話・ルート検索・流入キーワードは、店舗のオーナーか管理者の Google アカウントを接続したときだけ取れます（Google が公開していない数字です）。Google 側の集計は 2〜3 日遅れ、さかのぼれるのは 18 か月です。"
       className="no-print"
       actions={
-        data && data.months.length > 0 ? (
+        placeId && data && !data.enabled ? (
+          <SampleBadge label="イメージ（まだ接続していません）" />
+        ) : data && data.months.length > 0 ? (
           <Field label="対象月" className="min-w-[10rem]">
             <Select value={data.month} onChange={(e) => setMonth(e.target.value)} disabled={loading}>
               {data.months.map((m) => (
@@ -131,7 +145,7 @@ export function PerformanceCard({ number, placeId, storeName }: PerformanceCardP
               {data.error}
             </Callout>
           )}
-          <Placeholder />
+          <PerformanceSample />
         </div>
       )}
 
@@ -147,6 +161,8 @@ export function PerformanceCard({ number, placeId, storeName }: PerformanceCardP
             <StatCard label="ユーザーアクション（電話 + サイト + ルート + メッセージ + 予約）" value={n(summary.actions.current)} delta={{ value: summary.actions.current - summary.actions.previous, label: "前月比" }} />
             <StatCard label="対象月" value={monthLabel(summary.month)} hint={data?.cached ? "6 時間以内に取得した数字です" : "Google から取得した数字です"} />
           </div>
+
+          <MonthTrend rows={summary.months} />
 
           <MonthTable rows={summary.months} />
 
@@ -193,18 +209,119 @@ export function PerformanceCard({ number, placeId, storeName }: PerformanceCardP
   );
 }
 
-/** 接続前の枠（何が入るかを見せる） */
-function Placeholder() {
+/* ───────────── 月別の推移（折れ線） ───────────── */
+
+/** 月の行（新しい順）→ 折れ線の系列。集計前の月は null（0 として描かない） */
+export function buildMonthSeries(rows: readonly MonthRow[], keys: readonly PerformanceKey[], months = TREND_MONTHS): { labels: string[]; series: LineSeries[] } {
+  const chrono = [...rows].slice(0, months).reverse();
+  return {
+    labels: chrono.map((r) => shortMonth(r.month)),
+    series: keys.map((k) => ({
+      id: k,
+      label: PERFORMANCE_LABELS[k],
+      values: chrono.map((r) => (r.hasData ? r.totals[k] : null)),
+    })),
+  };
+}
+
+/** 表示回数と行動を 2 枚に分けて描く（桁が違うので 1 枚にすると行動が潰れる） */
+function MonthTrend({ rows }: { rows: readonly MonthRow[] }) {
+  const impressions = buildMonthSeries(rows, TREND_IMPRESSION_KEYS);
+  const actions = buildMonthSeries(rows, TREND_ACTION_KEYS);
+  // 1 か月ぶんでは線にならない（点は出る）
+  if (impressions.labels.length === 0) return null;
   return (
-    <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-3" aria-hidden>
-      {CARD_KEYS.map((key) => (
-        <div key={key} className="rounded-sm border border-dashed border-line px-3 py-2">
-          <p className="text-[11px] text-muted">{PERFORMANCE_LABELS[key]}</p>
-          <p className="text-[18px] font-bold text-muted">—</p>
-          <p className="text-[10px] text-muted">接続すると表示</p>
-        </div>
-      ))}
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-[13px] font-bold text-ink">月別の推移（見られた回数）</h3>
+        <LineChart
+          className="mt-2"
+          labels={impressions.labels}
+          series={impressions.series.map((s, i) => ({ ...s, fill: i === 0 }))}
+          yMin={0}
+          height={220}
+          format={(v) => (v === null ? "集計前" : n(Math.round(v)))}
+          nullLabel="集計前"
+          xHeader="月"
+          ariaLabel="Google での表示回数の月別の推移（合計・マップ・検索）"
+        />
+      </div>
+      <div>
+        <h3 className="text-[13px] font-bold text-ink">月別の推移（お客様の行動）</h3>
+        <LineChart
+          className="mt-2"
+          labels={actions.labels}
+          series={actions.series}
+          yMin={0}
+          height={200}
+          format={(v) => (v === null ? "集計前" : n(Math.round(v)))}
+          nullLabel="集計前"
+          xHeader="月"
+          ariaLabel="電話・ウェブサイト・ルート検索の月別の推移"
+        />
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          線が切れているところは、Google がまだ集計していない月です（0 回ではありません）。直近 {TREND_MONTHS} か月を描いています。
+        </p>
+      </div>
     </div>
+  );
+}
+
+/* ───────────── 接続前のイメージ（破線） ───────────── */
+
+/**
+ * 接続前に出す「こう見えるようになる」の図。
+ * 以前は「—」の空枠だけだったので、何が入るのかが分からなかった（利用者の指示 2026-09-22）。
+ */
+function PerformanceSample() {
+  const { months, series } = sampleInsightTrend();
+  const impressions = series.filter((s) => s.id === "sample-impressions");
+  const actions = series.filter((s) => s.id !== "sample-impressions");
+  const latest = (id: string) => {
+    const s = series.find((x) => x.id === `sample-${id}`);
+    const v = s?.values[s.values.length - 1];
+    return typeof v === "number" ? n(v) : "—";
+  };
+
+  return (
+    <SampleChart
+      title="これは実測ではなく、接続したあとの見え方のイメージです"
+      lead="Google ビジネス プロフィールを接続すると、この形の実線に置き換わります。数字は「お店がどれだけ見られ、どれだけ行動につながったか」です。"
+      note={
+        <>
+          接続した時点で<strong className="font-bold">過去 18 か月ぶんがまとめて入ります</strong>（Google 側の集計は 2〜3 日遅れます）。
+          縦軸は回数、横軸は月です。表示回数とお客様の行動は桁が違うので、図を 2 枚に分けています。
+        </>
+      }
+    >
+      <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-4">
+        {(["impressions", "calls", "websiteClicks", "directions"] as const).map((id) => (
+          <div key={id} className="rounded-sm border border-dashed border-line px-3 py-2">
+            <p className="text-[11px] text-muted">{PERFORMANCE_LABELS[id]}</p>
+            <p className="text-[18px] font-bold tabular-nums text-muted">{latest(id)}</p>
+            <p className="text-[10px] text-muted">接続すると実測に置き換わります</p>
+          </div>
+        ))}
+      </div>
+      <LineChart
+        labels={months.map(shortMonth)}
+        series={impressions.map((s) => ({ id: s.id, label: s.label, values: s.values, dashed: true }))}
+        yMin={0}
+        height={200}
+        format={(v) => (v === null ? "—" : n(Math.round(v)))}
+        xHeader="月"
+        ariaLabel="接続したあとの見え方のイメージ（実測ではありません）。縦軸は表示回数、横軸はこれからの 6 か月"
+      />
+      <LineChart
+        labels={months.map(shortMonth)}
+        series={actions.map((s) => ({ id: s.id, label: s.label, values: s.values, dashed: true }))}
+        yMin={0}
+        height={200}
+        format={(v) => (v === null ? "—" : n(Math.round(v)))}
+        xHeader="月"
+        ariaLabel="接続したあとの見え方のイメージ（実測ではありません）。縦軸は電話・ウェブサイト・ルート検索の回数、横軸はこれからの 6 か月"
+      />
+    </SampleChart>
   );
 }
 
