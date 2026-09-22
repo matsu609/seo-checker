@@ -12,7 +12,7 @@ import { generateStructured } from "@/lib/llm/structured";
 import { buildPageReport } from "@/lib/page-report/analyze";
 import type { PageReport } from "@/lib/page-report/types";
 import * as cheerio from "cheerio";
-import { buildImprovementPrompt, SYSTEM_PROMPT } from "./prompt";
+import { buildImprovementPrompt, SYSTEM_PROMPT, type SerpContext } from "./prompt";
 import { ImprovementSchema, type ImprovementPlan } from "./schema";
 
 export interface ImprovementResult {
@@ -54,6 +54,8 @@ export interface GenerateImprovementOptions {
   signal?: AbortSignal;
   /** お客様カルテの要約（任意）。ルートが currentKarteBrief() で渡す */
   brief?: string;
+  /** 上位 10 件と比べた結果（任意）。「競合と比べる」を先に走らせたときだけ入る */
+  serp?: SerpContext;
   /** テスト用。省略時は Anthropic を呼ぶ */
   generator?: ImprovementGenerator;
 }
@@ -79,7 +81,13 @@ export async function generateImprovement(
   const generate = options.generator ?? defaultGenerator;
   const { plan, usage } = await generate({
     system: SYSTEM_PROMPT,
-    prompt: buildImprovementPrompt({ report, bodyText: mainText, keyword: options.keyword, brief: options.brief }),
+    prompt: buildImprovementPrompt({
+      report,
+      bodyText: mainText,
+      keyword: options.keyword,
+      brief: options.brief,
+      ...(options.serp ? { serp: options.serp } : {}),
+    }),
     signal: options.signal,
   });
 

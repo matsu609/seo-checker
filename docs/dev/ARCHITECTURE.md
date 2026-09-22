@@ -18,7 +18,8 @@
 | 診断 | `/tools/seo-analysis` | 精密診断（事実シート + AI の現状分析と改善案。ドメインパワーを含む） | — | Supabase + Anthropic（PSI / SerpApi / OpenAI / CrUX / Ahrefs DR / Open PageRank は任意） |
 | 診断 | `/tools/site-audit` | （精密診断に統合。転送のみ。`hidden: true`） | A1 | — |
 | 診断 | `/tools/page-report` | （サイドバーから外した 2026-09-17。HP 改修提案へ転送のみ。`hidden: true`。API と `src/lib/page-report/` は HP 改修提案・PSI・llms.txt が使う） | A2, A3 | — |
-| 診断 | `/tools/page-diagnosis` | ページ診断（キーワード × ページ） | A4 | SERP or Anthropic web 検索 |
+| 診断 | `/tools/page-improve` | **ページ改善**（1 回の操作で「上位 10 件と比べた事実」→「改修案 最大 5 件」を同じ画面に。2026-09-22 にタブを廃止し、比較の結果が改修案の根拠に渡る） | A4, A2, D2 | SERP or Anthropic web 検索（改修案は Anthropic 必須） |
+| 診断 | `/tools/page-diagnosis` | （2026-09-19「ページ改善」に統合。転送のみ。API `/api/page-diagnosis` は現役） | A4 | SERP or Anthropic web 検索 |
 | 診断 | `/tools/aio-topics` | （サイドバーから外した 2026-09-17。AI 検索モニタリングへ転送のみ。`hidden: true`。API は残る） | A5 | — |
 | 計測 | `/tools/rank` | 順位計測・AI Overviews 引用 | B1, B2, B3 | SERP |
 | 計測 | `/tools/geo` | AI 検索モニタリング（引用・参照の定点観測） | — | DataForSEO + Supabase（Anthropic は任意） |

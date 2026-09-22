@@ -45,13 +45,22 @@ export const ProposalSchema = z.object({
 
 export type Proposal = z.infer<typeof ProposalSchema>;
 
+/**
+ * 1 回に出す改修案の上限（利用者の指示 2026-09-22「細かい修正指示は負担が大きいからいらない」）。
+ *
+ * 12 件を並べても、お客様は直しきれずに全部やらないまま終わる。
+ * **直せば順位と引用に効くものだけ**に絞り、alt が 1 枚無い、といった小さな指摘は出さない。
+ * 細かい所見は「詳しく見る」に機械的な事実として残るので、消えるわけではない。
+ */
+export const MAX_PROPOSALS = 5;
+
 export const ImprovementSchema = z.object({
   summary: z
     .array(z.string().min(1).max(300))
     .min(1)
-    .max(5)
+    .max(4)
     .describe("運用者が顧客に読み上げる総評。3〜4 行"),
-  proposals: z.array(ProposalSchema).min(1).max(12),
+  proposals: z.array(ProposalSchema).min(1).max(MAX_PROPOSALS),
 });
 
 export type ImprovementPlan = z.infer<typeof ImprovementSchema>;

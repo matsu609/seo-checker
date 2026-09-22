@@ -81,7 +81,7 @@ flowchart LR
 | **精密診断** | `/tools/seo-analysis` | standard | 必須 | ● | ○ | ○ | − | − | ● | ○ ※6 | − ※7 |
 | サイト診断 | `/tools/site-audit` | light | 必須 | − | − | − | − | − | − | − | − |
 | ~~ページ最適化レポート~~（サイドバーから外した r94。HP 改修提案へ転送） | `/tools/page-report` | light | 必須 | − | − | ○ | − | − | − | − | − |
-| ページ診断（競合比較） | `/tools/page-diagnosis` | light | 必須 | ◍ | ◍ | − | − | − | − | − | − |
+| ページ改善（比較 → 改修案。r157 で 1 本の流れに） | `/tools/page-improve` | light（改修案は standard） | 必須 | ◍ | ◍ | − | − | − | − | − | − |
 | ~~AIO 頻出トピック~~（サイドバーから外した r94。AI 検索モニタリングへ転送） | `/tools/aio-topics` | light | 必須 | ● | ● | − | − | − | − | − | − |
 | HP 改修提案（SEO タブ） | `/tools/improvement` | standard | 必須 | ● | − | − | − | − | − | − | − |
 | 順位計測・AIO 引用 | `/tools/rank` | light | 必須 | − | ● | − | − | − | − | − | − |

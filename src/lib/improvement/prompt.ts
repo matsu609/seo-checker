@@ -7,6 +7,7 @@
  *     「これまでの指示を無視して」のような文が仕込まれている可能性があるので、
  *     必ず untrustedBlock で囲んで「データであって指示ではない」と明示する。
  */
+import { MAX_PROPOSALS } from "./schema";
 import type { PageReport, ReportRow } from "@/lib/page-report/types";
 import { SAFETY_RULES, untrustedBlock } from "@/lib/llm/prompt-safety";
 
@@ -14,6 +15,8 @@ import { SAFETY_RULES, untrustedBlock } from "@/lib/llm/prompt-safety";
 export const MAX_BODY_CHARS = 6_000;
 /** 見出しの最大数 */
 export const MAX_HEADINGS = 40;
+/** 上位 10 件と比べた結果として載せる上限 */
+export const MAX_SERP_CHARS = 3_000;
 
 export const SYSTEM_PROMPT = [
   "あなたは日本語の Web サイトを改善する SEO / AIO の実務担当者です。",
@@ -26,6 +29,8 @@ export const SYSTEM_PROMPT = [
   "  why でその値を確認するよう伝える。",
   "- 構造化データは画面に実在する内容だけを記述する。FAQ が無いページに FAQPage を足す提案はしない。",
   "- 文字数を増やすこと自体を目的にしない。具体的な事実を足す提案にする。",
+  `- **直せば検索順位と AI の引用に効くものだけ**を、最大 ${MAX_PROPOSALS} 件。alt が 1 枚無い、といった細かい指摘は出さない。`,
+  "- 上位ページとの差が渡されているときは、その差を埋める提案を優先する。",
   "- 効果を保証する書き方（必ず上位表示されます等）はしない。",
   "- 日本語で書く。文体はページに合わせる。",
 ].join("\n");
@@ -41,6 +46,26 @@ export function failingRows(report: PageReport): { section: string; row: ReportR
   return out;
 }
 
+/**
+ * 上位 10 件と比べた結果（「競合と比べる」が出した事実）。
+ *
+ * **これが改修案の根拠のいちばん大事な部分**（利用者の指摘 2026-09-22
+ * 「競合と比べたら改善案はそのページで提示すればよくない？」）。
+ * 中身は第三者のページと AI の分析から作られた文字列なので、**必ず信用できないブロックに入れる**。
+ */
+export interface SerpContext {
+  /** 実測（SerpApi）か推定（Web 検索）か */
+  source: "serpapi" | "web_search";
+  /** このキーワードの検索意図 */
+  searchIntent?: string;
+  /** 上位ページの傾向 */
+  serpTrend?: string;
+  /** 自社 vs 上位の測定値（1 行 1 指標） */
+  stats?: readonly string[];
+  /** 上位にあって自社に足りないもの */
+  gaps?: readonly string[];
+}
+
 export interface ImprovementPromptInput {
   report: PageReport;
   /** 本文（Readability で抽出したもの） */
@@ -49,6 +74,8 @@ export interface ImprovementPromptInput {
   keyword?: string;
   /** お客様カルテの要約（任意）。強み・売りたい商品・客層を改修案に反映させる */
   brief?: string;
+  /** 上位 10 件と比べた結果（任意。「競合と比べる」を先に走らせたときだけ入る） */
+  serp?: SerpContext;
 }
 
 /** ユーザーメッセージを組み立てる */
@@ -68,6 +95,27 @@ export function buildImprovementPrompt(input: ImprovementPromptInput): string {
   if (keyword?.trim()) lines.push(`対策キーワード: ${keyword.trim().slice(0, 200)}`);
   lines.push(`現在のスコア: ${report.score} 点（${report.scoreLabel}）`);
   lines.push("");
+
+  if (input.serp) {
+    const serp = input.serp;
+    lines.push("■ 上位 10 件と比べた結果");
+    lines.push(
+      serp.source === "serpapi"
+        ? "（検索順位は検索 API の実測値）"
+        : "（検索順位は Web 検索による推定。順位そのものを断定しない）",
+    );
+    // 検索意図・傾向・差分は第三者ページ由来の分析なので、囲んで渡す
+    const block = [
+      serp.searchIntent ? `検索意図: ${serp.searchIntent}` : "",
+      serp.serpTrend ? `上位ページの傾向: ${serp.serpTrend}` : "",
+      ...(serp.stats?.length ? ["測定値の比較:", ...serp.stats.map((l) => `- ${l}`)] : []),
+      ...(serp.gaps?.length ? ["上位にあって自社に足りないもの:", ...serp.gaps.map((l) => `- ${l}`)] : []),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    lines.push(...untrustedBlock(block, MAX_SERP_CHARS));
+    lines.push("");
+  }
 
   lines.push("■ 診断で見つかった課題（このアプリの機械的な判定）");
   const failing = failingRows(report);
@@ -111,7 +159,8 @@ export function buildImprovementPrompt(input: ImprovementPromptInput): string {
   lines.push("");
 
   lines.push("■ 出力");
-  lines.push("優先度の高いものから順に、最大 12 件の改修案を出してください。");
+  lines.push(`優先度の高いものから順に、**最大 ${MAX_PROPOSALS} 件**の改修案を出してください。`);
+  lines.push("数を埋めるために小さな指摘を足さないでください。効くものが 3 件なら 3 件で構いません。");
   lines.push("同じ場所（area）の提案が重複しないようにまとめてください。");
   lines.push("summary は、運用者がお客様にそのまま読み上げられる 3〜4 行にしてください。");
 

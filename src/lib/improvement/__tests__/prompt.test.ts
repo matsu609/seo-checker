@@ -8,7 +8,8 @@
 import { describe, expect, it } from "vitest";
 import { UNTRUSTED_BEGIN, UNTRUSTED_END } from "@/lib/llm/prompt-safety";
 import type { PageReport, ReportSection } from "@/lib/page-report/types";
-import { buildImprovementPrompt, failingRows, MAX_BODY_CHARS, SYSTEM_PROMPT } from "../prompt";
+import { buildImprovementPrompt, failingRows, MAX_BODY_CHARS, SYSTEM_PROMPT, type SerpContext } from "../prompt";
+import { MAX_PROPOSALS } from "../schema";
 
 function section(label: string, rows: ReportSection["rows"]): ReportSection {
   return { id: "content", label, description: "", weight: 10, ratio: 0.5, points: 5, rows };
@@ -155,5 +156,49 @@ describe("システムプロンプト", () => {
 
   it("助言止まりを禁じ、完成形を求めている", () => {
     expect(SYSTEM_PROMPT).toContain("after には完成した文字列を書く");
+  });
+});
+
+/**
+ * 上位 10 件と比べた結果を改修案の根拠に渡す（利用者の指摘 2026-09-22
+ * 「競合と比べたら改善案はそのページで提示すればよくない？」）。
+ *
+ * ここが抜けると、比較で「何が足りないか」を出したのに改修案がそれを見ない、という
+ * 2026-09-22 以前の状態に戻る。
+ */
+describe("上位 10 件と比べた結果", () => {
+  const buildPrompt = (over: { serp?: SerpContext }) =>
+    buildImprovementPrompt({ report: makeReport(), bodyText: "本文です。", ...over });
+
+  const serp: SerpContext = {
+    source: "serpapi" as const,
+    searchIntent: "料金と所要時間を知りたい",
+    serpTrend: "上位は料金表を持っている",
+    stats: ["文字数: 上位 10 件の中央値 3,000 文字 / 自社 800 文字"],
+    gaps: ["料金表が無い"],
+  };
+
+  it("渡すと根拠として載り、かつ信用できないブロックの中に入る", () => {
+    const p = buildPrompt({ serp });
+    expect(p).toContain("上位 10 件と比べた結果");
+    const begin = p.indexOf(UNTRUSTED_BEGIN);
+    expect(begin).toBeGreaterThan(-1);
+    for (const text of ["料金と所要時間を知りたい", "上位は料金表を持っている", "料金表が無い"]) {
+      expect(p.indexOf(text), text).toBeGreaterThan(begin);
+    }
+  });
+
+  it("推定のときは順位を断定させない", () => {
+    expect(buildPrompt({ serp: { ...serp, source: "web_search" } })).toContain("順位そのものを断定しない");
+  });
+
+  it("渡さなければ節ごと出さない（比較なしでも動く）", () => {
+    expect(buildPrompt({})).not.toContain("上位 10 件と比べた結果");
+  });
+
+  it("件数の上限をプロンプトとシステムの両方で伝える", () => {
+    expect(SYSTEM_PROMPT).toContain(`最大 ${MAX_PROPOSALS} 件`);
+    expect(buildPrompt({})).toContain(`最大 ${MAX_PROPOSALS} 件`);
+    expect(buildPrompt({})).toContain("数を埋めるために小さな指摘を足さない");
   });
 });

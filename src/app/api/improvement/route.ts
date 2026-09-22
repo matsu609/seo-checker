@@ -24,9 +24,25 @@ const CACHE_TTL_MS = 30 * 60 * 1000;
 /** 1 件が数十 KB。同じ URL を続けて押されたときに実費を二重に払わないためのもの */
 const cache = globalCache<ImprovementResult>("improvement", CACHE_TTL_MS, 50);
 
+/**
+ * 「競合と比べる」が出した事実。画面が診断結果から組み立てて送る。
+ *
+ * **サーバーは診断結果を持っていない**（ブラウザ側に保存している）ので、ここは
+ * クライアントから来る文字列になる。プロンプトには必ず「信用できないブロック」に入れて渡し、
+ * ここでは長さだけを縛る（長文を投げ込まれて費用が膨らむのを防ぐ）。
+ */
+const SerpContextSchema = z.object({
+  source: z.enum(["serpapi", "web_search"]),
+  searchIntent: z.string().max(600).optional(),
+  serpTrend: z.string().max(600).optional(),
+  stats: z.array(z.string().max(200)).max(12).optional(),
+  gaps: z.array(z.string().max(300)).max(8).optional(),
+});
+
 const BodySchema = z.object({
   url: z.string().min(1, "URL を入力してください").max(2000),
   keyword: z.string().max(200).optional(),
+  serp: SerpContextSchema.optional(),
   refresh: z.boolean().optional(),
 });
 
@@ -55,13 +71,15 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const { url, keyword, refresh } = parsed.data;
+  const { url, keyword, serp, refresh } = parsed.data;
 
   // お客様カルテ（強み・売りたい商品・客層）を改修案に反映する。未記入なら空文字
   const brief = await currentKarteBrief();
   // **指紋をキーに混ぜる。**混ぜないと、同じ URL を別のお客様が診断したときに
   // 前の人のカルテが入った提案を返してしまう（キャッシュはプロセス内で共有）
-  const key = `${url}|${keyword ?? ""}|${briefFingerprint(brief)}`;
+  // 競合の事実が違えば別の提案になるので、キャッシュキーにも混ぜる
+  const serpKey = serp ? `${serp.source}:${(serp.gaps ?? []).join("|").slice(0, 200)}` : "";
+  const key = `${url}|${keyword ?? ""}|${briefFingerprint(brief)}|${serpKey}`;
   if (!refresh) {
     const hit = cache.get(key);
     if (hit) return Response.json({ result: hit, cached: true });
@@ -71,7 +89,7 @@ export async function POST(request: NextRequest) {
   const over = await takeUsage("improvement");
   if (over) return over;
   try {
-    const result = await generateImprovement({ url, keyword, brief, signal: request.signal });
+    const result = await generateImprovement({ url, keyword, brief, ...(serp ? { serp } : {}), signal: request.signal });
     cache.set(key, result);
     return Response.json({ result, cached: false });
   } catch (err) {
