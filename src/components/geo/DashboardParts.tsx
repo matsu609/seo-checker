@@ -12,9 +12,16 @@
  * どれも**新しい計測はしない**（すでに保存してあるものを見せるだけ）ので費用は増えない。
  */
 import { useState } from "react";
-import { Badge, Button, Card, Field } from "@/components/ui";
+import { Badge, Button, Callout, Card, Field, StatCard } from "@/components/ui";
 import { palette } from "@/lib/ui/palette";
-import { PERIOD_OPTIONS, type DomainCitation, type ObservationFilter } from "@/lib/geo/aggregate";
+import {
+  AIO_APPEARANCE_LABELS,
+  AIO_OUTCOME_LABELS,
+  PERIOD_OPTIONS,
+  type DomainCitation,
+  type KeywordOutcomeSummary,
+  type ObservationFilter,
+} from "@/lib/geo/aggregate";
 import { relativeLabel } from "@/lib/geo/schedule";
 import { DOMAIN_CLASS_LABELS, GEO_MODEL_LABELS, GEO_MODELS, type GeoModel } from "@/lib/geo/types";
 import { pct } from "@/lib/report/format";
@@ -199,6 +206,100 @@ export function DomainsCard({ domains }: { domains: readonly DomainCitation[] })
           ))}
         </ul>
       )}
+    </Card>
+  );
+}
+
+/* ───────────── 見出し（名前 → 一言） ───────────── */
+
+/**
+ * 機能に**名前と一言**を与える見出し（利用者の指示 2026-09-22
+ * 「こういった機能のまとめ方はわかりやすい」）。
+ * 説明的な見出しがカードごとにバラバラに並んでいたのを、4 つの「分析」にくくり直す。
+ */
+export function SectionHeading({ label, title, description }: { label: string; title: string; description: string }) {
+  return (
+    <div className="pt-2">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</p>
+      <h3 className="mt-0.5 text-[17px] font-bold text-ink">{title}</h3>
+      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">{description}</p>
+    </div>
+  );
+}
+
+/* ───────────── AI Overviews 分析（キーワードごとの成果） ───────────── */
+
+const APPEARANCE_TONE = { present: "pass", absent: "neutral", unmeasured: "neutral" } as const;
+const OUTCOME_TONE = { cited: "pass", none: "warn", unmeasured: "neutral" } as const;
+
+export function KeywordOutcomesCard({ summary }: { summary: KeywordOutcomeSummary }) {
+  return (
+    <Card
+      title="キーワードごとの AI 出現と引用"
+      description="1 語ずつに「Google での順位」「AI の回答が出たか」「そこで自社が引用されたか」を並べています。並びは打ち手になる順（出ているのに引用されていないものが上）です。"
+      printCard
+    >
+      <div className="grid gap-3 @2xl:grid-cols-3">
+        <StatCard label="AI の回答が出た語" value={summary.appearedCount} unit="語" hint="登録キーワードのうち" />
+        <StatCard label="自社が引用された語" value={summary.citedCount} unit="語" hint="出た語のうち" />
+        <StatCard
+          label="自社引用率"
+          value={summary.citedRate === null ? "—" : pct(summary.citedRate)}
+          hint={summary.citedRate === null ? "AI の回答が出た語がまだありません" : `${summary.citedCount} / ${summary.appearedCount} 語`}
+        />
+      </div>
+
+      {summary.opportunities.length > 0 && (
+        <Callout tone="warn" className="mt-4" title={`引用を取りに行ける語が ${summary.opportunities.length} 件`}>
+          <p className="leading-relaxed">
+            AI の回答は出ているのに自社が参照されていない語です。ここに出る媒体に載る・その語の内容を厚くするのが次の一手になります。
+          </p>
+        </Callout>
+      )}
+
+      {summary.rows.length === 0 ? (
+        <p className="mt-4 text-[13px] text-muted">
+          設定の「対策キーワード」を登録すると、週 1 回（月曜）の計測からこの表が埋まります。
+        </p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[30rem] border-collapse text-[13px]">
+            <thead>
+              <tr className="border-b border-line text-left text-[11px] text-muted">
+                <th className="py-1 pr-3 font-normal">キーワード</th>
+                <th className="py-1 pr-3 text-right font-normal">Google 順位</th>
+                <th className="py-1 pr-3 font-normal">AI の回答</th>
+                <th className="py-1 font-normal">自社の引用</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.rows.map((row) => (
+                <tr key={row.keywordId} className="border-b border-line">
+                  <td className="max-w-[16rem] truncate py-2 pr-3 text-ink">{row.keyword}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-ink">
+                    {row.seoRank !== null ? row.seoRank : row.rankMeasured ? <span className="text-muted">圏外</span> : <span className="text-muted">未計測</span>}
+                  </td>
+                  <td className="py-2 pr-3">
+                    <Badge tone={APPEARANCE_TONE[row.appearance]} icon={false}>
+                      {AIO_APPEARANCE_LABELS[row.appearance]}
+                    </Badge>
+                  </td>
+                  <td className="py-2">
+                    <Badge tone={OUTCOME_TONE[row.outcome]} icon={false}>
+                      {AIO_OUTCOME_LABELS[row.outcome]}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="mt-3 text-[11px] leading-relaxed text-muted">
+        「非出現」はその語で AI の回答そのものが出なかったこと、「未計測」はまだ測っていないことです。
+        <strong className="font-bold">この 2 つを混ぜません</strong>（未計測を「出ていない」と読むと判断を誤るため）。
+      </p>
     </Card>
   );
 }

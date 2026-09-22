@@ -19,7 +19,8 @@ import { ShareCard } from "./ShareCard";
 import { TargetBars } from "./TargetBars";
 import { TrendChart } from "./TrendChart";
 import { IndustryMapCard } from "./IndustryMapCard";
-import { DomainsCard, FilterBar, RecentOutputsCard, ScheduleBanner } from "./DashboardParts";
+import { DomainsCard, FilterBar, KeywordOutcomesCard, RecentOutputsCard, ScheduleBanner, SectionHeading } from "./DashboardParts";
+import { CrawlerCard } from "./CrawlerCard";
 import type { ObservationFilter } from "@/lib/geo/aggregate";
 import { fetchDashboard, fetchSetup, runLive, type DashboardResponse, type LiveResult, type SetupResponse } from "./client";
 
@@ -206,6 +207,12 @@ function Dashboard({
       {/* 左 = 推移と明細（広い）、右 = 順位と操作（狭い）。1 カラム 17 ブロックの縦積みをやめた */}
       <div className="grid items-start gap-6 @5xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="min-w-0 space-y-6">
+          <SectionHeading
+            label="Visibility"
+            title="ビジビリティ分析"
+            description="あなたのブランドが AI の回答でどのくらい言及されているか、その割合と動きを確かめます。"
+          />
+
           <TrendChart
             weeks={data.trends.weeks}
             series={data.trends.keyword}
@@ -247,10 +254,30 @@ function Dashboard({
             }
           />
 
+          <SectionHeading
+            label="Ai Overviews"
+            title="AI Overviews 分析"
+            description="キーワードごとに、Google での順位・AI の回答が出たか・そこで自社が引用されたかを並べます。「順位は高いのに引用されていない」語が次の一手です。"
+          />
+
+          <KeywordOutcomesCard summary={data.outcomes} />
+
+          <SectionHeading
+            label="Evidence"
+            title="実際の回答"
+            description="数字の裏づけとして、返ってきた AI の回答をそのまま確かめられます。"
+          />
+
           <RecentOutputsCard items={data.recent} />
         </div>
 
         <div className="min-w-0 space-y-6">
+          <SectionHeading
+            label="Positioning"
+            title="ポジショニング分析"
+            description="競合の中で自社が何番目に言及されているかを把握します。"
+          />
+
           <ShareCard
             rows={data.overall}
             brands={data.brands}
@@ -260,7 +287,21 @@ function Dashboard({
 
           <ModelBreakdown perModel={data.perModel} brands={data.brands} />
 
+          <SectionHeading
+            label="Source"
+            title="ソース（引用）分析"
+            description="AI がどのページを参考に回答を作っているかを見ます。ここに出る媒体に載ると引用されやすくなります。"
+          />
+
           <DomainsCard domains={data.domains} />
+
+          <SectionHeading
+            label="AI Crawler"
+            title="AI クローラー分析"
+            description="AI 各社のクローラーが、あなたのサイトを取得できる設定になっているかを確かめます。"
+          />
+
+          <CrawlerCard />
 
           {data.branded && data.branded.n > 0 && <BrandedCard branded={data.branded} />}
 

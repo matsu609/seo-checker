@@ -271,6 +271,12 @@ main p a, main .list a, .facts a, footer a, .contact a { color: var(--accent); t
 .plan .btn { margin-top: auto; width: 100%; }
 
 /* ── ツール一覧 ─────────────────────────────────────────── */
+/* AI 検索の分析ブロック（2026-09-22。名前 → 一言 → 中身 の型） */
+.analysis { background: var(--panel); padding: 1.15rem 1.25rem; margin-top: .9rem; }
+.analysis-label { margin: 0; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.analysis-title { margin: .2rem 0 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.analysis-body { margin: .45rem 0 0; }
+.analysis-note { margin: .5rem 0 0; font-size: .78rem; color: var(--muted); }
 .group { margin-top: 1.75rem; }
 .group:first-of-type { margin-top: 1.4rem; }
 .tools { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
@@ -611,6 +617,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
       <a href="#check">診断の中身</a>
       <a href="#areas">3 つの領域</a>
       <a href="#tools">機能</a>
+      <a href="#ai-analysis">AI 検索</a>
       <a href="#facts">概要</a>
       <a href="#price">料金</a>
       <a href="#google">Google 連携</a>
@@ -835,7 +842,6 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <p>Google 連携なしで、ドメインを入れるだけ。そのサイトが順位を持っているキーワードを自動で集め、順位ごとのクリック率から表示回数・クリック数・平均順位を推定します。契約したその日から数字が出ます。</p>
           </div>
           <div class="tool">
-          <div class="tool">
             <p class="tool-head"><span class="tool-name">プロンプト拡張</span></p>
             <p>参考プロンプトと対象サイトから、利用者が AI に聞きそうな関連プロンプトをカテゴリ付きで生成します。</p>
           </div>
@@ -903,6 +909,66 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
       </p>
     </section>
 
+
+    <section id="ai-analysis">
+      <h2>AI 検索の 5 つの分析</h2>
+      <p>
+        ChatGPT や Google の AI が「どう答えているか」を毎週はかり、5 つの切り口で見ます。
+        <strong>数字は毎週たまっていき、4 週分をまとめた値を見出しにします</strong>（1 回の結果や 1 週間の上下では判断しない作りです）。
+      </p>
+
+      <div class="analysis">
+        <p class="analysis-label">Visibility</p>
+        <p class="analysis-title">ビジビリティ分析</p>
+        <p class="analysis-body">
+          あなたのブランドが AI の会話の中でどのくらい言及されているか、その割合を確かめます。
+          週ごとの推移を折れ線で追えるので、対策をした月に上がったかどうかが分かります。
+        </p>
+        <p class="analysis-note">計測は ChatGPT ／ Gemini ／ Claude ／ Perplexity ／ Google AI Overviews ／ Google AI モードの 6 つ。</p>
+      </div>
+
+      <div class="analysis">
+        <p class="analysis-label">Positioning</p>
+        <p class="analysis-title">ポジショニング分析</p>
+        <p class="analysis-body">
+          自社が競合の中で何番目に言及されているかを把握します。競合を登録しておくと、同じ質問に対して誰が先に名前を出されているかが並びます。
+        </p>
+        <p class="analysis-note">数字には 95% の幅（信頼区間）を添えます。回数が少ないうちは幅が広く、細かい差は読み取れないことも正直に出します。</p>
+      </div>
+
+      <div class="analysis">
+        <p class="analysis-label">Ai Overviews</p>
+        <p class="analysis-title">AI Overviews 分析</p>
+        <p class="analysis-body">
+          キーワードごとに「Google での順位」「AI の回答が出たか」「そこで自社が引用されたか」を 1 行に並べます。
+          <strong>検索順位は高いのに AI には引用されていない</strong>語が見つかるので、次に手を入れる場所がはっきりします。
+        </p>
+        <p class="analysis-note">「AI の回答が出なかった」と「まだ測っていない」は別の表記にしています。</p>
+      </div>
+
+      <div class="analysis">
+        <p class="analysis-label">Source</p>
+        <p class="analysis-title">ソース（引用）分析</p>
+        <p class="analysis-body">
+          AI がどのページを参考に回答を作っているかを分析します。自社・競合・第三者のメディアに分けて出すので、
+          <strong>どの媒体に載ると引用されやすいか</strong>が分かります。トピックを入れて業界全体の引用ランキングを引くこともできます。
+        </p>
+      </div>
+
+      <div class="analysis">
+        <p class="analysis-label">AI Crawler</p>
+        <p class="analysis-title">AI クローラー分析</p>
+        <p class="analysis-body">
+          GPTBot・ClaudeBot・PerplexityBot など AI 各社のクローラーが、あなたのサイトを取得できる設定になっているかを確かめます。
+          拒否していると、そもそもその AI の回答には載りません。学習用は断りつつ検索用は許可する、という選び方もできます。
+        </p>
+        <p class="analysis-note">
+          <strong>これは「来られる状態か」の確認で、「実際に何回来たか」の計測ではありません。</strong>
+          訪問回数はサイトのアクセスログが必要で、本サービスでは測りません（お客様側での設置作業が要る機能は置かない方針のため）。
+        </p>
+      </div>
+    </section>
+
     <section id="facts">
       <h2>サービス概要（数字で見る SEO Checker）</h2>
       <div class="table-wrap">
@@ -914,8 +980,8 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <tr><th>精密診断の範囲</th><td>約 45 のルール・10 カテゴリ。既定 300 ページ、最大 1,000 ページまでクロール</td></tr>
             <tr><th>MEO 診断の採点項目</th><td>4 カテゴリ・21 項目（基本情報 ／ 投稿 ／ 写真 ／ レビュー）。競合は自社 1 店舗あたり 5 件まで登録可</td></tr>
             <tr><th>数字の更新</th><td>Google マップの数字は毎週月曜 5:00（日本時間）に自動で取り直し、履歴として保存</td></tr>
-            <tr><th>連携する外部サービス</th><td>Google Places API、PageSpeed Insights、DataForSEO（検索パフォーマンスの推定）。Google Search Console・Google アナリティクスは使いません</td></tr>
-            <tr><th>対応する生成 AI</th><td>AI 検索モニタリングで ChatGPT ／ Gemini ／ Google AI Overviews を毎週計測（4 週ローリングと信頼区間つき）</td></tr>
+            <tr><th>連携する外部サービス</th><td>Google Places API、PageSpeed Insights、DataForSEO（検索パフォーマンスの推定・AI 検索モニタリング）。Google Search Console・Google アナリティクスは使いません</td></tr>
+            <tr><th>対応する生成 AI</th><td>AI 検索モニタリングで ChatGPT ／ Gemini ／ Claude ／ Perplexity ／ Google AI Overviews ／ Google AI モードの 6 つを毎週計測（4 週ローリングと信頼区間つき）</td></tr>
             <tr><th>料金</th><td>精密診断は 3 プラン（月額・税込）: ライト 38,000 円（診断・計測）／<strong>スタンダード 50,000 円</strong>（+ AI が改修案・原稿を作成）／プレミアム 150,000 円〜（+ 人の伴走。月 3 社まで・個別にお見積り）。割引コードをお持ちの場合は料金プランの画面で入力（スタンダードのみ）。カード決済、解約はお客様側の画面で可能</td></tr>
             <tr><th>出力</th><td>診断報告書はブラウザで閲覧、PDF ダウンロード、印刷に対応。一覧は CSV 出力に対応</td></tr>
             <tr><th>データの保管場所</th><td>アプリは Vercel、データベースは Supabase（東京リージョン）。Google から取得した数値は利用者の画面表示にだけ使用</td></tr>
@@ -952,7 +1018,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           <ul>
             <li>ライトのすべて（SEO・AIO・MEO の診断と計測）</li>
             <li>精密診断: AI による現状分析と改善案</li>
-            <li>AI 検索モニタリング: ChatGPT / Gemini / AI Overviews での引用・参照を毎週計測</li>
+            <li>AI 検索モニタリング: ChatGPT / Gemini / Claude / Perplexity / AI Overviews / AI モードでの引用・参照を毎週計測（上の「AI 検索の 5 つの分析」）</li>
             <li>HP 改修提案: 直す箇所を before → after で作成</li>
             <li>AI ライティング・エディター / llms.txt 生成</li>
             <li>口コミ支援（店内 QR）と口コミへの AI 返信案</li>

@@ -541,3 +541,58 @@ export async function listRecentOutputs(userId: string, limit = 20, ownBrandId?:
   }
   return [...byMeasurement.values()];
 }
+
+/* ───────────── キーワードごとの成果（SEO 順位 × AIO 出現 × 引用。2026-09-22） ───────────── */
+
+const KeywordOutcomeRow = z.object({
+  keyword_id: z.string().nullable(),
+  cited: z.boolean(),
+  geo_measurements: z
+    .object({ kind: z.string(), model: z.string(), executed_at: z.string(), rank: z.number().nullable(), citations: z.unknown() })
+    .nullable(),
+});
+
+/** 1 計測ぶんの生の行（集計は純関数 aggregate.keywordOutcomes に渡す） */
+export interface KeywordOutcomeInput {
+  keywordId: string;
+  kind: MeasurementKind;
+  model: GeoModel;
+  executedAt: string;
+  /** 検索順位（kind="rank" のときだけ入る。圏外は null） */
+  rank: number | null;
+  /** その計測で拾えた引用リンクの数（0 なら AI の回答そのものが出ていない） */
+  citationCount: number;
+  /** 自社が引用されたか */
+  cited: boolean;
+}
+
+/**
+ * キーワード計測（順位・AI Overviews・AI モード）を自社ブランドぶんだけ引く。
+ *
+ * プロンプト側（LLM）は対象外なので `keyword_id` がある行に絞る。
+ * 件数はキーワード数 × 3 種 × 週数なので、観測の全件取得よりずっと軽い。
+ */
+export async function listKeywordOutcomes(userId: string, ownBrandId: string, days = 28): Promise<KeywordOutcomeInput[]> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const rows = await supabaseRest<unknown>(
+    `${T_OBSERVATION}?select=keyword_id,cited,geo_measurements(kind,model,executed_at,rank,citations)` +
+      `&user_id=${eq(userId)}&brand_id=${eq(ownBrandId)}&keyword_id=not.is.null&observed_at=${gte(since)}&order=observed_at.desc&limit=5000`,
+  );
+  const parsed = z.array(KeywordOutcomeRow).safeParse(rows);
+  if (!parsed.success) return [];
+  const out: KeywordOutcomeInput[] = [];
+  for (const r of parsed.data) {
+    const m = r.geo_measurements;
+    if (!m || !r.keyword_id) continue;
+    out.push({
+      keywordId: r.keyword_id,
+      kind: m.kind as MeasurementKind,
+      model: m.model as GeoModel,
+      executedAt: m.executed_at,
+      rank: m.rank,
+      citationCount: Array.isArray(m.citations) ? m.citations.length : 0,
+      cited: r.cited,
+    });
+  }
+  return out;
+}

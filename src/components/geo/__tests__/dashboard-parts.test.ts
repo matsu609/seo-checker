@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { DomainsCard, FilterBar, RecentOutputsCard, ScheduleBanner } from "../DashboardParts";
+import { DomainsCard, FilterBar, KeywordOutcomesCard, RecentOutputsCard, ScheduleBanner, SectionHeading } from "../DashboardParts";
+import type { KeywordOutcomeSummary } from "@/lib/geo/aggregate";
 import type { RecentOutputView } from "../client";
 
 const NOW = new Date("2026-09-22T00:00:00Z");
@@ -138,5 +139,68 @@ describe("DomainsCard（ドメイン別の引用）", () => {
 
   it("空なら案内だけ", () => {
     expect(renderToStaticMarkup(createElement(DomainsCard, { domains: [] }))).toContain("まだ引用データがありません");
+  });
+});
+
+/* ───────────── 名前つきの見出し / AIO 分析の表（2026-09-22） ───────────── */
+
+describe("SectionHeading", () => {
+  it("ラベル・見出し・一言の 3 点を出す", () => {
+    const html = renderToStaticMarkup(
+      createElement(SectionHeading, { label: "Visibility", title: "ビジビリティ分析", description: "どのくらい言及されているか" }),
+    );
+    expect(html).toContain("Visibility");
+    expect(html).toContain("ビジビリティ分析");
+    expect(html).toContain("どのくらい言及されているか");
+  });
+});
+
+function summary(over: Partial<KeywordOutcomeSummary> = {}): KeywordOutcomeSummary {
+  const rows = [
+    { keywordId: "k1", keyword: "seo 対策", seoRank: 2, rankMeasured: true, appearance: "present" as const, outcome: "none" as const, lastCheckedAt: "2026-09-21T00:00:00Z" },
+    { keywordId: "k2", keyword: "seo スコア", seoRank: 1, rankMeasured: true, appearance: "present" as const, outcome: "cited" as const, lastCheckedAt: "2026-09-21T00:00:00Z" },
+    { keywordId: "k3", keyword: "seo ツール", seoRank: null, rankMeasured: true, appearance: "absent" as const, outcome: "unmeasured" as const, lastCheckedAt: "2026-09-21T00:00:00Z" },
+    { keywordId: "k4", keyword: "未計測の語", seoRank: null, rankMeasured: false, appearance: "unmeasured" as const, outcome: "unmeasured" as const, lastCheckedAt: null },
+  ];
+  return { rows, appearedCount: 2, citedCount: 1, citedRate: 0.5, opportunities: [rows[0]], ...over };
+}
+
+describe("KeywordOutcomesCard（AI Overviews 分析）", () => {
+  it("KPI 3 つと、キーワードごとの行を出す", () => {
+    const html = renderToStaticMarkup(createElement(KeywordOutcomesCard, { summary: summary() }));
+    expect(html).toContain("AI の回答が出た語");
+    expect(html).toContain("自社が引用された語");
+    expect(html).toContain("自社引用率");
+    expect(html).toContain("seo 対策");
+    expect(html).toContain("引用あり");
+    expect(html).toContain("引用なし");
+  });
+
+  it("「圏外」と「未計測」を書き分ける", () => {
+    const html = renderToStaticMarkup(createElement(KeywordOutcomesCard, { summary: summary() }));
+    expect(html).toContain("圏外");
+    expect(html).toContain("未計測");
+    expect(html).toContain("非出現");
+    expect(html).toContain("この 2 つを混ぜません");
+  });
+
+  it("引用を取りに行ける語があれば件数つきで知らせる", () => {
+    const html = renderToStaticMarkup(createElement(KeywordOutcomesCard, { summary: summary() }));
+    expect(html).toContain("引用を取りに行ける語が 1 件");
+  });
+
+  it("出現が 0 のときは引用率を 0% と書かない", () => {
+    const html = renderToStaticMarkup(
+      createElement(KeywordOutcomesCard, { summary: summary({ appearedCount: 0, citedCount: 0, citedRate: null, opportunities: [] }) }),
+    );
+    expect(html).toContain("AI の回答が出た語がまだありません");
+    expect(html).not.toContain("引用を取りに行ける語が");
+  });
+
+  it("行が無ければ登録の案内だけ", () => {
+    const html = renderToStaticMarkup(
+      createElement(KeywordOutcomesCard, { summary: summary({ rows: [], appearedCount: 0, citedCount: 0, citedRate: null, opportunities: [] }) }),
+    );
+    expect(html).toContain("設定の「対策キーワード」を登録すると");
   });
 });

@@ -413,6 +413,123 @@ export const PERIOD_OPTIONS = [
   { days: 90, label: "直近 90 日" },
 ] as const;
 
+/* ───────────── キーワードごとの成果（AIO 分析。2026-09-22） ───────────── */
+
+/**
+ * 「SEO では上位なのに AI の回答では引用されていない」を 1 行で見せるための表。
+ *
+ * 3 つの計測（順位 / AI Overviews / AI モード）は別々の行として保存されているので、
+ * **キーワード単位で最新のものを拾って 1 行にまとめる**。
+ *
+ * 判定の決めごと（言えないことを言わないため）:
+ *   - `未計測` … その種類の計測がまだ無い。**「非出現」や「引用なし」とは書かない**
+ *   - `非出現` … AI の回答自体が出なかった（引用リンクが 1 つも無い）
+ *   - `引用なし` … AI の回答は出たが、自社ドメインが参照されなかった
+ */
+export type AioAppearance = "unmeasured" | "absent" | "present";
+export type AioOutcome = "unmeasured" | "none" | "cited";
+
+export const AIO_APPEARANCE_LABELS: Record<AioAppearance, string> = {
+  unmeasured: "未計測",
+  absent: "非出現",
+  present: "出現",
+};
+
+export const AIO_OUTCOME_LABELS: Record<AioOutcome, string> = {
+  unmeasured: "—",
+  none: "引用なし",
+  cited: "引用あり",
+};
+
+export interface KeywordOutcomeRow {
+  keywordId: string;
+  keyword: string;
+  /** 検索順位。圏外・未計測は null */
+  seoRank: number | null;
+  /** 順位を測ったか（null が「圏外」か「未計測」かを区別する） */
+  rankMeasured: boolean;
+  appearance: AioAppearance;
+  outcome: AioOutcome;
+  /** いちばん新しい計測の時刻 */
+  lastCheckedAt: string | null;
+}
+
+export interface KeywordOutcomeSummary {
+  rows: KeywordOutcomeRow[];
+  /** AI の回答が出たキーワードの数 */
+  appearedCount: number;
+  /** そのうち自社が引用されたキーワードの数 */
+  citedCount: number;
+  /** citedCount / appearedCount。出現が 0 なら null（0% と書かない） */
+  citedRate: number | null;
+  /** 打ち手になる行（出現しているのに引用されていない。SEO 上位ほど上） */
+  opportunities: KeywordOutcomeRow[];
+}
+
+/** 1 計測ぶんの入力（store.listKeywordOutcomes の戻り値と同じ形） */
+export interface KeywordOutcomeInput {
+  keywordId: string;
+  kind: "llm" | "rank" | "aio" | "ai_mode";
+  model: GeoModel;
+  executedAt: string;
+  rank: number | null;
+  citationCount: number;
+  cited: boolean;
+}
+
+/**
+ * キーワードごとに 1 行へまとめる。`keywords` に無い ID は捨てる（設定から消えた語）。
+ * 並びは **打ち手になる順**（出現 × 引用なし → 出現 × 引用あり → 非出現 → 未計測）、
+ * 同じ区分の中では SEO 順位の良い順。
+ */
+export function keywordOutcomes(inputs: readonly KeywordOutcomeInput[], keywords: ReadonlyMap<string, string>): KeywordOutcomeSummary {
+  const byKeyword = new Map<string, KeywordOutcomeInput[]>();
+  for (const i of inputs) {
+    if (!keywords.has(i.keywordId)) continue;
+    const list = byKeyword.get(i.keywordId) ?? [];
+    list.push(i);
+    byKeyword.set(i.keywordId, list);
+  }
+
+  const newest = (list: readonly KeywordOutcomeInput[]) =>
+    list.reduce<KeywordOutcomeInput | null>((acc, x) => (acc === null || x.executedAt > acc.executedAt ? x : acc), null);
+
+  const rows: KeywordOutcomeRow[] = [];
+  for (const [keywordId, keyword] of keywords) {
+    const list = byKeyword.get(keywordId) ?? [];
+    const rankRow = newest(list.filter((x) => x.kind === "rank"));
+    // AI Overviews と AI モードのうち新しいほうを代表にする
+    const aiRow = newest(list.filter((x) => x.kind === "aio" || x.kind === "ai_mode"));
+    const appearance: AioAppearance = aiRow === null ? "unmeasured" : aiRow.citationCount > 0 ? "present" : "absent";
+    const outcome: AioOutcome = appearance !== "present" ? "unmeasured" : aiRow?.cited ? "cited" : "none";
+    const lastCheckedAt = newest(list)?.executedAt ?? null;
+    rows.push({
+      keywordId,
+      keyword,
+      seoRank: rankRow?.rank ?? null,
+      rankMeasured: rankRow !== null,
+      appearance,
+      outcome,
+      lastCheckedAt,
+    });
+  }
+
+  // 打ち手になる順に並べる
+  const weight = (r: KeywordOutcomeRow) =>
+    r.appearance === "present" && r.outcome === "none" ? 0 : r.appearance === "present" ? 1 : r.appearance === "absent" ? 2 : 3;
+  rows.sort((a, b) => weight(a) - weight(b) || (a.seoRank ?? 9999) - (b.seoRank ?? 9999) || a.keyword.localeCompare(b.keyword, "ja"));
+
+  const appearedCount = rows.filter((r) => r.appearance === "present").length;
+  const citedCount = rows.filter((r) => r.outcome === "cited").length;
+  return {
+    rows,
+    appearedCount,
+    citedCount,
+    citedRate: appearedCount > 0 ? citedCount / appearedCount : null,
+    opportunities: rows.filter((r) => r.appearance === "present" && r.outcome === "none"),
+  };
+}
+
 /* ───────────── 見本の線（イメージ。実測ではない） ───────────── */
 
 /**

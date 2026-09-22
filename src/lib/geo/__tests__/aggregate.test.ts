@@ -9,6 +9,7 @@ import {
   applyFilter,
   comingWeekStarts,
   domainCitations,
+  keywordOutcomes,
   PERIOD_OPTIONS,
   recentWeekStarts,
   rollingShares,
@@ -530,5 +531,106 @@ describe("applyFilter", () => {
 
   it("期間の選択肢に既定の 4 週が含まれる", () => {
     expect(PERIOD_OPTIONS.map((p) => p.days)).toContain(28);
+  });
+});
+
+/* ───────────── キーワードごとの成果（AIO 分析。2026-09-22） ───────────── */
+
+describe("keywordOutcomes", () => {
+  const keywords = new Map([
+    ["k1", "seo スコア"],
+    ["k2", "seo 対策"],
+    ["k3", "seo ツール"],
+  ]);
+  const input = (over: Partial<Parameters<typeof keywordOutcomes>[0][number]> = {}) => ({
+    keywordId: "k1",
+    kind: "aio" as const,
+    model: "aio" as const,
+    executedAt: "2026-09-21T00:00:00Z",
+    rank: null,
+    citationCount: 1,
+    cited: false,
+    ...over,
+  });
+
+  it("順位と AI の出現・引用を 1 行にまとめる", () => {
+    const rows = keywordOutcomes(
+      [
+        input({ keywordId: "k1", kind: "rank", model: "aio", rank: 1, citationCount: 0 }),
+        input({ keywordId: "k1", kind: "aio", citationCount: 3, cited: true }),
+      ],
+      keywords,
+    ).rows;
+    const k1 = rows.find((r) => r.keywordId === "k1");
+    expect(k1).toMatchObject({ keyword: "seo スコア", seoRank: 1, rankMeasured: true, appearance: "present", outcome: "cited" });
+  });
+
+  it("**未計測と非出現を混ぜない**（未計測を「出ていない」と読ませない）", () => {
+    const rows = keywordOutcomes([input({ keywordId: "k1", citationCount: 0 })], keywords).rows;
+    // 計測した結果 AI の回答が無かった = 非出現
+    expect(rows.find((r) => r.keywordId === "k1")).toMatchObject({ appearance: "absent", outcome: "unmeasured" });
+    // 1 度も測っていない = 未計測
+    expect(rows.find((r) => r.keywordId === "k2")).toMatchObject({ appearance: "unmeasured", outcome: "unmeasured" });
+  });
+
+  it("圏外（測ったが順位なし）と未計測を区別する", () => {
+    const rows = keywordOutcomes([input({ keywordId: "k1", kind: "rank", rank: null, citationCount: 0 })], keywords).rows;
+    expect(rows.find((r) => r.keywordId === "k1")).toMatchObject({ seoRank: null, rankMeasured: true });
+    expect(rows.find((r) => r.keywordId === "k2")).toMatchObject({ seoRank: null, rankMeasured: false });
+  });
+
+  it("同じ種類は新しいほうを採用する", () => {
+    const rows = keywordOutcomes(
+      [
+        input({ kind: "rank", rank: 9, executedAt: "2026-09-01T00:00:00Z" }),
+        input({ kind: "rank", rank: 2, executedAt: "2026-09-21T00:00:00Z" }),
+      ],
+      keywords,
+    ).rows;
+    expect(rows.find((r) => r.keywordId === "k1")?.seoRank).toBe(2);
+  });
+
+  it("AI Overviews と AI モードは新しいほうを代表にする", () => {
+    const rows = keywordOutcomes(
+      [
+        input({ kind: "aio", citationCount: 2, cited: false, executedAt: "2026-09-01T00:00:00Z" }),
+        input({ kind: "ai_mode", model: "ai_mode", citationCount: 2, cited: true, executedAt: "2026-09-21T00:00:00Z" }),
+      ],
+      keywords,
+    ).rows;
+    expect(rows.find((r) => r.keywordId === "k1")?.outcome).toBe("cited");
+  });
+
+  it("打ち手になる順に並べる（出現×引用なし → 出現×引用あり → 非出現 → 未計測）", () => {
+    const rows = keywordOutcomes(
+      [
+        input({ keywordId: "k1", citationCount: 2, cited: true }),
+        input({ keywordId: "k2", citationCount: 2, cited: false }),
+        input({ keywordId: "k3", citationCount: 0 }),
+      ],
+      keywords,
+    ).rows;
+    expect(rows.map((r) => r.keywordId)).toEqual(["k2", "k1", "k3"]);
+  });
+
+  it("自社引用率は「AI の回答が出た語」が母数。0 件なら null（0% と書かない）", () => {
+    const withHits = keywordOutcomes(
+      [input({ keywordId: "k1", citationCount: 2, cited: true }), input({ keywordId: "k2", citationCount: 2, cited: false })],
+      keywords,
+    );
+    expect(withHits).toMatchObject({ appearedCount: 2, citedCount: 1 });
+    expect(withHits.citedRate).toBeCloseTo(0.5);
+    expect(keywordOutcomes([], keywords).citedRate).toBeNull();
+  });
+
+  it("打ち手（出ているのに引用されていない語）を抜き出す", () => {
+    const out = keywordOutcomes([input({ keywordId: "k2", citationCount: 2, cited: false })], keywords);
+    expect(out.opportunities.map((r) => r.keywordId)).toEqual(["k2"]);
+  });
+
+  it("設定から消えたキーワードは出さない", () => {
+    const rows = keywordOutcomes([input({ keywordId: "消えた", citationCount: 2, cited: true })], keywords).rows;
+    expect(rows.map((r) => r.keywordId)).not.toContain("消えた");
+    expect(rows).toHaveLength(3);
   });
 });

@@ -3,7 +3,7 @@
 /**
  * AI 検索モニタリングの API クライアント（画面から呼ぶ薄い層）。
  */
-import type { DomainCitation, LabeledTargetShare, ObservationFilter, WeeklySeries } from "@/lib/geo/aggregate";
+import type { DomainCitation, KeywordOutcomeSummary, LabeledTargetShare, ObservationFilter, WeeklySeries } from "@/lib/geo/aggregate";
 import type { GeoBrand, GeoKeyword, GeoModel, GeoPrompt, MentionPlatform } from "@/lib/geo/types";
 
 export interface GeoAccountView {
@@ -68,6 +68,8 @@ export interface DashboardResponse {
   domains: DomainCitation[];
   /** 最近の生成結果（実際の LLM 出力） */
   recent: RecentOutputView[];
+  /** キーワードごとの成果（SEO 順位 × AI の出現 × 引用） */
+  outcomes: KeywordOutcomeSummary;
   /** 定期実行の予定 */
   schedule: { nextRunAt: string; lastRunAt: string | null; enabled: boolean };
   /** サーバーが実際に当てたフィルタ（不正な値は既定に落ちている） */

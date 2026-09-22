@@ -11,6 +11,7 @@ import {
   brandedMetrics,
   byModel,
   domainCitations,
+  keywordOutcomes,
   recentWeekStarts,
   ROLLING_DAYS,
   shares,
@@ -21,7 +22,17 @@ import {
   type TargetShare,
 } from "@/lib/geo/aggregate";
 import { forecastStandardPlan } from "@/lib/geo/credits";
-import { ensureAccount, listBrands, listKeywords, listLedger, listModelVersionEvents, listObservations, listPrompts, listRecentOutputs } from "@/lib/geo/store";
+import {
+  ensureAccount,
+  listBrands,
+  listKeywordOutcomes,
+  listKeywords,
+  listLedger,
+  listModelVersionEvents,
+  listObservations,
+  listPrompts,
+  listRecentOutputs,
+} from "@/lib/geo/store";
 import { GEO_MODELS, type DomainClass, type GeoModel } from "@/lib/geo/types";
 import { nextCronRun } from "@/lib/geo/schedule";
 import { NextRequest } from "next/server";
@@ -110,6 +121,11 @@ export async function GET(request: NextRequest) {
 
     // 最近の生成結果（実際の LLM 出力）と、定期実行の予定
     const recent = own ? await listRecentOutputs(userId, 8, own.id) : [];
+
+    // キーワードごとの成果（SEO 順位 × AI の出現 × 引用）
+    const outcomes = own
+      ? keywordOutcomes(await listKeywordOutcomes(userId, own.id, filter.days ?? ROLLING_DAYS), keywordLabels)
+      : { rows: [], appearedCount: 0, citedCount: 0, citedRate: null, opportunities: [] };
     const lastRun = observations.reduce<string | null>((acc, o) => (acc === null || o.executedAt > acc ? o.executedAt : acc), null);
     const schedule = { nextRunAt: nextCronRun(now).toISOString(), lastRunAt: lastRun, enabled: true };
 
@@ -131,6 +147,7 @@ export async function GET(request: NextRequest) {
         trends,
         domains,
         recent,
+        outcomes,
         schedule,
         filter,
         tags: [...new Set(prompts.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b, "ja")),
