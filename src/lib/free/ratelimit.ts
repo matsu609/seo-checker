@@ -122,6 +122,36 @@ export const FREE_MEO_DAILY_SEARCHES_DEFAULT = 1500;
 export const FREE_LIMIT_MESSAGE = "無料診断の本日の枠に達しました。明日またお試しいただくか、ログインしてツールをご利用ください。";
 export const CLIENT_LIMIT_MESSAGE = "短時間に多くの診断が行われました。1 時間ほど待ってからもう一度お試しください。";
 
+/* ───────────── クイック診断の想定 FAQ 生成（/api/faq）の既定値 ───────────── */
+
+/**
+ * FAQ 生成は無料診断の 2 回の枠を消費しない（診断そのもので消費済み）ので、
+ * ここを開けたままにすると**同じ診断結果の画面でボタンを押すだけ**で Claude を呼び続けられる。
+ * 1 回は Haiku で数十銭だが、止める仕組みが無いこと自体が問題なので上限を置く
+ * （利用者の指示 2026-09-22「FAQ の生成に上限を設けてください」）。
+ *
+ * 数え方は MEO と同じで、**キャッシュに当たって Claude を呼ばなかった分は数えない**。
+ */
+/** 1 人（ログイン中は利用者 ID、未ログインは IP）あたりの生成回数（1 時間） */
+export const FREE_FAQ_PER_HOUR: WindowLimit = { windowMs: 60 * 60 * 1000, limit: 10 };
+/** 1 日の全体上限。環境変数 FREE_FAQ_DAILY_LIMIT で上書き */
+export const FREE_FAQ_DAILY_DEFAULT = 300;
+
+export const FAQ_CLIENT_LIMIT_MESSAGE = "FAQ の生成は 1 時間に 10 回までです。しばらく待ってからもう一度お試しください。";
+export const FAQ_DAILY_LIMIT_MESSAGE = "本日の FAQ 生成の枠に達しました。明日またお試しください（診断結果の表示には影響しません）。";
+
+/* ───────────── FAQ 提案（有料ツール /api/faq/propose）の既定値 ───────────── */
+
+/**
+ * 月の回数上限（`src/lib/usage/limits.ts` の 20 / 60 回）は Supabase の `usage_events` が
+ * 無いと fail open で効かない。テーブルを作るまでの間も連打を止められるように、
+ * **Supabase に依存しない** 1 日の全体上限をここに置く（月の上限とは別の網）。
+ */
+export const FAQ_PROPOSE_DAILY_DEFAULT = 200;
+/** 「いまの FAQ を確かめる」（AI を呼ばない）の上限。お客様のページを毎回取りに行くので緩めに */
+export const FAQ_AUDIT_PER_HOUR: WindowLimit = { windowMs: 60 * 60 * 1000, limit: 30 };
+export const FAQ_PROPOSE_DAILY_MESSAGE = "本日の FAQ 提案の枠に達しました。明日またお試しください。";
+
 /* ───────────── 口コミ支援（来店客向けアンケート /api/r/*）の既定値 ───────────── */
 
 /**

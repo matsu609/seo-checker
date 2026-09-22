@@ -286,6 +286,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | クロール | `SITE_MAX_PAGES`（コードの既定 300・最大 1,000。本番は 100 に設定）。クイック診断だけ `FREE_SITE_MAX_PAGES`（代表 10 ページ）。社内ホストへのアクセスは `ALLOW_PRIVATE_HOSTS=1` のときだけ許す |
 | 精密診断（AI + SerpApi） | 利用者ごとに月 `SEO_ANALYSIS_MONTHLY_LIMIT` 回（既定 10。**2026-09-21 から毎月の自動再診断も含めて数える**。運営者は無制限）。1 回の収集につき AI のやり直しは 3 回まで |
 | **お客様カルテ（2026-09-21、r147）** | 上限は無い（外部 API を呼ばない。Supabase に 1 行書くだけ）。ただし**書かれた内容は AI のプロンプトに入る**ので、要約の長さに天井（1,800 字）を置き、運営者だけが読む 2 問（要望・過去の不満）は渡さない |
+| **FAQ の生成（2026-09-22、r156）** | **3 重**。①クイック診断の想定 FAQ（`/api/faq`）= 1 人 1 時間に 10 回 + 全体 1 日 300 回（`FREE_FAQ_DAILY_LIMIT`）②FAQ 提案（`/api/faq/propose`）= 1 人 1 分に 1 回 + 全体 1 日 200 回（`FAQ_PROPOSE_DAILY_LIMIT`）+ 月 20 / 60 回（`usage_events`）③1 回に返す件数は 12 件まで（`MAX_FAQ_ITEMS`）。**①②は Supabase が無くても効く**（プロセス内メモリ。`src/lib/free/ratelimit.ts`）。キャッシュに当たった分と「確認だけ」は数えない |
 | **それ以外の有料機能（2026-09-21、r146）** | **月の回数上限**（`src/lib/usage/limits.ts`。記録は Supabase `usage_events`、判定は `takeUsage()`）。スタンダード: FAQ 提案 20 回 / ページ診断 20 / HP 改修提案 20 / プロンプト拡張 10 / 手動の順位計測 300 検索 / サイテーション 10 / 検索パフォーマンス（推定）10 / NAP チェック 10 / 店舗の検索 100。プレミアムは 3 倍、運用者は無制限。**キャッシュに当たって外部 API を呼ばなかった分は数えない**。上限で 429（`code: "usage_limit"`）。残りは設定画面「今月の利用回数」。テーブルが無い・DB が落ちているときは**通す**（fail open。警告を 1 回ログに出す） |
 | Cron | `CRON_SECRET`。未設定なら一斉更新そのものを無効化 |
 

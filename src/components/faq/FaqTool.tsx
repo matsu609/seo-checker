@@ -21,7 +21,8 @@ import type { BadgeTone } from "@/components/ui/Badge";
 import type { FaqFinding } from "@/lib/faq/audit";
 import type { FaqProposalResult } from "@/lib/faq/propose";
 import { buildFaqHtml, buildFaqScriptTag } from "@/lib/faq/render";
-import { FAQ_BASIS_LABELS, type FaqBasis, type FaqProposal } from "@/lib/faq/schema";
+import { FAQ_BASIS_LABELS, MAX_FAQ_ITEMS, type FaqBasis, type FaqProposal } from "@/lib/faq/schema";
+import { USAGE_LIMITS } from "@/lib/usage/limits";
 import { useSharedSettings } from "@/lib/settings/client";
 import { resolvePageUrl } from "@/lib/site/target";
 
@@ -148,6 +149,12 @@ export function FaqTool() {
           )}
           {cached && !busy && <span className="text-[12px] text-muted">前回の結果を表示しています（作り直すと再生成します）</span>}
         </div>
+        <p className="mt-3 text-[12px] leading-relaxed text-muted">
+          「FAQ 案を作る」は AI を使うため上限があります: <strong>1 分に 1 回</strong>、
+          <strong>月 {USAGE_LIMITS.faq.limits.standard} 回</strong>（スタンダードの場合。プレミアムは {USAGE_LIMITS.faq.limits.premium} 回。
+          残りは設定の「今月の利用回数」で確認できます）。1 回に出す FAQ は {MAX_FAQ_ITEMS} 件までです。
+          「いまの FAQ を確かめる」は AI を使わないので回数を消費しません。
+        </p>
       </Card>
 
       {error && (

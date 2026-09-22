@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clientKeyOf, dailyCount, envInt, resetFreeLimits, takeClientToken, takeDailyToken } from "../ratelimit";
+import {
+  clientKeyOf,
+  dailyCount,
+  envInt,
+  FAQ_AUDIT_PER_HOUR,
+  FAQ_PROPOSE_DAILY_DEFAULT,
+  FREE_FAQ_DAILY_DEFAULT,
+  FREE_FAQ_PER_HOUR,
+  resetFreeLimits,
+  takeClientToken,
+  takeDailyToken,
+} from "../ratelimit";
 
 beforeEach(() => resetFreeLimits());
 afterEach(() => vi.unstubAllEnvs());
@@ -57,5 +68,46 @@ describe("補助", () => {
     expect(envInt("FREE_MEO_DAILY_LIMIT", 500)).toBe(0);
     vi.stubEnv("FREE_MEO_DAILY_LIMIT", "1200");
     expect(envInt("FREE_MEO_DAILY_LIMIT", 500)).toBe(1200);
+  });
+});
+
+/**
+ * FAQ の生成の上限（利用者の指示 2026-09-22「FAQ の生成に上限を設けてください」）。
+ * 値そのものを固定する。ゆるめ過ぎ / きつ過ぎの判断はここを見て話す。
+ */
+describe("FAQ 生成の上限", () => {
+  it("決めた値: クイック診断は 1 人 1 時間に 10 回・全体 1 日 300 回", () => {
+    expect(FREE_FAQ_PER_HOUR).toEqual({ windowMs: 60 * 60 * 1000, limit: 10 });
+    expect(FREE_FAQ_DAILY_DEFAULT).toBe(300);
+  });
+
+  it("決めた値: FAQ 提案は全体 1 日 200 回、確認だけは 1 人 1 時間に 30 回", () => {
+    expect(FAQ_PROPOSE_DAILY_DEFAULT).toBe(200);
+    expect(FAQ_AUDIT_PER_HOUR).toEqual({ windowMs: 60 * 60 * 1000, limit: 30 });
+  });
+
+  it("1 人が使い切っても、別の人は使える", () => {
+    for (let i = 0; i < FREE_FAQ_PER_HOUR.limit; i += 1) {
+      expect(takeClientToken("faq", "user_a", FREE_FAQ_PER_HOUR, 0)).toBe(true);
+    }
+    expect(takeClientToken("faq", "user_a", FREE_FAQ_PER_HOUR, 0)).toBe(false);
+    expect(takeClientToken("faq", "user_b", FREE_FAQ_PER_HOUR, 0)).toBe(true);
+    // 1 時間たてば戻る
+    expect(takeClientToken("faq", "user_a", FREE_FAQ_PER_HOUR, 60 * 60 * 1000 + 1)).toBe(true);
+  });
+
+  it("クイック診断と FAQ 提案は別々に数える（片方を使い切っても他方は動く）", () => {
+    expect(takeDailyToken("faq", 1, 0)).toBe(true);
+    expect(takeDailyToken("faq", 1, 0)).toBe(false);
+    expect(takeDailyToken("faq-propose", 1, 0)).toBe(true);
+  });
+
+  it("環境変数で上書きできる（FREE_FAQ_DAILY_LIMIT / FAQ_PROPOSE_DAILY_LIMIT）", () => {
+    vi.stubEnv("FREE_FAQ_DAILY_LIMIT", "50");
+    expect(envInt("FREE_FAQ_DAILY_LIMIT", FREE_FAQ_DAILY_DEFAULT)).toBe(50);
+    vi.stubEnv("FAQ_PROPOSE_DAILY_LIMIT", "0");
+    // 0 = 止める（費用が出ているときの緊急停止に使える）
+    expect(envInt("FAQ_PROPOSE_DAILY_LIMIT", FAQ_PROPOSE_DAILY_DEFAULT)).toBe(0);
+    expect(takeDailyToken("faq-propose-off", 0, 0)).toBe(false);
   });
 });

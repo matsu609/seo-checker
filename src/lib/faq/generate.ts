@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { FaqGenerationSchema, type FaqItem } from "./schema";
+import { FaqGenerationSchema, MAX_FAQ_ITEMS, type FaqItem } from "./schema";
 
 /**
  * FAQ 生成に使うモデル。
@@ -67,7 +67,9 @@ export async function generateFaqs(input: FaqInput): Promise<FaqItem[]> {
   if (!parsed) {
     throw new Error("FAQ の生成結果を解釈できませんでした");
   }
+  // 件数の上限はスキーマでも縛っているが、モデルが多く返したときのためにここでも切る
   return parsed.faqs
     .map((f) => ({ question: f.question.trim(), answer: f.answer.trim() }))
-    .filter((f) => f.question && f.answer);
+    .filter((f) => f.question && f.answer)
+    .slice(0, MAX_FAQ_ITEMS);
 }

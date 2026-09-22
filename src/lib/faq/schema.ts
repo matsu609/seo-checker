@@ -10,8 +10,17 @@ export const FaqItemSchema = z.object({
     ),
 });
 
+/**
+ * 1 回に返す FAQ の件数の上限（クイック診断・FAQ 提案で共通）。
+ *
+ * 出力トークン = 費用なので、青天井にしない（利用者の指示 2026-09-22
+ * 「FAQ の生成に上限を設けてください」）。12 件を超える FAQ を 1 ページに置いても、
+ * AI が引用するのは質問に合う 1〜2 件だけなので、増やす意味も薄い。
+ */
+export const MAX_FAQ_ITEMS = 12;
+
 export const FaqGenerationSchema = z.object({
-  faqs: z.array(FaqItemSchema).describe("重要度の高い順に 6〜10 件"),
+  faqs: z.array(FaqItemSchema).max(MAX_FAQ_ITEMS).describe("重要度の高い順に 6〜10 件"),
 });
 
 export type FaqItem = z.infer<typeof FaqItemSchema>;
@@ -70,7 +79,7 @@ export const FaqProposalSetSchema = z.object({
     .min(1)
     .max(4)
     .describe("いまの FAQ の状態と、なぜこの並びにしたかの短い説明。2〜4 行"),
-  proposals: z.array(FaqProposalSchema).min(1).max(12).describe("優先度の高い順"),
+  proposals: z.array(FaqProposalSchema).min(1).max(MAX_FAQ_ITEMS).describe("優先度の高い順"),
 });
 
 export type FaqProposal = z.infer<typeof FaqProposalSchema>;

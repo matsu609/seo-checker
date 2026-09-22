@@ -40,7 +40,7 @@ npm run dev                  # http://localhost:3000
 3. **判定の内訳とページ別スコア分布** — ドーナツとヒストグラム
 4. **ページ × カテゴリ 一覧** — スコアで色分けしたヒートテーブル（低い順）※サイト全体モードのみ
 5. **改善提案** — 全ページ共通の問題 / ページによって差がある項目
-6. **想定 FAQ** — 本文から AI が下書きし、承認したものを FAQPage の JSON-LD と HTML に変換 ※ページモードのみ
+6. **想定 FAQ** — 本文から AI が下書きし、承認したものを FAQPage の JSON-LD と HTML に変換 ※ページモードのみ。**生成は 1 人 1 時間に 10 回・全体で 1 日 300 回まで**（`FREE_FAQ_DAILY_LIMIT`。同じページの取り直しはキャッシュに当たれば数えない）
 7. **付録** — 診断ページ一覧、採点対象外のページ、配点と判定基準、クロール統計
 
 講評と優先度は `src/lib/report/summary.ts` の純関数で導出しています（生成 AI 不使用）。
@@ -138,7 +138,7 @@ npm run dev                  # http://localhost:3000
 |---|---|---|---|
 | [キーワード調査](src/lib/keywords) | C1 | Google サジェスト・関連キーワードの展開と検索意図の分類 | 不要（意図分類のみ任意で AI） |
 | ~~AI ライティング・エディター~~ → **提供を終了した（2026-09-22）**。利用者の決定「SEO・AIO は事実の提示と改善案の提示まで。実行や改善はこのツールでは行わない」。原稿を書くこと自体が改善の実行にあたるため外した。`/tools/writing` は「ページ改善」へ転送（コードは削除済み） | D1-D4 | — | — |
-| [FAQ 提案](src/lib/faq)（`/tools/faq`） | — | AI 検索に引用されやすい「質問と答えの対」をページに入れるための画面。①いまの状態を機械的に確認（FAQPage の構造化データ・画面に見える FAQ・構造化データと本文の食い違い・JSON の書式）→ ②ページ本文とお客様カルテに**書かれている事実だけ**を根拠に FAQ を提案（根拠が無いものは答えを作らず「要確認」としてお客様への質問文だけを出す）→ ③採用した分から FAQPage の JSON-LD と HTML を作る。貼るのはお客様・運用者（このツールはホームページを書き換えない）。月 20 回 | Anthropic |
+| [FAQ 提案](src/lib/faq)（`/tools/faq`） | — | AI 検索に引用されやすい「質問と答えの対」をページに入れるための画面。①いまの状態を機械的に確認（FAQPage の構造化データ・画面に見える FAQ・構造化データと本文の食い違い・JSON の書式）→ ②ページ本文とお客様カルテに**書かれている事実だけ**を根拠に FAQ を提案（根拠が無いものは答えを作らず「要確認」としてお客様への質問文だけを出す）→ ③採用した分から FAQPage の JSON-LD と HTML を作る。貼るのはお客様・運用者（このツールはホームページを書き換えない）。**上限は 3 重**（1 人 1 分に 1 回 / 全体 1 日 200 回 `FAQ_PROPOSE_DAILY_LIMIT` / 月 20 回。前の 2 つは Supabase なしで効く）。1 回に出す FAQ は 12 件まで | Anthropic |
 | [基本情報掲載（NAP 一括登録）](src/lib/listings) | — | **毎月 2 日に掲載の再チェック**（状況が「掲載済み」で URL を控えた媒体のページを開き、店名・電話・住所が今も出ているかを確かめる。消えた・ずれたものは知らせる。「掲載を今すぐ確認する」ボタンも。r127）。店名・住所・電話・営業時間・説明文を 1 か所で決め（Google マップの公開情報から取り込み、表記ゆれを検出）、Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap など 30 媒体に同じ内容で載せる。無料で自分で登録できる媒体は登録画面へ直接、自動で流れる媒体（Siri・カーナビ各社・Uber）と配信代行（有料）でしか載らない媒体は区別。媒体ごとの掲載状況・URL・メモ、AI の説明文（150 / 750 文字）、サイトに貼る構造化データ（LocalBusiness） | Supabase（説明文は Anthropic 任意） |
 | [llms.txt 生成](src/lib/llms-txt) | D6 | 6 ステップのウィザードで llms.txt を生成。既存 llms.txt の検証 | 不要 |
 
@@ -393,6 +393,8 @@ Google Cloud・Clerk・アプリの分担は [docs/dev/services.md](docs/dev/ser
 | ~~`GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON`~~ | 使わない（GA4 の機能は 2026-09-17 に提供終了）。設定されていても何も起きない |
 | `DEFAULT_PLAN` | 既定の料金プラン（`free` / `standard` / `pro`）。未設定なら `free`。**登録を開いている本番では `free` にする** |
 | `FREE_DIAGNOSIS_LIMIT` | クイック診断の回数（登録したメールアドレスごと。サイト + 店舗の合計）。既定 2 |
+| `FREE_FAQ_DAILY_LIMIT` | クイック診断の「想定 FAQ」の 1 日の全体上限。既定 300（1 人あたりは 1 時間に 10 回でコード側） |
+| `FAQ_PROPOSE_DAILY_LIMIT` | FAQ 提案（`/tools/faq`）の 1 日の全体上限。既定 200（1 人あたりは 1 分に 1 回。月の上限は別途 20 / 60 回） |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_LIGHT` / `STRIPE_WEBHOOK_SECRET` | 決済（Stripe 直結）。秘密鍵・スタンダードとライトの Price ID・Webhook の署名シークレット。鍵・スタンダードの Price・Webhook がそろうと `/plans` に申し込みとお支払いの管理が出る（`STRIPE_PRICE_PRO` は `STRIPE_PRICE_STANDARD` の旧名） |
 | `STRIPE_PRICE_PREMIUM` | 任意。プレミアム（伴走）の Price ID。料金画面には出ないが、支払いリンク・請求書で立てた契約をプレミアムとして記録するために使う |
 | `PROMO_CODES` | 割引コードの一覧。`CODE=pattern` をカンマまたは改行で区切る。pattern は `off10` `off20` `off30` `off40` `off50`（月額 1〜5 万円引き・永続。`off50` = ずっと無料）／`free`（30 日無料）／`free-off10` `free-off20` `free-off30` `free-off40`（30 日無料 + 月額の値引き）。スタンダード専用。未設定なら入力欄が出ない。コードは推測されにくい長さ（8 文字以上）にする |

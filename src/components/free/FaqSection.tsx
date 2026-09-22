@@ -9,7 +9,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { Badge, Button } from "@/components/ui";
 import type { AnalysisResult } from "@/lib/analyzer/types";
-import type { EditableFaq, FaqItem } from "@/lib/faq/schema";
+import { MAX_FAQ_ITEMS, type EditableFaq, type FaqItem } from "@/lib/faq/schema";
+import { FREE_FAQ_PER_HOUR } from "@/lib/free/ratelimit";
 import { FaqOutput } from "./FaqOutput";
 import { Sparkle, Trash } from "./Icons";
 import { ReportSection, SubHeading } from "./report-parts";
@@ -154,6 +155,9 @@ export function FaqSection({
                 下書きを開く
               </Button>
             )}
+            <span className="text-[11px] text-muted">
+              1 回に {MAX_FAQ_ITEMS} 件まで・1 時間に {FREE_FAQ_PER_HOUR.limit} 回まで
+            </span>
           </div>
         )
       )}

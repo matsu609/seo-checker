@@ -8,15 +8,32 @@
  * クイック診断の FAQ 生成（`/api/faq`）とは別物:
  *   - あちらは無料の入口で、ページ本文から想定 FAQ を作るだけ
  *   - こちらは有料ツール。いまの FAQ の状態を確かめ、根拠のない回答を作らせない
+ *
+ * 回数の上限は 3 重（利用者の指示 2026-09-22「FAQ の生成に上限を設けてください」）:
+ *   1. 連打を止める … 同じ人は 1 分に 1 回（NAP チェックと同じ形。Supabase 不要）
+ *   2. 1 日の全体上限 … FAQ_PROPOSE_DAILY_LIMIT（既定 200。**Supabase 不要**なので今日から効く）
+ *   3. 月の回数上限 … スタンダード 20 / プレミアム 60 回（`usage_events` が要る。#129）
+ * キャッシュに当たった分と、AI を呼ばない「確認だけ」（auditOnly）は 1〜3 のどれも消費しない。
+ * 「確認だけ」も毎回お客様のページを取りに行くので、1 時間に 30 回の緩い上限だけ置く。
  */
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { FetchError } from "@/lib/analyzer/fetch";
+import { NO_STORE } from "@/lib/api/headers";
 import { requireAuth } from "@/lib/auth/guard";
+import { currentUserId } from "@/lib/auth/user";
 import { globalCache } from "@/lib/cache";
 import { proposeFaq, type FaqProposalResult } from "@/lib/faq/propose";
 import { currentKarteBrief } from "@/lib/karte/server";
 import { briefFingerprint } from "@/lib/karte/summary";
+import {
+  envInt,
+  FAQ_AUDIT_PER_HOUR,
+  FAQ_PROPOSE_DAILY_DEFAULT,
+  FAQ_PROPOSE_DAILY_MESSAGE,
+  takeClientToken,
+  takeDailyToken,
+} from "@/lib/free/ratelimit";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { takeUsage } from "@/lib/usage/gate";
 
@@ -28,6 +45,10 @@ const FEATURE_ID = "faq";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 /** 同じページを続けて押されたときに実費を二重に払わないためのもの */
 const cache = globalCache<FaqProposalResult>("faq-propose", CACHE_TTL_MS, 50);
+
+/** 連打を止める間隔（同じ利用者）。NAP チェックと同じ考え方 */
+const COOLDOWN_MS = 60_000;
+const cooldown = globalCache<number>("faq-propose-cooldown", COOLDOWN_MS, 1000);
 
 const BodySchema = z.object({
   url: z.string().min(1, "URL を入力してください").max(2000),
@@ -63,7 +84,15 @@ export async function POST(request: NextRequest) {
 
   try {
     if (auditOnly) {
-      // 事実を出すだけ。AI を呼ばないので回数は数えない
+      // 事実を出すだけ。AI を呼ばないので月の回数は数えない。
+      // ただし毎回お客様のページを取りに行くので、押しっぱなしにできないよう緩い上限は置く
+      const who = (await currentUserId()) ?? "anonymous";
+      if (!takeClientToken("faq-audit", who, FAQ_AUDIT_PER_HOUR)) {
+        return Response.json(
+          { error: "いまの FAQ の確認は 1 時間に 30 回までです。しばらく待ってからお試しください", code: "rate_limited" },
+          { status: 429, headers: NO_STORE },
+        );
+      }
       const result = await proposeFaq({ url, auditOnly: true, signal: request.signal });
       return Response.json({ result, cached: false });
     }
@@ -78,7 +107,27 @@ export async function POST(request: NextRequest) {
       if (hit) return Response.json({ result: hit, cached: true });
     }
 
-    // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
+    // ここから先は AI を呼ぶ = 実費が出るので、上限を 3 つ通す
+
+    // ① 連打（Supabase が無くても効く）
+    const userId = await currentUserId();
+    if (userId) {
+      const last = cooldown.get(userId);
+      if (last && Date.now() - last < COOLDOWN_MS) {
+        return Response.json(
+          { error: "FAQ の提案は 1 分に 1 回までです。少し待ってからもう一度お試しください", code: "rate_limited" },
+          { status: 429, headers: NO_STORE },
+        );
+      }
+      cooldown.set(userId, Date.now());
+    }
+
+    // ② 1 日の全体上限（Supabase が無くても効く）
+    if (!takeDailyToken("faq-propose", envInt("FAQ_PROPOSE_DAILY_LIMIT", FAQ_PROPOSE_DAILY_DEFAULT))) {
+      return Response.json({ error: FAQ_PROPOSE_DAILY_MESSAGE, code: "daily_limit" }, { status: 429, headers: NO_STORE });
+    }
+
+    // ③ 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21。usage_events が要る）
     const over = await takeUsage(FEATURE_ID);
     if (over) return over;
 

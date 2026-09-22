@@ -8,7 +8,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { UNTRUSTED_BEGIN } from "@/lib/llm/prompt-safety";
 import { proposeFaq, type FaqProposalGenerator } from "../propose";
-import type { FaqProposalSet } from "../schema";
+import { FaqProposalSetSchema, MAX_FAQ_ITEMS, type FaqProposalSet } from "../schema";
 
 const SET: FaqProposalSet = {
   summary: ["FAQ の構造化データがありません。"],
@@ -114,5 +114,15 @@ describe("proposeFaq", () => {
   it("取得できないページはエラーにする", async () => {
     const generator: FaqProposalGenerator = async () => ({ set: SET, usage: { inputTokens: 1, outputTokens: 1 } });
     await expect(proposeFaq({ url: `${origin}/missing`, generator })).rejects.toThrow("HTTP 404");
+  });
+});
+
+describe("件数の上限", () => {
+  it(`1 回に返す FAQ は ${MAX_FAQ_ITEMS} 件まで（出力トークン = 費用なので青天井にしない）`, () => {
+    const one = SET.proposals[0];
+    const tooMany = { summary: ["多すぎる"], proposals: Array.from({ length: MAX_FAQ_ITEMS + 1 }, () => one) };
+    expect(FaqProposalSetSchema.safeParse(tooMany).success).toBe(false);
+    const ok = { summary: ["ちょうど"], proposals: Array.from({ length: MAX_FAQ_ITEMS }, () => one) };
+    expect(FaqProposalSetSchema.safeParse(ok).success).toBe(true);
   });
 });
