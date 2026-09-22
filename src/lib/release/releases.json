@@ -769,6 +769,11 @@
       "commit": "be38d13",
       "date": "2026-09-22",
       "summary": "SEO に FAQ 提案（いまの FAQ の確認 → 事実だけを根拠にした提案 → 貼れる JSON-LD と HTML）を追加、AI ライティングは引退（SEO・AIO は提示まで／MEO は反映まで）"
+    },
+    {
+      "commit": "fa67868",
+      "date": "2026-09-22",
+      "summary": "サービス資料（静的版）を作り直す: AI ライティング・LLMO・GSC / GA4 の節を削除し、FAQ 提案・MEO・サイテーションを追加"
     }
   ]
 }
