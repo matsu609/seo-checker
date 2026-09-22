@@ -24,6 +24,11 @@ export interface LineSeries {
    * 凡例と表の見た目も破線に合わせるので、実線と混ざらない。
    */
   dashed?: boolean;
+  /**
+   * 線の下を淡く塗る。**主役の系列 1 本だけ**に付ける（全部塗ると重なって読めない）。
+   * 欠測で線が切れている区間は塗らない。
+   */
+  fill?: boolean;
 }
 
 export interface LineChartProps {
@@ -178,6 +183,36 @@ export function LineChart({ labels, series, invert = false, yMin, yMax, yTicks, 
     return d;
   });
 
+  /**
+   * 塗り用の path。線と同じ区切りで区間ごとに閉じる（欠測をまたいで塗らない）。
+   * 下端は目盛りの底（plot の下辺）。
+   */
+  const bottom = PAD.top + plotH;
+  const areas = series.map((s) => {
+    if (!s.fill) return "";
+    let d = "";
+    let start: number | null = null;
+    let prev: number | null = null;
+    s.values.forEach((v, i) => {
+      const ok = v !== null && Number.isFinite(v);
+      if (ok) {
+        if (start === null) {
+          start = i;
+          d += `M${x(i).toFixed(1)},${bottom.toFixed(1)}L${x(i).toFixed(1)},${y(v as number).toFixed(1)}`;
+        } else {
+          d += `L${x(i).toFixed(1)},${y(v as number).toFixed(1)}`;
+        }
+        prev = i;
+      } else if (start !== null && prev !== null) {
+        d += `L${x(prev).toFixed(1)},${bottom.toFixed(1)}Z`;
+        start = null;
+        prev = null;
+      }
+    });
+    if (start !== null && prev !== null) d += `L${x(prev).toFixed(1)},${bottom.toFixed(1)}Z`;
+    return d;
+  });
+
   // 線の端のラベル（最後に値がある点）。4 系列まで。近すぎるものは凡例に任せる
   const endLabels: { sid: string; label: string; px: number; py: number }[] = [];
   if (series.length <= END_LABEL_MAX) {
@@ -230,6 +265,7 @@ export function LineChart({ labels, series, invert = false, yMin, yMax, yTicks, 
             const color = SERIES_COLORS[si % SERIES_COLORS.length];
             return (
               <g key={s.id}>
+                {areas[si] && <path d={areas[si]} fill={color} fillOpacity={0.12} stroke="none" />}
                 <path
                   d={paths[si]}
                   fill="none"

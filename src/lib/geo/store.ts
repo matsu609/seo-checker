@@ -399,6 +399,8 @@ export async function listObservations(userId: string, days = 90): Promise<
     brandId: string;
     promptId: string | null;
     keywordId: string | null;
+    /** 引用されたドメイン（SQL では取っていたのに捨てていた。2026-09-22） */
+    citedDomains: string[];
     mentioned: boolean;
     cited: boolean;
     confidence: number;
@@ -417,6 +419,7 @@ export async function listObservations(userId: string, days = 90): Promise<
     brandId: r.brand_id,
     promptId: r.prompt_id,
     keywordId: r.keyword_id,
+    citedDomains: r.cited_domains ?? [],
     mentioned: r.mentioned,
     cited: r.cited,
     confidence: r.mention_confidence,
@@ -469,3 +472,72 @@ export async function listLedger(userId: string, since: string): Promise<CreditL
 }
 
 export { cacheKey };
+
+/* ───────────── 最近の生成結果（実際の LLM 出力。2026-09-22） ───────────── */
+
+const RecentRow = z.object({
+  prompt_id: z.string().nullable(),
+  keyword_id: z.string().nullable(),
+  mentioned: z.boolean(),
+  observed_at: z.string(),
+  geo_measurements: z
+    .object({ id: z.string(), model: z.string(), executed_at: z.string(), text: z.string(), response_text: z.string().nullable() })
+    .nullable(),
+});
+
+export interface RecentOutput {
+  measurementId: string;
+  /** 投げた文（プロンプト or キーワード） */
+  text: string;
+  /** 回答本文。順位計測のときは空 */
+  responseText: string;
+  model: GeoModel;
+  executedAt: string;
+  promptId: string | null;
+  keywordId: string | null;
+  /** 自社が言及されたか（複数ブランドぶんの行を 1 計測にまとめた結果） */
+  mentioned: boolean;
+}
+
+/**
+ * 直近の計測を新しい順に返す（画面の「最近の生成結果」）。
+ *
+ * `geo_measurements` は**アカウントをまたいで共有する**（user_id を持たない）ので、
+ * **必ず user_id を持つ `geo_observations` から辿る**。同じ計測に複数ブランドの行が
+ * あるので、measurement_id でまとめて 1 件にする（自社が出たかは or で畳む）。
+ */
+export async function listRecentOutputs(userId: string, limit = 20, ownBrandId?: string): Promise<RecentOutput[]> {
+  // 1 計測 = ブランド数ぶんの行なので、多めに引いてから畳む
+  const rows = await supabaseRest<unknown>(
+    `${T_OBSERVATION}?select=prompt_id,keyword_id,mentioned,brand_id,observed_at,geo_measurements(id,model,executed_at,text,response_text)` +
+      `&user_id=${eq(userId)}${ownBrandId ? `&brand_id=${eq(ownBrandId)}` : ""}&order=observed_at.desc&limit=${Math.min(500, limit * 8)}`,
+  );
+  const parsed = z.array(RecentRow).safeParse(rows);
+  if (!parsed.success) return [];
+
+  const byMeasurement = new Map<string, RecentOutput>();
+  for (const r of parsed.data) {
+    const m = r.geo_measurements;
+    if (!m) continue;
+    // 回答本文が無いもの（順位計測）は「生成結果」ではないので出さない
+    const responseText = (m.response_text ?? "").trim();
+    if (!responseText) continue;
+    const existing = byMeasurement.get(m.id);
+    if (existing) {
+      existing.mentioned = existing.mentioned || r.mentioned;
+      continue;
+    }
+    byMeasurement.set(m.id, {
+      measurementId: m.id,
+      text: m.text,
+      responseText,
+      model: m.model as GeoModel,
+      executedAt: m.executed_at,
+      promptId: r.prompt_id,
+      keywordId: r.keyword_id,
+      mentioned: r.mentioned,
+    });
+    if (byMeasurement.size >= limit) break;
+  }
+  return [...byMeasurement.values()];
+}

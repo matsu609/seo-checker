@@ -3,7 +3,8 @@
 /**
  * AI 検索モニタリングの画面（仕様書 §10 UI 要件）。
  *
- * 上からダッシュボード（ブランドシェア・指名検索・クレジット）→ 今すぐ実行 → 設定。
+ * 並びは 予定バナー → フィルタ行 → 数字 4 つ → 2 カラム（左 = 推移と明細 / 右 = 順位と操作）。
+ * 1 カラムに 17 ブロック縦積みだったのを 2026-09-22 に組み替えた（利用者の指示）。
  * 統計の扱いは lib/geo/stats.ts に寄せてあり、この画面は表示だけを持つ。
  */
 import { useEffect, useState } from "react";
@@ -18,6 +19,8 @@ import { ShareCard } from "./ShareCard";
 import { TargetBars } from "./TargetBars";
 import { TrendChart } from "./TrendChart";
 import { IndustryMapCard } from "./IndustryMapCard";
+import { DomainsCard, FilterBar, RecentOutputsCard, ScheduleBanner } from "./DashboardParts";
+import type { ObservationFilter } from "@/lib/geo/aggregate";
 import { fetchDashboard, fetchSetup, runLive, type DashboardResponse, type LiveResult, type SetupResponse } from "./client";
 
 type TabId = "dashboard" | "setup";
@@ -30,11 +33,13 @@ export function GeoTool() {
   const [loading, setLoading] = useState(true);
 
   const [tick, setTick] = useState(0);
+  const [filter, setFilter] = useState<ObservationFilter>({ model: "all", tag: "all", days: 28 });
+  const [filtering, setFiltering] = useState(false);
 
   // 読み込みは効果の中で同期に setState しない（再レンダーの連鎖を避ける）
   useEffect(() => {
     let alive = true;
-    Promise.all([fetchSetup(), fetchDashboard()])
+    Promise.all([fetchSetup(), fetchDashboard(filter)])
       .then(([s, d]) => {
         if (!alive) return;
         setSetup(s);
@@ -46,14 +51,21 @@ export function GeoTool() {
         setError(err instanceof Error ? err.message : "読み込めませんでした");
       })
       .finally(() => {
-        if (alive) setLoading(false);
+        if (!alive) return;
+        setLoading(false);
+        setFiltering(false);
       });
     return () => {
       alive = false;
     };
-  }, [tick]);
+    // filter が変わったら読み直す（サーバー側で絞る）
+  }, [tick, filter]);
 
   const reload = () => setTick((t) => t + 1);
+  const changeFilter = (next: ObservationFilter) => {
+    setFiltering(true);
+    setFilter(next);
+  };
 
   if (error) {
     return (
@@ -81,6 +93,9 @@ export function GeoTool() {
           data={dashboard}
           keywords={setup.keywords.map((k) => k.text)}
           prompts={setup.prompts.map((p) => p.text)}
+          filter={filter}
+          filtering={filtering}
+          onFilter={changeFilter}
           onGoSetup={() => setTab("setup")}
           onChanged={reload}
         />
@@ -94,12 +109,18 @@ function Dashboard({
   data,
   keywords,
   prompts,
+  filter,
+  filtering,
+  onFilter,
   onGoSetup,
   onChanged,
 }: {
   data: DashboardResponse;
   keywords: string[];
   prompts: string[];
+  filter: ObservationFilter;
+  filtering: boolean;
+  onFilter: (next: ObservationFilter) => void;
   onGoSetup: () => void;
   onChanged: () => void;
 }) {
@@ -153,13 +174,24 @@ function Dashboard({
     );
   }
 
+  const periodLabel = filter.days === 7 ? "1 週間" : filter.days === 56 ? "8 週間" : filter.days === 90 ? "90 日" : "4 週間";
   return (
-    <>
+    <div className="space-y-6">
+      <ScheduleBanner schedule={data.schedule} />
+
+      <FilterBar
+        value={filter}
+        tags={data.tags}
+        models={Object.keys(data.perModel) as GeoModel[]}
+        onChange={onFilter}
+        busy={filtering}
+      />
+
       <div className="grid gap-3 @2xl:grid-cols-4">
         <StatCard
-          label="ブランドシェア（4 週）"
+          label={`ブランドシェア（${periodLabel}）`}
           value={ownShare ? pct(ownShare.shareMention) : "—"}
-          hint={ownShare ? `観測 ${ownShare.n} 件・95% 信頼区間 ${pct(ownShare.ciLow)}〜${pct(ownShare.ciHigh)}` : "まだ観測がありません"}
+          hint={ownShare ? `観測 ${ownShare.n} 件・95% 信頼区間 ${pct(ownShare.ciLow)}〜${pct(ownShare.ciHigh)}` : "この条件では観測がありません"}
         />
         <StatCard label="登録プロンプト" value={data.promptCount} unit="本" hint={`うち高精度枠 ${data.precisionCount} 本`} />
         <StatCard
@@ -171,74 +203,116 @@ function Dashboard({
         <StatCard label="要確認の判定" value={data.needsReview} unit="件" hint="同名の一般名詞などで判定に自信が無いもの" />
       </div>
 
-      <ShareCard
-        rows={data.overall}
-        brands={data.brands}
-        title="ブランドシェアスコア（4 週ローリング）"
-        description="登録したプロンプト全体で、回答本文に各ブランドの名前が出た割合です。1 週間の上下は誤差に埋もれるため、見出しは 4 週分をまとめた数字にしています。"
-      />
+      {/* 左 = 推移と明細（広い）、右 = 順位と操作（狭い）。1 カラム 17 ブロックの縦積みをやめた */}
+      <div className="grid items-start gap-6 @5xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="min-w-0 space-y-6">
+          <TrendChart
+            weeks={data.trends.weeks}
+            series={data.trends.keyword}
+            title="キーワードごとの推移（週ごと）"
+            description="設定の「対策キーワード」1 語ずつに、その週の AI Overviews / AI モードで自社が引用された割合を並べたものです。上がっているか下がっているかを追うためのグラフです。"
+            emptyText="まだ計測結果がありません。設定の「対策キーワード」を登録すると、週 1 回（月曜）の計測から実線が引かれます。"
+            unit="キーワード"
+            sampleLabels={keywords}
+          />
 
-      {/* キーワードごとの推移（折れ線。利用者の指示 2026-09-21） */}
-      <TrendChart
-        weeks={data.trends.weeks}
-        series={data.trends.keyword}
-        title="キーワードごとの推移（週ごと）"
-        description="設定の「対策キーワード」1 語ずつに、その週の AI Overviews / AI モードで自社が引用された割合を並べたものです。上がっているか下がっているかを追うためのグラフです。"
-        emptyText="まだ計測結果がありません。設定の「対策キーワード」を登録すると、週 1 回（月曜）の計測から実線が引かれます。"
-        unit="キーワード"
-        sampleLabels={keywords}
-      />
+          <TrendChart
+            weeks={data.trends.weeks}
+            series={data.trends.prompt}
+            title="プロンプトごとの推移（週ごと）"
+            description="登録したプロンプト 1 本ずつに、その週の回答本文で自社の名前が出た割合を並べたものです。"
+            emptyText="まだ計測結果がありません。「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から実線が引かれます。"
+            unit="プロンプト"
+            sampleLabels={prompts}
+          />
 
-      <TrendChart
-        weeks={data.trends.weeks}
-        series={data.trends.prompt}
-        title="プロンプトごとの推移（週ごと）"
-        description="登録したプロンプト 1 本ずつに、その週の回答本文で自社の名前が出た割合を並べたものです。"
-        emptyText="まだ計測結果がありません。「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から実線が引かれます。"
-        unit="プロンプト"
-        sampleLabels={prompts}
-      />
+          <TargetBars
+            rows={data.perPrompt}
+            title={`プロンプトごとの出現率（${periodLabel}）`}
+            description="登録したプロンプト 1 本ずつに、回答本文で自社の名前が出た割合です。棒が平均、帯がありうる範囲（狭いほど信用できます）。"
+            cadence={`通常のプロンプトが週 ${NORMAL_REPEATS_PER_WEEK} 回（月・水・金に分散）× モデル数、高精度枠が週 ${PRECISION_REPEATS_PER_WEEK} 回`}
+            emptyText="まだ計測結果がありません。「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から数字が入ります。"
+            modelFilter
+          />
 
-      {/* キーワード・プロンプトごとの棒グラフ（利用者の指示 2026-09-20） */}
-      <TargetBars
-        rows={data.perPrompt}
-        title="プロンプトごとの出現率（ChatGPT / Gemini・4 週）"
-        description="登録したプロンプト 1 本ずつに、回答本文で自社の名前が出た割合です。棒が平均、帯がありうる範囲（狭いほど信用できます）。"
-        cadence={`通常のプロンプトが週 ${NORMAL_REPEATS_PER_WEEK} 回（月・水・金に分散）× モデル数、高精度枠が週 ${PRECISION_REPEATS_PER_WEEK} 回`}
-        emptyText="まだ計測結果がありません。「プロンプトと計測対象」でプロンプトを登録すると、翌日の定期計測から数字が入ります。"
-        modelFilter
-      />
+          <TargetBars
+            rows={data.perKeyword}
+            title={`キーワードごとの AI 引用率（${periodLabel}）`}
+            description="設定の「対策キーワード」で Google を検索し、AI による概要（AI Overviews）や AI モードの参照リンクに自社ドメインが入っていた割合です。"
+            cadence="週 1 回（月曜）なので 4 週で 4 回。帯が広いのはそのため"
+            emptyText={
+              data.keywordCount === 0
+                ? "設定の「対策キーワード」にキーワードを登録すると、週 1 回の計測が始まります。"
+                : "登録済みのキーワードの計測はこれからです。翌週の月曜から数字が入ります。"
+            }
+          />
 
-      <TargetBars
-        rows={data.perKeyword}
-        title="キーワードごとの AI Overviews 引用率（4 週）"
-        description="設定の「対策キーワード」で Google を検索し、AI による概要（AI Overviews）の参照リンクに自社ドメインが入っていた割合です。"
-        cadence="週 1 回（月曜）なので 4 週で 4 回。帯が広いのはそのため"
-        emptyText={
-          data.keywordCount === 0
-            ? "設定の「対策キーワード」にキーワードを登録すると、週 1 回の計測が始まります。"
-            : "登録済みのキーワードの計測はこれからです。翌週の月曜から数字が入ります。"
-        }
-      />
+          <RecentOutputsCard items={data.recent} />
+        </div>
 
-      {Object.entries(data.perModel).map(([model, rows]) => (
-        <ShareCard
-          key={model}
-          rows={rows}
-          brands={data.brands}
-          title={`モデル別: ${GEO_MODEL_LABELS[model as GeoModel] ?? model}`}
-          description="モデルごとに引用の癖が違います。1 つだけ落ちたときはモデル更新を疑ってください（下の「モデルの更新」を参照）。"
-        />
-      ))}
+        <div className="min-w-0 space-y-6">
+          <ShareCard
+            rows={data.overall}
+            brands={data.brands}
+            title="競合とのブランドシェア"
+            description={`登録したプロンプト全体で、回答本文に各ブランドの名前が出た割合です（直近 ${periodLabel}）。1 週間の上下は誤差に埋もれます。`}
+          />
 
-      {data.branded && data.branded.n > 0 && <BrandedCard branded={data.branded} />}
+          <ModelBreakdown perModel={data.perModel} brands={data.brands} />
 
-      <IndustryMapCard balance={data.credits.balance} keywords={keywords} onRan={onChanged} />
+          <DomainsCard domains={data.domains} />
 
-      <CreditsCard credits={data.credits} resetAt={resetAt} />
-      <LiveRunCard balance={data.credits.balance} />
-      {data.versions.length > 0 && <VersionsCard versions={data.versions} />}
-    </>
+          {data.branded && data.branded.n > 0 && <BrandedCard branded={data.branded} />}
+
+          <IndustryMapCard balance={data.credits.balance} keywords={keywords} onRan={onChanged} />
+
+          <LiveRunCard balance={data.credits.balance} />
+          <CreditsCard credits={data.credits} resetAt={resetAt} />
+          {data.versions.length > 0 && <VersionsCard versions={data.versions} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * モデル別のブランドシェア。以前はモデルの数だけカードを並べていたが、
+ * モデルが 6 つに増えて縦に伸びすぎたので **1 枚に畳んで切り替え**にした（2026-09-22）。
+ */
+function ModelBreakdown({ perModel, brands }: { perModel: DashboardResponse["perModel"]; brands: DashboardResponse["brands"] }) {
+  const models = Object.keys(perModel) as GeoModel[];
+  const [model, setModel] = useState<GeoModel | null>(models[0] ?? null);
+  const current = model && perModel[model] ? perModel[model] : [];
+
+  if (models.length === 0) {
+    return (
+      <Card title="モデル別" description="モデルごとに引用の癖が違います。計測が始まるとここで比べられます。">
+        <p className="text-[13px] text-muted">まだ計測結果がありません。</p>
+      </Card>
+    );
+  }
+
+  return (
+    <ShareCard
+      rows={current}
+      brands={brands}
+      title="モデル別のブランドシェア"
+      description="モデルごとに引用の癖が違います。1 つだけ落ちたときはモデルの更新を疑ってください（「モデルの更新」を参照）。"
+      actions={
+        <select
+          className="rounded-sm border border-line bg-panel px-2 py-1 text-[12px] text-ink"
+          value={model ?? ""}
+          onChange={(e) => setModel(e.target.value as GeoModel)}
+          aria-label="モデルを選ぶ"
+        >
+          {models.map((m) => (
+            <option key={m} value={m}>
+              {GEO_MODEL_LABELS[m] ?? m}
+            </option>
+          ))}
+        </select>
+      }
+    />
   );
 }
 

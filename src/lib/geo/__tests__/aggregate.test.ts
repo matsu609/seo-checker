@@ -6,7 +6,10 @@ import {
   byTag,
   detectVersionChange,
   filterTargetsByModel,
+  applyFilter,
   comingWeekStarts,
+  domainCitations,
+  PERIOD_OPTIONS,
   recentWeekStarts,
   rollingShares,
   SAMPLE_FALLBACK_LABELS,
@@ -39,6 +42,7 @@ function obs(over: Partial<AggregateInput> = {}): AggregateInput {
     mentioned: false,
     cited: false,
     domainClasses: [],
+    citedDomains: [],
     ...over,
   };
 }
@@ -450,5 +454,81 @@ describe("sampleSeries（実測ではない見本）", () => {
     const [line] = sampleSeries(["a"], comingWeekStarts(6, NOW));
     expect(line.points).toHaveLength(6);
     expect(line.points[5].rate).toBe(line.points[3].rate);
+  });
+});
+
+/* ───────────── ドメイン別の引用 / フィルタ（2026-09-22） ───────────── */
+
+describe("domainCitations", () => {
+  const brands = { own: ["sample-kobo.jp"], competitors: ["rival.co.jp"] };
+
+  it("引用の多い順に数え、自社 / 競合 / 第三者を分ける", () => {
+    const rows = [
+      obs({ citedDomains: ["rival.co.jp", "note.com"] }),
+      obs({ citedDomains: ["rival.co.jp"] }),
+      obs({ citedDomains: ["sample-kobo.jp"] }),
+    ];
+    const out = domainCitations(rows, brands);
+    expect(out.map((d) => d.domain)).toEqual(["rival.co.jp", "note.com", "sample-kobo.jp"]);
+    expect(out[0]).toMatchObject({ count: 2, domainClass: "competitor" });
+    expect(out[1]).toMatchObject({ count: 1, domainClass: "third_party" });
+    expect(out[2]).toMatchObject({ count: 1, domainClass: "own" });
+    // share は全引用数に対する割合（合計 4）
+    expect(out[0].share).toBeCloseTo(0.5);
+  });
+
+  it("同じ観測の中の重複は 1 回として数える（同じ回答で 3 回リンクされても 1）", () => {
+    const out = domainCitations([obs({ citedDomains: ["note.com", "note.com", "NOTE.com"] })]);
+    expect(out).toHaveLength(1);
+    expect(out[0].count).toBe(1);
+  });
+
+  it("サブドメインも自社として数える", () => {
+    const out = domainCitations([obs({ citedDomains: ["shop.sample-kobo.jp"] })], brands);
+    expect(out[0].domainClass).toBe("own");
+  });
+
+  it("引用が無ければ空", () => {
+    expect(domainCitations([obs({ citedDomains: [] })])).toEqual([]);
+    expect(domainCitations([])).toEqual([]);
+  });
+
+  it("件数を絞れる", () => {
+    const rows = ["a.com", "b.com", "c.com"].map((d) => obs({ citedDomains: [d] }));
+    expect(domainCitations(rows, { limit: 2 })).toHaveLength(2);
+  });
+});
+
+describe("applyFilter", () => {
+  const rows = [
+    obs({ model: "chatgpt", tags: ["比較"], executedAt: "2026-09-15T03:00:00Z" }),
+    obs({ model: "gemini", tags: ["比較"], executedAt: "2026-09-15T03:00:00Z" }),
+    obs({ model: "chatgpt", tags: ["指名"], executedAt: "2026-09-15T03:00:00Z" }),
+    obs({ model: "chatgpt", tags: ["比較"], executedAt: "2026-06-01T03:00:00Z" }),
+  ];
+
+  it("既定は 4 週ローリング（古いものが落ちる）", () => {
+    expect(applyFilter(rows, {}, NOW)).toHaveLength(3);
+  });
+
+  it("期間・モデル・タグを重ねて当てられる", () => {
+    expect(applyFilter(rows, { model: "chatgpt" }, NOW)).toHaveLength(2);
+    expect(applyFilter(rows, { tag: "比較" }, NOW)).toHaveLength(2);
+    expect(applyFilter(rows, { model: "chatgpt", tag: "比較" }, NOW)).toHaveLength(1);
+  });
+
+  it('"all" は絞らない', () => {
+    expect(applyFilter(rows, { model: "all", tag: "all" }, NOW)).toHaveLength(3);
+  });
+
+  it("期間を短くすると観測が減る（画面で n を出す前提）", () => {
+    // NOW = 2026-09-16。20 日前は 4 週には入るが 1 週間には入らない
+    const spread = [obs({ executedAt: "2026-09-15T03:00:00Z" }), obs({ executedAt: "2026-08-27T03:00:00Z" })];
+    expect(applyFilter(spread, { days: 28 }, NOW)).toHaveLength(2);
+    expect(applyFilter(spread, { days: 7 }, NOW)).toHaveLength(1);
+  });
+
+  it("期間の選択肢に既定の 4 週が含まれる", () => {
+    expect(PERIOD_OPTIONS.map((p) => p.days)).toContain(28);
   });
 });

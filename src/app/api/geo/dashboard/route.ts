@@ -7,18 +7,24 @@
  */
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import {
+  applyFilter,
   brandedMetrics,
   byModel,
+  domainCitations,
   recentWeekStarts,
-  rollingShares,
-  rollingTargetShares,
+  ROLLING_DAYS,
+  shares,
+  targetShares,
   weeklySeries,
   type AggregateInput,
+  type ObservationFilter,
   type TargetShare,
 } from "@/lib/geo/aggregate";
 import { forecastStandardPlan } from "@/lib/geo/credits";
-import { ensureAccount, listBrands, listKeywords, listLedger, listModelVersionEvents, listObservations, listPrompts } from "@/lib/geo/store";
-import type { DomainClass, GeoModel } from "@/lib/geo/types";
+import { ensureAccount, listBrands, listKeywords, listLedger, listModelVersionEvents, listObservations, listPrompts, listRecentOutputs } from "@/lib/geo/store";
+import { GEO_MODELS, type DomainClass, type GeoModel } from "@/lib/geo/types";
+import { nextCronRun } from "@/lib/geo/schedule";
+import { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { monthStartJst } from "@/lib/seo-analysis/runs";
 
@@ -27,13 +33,23 @@ export const runtime = "nodejs";
 /** 折れ線グラフで見せる週数。8 週 = 2 か月弱（4 週ローリングの見出しの倍） */
 const TREND_WEEKS = 8;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const userId = await requireUser({ feature: "geo" });
   if (userId instanceof Response) return userId;
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase が未設定です", code: "not_configured" }, { status: 503 });
 
   try {
     const now = new Date();
+    // 画面上部のフィルタ行（2026-09-22）。不正な値は既定に落とす
+    const params = request.nextUrl.searchParams;
+    const rawModel = params.get("model");
+    const rawDays = Number(params.get("days"));
+    const filter: ObservationFilter = {
+      model: rawModel && (GEO_MODELS as readonly string[]).includes(rawModel) ? (rawModel as GeoModel) : "all",
+      tag: params.get("tag") ?? "all",
+      days: Number.isFinite(rawDays) && rawDays > 0 && rawDays <= 90 ? Math.trunc(rawDays) : ROLLING_DAYS,
+    };
+
     const [account, brands, prompts, keywords, rows, versions] = await Promise.all([
       ensureAccount(userId, now),
       listBrands(userId),
@@ -58,29 +74,44 @@ export async function GET() {
         mentioned: r.mentioned,
         cited: r.cited,
         domainClasses: r.domainClass ? [r.domainClass as DomainClass] : [],
+        citedDomains: r.citedDomains,
       };
     });
 
     const own = brands.find((b) => b.type === "own") ?? null;
-    const overall = rollingShares(observations, now);
-    const perModel: Record<string, ReturnType<typeof rollingShares>> = {};
-    for (const [model, modelRows] of byModel(observations)) perModel[model] = rollingShares(modelRows, now);
+    // フィルタを当ててから集計する（期間 → モデル → タグ）
+    const filtered = applyFilter(observations, filter, now);
+    const overall = shares(filtered);
+    const perModel: Record<string, ReturnType<typeof shares>> = {};
+    for (const [model, modelRows] of byModel(filtered)) perModel[model] = shares(modelRows);
 
     // 計測対象ごとの出現率（棒グラフ）。自社ブランドが無いうちは空で返す
     const withLabel = (shares: TargetShare[], labels: Map<string, string>) =>
       shares.filter((s) => labels.has(s.targetId)).map((s) => ({ ...s, label: labels.get(s.targetId) ?? s.targetId }));
     const promptLabels = new Map(prompts.map((p) => [p.id, p.text]));
     const keywordLabels = new Map(keywords.map((k) => [k.id, k.text]));
-    const perPrompt = own ? withLabel(rollingTargetShares(observations, { brandId: own.id, axis: "prompt", metric: "mention" }, now), promptLabels) : [];
-    const perKeyword = own ? withLabel(rollingTargetShares(observations, { brandId: own.id, axis: "keyword", metric: "citation" }, now), keywordLabels) : [];
+    const perPrompt = own ? withLabel(targetShares(filtered, { brandId: own.id, axis: "prompt", metric: "mention" }), promptLabels) : [];
+    const perKeyword = own ? withLabel(targetShares(filtered, { brandId: own.id, axis: "keyword", metric: "citation" }), keywordLabels) : [];
 
     // 週ごとの推移（折れ線グラフ。利用者の指示 2026-09-21）
     const weeks = TREND_WEEKS;
     const trends = {
       weeks: recentWeekStarts(weeks, now),
-      prompt: own ? weeklySeries(observations, { brandId: own.id, axis: "prompt", metric: "mention", labels: promptLabels, weeks }, now) : [],
-      keyword: own ? weeklySeries(observations, { brandId: own.id, axis: "keyword", metric: "citation", labels: keywordLabels, weeks }, now) : [],
+      // 推移は「期間」ではなく常に 8 週ぶん見せる（傾きを読む図なので短く切らない）。
+      // モデル・タグの絞り込みだけを効かせる
+      prompt: own ? weeklySeries(applyFilter(observations, { ...filter, days: 90 }, now), { brandId: own.id, axis: "prompt", metric: "mention", labels: promptLabels, weeks }, now) : [],
+      keyword: own ? weeklySeries(applyFilter(observations, { ...filter, days: 90 }, now), { brandId: own.id, axis: "keyword", metric: "citation", labels: keywordLabels, weeks }, now) : [],
     };
+
+    // ドメイン別の引用（自分の観測範囲の実測）
+    const ownDomains = brands.filter((b) => b.type === "own").flatMap((b) => b.domains);
+    const competitorDomains = brands.filter((b) => b.type === "competitor").flatMap((b) => b.domains);
+    const domains = domainCitations(filtered, { own: ownDomains, competitors: competitorDomains });
+
+    // 最近の生成結果（実際の LLM 出力）と、定期実行の予定
+    const recent = own ? await listRecentOutputs(userId, 8, own.id) : [];
+    const lastRun = observations.reduce<string | null>((acc, o) => (acc === null || o.executedAt > acc ? o.executedAt : acc), null);
+    const schedule = { nextRunAt: nextCronRun(now).toISOString(), lastRunAt: lastRun, enabled: true };
 
     // クレジットの消費内訳（今月）
     const spentByAction: Record<string, number> = {};
@@ -98,6 +129,11 @@ export async function GET() {
         perPrompt,
         perKeyword,
         trends,
+        domains,
+        recent,
+        schedule,
+        filter,
+        tags: [...new Set(prompts.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b, "ja")),
         keywordCount: keywords.length,
         branded: own ? brandedMetrics(observations, own.id) : null,
         versions,

@@ -58,11 +58,13 @@ export function TrendChart({ weeks, series, title, description, emptyText, unit,
   const [selected, setSelected] = useState<string[]>(() => defaultSelection(series));
 
   const shown = series.filter((s) => selected.includes(s.targetId));
-  const lines: LineSeries[] = shown.map((s) => ({
+  const lines: LineSeries[] = shown.map((s, i) => ({
     id: s.targetId,
     label: s.label,
     // 観測の無い週は null のまま（0% にしない）
     values: s.points.map((p) => (p.rate === null ? null : Math.round(p.rate * 1000) / 10)),
+    // 主役 1 本だけ下を塗る（全部塗ると重なって読めない）
+    fill: i === 0,
   }));
 
   const toggle = (id: string) => {
@@ -97,8 +99,28 @@ export function TrendChart({ weeks, series, title, description, emptyText, unit,
         <SamplePreview emptyText={emptyText} unit={unit} labels={sampleLabels ?? []} />
       ) : (
         <>
+          {/* 凡例チップ。グラフの上に置いて、選び直しと凡例を 1 か所にまとめる */}
+          <ul className="mb-3 flex flex-wrap gap-2">
+            {series.map((s) => {
+              const on = selected.includes(s.targetId);
+              return (
+                <li key={s.targetId}>
+                  <Button
+                    size="sm"
+                    variant={on ? "primary" : "secondary"}
+                    disabled={!on && full}
+                    onClick={() => toggle(s.targetId)}
+                    aria-pressed={on}
+                  >
+                    {s.label}
+                    <span className="ml-1 text-[11px] opacity-70">{s.latest === null ? "未計測" : `${Math.round(s.latest * 100)}%`}</span>
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
           {lines.length === 0 ? (
-            <p className="text-[13px] text-muted">下のボタンで、見たい{unit}を選んでください。</p>
+            <p className="text-[13px] text-muted">上のボタンで、見たい{unit}を選んでください。</p>
           ) : (
             <LineChart
               labels={weeks.map(weekLabel)}
@@ -113,31 +135,6 @@ export function TrendChart({ weeks, series, title, description, emptyText, unit,
               ariaLabel={title}
             />
           )}
-
-          <div className="mt-4">
-            <p className="mb-2 text-[11px] text-muted">
-              表示する{unit}（最大 {MAX_SERIES} 本{full ? "。外してから選び直してください" : ""}）
-            </p>
-            <ul className="flex flex-wrap gap-2">
-              {series.map((s) => {
-                const on = selected.includes(s.targetId);
-                return (
-                  <li key={s.targetId}>
-                    <Button
-                      size="sm"
-                      variant={on ? "primary" : "secondary"}
-                      disabled={!on && full}
-                      onClick={() => toggle(s.targetId)}
-                      aria-pressed={on}
-                    >
-                      {s.label}
-                      <span className="ml-1 text-[11px] opacity-70">{s.latest === null ? "未計測" : `${Math.round(s.latest * 100)}%`}</span>
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
 
           <p className="mt-4 text-[11px] leading-relaxed text-muted">
             1 点は<strong className="font-bold">その週だけ</strong>の出現率です。1 週ぶんは回数が少なく上下が大きいので、

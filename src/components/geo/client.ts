@@ -3,7 +3,7 @@
 /**
  * AI 検索モニタリングの API クライアント（画面から呼ぶ薄い層）。
  */
-import type { LabeledTargetShare, WeeklySeries } from "@/lib/geo/aggregate";
+import type { DomainCitation, LabeledTargetShare, ObservationFilter, WeeklySeries } from "@/lib/geo/aggregate";
 import type { GeoBrand, GeoKeyword, GeoModel, GeoPrompt, MentionPlatform } from "@/lib/geo/types";
 
 export interface GeoAccountView {
@@ -40,6 +40,17 @@ export interface ShareRow {
 /** 計測対象（プロンプト 1 本 / キーワード 1 語）ごとの出現率。棒グラフの 1 行 */
 export type TargetRow = LabeledTargetShare;
 
+export interface RecentOutputView {
+  measurementId: string;
+  text: string;
+  responseText: string;
+  model: GeoModel;
+  executedAt: string;
+  promptId: string | null;
+  keywordId: string | null;
+  mentioned: boolean;
+}
+
 export interface DashboardResponse {
   account: GeoAccountView;
   brands: GeoBrand[];
@@ -53,6 +64,16 @@ export interface DashboardResponse {
   perKeyword: TargetRow[];
   /** 週ごとの推移（折れ線グラフ）。weeks は週初（月曜）の並び */
   trends: { weeks: string[]; prompt: WeeklySeries[]; keyword: WeeklySeries[] };
+  /** ドメイン別の引用（自分の観測範囲の実測） */
+  domains: DomainCitation[];
+  /** 最近の生成結果（実際の LLM 出力） */
+  recent: RecentOutputView[];
+  /** 定期実行の予定 */
+  schedule: { nextRunAt: string; lastRunAt: string | null; enabled: boolean };
+  /** サーバーが実際に当てたフィルタ（不正な値は既定に落ちている） */
+  filter: ObservationFilter;
+  /** 登録済みプロンプトのタグ一覧（フィルタの選択肢） */
+  tags: string[];
   keywordCount: number;
   branded: {
     ownCitationRate: number;
@@ -81,8 +102,13 @@ export async function fetchSetup(): Promise<SetupResponse> {
   return json<SetupResponse>(await fetch("/api/geo/setup", { cache: "no-store" }));
 }
 
-export async function fetchDashboard(): Promise<DashboardResponse> {
-  return json<DashboardResponse>(await fetch("/api/geo/dashboard", { cache: "no-store" }));
+export async function fetchDashboard(filter: ObservationFilter = {}): Promise<DashboardResponse> {
+  const params = new URLSearchParams();
+  if (filter.model && filter.model !== "all") params.set("model", filter.model);
+  if (filter.tag && filter.tag !== "all") params.set("tag", filter.tag);
+  if (filter.days) params.set("days", String(filter.days));
+  const query = params.toString();
+  return json<DashboardResponse>(await fetch(`/api/geo/dashboard${query ? `?${query}` : ""}`, { cache: "no-store" }));
 }
 
 export async function saveSetup(body: unknown): Promise<{ ok: boolean; warning?: string | null }> {

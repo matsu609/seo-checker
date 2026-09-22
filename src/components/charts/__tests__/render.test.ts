@@ -196,3 +196,42 @@ describe("LineChart の破線（実測でない線。2026-09-21）", () => {
     expect(html).not.toContain("stroke-dasharray");
   });
 });
+
+describe("LineChart の面の塗り（2026-09-22）", () => {
+  const labels = ["9/14", "9/21", "9/28"];
+
+  it("fill を付けた系列だけ下を淡く塗る", () => {
+    const html = renderToStaticMarkup(
+      createElement(LineChart, {
+        labels,
+        series: [
+          { id: "lead", label: "主役", values: [10, 20, 30], fill: true },
+          { id: "other", label: "その他", values: [5, 6, 7] },
+        ],
+        ariaLabel: "推移",
+      }),
+    );
+    expect(html).toContain('fill-opacity="0.12"');
+    expect((html.match(/fill-opacity="0.12"/g) ?? []).length).toBe(1);
+  });
+
+  it("欠測をまたいで塗らない（線が切れている区間は塗りも切れる）", () => {
+    const html = renderToStaticMarkup(
+      createElement(LineChart, {
+        labels: ["a", "b", "c", "d"],
+        series: [{ id: "lead", label: "主役", values: [10, null, 30, 40], fill: true }],
+        ariaLabel: "推移",
+      }),
+    );
+    // 区間ごとに Z で閉じるので、閉じる回数は 2（[10] と [30,40]）
+    const area = (html.match(/d="M[^"]*Z"/g) ?? [])[0] ?? "";
+    expect((area.match(/Z/g) ?? []).length).toBe(2);
+  });
+
+  it("fill が無ければ塗らない", () => {
+    const html = renderToStaticMarkup(
+      createElement(LineChart, { labels, series: [{ id: "a", label: "A", values: [1, 2, 3] }], ariaLabel: "推移" }),
+    );
+    expect(html).not.toContain("fill-opacity");
+  });
+});

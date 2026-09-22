@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { canRun, consume, creditAction, creditCost, forecastStandardPlan, MONTHLY_CREDITS, needsReset, nextResetAt, resetMonthly } from "../credits";
 import { cacheKey, matchesDomain, normalizeDomain, normalizedHash, normalizeText } from "../normalize";
 import { costUsd, DEFAULT_UNIT_PRICES, toJpy, unitPrices, usdJpy, mentionsCostUsd } from "../pricing";
-import { jstWeekdayIndex, NORMAL_PLAN, PRECISION_PLAN, precisionWarning, repeatsToday, runDayOffsetFor, weeklyTotal, weekStart } from "../schedule";
+import { jstWeekdayIndex, NORMAL_PLAN, PRECISION_PLAN, precisionWarning, repeatsToday, runDayOffsetFor, weeklyTotal, weekStart, nextCronRun, relativeLabel } from "../schedule";
 import { allowsPercent, compareRates, toBand, wilsonInterval } from "../stats";
 
 const KEEP = { ...process.env };
@@ -235,5 +235,27 @@ describe("統計と表示（§5）", () => {
     expect(compareRates({ successes: 4, total: 40 }, { successes: 32, total: 40 })).toBe("large-up");
     expect(compareRates({ successes: 32, total: 40 }, { successes: 4, total: 40 })).toBe("large-down");
     expect(compareRates({ successes: 18, total: 40 }, { successes: 22, total: 40 })).toBe("unclear");
+  });
+});
+
+describe("定期実行の予定（画面のバナー。2026-09-22）", () => {
+  it("5:00 JST より前ならその日の 5:00、過ぎていれば翌日の 5:00", () => {
+    // 2026-09-16 01:00 JST = 2026-09-15 16:00 UTC → 同日 5:00 JST
+    expect(nextCronRun(new Date("2026-09-15T16:00:00Z")).toISOString()).toBe("2026-09-15T20:00:00.000Z");
+    // 2026-09-16 09:00 JST = 2026-09-16 00:00 UTC → 翌日 5:00 JST
+    expect(nextCronRun(new Date("2026-09-16T00:00:00Z")).toISOString()).toBe("2026-09-16T20:00:00.000Z");
+  });
+
+  it("ちょうど 5:00 のときは次の日に送る（二重に走らせない）", () => {
+    expect(nextCronRun(new Date("2026-09-15T20:00:00Z")).toISOString()).toBe("2026-09-16T20:00:00.000Z");
+  });
+
+  it("経過時間は分 → 時間 → 日の順にざっくり言う", () => {
+    const base = new Date("2026-09-16T00:00:00Z");
+    expect(relativeLabel(base, new Date("2026-09-16T00:30:00Z"))).toBe("30 分");
+    expect(relativeLabel(base, new Date("2026-09-16T19:00:00Z"))).toBe("19 時間");
+    expect(relativeLabel(base, new Date("2026-09-20T00:00:00Z"))).toBe("4 日");
+    // 向きは問わない（前でも後でも同じ言い方）
+    expect(relativeLabel(new Date("2026-09-16T04:00:00Z"), base)).toBe("4 時間");
   });
 });

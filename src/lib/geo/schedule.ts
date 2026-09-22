@@ -90,3 +90,32 @@ export function weekStart(now: Date): string {
   jst.setUTCDate(jst.getUTCDate() - weekday);
   return jst.toISOString().slice(0, 10);
 }
+
+/* ───────────── 定期実行の予定（画面のバナー。2026-09-22） ───────────── */
+
+/** 定期実行の時刻（JST の 5:00。vercel.json の `0 20 * * *` = 20:00 UTC） */
+export const CRON_HOUR_JST = 5;
+
+/**
+ * 次に定期実行が走る時刻。いまが 5:00 より前なら今日の 5:00、過ぎていれば明日の 5:00。
+ *
+ * **`cron_runs` は見ない。**あの表は `/api/cron/daily` のジョブ用で、
+ * AI 検索モニタリングの `/api/cron/geo-run` は記録していないため
+ * （記録を足すより、固定スケジュールから計算するほうが正確で壊れない）。
+ */
+export function nextCronRun(now = new Date()): Date {
+  const jstNow = now.getTime() + 9 * 60 * 60 * 1000;
+  const d = new Date(jstNow);
+  const today = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), CRON_HOUR_JST, 0, 0);
+  const next = jstNow < today ? today : today + 24 * 60 * 60 * 1000;
+  return new Date(next - 9 * 60 * 60 * 1000);
+}
+
+/** 「あと N 時間」「N 分後」のような、ざっくりした言い回し */
+export function relativeLabel(from: Date, to: Date): string {
+  const minutes = Math.round(Math.abs(to.getTime() - from.getTime()) / 60000);
+  if (minutes < 60) return `${Math.max(1, minutes)} 分`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} 時間`;
+  return `${Math.round(hours / 24)} 日`;
+}

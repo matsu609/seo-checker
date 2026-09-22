@@ -26,6 +26,8 @@ export interface AggregateInput {
   cited: boolean;
   /** 引用ドメインの分類（引用元構成比に使う） */
   domainClasses: readonly DomainClass[];
+  /** 引用されたドメインそのもの（ドメイン別の集計に使う。2026-09-22） */
+  citedDomains: readonly string[];
 }
 
 export interface ShareResult {
@@ -326,6 +328,90 @@ export function weeklySeries(
 
   return out.sort((a, b) => (b.latest ?? -1) - (a.latest ?? -1) || b.totalN - a.totalN);
 }
+
+/* ───────────── ドメイン別の引用（2026-09-22） ───────────── */
+
+/**
+ * 「どのサイトが引用されているか」（画面の「ドメイン別ソース引用状況」）。
+ *
+ * 業界の地図（LLM Mentions）と紛らわしいので違いを書いておく:
+ *   ここ       … **自分が登録したプロンプト / キーワードの計測**で実際に出てきた引用元
+ *   業界の地図 … DataForSEO が集めた世の中の AI 回答での引用元
+ * つまりここは「自分の観測範囲の実測」。母集団が違うので足し引きしない。
+ */
+export interface DomainCitation {
+  domain: string;
+  /** 引用された計測の数 */
+  count: number;
+  /** 全体に占める割合（0〜1） */
+  share: number;
+  /** 自社 / 競合 / 第三者。判定できなければ null */
+  domainClass: DomainClass | null;
+}
+
+/**
+ * 観測から引用ドメインを数える。1 観測に複数ドメインが入るので、
+ * **同じ観測の中の重複は 1 回として数える**（同じ回答で 3 回リンクされても 1 回）。
+ */
+export function domainCitations(
+  observations: readonly AggregateInput[],
+  options: { own?: readonly string[]; competitors?: readonly string[]; limit?: number } = {},
+): DomainCitation[] {
+  const own = (options.own ?? []).map((d) => d.toLowerCase());
+  const competitors = (options.competitors ?? []).map((d) => d.toLowerCase());
+  const matches = (domain: string, list: readonly string[]) => list.some((d) => domain === d || domain.endsWith(`.${d}`));
+
+  const counts = new Map<string, number>();
+  let total = 0;
+  for (const o of observations) {
+    // 同じ観測の中の重複は 1 回に畳む
+    for (const domain of new Set(o.citedDomains.map((d) => d.toLowerCase()).filter(Boolean))) {
+      counts.set(domain, (counts.get(domain) ?? 0) + 1);
+      total += 1;
+    }
+  }
+  if (total === 0) return [];
+
+  return [...counts.entries()]
+    .map(([domain, count]) => ({
+      domain,
+      count,
+      share: count / total,
+      domainClass: matches(domain, own) ? ("own" as const) : matches(domain, competitors) ? ("competitor" as const) : ("third_party" as const),
+    }))
+    .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain))
+    .slice(0, options.limit ?? 12);
+}
+
+/* ───────────── 絞り込み（画面上部のフィルタ行。2026-09-22） ───────────── */
+
+export interface ObservationFilter {
+  /** モデル 1 つに絞る。"all" なら絞らない */
+  model?: GeoModel | "all";
+  /** プロンプトのタグ 1 つに絞る。"all" なら絞らない */
+  tag?: string;
+  /** 直近何日ぶんか。既定は 4 週ローリング（ROLLING_DAYS） */
+  days?: number;
+}
+
+/**
+ * フィルタをまとめて当てる。**順番は 期間 → モデル → タグ**（絞るほど n が減るので、
+ * 画面では必ず n を出して「この条件では読み取れない」が分かるようにする）。
+ */
+export function applyFilter(observations: readonly AggregateInput[], filter: ObservationFilter, now = new Date()): AggregateInput[] {
+  let rows = withinDays(observations, filter.days ?? ROLLING_DAYS, now);
+  if (filter.model && filter.model !== "all") rows = rows.filter((o) => o.model === filter.model);
+  if (filter.tag && filter.tag !== "all") rows = rows.filter((o) => o.tags.includes(filter.tag as string));
+  return rows;
+}
+
+/** 期間の選択肢（画面のフィルタ行）。4 週 = 見出しの既定 */
+export const PERIOD_OPTIONS = [
+  { days: 7, label: "直近 1 週間" },
+  { days: 28, label: "直近 4 週間" },
+  { days: 56, label: "直近 8 週間" },
+  { days: 90, label: "直近 90 日" },
+] as const;
 
 /* ───────────── 見本の線（イメージ。実測ではない） ───────────── */
 
