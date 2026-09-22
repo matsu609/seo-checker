@@ -5,13 +5,24 @@
  *
  * 系列は多すぎると読めないので、最初は最新順位が良い順に 4 語を出し、チェックで最大 6 語まで選べる
  * （色は 6 色を固定順で使い、循環させない）。
+ *
+ * **まだ 2 回計測していないときは、空のままにせず破線のイメージを描く**
+ * （利用者の指示 2026-09-22「最初のうちはデータがないので、デモデータの破線グラフで」）。
+ * 破線 = 実測ではない、の区別は崩さない。AI 検索モニタリング（r149）と同じ見せ方。
  */
 import { useMemo, useState } from "react";
 import { LineChart, type LineSeries } from "@/components/charts";
-import { EmptyState } from "@/components/ui";
+import { Callout } from "@/components/ui";
 import { storedDates } from "@/lib/rank/classify";
+import { comingMeasureDates, sampleRankSeries, sampleYMax, SAMPLE_POINTS } from "@/lib/rank/sample";
 import { DEVICE_LABELS, type RankKeyword, type RankSnapshot } from "@/lib/rank/store";
 import { MAX_RANK } from "@/lib/rank/types";
+
+/** 目盛りの短い表記（2026-09-22 → 9/22） */
+export function dateLabel(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return m && d ? `${Number(m)}/${Number(d)}` : iso;
+}
 
 export const TREND_DEFAULT = 4;
 export const TREND_MAX = 6;
@@ -53,14 +64,15 @@ export function RankTrendPanel({ keywords, snapshots }: RankTrendPanelProps) {
     setSelected(next);
   }
 
+  // 点が 1 つ以下では線にならない。空の画面を出さず、これからの見え方を破線で見せる
   if (labels.length < 2) {
-    return <EmptyState title="推移はまだ描けません" description="2 回以上の計測が必要です。毎週火曜の自動計測で自動的にたまります。" />;
+    return <SamplePreview keywords={keywords} measured={labels.length} />;
   }
 
   return (
     <div className="space-y-4">
       <LineChart
-        labels={labels}
+        labels={labels.map(dateLabel)}
         series={shown}
         invert
         yMin={1}
@@ -85,6 +97,55 @@ export function RankTrendPanel({ keywords, snapshots }: RankTrendPanelProps) {
           ))}
         </ul>
       </fieldset>
+    </div>
+  );
+}
+
+/* ───────────── 計測前のイメージ（破線） ───────────── */
+
+function SamplePreview({ keywords, measured }: { keywords: readonly RankKeyword[]; measured: number }) {
+  const dates = comingMeasureDates();
+  const registered = keywords.map((k) => k.keyword).filter(Boolean);
+  const series = sampleRankSeries(registered);
+  const lines: LineSeries[] = series.map((s) => ({
+    id: s.id,
+    label: s.label,
+    values: s.values,
+    dashed: true,
+  }));
+
+  return (
+    <div className="space-y-4">
+      <Callout tone="info" title="これは実測ではなく、グラフのイメージです">
+        <p className="leading-relaxed">
+          {measured === 0
+            ? "まだ 1 回も計測していません。"
+            : "計測は 1 回ぶんだけです。線としてつながるのは 2 回目からです。"}
+          {registered.length > 0
+            ? "破線は、登録済みのキーワードで「計測が進むとこう見える」を描いたものです。"
+            : "キーワードを登録して計測すると、ここに実線のグラフが出ます。"}
+        </p>
+      </Callout>
+
+      <LineChart
+        labels={dates.map(dateLabel)}
+        series={lines}
+        invert
+        yMin={1}
+        yMax={sampleYMax(series)}
+        format={(v) => (v === null ? "圏外" : `${v} 位`)}
+        nullLabel="圏外 / 未取得"
+        xHeader="計測日（火曜）"
+        ariaLabel={`計測を始めたあとの見え方のイメージ（実測ではありません）。縦軸は検索順位、横軸はこれからの ${SAMPLE_POINTS} 回`}
+        height={260}
+      />
+
+      <p className="text-[11px] leading-relaxed text-muted">
+        <strong className="font-bold">破線はイメージで、実際に測った順位ではありません。</strong>
+        計測が始まると、この形の<strong className="font-bold">実線</strong>に置き換わります。上が 1 位です。
+        1 点目が入るのは<strong className="font-bold">最初の計測の直後</strong>、線としてつながるのは 2 回目からで、
+        毎週火曜 5:00 の自動計測でたまっていきます。いますぐ見たいときは「リアルタイム計測」で 1 点目を作れます。
+      </p>
     </div>
   );
 }

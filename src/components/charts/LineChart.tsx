@@ -55,6 +55,12 @@ export interface LineChartProps {
 const PAD = { top: 12, right: 16, bottom: 28, left: 40 };
 /** 線の端に名前を出す系列数の上限（それ以上は凡例だけ） */
 const END_LABEL_MAX = 4;
+/**
+ * 線の端のラベルを出さない文字数。日本語のキーワードは長く、右端に置くと
+ * 線や隣のラベルに重なる。**凡例と表には必ず出ている**ので、重なるくらいなら出さない
+ * （利用者の指示 2026-09-22 で順位の推移を画面の先頭に出したとき、実際に重なった）。
+ */
+const END_LABEL_MAX_CHARS = 10;
 const MARKERS = ["circle", "square", "diamond", "triangle", "cross", "plus"] as const;
 /**
  * 系列の色（palette.chart を並べ替えたもの）。最初の 4 色は色覚多様性の検証（dataviz の validate_palette）で
@@ -128,7 +134,16 @@ export function LineChart({ labels, series, invert = false, yMin, yMax, yTicks, 
   const lo = yMin ?? (all.length > 0 ? Math.min(...all) : 0);
   const hi = yMax ?? (all.length > 0 ? Math.max(...all) : 1);
   const span = hi - lo || 1;
-  const plotW = Math.max(40, width - PAD.left - PAD.right);
+  /**
+   * 線の端に名前を出すときは、**その名前のぶん右に余白を作る**。
+   * 作らないと、最後の点が図の右端に来るのでラベルが線の上に重なって読めない
+   * （2026-09-22 に順位の推移を画面の先頭へ出したとき、実際に重なった）。
+   */
+  const endLabelNames = series.length <= END_LABEL_MAX ? series.map((s) => s.label).filter((l) => l.length <= END_LABEL_MAX_CHARS) : [];
+  const longestEndLabel = endLabelNames.reduce((max, l) => Math.max(max, l.length), 0);
+  // 日本語は 1 文字およそ 11px（fontSize 11）。行き過ぎると図が痩せるので上限を置く
+  const padRight = longestEndLabel > 0 ? Math.min(150, PAD.right + 8 + longestEndLabel * 11) : PAD.right;
+  const plotW = Math.max(40, width - PAD.left - padRight);
   const plotH = Math.max(40, height - PAD.top - PAD.bottom);
   const n = labels.length;
   const x = (i: number) => PAD.left + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
@@ -220,13 +235,14 @@ export function LineChart({ labels, series, invert = false, yMin, yMax, yTicks, 
       const lastIdx = s.values.reduce<number>((acc, v, i) => (v === null ? acc : i), -1);
       if (lastIdx < 0) continue;
       const py = y(s.values[lastIdx] as number);
+      if (s.label.length > END_LABEL_MAX_CHARS) continue;
       if (endLabels.some((e) => Math.abs(e.py - py) < 12)) continue;
       endLabels.push({ sid: s.id, label: s.label, px: x(lastIdx), py });
     }
   }
 
   const hoverX = hover !== null ? x(hover) : null;
-  const tooltipLeft = hoverX !== null ? Math.min(Math.max(hoverX, PAD.left), width - 160) : 0;
+  const tooltipLeft = hoverX !== null ? Math.min(Math.max(hoverX, PAD.left), Math.max(PAD.left, width - 160)) : 0;
 
   return (
     <div className={className}>
@@ -288,7 +304,7 @@ export function LineChart({ labels, series, invert = false, yMin, yMax, yTicks, 
             );
           })}
           {endLabels.map((e) => (
-            <text key={e.sid} x={Math.min(e.px + 8, width - 4)} y={e.py + 4} fontSize={11} fill={palette.ink} textAnchor={e.px + 8 > width - 60 ? "end" : "start"}>
+            <text key={e.sid} x={e.px + 8} y={e.py + 4} fontSize={11} fill={palette.ink} textAnchor="start">
               {e.label}
             </text>
           ))}

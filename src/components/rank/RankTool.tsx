@@ -37,7 +37,7 @@ import { RankTrendPanel } from "./RankTrendPanel";
 import { RealtimePanel } from "./RealtimePanel";
 import { formatDateTime } from "@/lib/report/format";
 
-type TabId = "keywords" | "trend" | "realtime" | "aio" | "estimate" | "research";
+type TabId = "keywords" | "realtime" | "aio" | "estimate" | "research";
 
 const CSV_COLUMNS: CsvColumn<RankRow>[] = [
   { header: "キーワード", value: (r) => r.keyword.keyword },
@@ -163,9 +163,10 @@ export function RankTool() {
 
   // 2026-09-19: 「検索の推定」と「キーワード調査」を別タブから取り込んだ（利用者の決定）。
   // どれも「どの語で何位か」を扱う仕事で、画面が分かれている必要がなかった
+  // 2026-09-22: 「推移」タブは廃止し、グラフを画面の先頭に固定した（利用者の指示
+  // 「順位計測はグラフにしてください」）。タブの中に入れていると、開いた人は表しか見ない
   const tabs = [
     { id: "keywords" as const, label: "キーワード", count: scoped.length },
-    { id: "trend" as const, label: "推移" },
     { id: "realtime" as const, label: "リアルタイム計測" },
     { id: "aio" as const, label: "AI Overviews" },
     { id: "estimate" as const, label: "検索の推定" },
@@ -325,6 +326,10 @@ export function RankTool() {
         </Callout>
       )}
 
+      <Card title="順位の推移" description="手動の計測と毎週の自動計測を同じ線に並べます。上が 1 位。まだ計測が無いときは、これからの見え方を破線で描きます。">
+        <RankTrendPanel keywords={visible} snapshots={visibleSnapshots} />
+      </Card>
+
       <Tabs tabs={tabs} value={tab} onChange={setTab} ariaLabel="順位計測の表示切り替え" />
 
       {tab === "keywords" && (
@@ -356,12 +361,6 @@ export function RankTool() {
           </Card>
           <KeywordRegistry projectId={projectId} keywords={scoped} groups={groups} />
         </div>
-      )}
-
-      {tab === "trend" && (
-        <Card title="順位の推移" headingLevel={3} description="手動の計測と毎週の自動計測を同じ線に並べます。上が 1 位。">
-          <RankTrendPanel keywords={visible} snapshots={visibleSnapshots} />
-        </Card>
       )}
 
       {tab === "realtime" && (
