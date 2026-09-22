@@ -50,7 +50,7 @@ describe("ユーザー ID の形", () => {
 describe("publicMetadata の書き換え", () => {
   // publicMetadata は丸ごと置き換わるので、他のキーを落とすとプランや契約が消える
   it("他のキーを残す", () => {
-    const before = { plan: "standard", featureOverrides: ["writing"], stripe: { subscriptionId: "sub_1" } };
+    const before = { plan: "standard", featureOverrides: ["faq"], stripe: { subscriptionId: "sub_1" } };
     expect(withAgencyRole(before, true)).toMatchObject(before);
   });
 

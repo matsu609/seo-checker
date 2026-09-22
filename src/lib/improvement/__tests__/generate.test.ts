@@ -6,7 +6,7 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { UNTRUSTED_BEGIN } from "@/lib/writing/prompt";
+import { UNTRUSTED_BEGIN } from "@/lib/llm/prompt-safety";
 import { generateImprovement, type ImprovementGenerator } from "../generate";
 import type { ImprovementPlan } from "../schema";
 

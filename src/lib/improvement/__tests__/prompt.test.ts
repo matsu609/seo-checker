@@ -6,7 +6,7 @@
  * （プロンプトインジェクション）。
  */
 import { describe, expect, it } from "vitest";
-import { UNTRUSTED_BEGIN, UNTRUSTED_END } from "@/lib/writing/prompt";
+import { UNTRUSTED_BEGIN, UNTRUSTED_END } from "@/lib/llm/prompt-safety";
 import type { PageReport, ReportSection } from "@/lib/page-report/types";
 import { buildImprovementPrompt, failingRows, MAX_BODY_CHARS, SYSTEM_PROMPT } from "../prompt";
 

@@ -1,20 +1,12 @@
-import type { Metadata } from "next";
-import { PlanGate } from "@/components/plans/PlanGate";
-import { PageHeader } from "@/components/ui";
-import { WritingTool } from "@/components/writing/WritingTool";
-import { requireFeature } from "@/lib/features/registry";
+import { redirect } from "next/navigation";
 
-const feature = requireFeature("writing");
-
-export const metadata: Metadata = { title: feature.label, description: feature.description };
-
+/**
+ * AI ライティング・エディターは提供を終了した（利用者の決定 2026-09-22:
+ * 「SEO・AIO についてこのツールは実行や改善をしない。事実の提示と改善案の提示まで」。
+ * 原稿を書くこと自体は改善の実行にあたるため外した）。
+ * 同じ SEO の柱で改善案までを出す「ページ改善」へ転送する。
+ * 古いリンクとブックマークのためだけに残す。
+ */
 export default function Page() {
-  return (
-    <div className="mx-auto w-full max-w-6xl @container">
-      <PageHeader feature={feature} />
-      <PlanGate featureId="writing">
-        <WritingTool />
-      </PlanGate>
-    </div>
-  );
+  redirect("/tools/page-improve");
 }

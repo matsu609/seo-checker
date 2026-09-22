@@ -121,7 +121,7 @@ export const SERVICE_BLUEPRINTS: Record<IntegrationKey, ServiceBlueprint> = {
     usedFor: [
       "クイック診断の FAQ 生成（Haiku）",
       "精密診断の「専門家のアドバイス」（Opus。事実シートだけを根拠に書く）",
-      "HP 改修提案（before → after）・AI ライティング・口コミの返信案・投稿の下書き",
+      "ページ改善（before → after）・FAQ 提案・口コミの返信案・投稿の下書き",
       "MEO の総評（無ければルール生成）、キーワードの意図分類、プロンプト拡張",
       "AI 検索モニタリングの言及抽出",
     ],
@@ -133,7 +133,7 @@ export const SERVICE_BLUEPRINTS: Record<IntegrationKey, ServiceBlueprint> = {
   serpapi: {
     key: "serpapi",
     role: "Google 検索結果の取得（実測の順位）。",
-    usedFor: ["順位計測（手動と毎週火曜の自動）と AI Overviews の引用チェック", "精密診断の検索順位・site: 件数・ブランド検索", "ページ診断の上位 10 件・AI ライティングの上位分析（無ければ Claude の Web 検索で推定）"],
+    usedFor: ["順位計測（手動と毎週火曜の自動）と AI Overviews の引用チェック", "精密診断の検索順位・site: 件数・ブランド検索", "ページ診断の上位 10 件（無ければ Claude の Web 検索で推定）"],
     costKind: "fixed",
     payer: "運用者",
     configuredAt: "SerpApi → ダッシュボード / API キー",

@@ -39,7 +39,7 @@ export const UPSELL: Record<FreeKind, UpsellCopy> = {
     points: [
       "狙うキーワードの順位を毎週自動で記録し、上下の理由まで追える",
       "ChatGPT などの生成 AI に自社が引用されているかを継続監視（LLMO モニタリング）",
-      "AI が改修案を before → after の形で作成。そのまま原稿・llms.txt まで出力",
+      "AI が改修案を before → after の形で作成。FAQ もそのまま貼れる形で出力",
     ],
     cta: "精密診断をはじめる",
   },

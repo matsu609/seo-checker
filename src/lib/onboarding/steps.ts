@@ -40,7 +40,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     n: 3,
     title: "サイトを分析して改善案を受け取る",
-    body: "精密診断を 1 回流すと、サイト全体のクロール・速度・検索順位をもとに、AI が現状分析と優先順位つきの改善案を書きます。そのまま改修案（before → after）と原稿の生成まで進めます。",
+    body: "精密診断を 1 回流すと、サイト全体のクロール・速度・検索順位をもとに、AI が現状分析と優先順位つきの改善案を書きます。そのまま改修案（before → after）と FAQ の提案まで進めます。",
     href: "/tools/seo-analysis",
     linkLabel: "精密診断を開く",
   },

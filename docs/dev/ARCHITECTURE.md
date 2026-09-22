@@ -36,7 +36,8 @@
 | 計測 | `/tools/reviews` | 口コミ支援（アンケート QR） | — | Supabase（AI 下書きは Anthropic 任意） |
 | 生成 | `/tools/replies` | 口コミへの返信（AI 返信案） | — | Google 連携（Business Profile API、`business.manage`）。返信案は Anthropic 任意 |
 | 調査 | `/tools/keywords` | キーワード調査 | C1 | なし（意図分類は Anthropic 任意） |
-| 生成 | `/tools/writing` | AI ライティング・エディター | D1, D2, D3, D4 | Anthropic |
+| 生成 | `/tools/faq` | FAQ 提案（いまの FAQ の状態を機械的に確認 → ページ本文とカルテの事実だけで FAQ を提案 → 採用した分を FAQPage の JSON-LD と HTML に。貼るのはお客様・運用者） | — | Anthropic |
+| 生成 | `/tools/writing` | （提供終了 2026-09-22。SEO・AIO は事実と改善案の提示までという線引きに合わないため引退。ページ改善へ転送のみ。API とコードは削除済み） | D1, D2, D3, D4 | — |
 | 基礎対策 | `/tools/nap` | NAP チェック（表記ゆれの検出。4 項目の「正」と、自社サイト・Google マップ・掲載ページに書かれている値を突き合わせ、直すべき箇所を一覧に。サイテーションの柱の先頭） | — | なし（Places / DataForSEO / Supabase は任意） |
 | 基礎対策 | `/tools/citations` | サイテーション（店名・電話・住所で Google を検索し、ウェブ上の掲載・言及と NAP の食い違いを一覧に。サイテーションの柱） | — | DataForSEO |
 | 基礎対策 | `/tools/listings` | 基本情報掲載（NAP 一括登録。サイテーションの柱） | — | Supabase（`listing_profiles`）。説明文は Anthropic 任意 |
@@ -152,7 +153,7 @@ src/
 
 | 変数 | 用途 | 必須 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | FAQ 生成、LLM サマリー、プロンプト拡張、ライティング、精密診断 | 任意 |
+| `ANTHROPIC_API_KEY` | FAQ 生成、FAQ 提案、LLM サマリー、プロンプト拡張、精密診断 | 任意 |
 | `LLM_MODEL` | 分析・生成に使うモデル（既定 `claude-opus-5`） | 任意 |
 | `LLM_FAST_MODEL` | 分類・判定など大量処理（既定 `claude-haiku-4-5`） | 任意 |
 | `FAQ_MODEL` | 既存。FAQ 生成（既定 `claude-haiku-4-5`） | 任意 |

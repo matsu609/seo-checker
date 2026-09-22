@@ -3,12 +3,11 @@
 /**
  * 語単位の差分表示（読み取り専用）。
  *
- * AI ライティングの DiffView（採用 / 破棄つき）と、HP 改修提案の before → after で
- * 同じ見え方にするために切り出したもの。色は判定色トークンだけを使う
- * （pass = 追加、fail = 削除）。
+ * ページ改善の before → after を、どの画面でも同じ見え方にするために切り出したもの。
+ * 色は判定色トークンだけを使う（pass = 追加、fail = 削除）。
  */
 import { useMemo } from "react";
-import { diffStats, diffWords } from "@/lib/writing/diff";
+import { diffStats, diffWords } from "@/lib/diff/words";
 import { Badge } from "./Badge";
 
 export interface InlineDiffProps {

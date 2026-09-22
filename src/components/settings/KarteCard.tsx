@@ -39,7 +39,7 @@ export function KarteCard() {
   return (
     <Card
       title="お客様カルテ"
-      description="お店の強み・来てほしいお客様・よく聞かれる質問を教えていただくと、AI が書く文章（改修提案・原稿・口コミへの返信・Google マップの総評）が「お店の言葉」に変わります。全部埋めなくても、書いた分だけ変わります。"
+      description="お店の強み・来てほしいお客様・よく聞かれる質問を教えていただくと、AI が書く文章（ページ改善の改修案・FAQ 案・口コミへの返信・Google マップの総評）が「お店の言葉」に変わります。全部埋めなくても、書いた分だけ変わります。"
       actions={p && <Badge tone={done ? "pass" : p.answered > 0 ? "warn" : "neutral"} icon={false}>{p.answered} / {p.total} 問</Badge>}
     >
       {p && p.total > 0 && <ProgressBar value={p.answered} max={p.total} label="記入の進み具合" className="mb-3" />}

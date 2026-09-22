@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { IntegrationKey } from "@/lib/features/integrations";
-import type { Feature } from "@/lib/features/registry";
+import { SCOPE_NOTE, type Feature } from "@/lib/features/registry";
 import { Badge, FeatureIdChips } from "./Badge";
 import { RequiresNotice } from "./RequiresNotice";
 
@@ -18,6 +18,20 @@ export interface PageHeaderProps {
   /** β バッジ等（feature があれば status から自動） */
   badge?: ReactNode;
   className?: string;
+}
+
+/**
+ * 「どこまでやるか」の一言（registry の SCOPE_NOTE）。
+ *
+ * 利用者の決定 2026-09-22: SEO・AIO は事実の提示と改善案の提示まで、MEO だけ反映まで。
+ * 出すのは**直す・作る系のツール**（group === "improve"）だけ。診断や計測の画面に
+ * 「書き換えません」と書いても意味がなく、注意書きが増えるほど読まれなくなる。
+ */
+function scopeNoteFor(feature?: Feature): string | null {
+  if (!feature || feature.group !== "improve") return null;
+  if (feature.category === "seo" || feature.category === "aio") return SCOPE_NOTE.seo;
+  if (feature.category === "meo") return SCOPE_NOTE.meo;
+  return null;
 }
 
 /**
@@ -39,6 +53,7 @@ export function PageHeader({
   const req = requires ?? feature?.requires ?? [];
   const reqAny = requiresAny ?? feature?.requiresAny ?? [];
   const statusBadge = badge ?? (feature?.status === "beta" ? <Badge tone="neutral">β</Badge> : null);
+  const scopeNote = scopeNoteFor(feature);
   return (
     <header className={`mb-6 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -53,6 +68,7 @@ export function PageHeader({
               {description ?? feature?.description}
             </p>
           )}
+          {scopeNote && <p className="mt-1.5 max-w-3xl text-[12px] leading-relaxed text-muted">{scopeNote}</p>}
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>

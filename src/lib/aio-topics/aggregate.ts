@@ -238,7 +238,7 @@ export function aggregateTopics(input: AggregateInput): TopicAggregate {
 
 /**
  * 不足トピック（自社ページに書かれていない / 一部しかない）。
- * ページ診断・AI ライティングに貼れるよう優先度の高い順で返す。
+ * ページ改善・FAQ 提案に渡せるよう優先度の高い順で返す。
  */
 export function missingTopics(rows: readonly TopicRow[], options: { includePartial?: boolean } = {}): TopicRow[] {
   const includePartial = options.includePartial ?? true;
@@ -247,7 +247,7 @@ export function missingTopics(rows: readonly TopicRow[], options: { includeParti
     .sort((a, b) => b.priority - a.priority || b.share - a.share);
 }
 
-/** 不足トピックのコピー用テキスト（ページ診断・AI ライティングへの引き継ぎ） */
+/** 不足トピックのコピー用テキスト（ページ改善・FAQ 提案への引き継ぎ） */
 export function missingTopicsText(keyword: string, rows: readonly TopicRow[]): string {
   const lines = [`キーワード「${keyword}」の AI Overviews に頻出するが自社ページに不足しているトピック`];
   for (const r of rows) {

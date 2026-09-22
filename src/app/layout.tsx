@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: "%s | SEO Checker",
   },
   description:
-    "URL を入れるだけで AI 検索（AIO）対策の状況をルールベースで採点し、報告書として PDF 出力できる無料のクイック診断。順位計測・LLMO モニタリング・AI ライティングまで含む精密診断は有料プランで。",
+    "URL を入れるだけで AI 検索（AIO）対策の状況をルールベースで採点し、報告書として PDF 出力できる無料のクイック診断。精密診断・順位計測・AI 検索モニタリング・FAQ 提案は有料プランで。",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

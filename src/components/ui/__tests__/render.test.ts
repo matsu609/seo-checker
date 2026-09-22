@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { SCOPE_NOTE, requireFeature } from "@/lib/features/registry";
 import { Badge, FeatureIdChips } from "../Badge";
 import { Button } from "../Button";
 import { Callout } from "../Callout";
@@ -8,6 +9,7 @@ import { Card } from "../Card";
 import { DataTable, type Column } from "../DataTable";
 import { EmptyState } from "../EmptyState";
 import { Field, Input } from "../Field";
+import { PageHeader } from "../PageHeader";
 import { ProgressBar } from "../ProgressBar";
 import { StatCard, StatStrip } from "../StatCard";
 import { Tabs } from "../Tabs";
@@ -117,5 +119,25 @@ describe("DataTable / Tabs", () => {
     expect(html).toContain('role="tablist"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain(">2<");
+  });
+});
+
+/**
+ * 「どこまでやるか」の一言（利用者の決定 2026-09-22: SEO・AIO は提示まで、MEO は反映まで）。
+ * 文言はレジストリの SCOPE_NOTE が 1 か所で持ち、直す・作る系の画面にだけ出す。
+ */
+describe("PageHeader の scope note", () => {
+  it("SEO の「直す・作る」画面には「書き換えません」を出す", () => {
+    const html = renderToStaticMarkup(createElement(PageHeader, { feature: requireFeature("faq") }));
+    expect(html).toContain(SCOPE_NOTE.seo);
+  });
+  it("MEO の「直す・作る」画面には「反映まで行える」を出す", () => {
+    const html = renderToStaticMarkup(createElement(PageHeader, { feature: requireFeature("reviews") }));
+    expect(html).toContain(SCOPE_NOTE.meo);
+  });
+  it("診断・計測の画面には出さない（注意書きを増やさない）", () => {
+    const html = renderToStaticMarkup(createElement(PageHeader, { feature: requireFeature("rank") }));
+    expect(html).not.toContain(SCOPE_NOTE.seo);
+    expect(html).not.toContain(SCOPE_NOTE.meo);
   });
 });

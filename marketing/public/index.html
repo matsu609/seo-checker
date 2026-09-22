@@ -486,7 +486,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         {
           "@type": "Offer",
           "name": "ライト",
-          "description": "SEO・AIO・MEO の診断と計測。AI が改修案・原稿を作るツールは含みません",
+          "description": "SEO・AIO・MEO の診断と計測。AI が改修案・FAQ を作るツールは含みません",
           "price": "38000",
           "priceCurrency": "JPY",
           "url": "https://app.seo-checker.tokyo/plans",
@@ -502,7 +502,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         {
           "@type": "Offer",
           "name": "スタンダード",
-          "description": "ライトのすべてに加えて、AI が改修案・原稿・返信文まで作ります",
+          "description": "ライトのすべてに加えて、AI が改修案・FAQ・返信文まで作ります",
           "price": "50000",
           "priceCurrency": "JPY",
           "url": "https://app.seo-checker.tokyo/plans",
@@ -549,7 +549,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           "name": "採点に生成 AI を使っていますか",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "クイック診断の採点はルールベースで、生成 AI を使っていません。同じページなら何度診断しても同じ結果になります。 生成 AI を使うのは改修案の作成と AI ライティング（いずれもスタンダード以上）です。"
+            "text": "クイック診断の採点はルールベースで、生成 AI を使っていません。同じページなら何度診断しても同じ結果になります。 生成 AI を使うのは改修案と FAQ の作成（いずれもスタンダード以上）です。"
           }
         },
         {
@@ -589,7 +589,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           "name": "もう少し安くなりませんか",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "AI が改修案や原稿を作るツールをお使いにならないのであれば、ライト（月額 38,000 円）をご検討ください。診断と計測は 1 つも欠けません。そのうえで割引コードをお持ちの場合は、料金プランの画面の「割引コードをお持ちの方」でご入力いただくと割引後の金額で決済されます。"
+            "text": "AI が改修案や FAQ を作るツールをお使いにならないのであれば、ライト（月額 38,000 円）をご検討ください。診断と計測は 1 つも欠けません。そのうえで割引コードをお持ちの場合は、料金プランの画面の「割引コードをお持ちの方」でご入力いただくと割引後の金額で決済されます。"
           }
         },
         {
@@ -803,6 +803,11 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
 
     <section id="tools">
       <h2>ご提供するツール</h2>
+      <p>
+        <strong>SEO・AIO は「いまどうなっているか（事実）」と「どう直すか（改善案）」までをお出しします。</strong>
+        ホームページの書き換えはこのツールでは行いません。そのまま貼れる形（改修案・FAQ・構造化データ）までを作り、反映はお客様または弊社の作業になります。
+        <strong>MEO だけは反映まで行います。</strong>Google ビジネス プロフィールを接続していただくと、口コミへの返信と投稿をこの画面から送れます。
+      </p>
 
       <div class="group">
         <h3>診断</h3>
@@ -857,8 +862,8 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <p>種キーワードから Google サジェスト・関連キーワードを展開し、検索意図を分類して一覧にします。CSV 出力と順位計測への登録に対応。</p>
           </div>
           <div class="tool">
-            <p class="tool-head"><span class="tool-name">AI ライティング</span></p>
-            <p>キーワードから構成案・本文をストリーミング生成し、エディターで範囲選択リライトと差分表示、ファクト・コピペ・薬機法 NG 表現のチェックまで行います。参考資料の PDF（5MB まで）を添えて企画書を作る企画書モードにも対応。</p>
+            <p class="tool-head"><span class="tool-name">FAQ 提案</span></p>
+            <p>AI 検索は、質問と答えが対になっている文章をそのまま引用します。いまのページに FAQ が入っているかを確かめ、ページに書かれている事実だけを根拠に「入れるべき FAQ」を提案し、そのまま貼れる HTML と構造化データ（FAQPage）にします。根拠の無い質問は答えを作らず、確認していただく形で出します。</p>
           </div>
           <div class="tool">
             <p class="tool-head"><span class="tool-name">llms.txt 生成</span></p>
@@ -982,7 +987,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <tr><th>数字の更新</th><td>Google マップの数字は毎週月曜 5:00（日本時間）に自動で取り直し、履歴として保存</td></tr>
             <tr><th>連携する外部サービス</th><td>Google Places API、PageSpeed Insights、DataForSEO（検索パフォーマンスの推定・AI 検索モニタリング）。Google Search Console・Google アナリティクスは使いません</td></tr>
             <tr><th>対応する生成 AI</th><td>AI 検索モニタリングで ChatGPT ／ Gemini ／ Claude ／ Perplexity ／ Google AI Overviews ／ Google AI モードの 6 つを毎週計測（4 週ローリングと信頼区間つき）</td></tr>
-            <tr><th>料金</th><td>精密診断は 3 プラン（月額・税込）: ライト 38,000 円（診断・計測）／<strong>スタンダード 50,000 円</strong>（+ AI が改修案・原稿を作成）／プレミアム 150,000 円〜（+ 人の伴走。月 3 社まで・個別にお見積り）。割引コードをお持ちの場合は料金プランの画面で入力（スタンダードのみ）。カード決済、解約はお客様側の画面で可能</td></tr>
+            <tr><th>料金</th><td>精密診断は 3 プラン（月額・税込）: ライト 38,000 円（診断・計測）／<strong>スタンダード 50,000 円</strong>（+ AI が改修案・FAQ を作成）／プレミアム 150,000 円〜（+ 人の伴走。月 3 社まで・個別にお見積り）。割引コードをお持ちの場合は料金プランの画面で入力（スタンダードのみ）。カード決済、解約はお客様側の画面で可能</td></tr>
             <tr><th>出力</th><td>診断報告書はブラウザで閲覧、PDF ダウンロード、印刷に対応。一覧は CSV 出力に対応</td></tr>
             <tr><th>データの保管場所</th><td>アプリは Vercel、データベースは Supabase（東京リージョン）。Google から取得した数値は利用者の画面表示にだけ使用</td></tr>
             <tr><th>規約・ポリシー</th><td><a href="https://app.seo-checker.tokyo/terms" target="_blank" rel="noopener">利用規約</a>（2026 年 9 月 10 日施行）／ <a href="https://app.seo-checker.tokyo/privacy" target="_blank" rel="noopener">プライバシーポリシー</a></td></tr>
@@ -1006,7 +1011,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
             <li>SEO: 精密診断（サイト全体の診断 + AI の現状分析と改善案）・ページ診断・順位計測・検索パフォーマンス（推定。Google 連携なしで初日から数字が出ます）・キーワード調査</li>
             <li>AIO: ページ最適化レポート・AIO 頻出トピック・プロンプト拡張（AI 検索モニタリングはスタンダード）</li>
             <li>MEO: 店舗診断、毎週の自動更新と履歴、競合 5 店舗との比較</li>
-            <li class="is-out">AI が原稿・改修案そのものを作るツール（7 つ）は含みません</li>
+            <li class="is-out">AI が改修案・FAQ そのものを作るツールは含みません</li>
             <li>Search Console・Google アナリティクスの設定は不要（本サービスは使いません）</li>
           </ul>
           <a class="btn btn-outline" href="https://app.seo-checker.tokyo/sign-up">申し込む</a>
@@ -1014,16 +1019,16 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           <p class="plan-flag">いちばん選ばれています</p>
           <p class="plan-name">スタンダード</p>
           <p class="plan-price">50,000<small> 円 / 月（定価）</small></p>
-          <p class="plan-summary">ライトのすべてに加えて、AI が改修案・原稿・返信文まで作ります。「どこが悪いか」で終わらず「どう直すか」まで出ます。</p>
+          <p class="plan-summary">ライトのすべてに加えて、AI が改修案・FAQ・返信文まで作ります。「どこが悪いか」で終わらず「どう直すか」まで出ます。</p>
           <ul>
             <li>ライトのすべて（SEO・AIO・MEO の診断と計測）</li>
             <li>精密診断: AI による現状分析と改善案</li>
             <li>AI 検索モニタリング: ChatGPT / Gemini / Claude / Perplexity / AI Overviews / AI モードでの引用・参照を毎週計測（上の「AI 検索の 5 つの分析」）</li>
             <li>HP 改修提案: 直す箇所を before → after で作成</li>
-            <li>AI ライティング・エディター / llms.txt 生成</li>
+            <li>FAQ 提案（AI に引用させる想定問答を作り、貼れる HTML と構造化データに）／ llms.txt 生成</li>
             <li>口コミ支援（店内 QR）と口コミへの AI 返信案</li>
             <li>26 媒体への基本情報の一括掲載（NAP）</li>
-            <li>ライトとの差は月 12,000 円。AI が作る 7 つのツールがすべて開きます</li>
+            <li>ライトとの差は月 12,000 円。AI が作るツールがすべて開きます</li>
           </ul>
           <a class="btn btn-primary" href="https://app.seo-checker.tokyo/sign-up">申し込む</a>
         </div>
@@ -1110,7 +1115,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
           <summary>採点に生成 AI を使っていますか</summary>
           <p class="answer">
             クイック診断の採点はルールベースで、生成 AI を使っていません。同じページなら何度診断しても同じ結果になります。
-            生成 AI を使うのは改修案の作成と AI ライティング（いずれもスタンダード以上）です。
+            生成 AI を使うのは改修案と FAQ の作成（いずれもスタンダード以上）です。
           </p>
         </details>
         <details>
@@ -1142,7 +1147,7 @@ footer p { font-size: .76rem; line-height: 1.85; color: var(--muted); max-width:
         <details>
           <summary>もう少し安くなりませんか</summary>
           <p class="answer">
-            AI が改修案や原稿を作るツールをお使いにならないのであれば、ライト（月額 38,000 円）をご検討ください。
+            AI が改修案や FAQ を作るツールをお使いにならないのであれば、ライト（月額 38,000 円）をご検討ください。
             診断と計測は 1 つも欠けません。そのうえで割引コードをお持ちの場合は、料金プランの画面の
             「割引コードをお持ちの方」でご入力いただくと割引後の金額で決済されます。
           </p>

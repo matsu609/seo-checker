@@ -1,9 +1,8 @@
 /**
- * 語単位の差分（D3）。純関数なのでネットワークには出ない。
+ * 語単位の差分。純関数なのでネットワークには出ない。
  */
 import { describe, expect, it } from "vitest";
-import { applyDiff, diffStats, diffWords, tokenize } from "../diff";
-import type { DiffPart } from "../types";
+import { applyDiff, diffStats, diffWords, tokenize, type DiffPart } from "../words";
 
 /** 差分から変更前の全文を復元する（テスト用） */
 function before(parts: readonly DiffPart[]): string {

@@ -57,7 +57,7 @@ describe("公開パス", () => {
 
 describe("保護パス", () => {
   it("ツール画面と設定はログインが要る", () => {
-    for (const p of ["/tools/rank", "/tools/writing", "/tools/site-audit", "/settings"]) {
+    for (const p of ["/tools/rank", "/tools/faq", "/tools/site-audit", "/settings"]) {
       expect(isProtectedPath(p), p).toBe(true);
     }
   });
@@ -87,6 +87,7 @@ describe("保護パス", () => {
       "/api/analyze",
       "/api/site",
       "/api/faq",
+      "/api/faq/propose",
       "/api/meo/search",
       "/api/meo/report",
       "/api/free/quota",
@@ -113,11 +114,6 @@ describe("保護パス", () => {
       "/api/site-audit",
       "/api/site-audit/summary",
       "/api/site-report",
-      "/api/writing/body",
-      "/api/writing/check",
-      "/api/writing/outline",
-      "/api/writing/plan",
-      "/api/writing/rewrite",
     ];
     for (const p of paid) expect(isProtectedPath(p), p).toBe(true);
   });
@@ -211,7 +207,7 @@ describe("API と画面の出し分け", () => {
   // 追いかけて HTML を受け取り、呼び出し側がエラーを表示できなくなる
   it("API のパスを見分ける", () => {
     expect(isApiPath("/api/site-audit")).toBe(true);
-    expect(isApiPath("/api/writing/plan")).toBe(true);
+    expect(isApiPath("/api/faq/propose")).toBe(true);
     expect(isApiPath("/tools/rank")).toBe(false);
     expect(isApiPath("/")).toBe(false);
     // "/api" 単体はルートが無いので API 扱いしない

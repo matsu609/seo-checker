@@ -20,7 +20,7 @@
  */
 import type { PlanId } from "@/lib/plans/catalog";
 
-export const USAGE_FEATURES = ["writing", "page-diagnosis", "improvement", "prompt-expansion", "rank-measure", "citations", "search-estimate", "nap", "maps-search"] as const;
+export const USAGE_FEATURES = ["faq", "page-diagnosis", "improvement", "prompt-expansion", "rank-measure", "citations", "search-estimate", "nap", "maps-search"] as const;
 export type UsageFeature = (typeof USAGE_FEATURES)[number];
 
 export interface UsageLimitMeta {
@@ -40,14 +40,14 @@ export interface UsageLimitMeta {
 }
 
 export const USAGE_LIMITS: Record<UsageFeature, UsageLimitMeta> = {
-  writing: {
-    key: "writing",
-    featureId: "writing",
-    label: "AI ライティング",
+  faq: {
+    key: "faq",
+    featureId: "faq",
+    label: "FAQ 提案",
     unit: "回",
-    counts: "AI の生成 1 回（企画書・構成案・本文・書き直し・チェックのそれぞれ）。1 記事でおよそ 3 回",
-    limits: { light: 0, standard: 30, premium: 90 },
-    costs: "Claude Opus（本文は 1 節 8,000 トークンまで）。構成案は SerpApi 1 検索",
+    counts: "提案の生成 1 回（同じページの取り直しはキャッシュに当たれば数えない）。現状の確認だけなら数えない",
+    limits: { light: 0, standard: 20, premium: 60 },
+    costs: "Claude Opus（ページ本文は 8,000 文字まで）",
   },
   "page-diagnosis": {
     key: "page-diagnosis",

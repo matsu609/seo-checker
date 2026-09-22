@@ -33,7 +33,7 @@ export function denialMessage(required: PlanId, current: PlanId): string {
   const alsoRecommended =
     target.id === RECOMMENDED_PLAN.id
       ? ""
-      : `AI が改修案・原稿まで作る「${RECOMMENDED_PLAN.label}」（${planPriceLabel(RECOMMENDED_PLAN.id)}）もございます。`;
+      : `AI が改修案・FAQ まで作る「${RECOMMENDED_PLAN.label}」（${planPriceLabel(RECOMMENDED_PLAN.id)}）もございます。`;
   return (
     `この機能は「${target.label}」（${planPriceLabel(target.id)}）からご利用いただけます。` +
     alsoRecommended +

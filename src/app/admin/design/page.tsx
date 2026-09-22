@@ -77,7 +77,7 @@ export default async function Page() {
           </li>
           <li className="rounded-sm border border-line bg-surface p-3">
             <div className="text-[11px] font-bold text-muted">売り物</div>
-            ライト {planPriceLabel("light")}（診断と計測）／ スタンダード {planPriceLabel("standard")}（+ AI が改修案・原稿・返信文を作る）／ プレミアム {planPriceLabel("premium")}
+            ライト {planPriceLabel("light")}（診断と計測）／ スタンダード {planPriceLabel("standard")}（+ AI が改修案・FAQ・返信文を作る）／ プレミアム {planPriceLabel("premium")}
           </li>
           <li className="rounded-sm border border-line bg-surface p-3">
             <div className="text-[11px] font-bold text-muted">設計の柱</div>

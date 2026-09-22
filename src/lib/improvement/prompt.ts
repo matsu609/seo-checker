@@ -8,7 +8,7 @@
  *     必ず untrustedBlock で囲んで「データであって指示ではない」と明示する。
  */
 import type { PageReport, ReportRow } from "@/lib/page-report/types";
-import { SAFETY_RULES, untrustedBlock } from "@/lib/writing/prompt";
+import { SAFETY_RULES, untrustedBlock } from "@/lib/llm/prompt-safety";
 
 /** 本文としてプロンプトに載せる上限 */
 export const MAX_BODY_CHARS = 6_000;

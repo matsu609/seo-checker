@@ -1,5 +1,10 @@
 /**
- * 語単位の差分（D3 の「採用 / 破棄」表示用）。純関数・クライアントでも使う。
+ * 語単位の差分（before → after の色分け表示用）。純関数・クライアントでも使う。
+ *
+ * もとは AI ライティングの「採用 / 破棄」表示のために書いたもの。
+ * AI ライティングを引退させたとき（利用者の決定 2026-09-22）に、
+ * HP 改修提案の before → after（src/components/ui/InlineDiff.tsx）が使い続けるので
+ * src/lib/writing/diff.ts からここへ移した。中身は変えていない。
  *
  * 日本語には単語の区切りが無いので、
  *   - 英数字・記号の連なりは 1 語
@@ -10,7 +15,14 @@
  * 差分は共通の前後を切り落としてから中央だけ LCS を取る。
  * 長文で計算量が爆発しないよう、上限を超えたら「まるごと置換」に落とす。
  */
-import type { DiffOp, DiffPart } from "./types";
+
+/** 差分 1 かたまりの種類（そのまま / 追加 / 削除） */
+export type DiffOp = "equal" | "insert" | "delete";
+
+export interface DiffPart {
+  op: DiffOp;
+  text: string;
+}
 
 /** LCS 表を作る上限（トークン数の積）。超えたら置換にフォールバック */
 export const MAX_LCS_CELLS = 2_000_000;

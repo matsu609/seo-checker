@@ -90,7 +90,7 @@ flowchart LR
 | 口コミ支援（QR） | `/tools/reviews` | standard | 必須 ※2 | ○ | − | − | − | ○ | ● | − | − |
 | プロンプト拡張（サイドバーには出さず、AI 検索モニタリングの設定からリンク） | `/tools/prompt-expansion` | light | 必須 | ● | − | − | − | − | − | − | − |
 | キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |
-| AI ライティング | `/tools/writing` | standard | 必須 | ● | ○ ※4 | − | − | − | − | − | − |
+| FAQ 提案 | `/tools/faq` | standard | 必須 | ● | − | − | − | − | − | − | − |
 | 口コミへの返信 | `/tools/replies` | standard | 必須 | ○ | − | − | − | ○ | ○ | − | ◍ BP ※5 |
 | NAP チェック（表記ゆれの検出） | `/tools/nap` | light | 必須 | − | − | − | − | ○ | ○ | − | − |
 | サイテーション（DataForSEO ※8） | `/tools/citations` | light | 必須 | − | − | − | − | − | − | − | − |
@@ -103,7 +103,7 @@ flowchart LR
 - ※1 総評は `ANTHROPIC_API_KEY` があれば AI が執筆し、無ければルール生成の文章になる。registry の `optional` には未記載（[OPERATIONS.md](./OPERATIONS.md) の残タスク #60）。
 - ※2 店舗側の管理画面はログイン必須。来店客が QR から開くアンケート `/r/<slug>` と `POST /api/r/<slug>/*` だけは公開（IP ごとの回数制限つき）。
 - ※3 （廃止 2026-09-17）GA4 の列は空。GA4 を読む実装は削除済み。
-- ※4 サイトレポートの順位はブラウザの `rankSnapshots`（順位計測ツールが作る）から読む。この画面の API 自体は SerpApi を叩かないので、**SerpApi が必要なのは「順位計測で履歴を作るため」**という間接的な依存。AI ライティングは SerpApi があれば上位 10 件を分析して構成案に反映する。
+- ※4 サイトレポートの順位はブラウザの `rankSnapshots`（順位計測ツールが作る）から読む。この画面の API 自体は SerpApi を叩かないので、**SerpApi が必要なのは「順位計測で履歴を作るため」**という間接的な依存。
 - ※5 Google ビジネス プロフィール（`business.manage`）を接続すると口コミの全件取得と投稿がこの画面で完結する。未接続でも Places の公開口コミ（最新 5 件）から返信案を作れる。
 - ※6 （廃止 2026-09-17）セカンドオピニオン（`OPENAI_API_KEY`）は提供終了。Claude だけで報告書は完成する。
 - ※8 検索パフォーマンス（推定）は DataForSEO Labs（`DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`。表に列が無いので注記）。
@@ -181,7 +181,7 @@ flowchart LR
   PEX["プロンプト拡張"] -->|"PUT /api/geo/setup"| GEO["AI 検索モニタリング"]
   AIO["AIO 頻出トピック"] --> TP
   TP -->|"不足トピックをコピー"| PD["ページ診断"]
-  TP -->|"不足トピックをコピー"| WR["AI ライティング"]
+  TP -->|"不足トピックをコピー"| FAQT["FAQ 提案"]
   PRJ --> RANK
   PRJ --> SR
   PRJ --> AIO
@@ -263,8 +263,8 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 
 | キー | 止まるもの | 動き続けるもの |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | AIO 頻出トピック・HP 改修提案・プロンプト拡張・AI ライティング・精密診断（Claude が必須） | 無料診断（FAQ だけ消える）・サイト診断（サマリーだけ消える）・キーワード調査（意図分類だけ消える）・maps（総評がルール生成に戻る） |
-| `SERPAPI_KEY` | 順位計測・AIO 頻出トピック（→ 履歴が止まるのでサイトレポートの順位も伸びない） | ページ診断は Claude の Web 検索による推定に切り替わる。AI ライティングは上位分析なしで構成案を作る |
+| `ANTHROPIC_API_KEY` | AIO 頻出トピック・HP 改修提案・プロンプト拡張・FAQ 提案・精密診断（Claude が必須） | 無料診断（FAQ だけ消える）・サイト診断（サマリーだけ消える）・キーワード調査（意図分類だけ消える）・maps（総評がルール生成に戻る） |
+| `SERPAPI_KEY` | 順位計測・AIO 頻出トピック（→ 履歴が止まるのでサイトレポートの順位も伸びない） | ページ診断は Claude の Web 検索による推定に切り替わる |
 | `GOOGLE_PLACES_API_KEY` | 無料 MEO 診断・Google マップ（MEO）・毎週の一斉更新 | listings / replies は登録済みデータの閲覧のみ |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Google マップ（MEO）・口コミ支援・基本情報掲載・一斉更新 | それ以外すべて |
 | `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析・サイトレポート（利用者が GA4 を連携していない場合） | 利用者が連携していれば②で動く |
@@ -286,7 +286,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | クロール | `SITE_MAX_PAGES`（コードの既定 300・最大 1,000。本番は 100 に設定）。クイック診断だけ `FREE_SITE_MAX_PAGES`（代表 10 ページ）。社内ホストへのアクセスは `ALLOW_PRIVATE_HOSTS=1` のときだけ許す |
 | 精密診断（AI + SerpApi） | 利用者ごとに月 `SEO_ANALYSIS_MONTHLY_LIMIT` 回（既定 10。**2026-09-21 から毎月の自動再診断も含めて数える**。運営者は無制限）。1 回の収集につき AI のやり直しは 3 回まで |
 | **お客様カルテ（2026-09-21、r147）** | 上限は無い（外部 API を呼ばない。Supabase に 1 行書くだけ）。ただし**書かれた内容は AI のプロンプトに入る**ので、要約の長さに天井（1,800 字）を置き、運営者だけが読む 2 問（要望・過去の不満）は渡さない |
-| **それ以外の有料機能（2026-09-21、r146）** | **月の回数上限**（`src/lib/usage/limits.ts`。記録は Supabase `usage_events`、判定は `takeUsage()`）。スタンダード: AI ライティング 30 回 / ページ診断 20 / HP 改修提案 20 / プロンプト拡張 10 / 手動の順位計測 300 検索 / サイテーション 10 / 検索パフォーマンス（推定）10 / NAP チェック 10 / 店舗の検索 100。プレミアムは 3 倍、運用者は無制限。**キャッシュに当たって外部 API を呼ばなかった分は数えない**。上限で 429（`code: "usage_limit"`）。残りは設定画面「今月の利用回数」。テーブルが無い・DB が落ちているときは**通す**（fail open。警告を 1 回ログに出す） |
+| **それ以外の有料機能（2026-09-21、r146）** | **月の回数上限**（`src/lib/usage/limits.ts`。記録は Supabase `usage_events`、判定は `takeUsage()`）。スタンダード: FAQ 提案 20 回 / ページ診断 20 / HP 改修提案 20 / プロンプト拡張 10 / 手動の順位計測 300 検索 / サイテーション 10 / 検索パフォーマンス（推定）10 / NAP チェック 10 / 店舗の検索 100。プレミアムは 3 倍、運用者は無制限。**キャッシュに当たって外部 API を呼ばなかった分は数えない**。上限で 429（`code: "usage_limit"`）。残りは設定画面「今月の利用回数」。テーブルが無い・DB が落ちているときは**通す**（fail open。警告を 1 回ログに出す） |
 | Cron | `CRON_SECRET`。未設定なら一斉更新そのものを無効化 |
 
 ### 切り分けの順番
@@ -319,7 +319,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | 順位計測・AI Overviews 引用 | SerpApi |
 | プロンプト拡張 | Claude |
 | キーワード調査 | 公開のサジェスト |
-| AI ライティング | Claude |
+| FAQ 提案 | 自前クローラ + Claude |
 | llms.txt 生成 | 自前クローラ |
 | AI 検索モニタリング（GEO） | DataForSEO + Supabase |
 | **Google マップ・店舗情報（MEO）** | Places API。**店名を入れるだけ**。お客様の Google 権限は不要（公開情報） |

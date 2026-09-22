@@ -96,7 +96,7 @@ export const A = {
   geoLlmPerMonth: 1_500,
   /** DataForSEO: 検索パフォーマンス（推定）・サイテーション・NAP の手動実行（1 店舗・月、USD） */
   dataforseoOnDemandUsd: 0.03,
-  /** Anthropic（1 店舗・月、USD）: ライト = 自動再診断 1 回（Opus）+ MEO の総評 4 回 + 意図分類など。スタンダード = + 改修提案・原稿・返信案 */
+  /** Anthropic（1 店舗・月、USD）: ライト = 自動再診断 1 回（Opus）+ MEO の総評 4 回 + 意図分類など。スタンダード = + 改修案・FAQ 提案・返信案 */
   anthropicUsd: { light: 1.6, standard: 4.0 } as Record<CostPlan, number>,
   /** Stripe の決済手数料（国内カード） */
   stripeFeeRate: 0.036,
@@ -335,7 +335,7 @@ export function assumptions(): readonly Assumption[] {
     { key: "dataforseo", label: "検索パフォーマンス（推定）・サイテーション・NAP", value: `$${A.dataforseoOnDemandUsd} / 店・月（手動。同じ入力は 24 時間キャッシュ）` },
     { key: "places", label: "週次の一斉更新（毎週月曜）", value: `1 店舗につき Place Details ${A.placesDetailsPerRefresh}（自社 1 + 競合 5）・Nearby ${A.placesNearbyPerRefresh}・Text Search ${A.placesTextSearchPerRefresh}（対策キーワード）` },
     { key: "places", label: "Places の単価と無料枠", value: `Details $${A.placesDetailsUsd}・Nearby $${A.placesNearbyUsd}（Enterprise: 月 ${fmt(A.placesEnterpriseFree)} 回まで無料）・Text Search $${A.placesTextSearchUsd}（Pro: 月 ${fmt(A.placesProFree)} 回まで無料）。デモの無料診断 月 ${A.demoMeoRunsPerMonth} 回込み` },
-    { key: "anthropic", label: "Claude の利用（目安）", value: `ライト $${A.anthropicUsd.light} / スタンダード $${A.anthropicUsd.standard} / 店・月（自動再診断 1 回 = Opus で数十〜数百円、MEO の総評 1 回 ≈ 5 円、改修提案・原稿・返信案は使った分）` },
+    { key: "anthropic", label: "Claude の利用（目安）", value: `ライト $${A.anthropicUsd.light} / スタンダード $${A.anthropicUsd.standard} / 店・月（自動再診断 1 回 = Opus で数十〜数百円、MEO の総評 1 回 ≈ 5 円、改修案・FAQ 提案・返信案は使った分）` },
     { key: "stripe", label: "決済手数料", value: `売上の ${(A.stripeFeeRate * 100).toFixed(1)}%（国内カード）` },
     { key: "supabase", label: "保存量", value: `${A.supabaseMbPerStoreMonth} MB / 店・月 × ${A.supabaseRetentionMonths} か月。Free ${fmt(A.supabaseFreeMb)} MB を超えたら Pro $${A.supabaseProUsd}` },
     { key: "resend", label: "メールの通数", value: `${A.resendMailsPerStore} 通 / 店・月。Free ${fmt(A.resendFreeMails)} 通を超えたら Pro $${A.resendProUsd}` },

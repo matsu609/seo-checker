@@ -112,7 +112,7 @@ export function KarteView() {
     <>
       <Card
         title="書いていただくほど、文章が「お店の言葉」になります"
-        description="AI は与えられた材料でしか書けません。ここが空だと、どのお店にも当てはまる文章しか作れません。全部埋める必要はなく、書いた分だけ改修提案・原稿・口コミへの返信が変わります。"
+        description="AI は与えられた材料でしか書けません。ここが空だと、どのお店にも当てはまる文章しか作れません。全部埋める必要はなく、書いた分だけ改修案・FAQ 案・口コミへの返信が変わります。"
         className="mb-4"
         actions={
           <Badge tone={progress.percent >= 80 ? "pass" : progress.percent > 0 ? "warn" : "neutral"} icon={false}>

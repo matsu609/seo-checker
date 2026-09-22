@@ -3,7 +3,7 @@
  *
  * 使い方（本文の検証とキャッシュの確認が済んで、**外部 API を呼ぶ直前**に）:
  * ```ts
- * const over = await takeUsage("writing");
+ * const over = await takeUsage("faq");
  * if (over) return over;   // 429（今月の上限に達した）
  * ```
  *
