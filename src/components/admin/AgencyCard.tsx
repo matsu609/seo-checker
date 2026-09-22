@@ -22,9 +22,14 @@ export interface AgencyCardProps {
   agencies: AgencyRow[];
   /** 追加・解除のあとの一覧（親が 1 つだけ持つ） */
   onChange: (agencies: AgencyRow[]) => void;
+  /**
+   * 直前に追加した相手（下の案内カードが、その結果の道のりを開くのに使う）。
+   * 招待だったのか、登録済みの方に権限を付けただけなのかで、相手のやることが変わる。
+   */
+  onAdded?: (added: { kind: "invited" | "promoted"; email: string; url: string | null }) => void;
 }
 
-export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
+export function AgencyCard({ agencies, onChange, onAdded }: AgencyCardProps) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,12 +75,16 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
           ? { email: body.result.email, url: body.result.url }
           : null,
       );
+      // 案内カードを、いま起きたほうの道のりに切り替える（招待リンクもそのまま案内文に入る）
+      if (body.result) {
+        onAdded?.({ kind: body.result.kind, email: body.result.email, url: body.result.url ?? null });
+      }
       // メールが飛ぶのは「未登録だった」ときだけ。登録済みの相手に権限を付けただけのときに
       // 同じ文面だと、来ないメールを待たせてしまう（利用者の報告 2026-09-21）ので必ず書き分ける
       setNotice(
         body.result?.kind === "invited"
-          ? `${body.result.email} に招待メールを送りました。相手が登録を済ませると、この一覧に並びます。メールは迷惑メールに入ることがあるので、下の招待リンクを直接お渡しいただいても構いません。`
-          : `${body.result?.email ?? value} を管理アカウントにしました。すでに登録済みのアカウントなので、招待メールは送っていません（このままログインすれば使えます）。そのまま「顧客管理」ですべてのお客様に対応できます。`,
+          ? `${body.result.email} に招待メールを送りました。相手が登録を済ませると、この一覧に並びます。メールは迷惑メールに入ることがあるので、下の招待リンクを直接お渡しいただいても構いません。ここから先に相手がすることは、下の「追加したあと、その方がすること」にまとめてあります。`
+          : `${body.result?.email ?? value} を管理アカウントにしました。すでに登録済みのアカウントなので、招待メールは送っていません（届かないのが正しい動きです）。相手がいちどログインし直すと「顧客管理」に着きます。下の「追加したあと、その方がすること」をそのままお渡しいただけます。`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "追加できませんでした");
@@ -113,7 +122,7 @@ export function AgencyCard({ agencies, onChange }: AgencyCardProps) {
   return (
     <Card
       title="管理アカウント（旧称: 代理店アカウント）"
-      description="管理アカウントは、カードの登録なしでツールを全部使えます。顧客管理の画面ではすべてのお客様を見て対応できます（契約状況の確認・ご意見への返答・割引・機能の個別開放・その方の画面の確認）。マスター画面（版・外部連携・定期処理・このカード）だけは見えません。"
+      description="お客様の対応をしていただく方のアカウントです。顧客管理ですべてのお客様を見て対応できます（契約状況の確認・割引・機能の個別開放・その方の画面の確認）。ツール・設定・料金プランと、マスターアカウント用の画面（マスター画面・このページ・ご意見への返答）は見えません。追加したあとの流れは下の案内カードにまとめてあります。"
     >
       <div className="space-y-5">
         {error && (

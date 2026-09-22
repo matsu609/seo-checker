@@ -11,4 +11,6 @@ export const MANAGER_PATH = "/clients";
 export const FREE_HOME_PATH = "/";
 /** 登録フォーム（6 項目）と、登録情報が足りない人の補完フォーム */
 export const SIGN_UP_PATH = "/sign-up";
+/** ログイン画面（管理アカウントの案内など、外に渡す URL を組み立てるのに使う） */
+export const SIGN_IN_PATH = "/sign-in";
 export const LEAD_PROFILE_PATH = "/sign-up/profile";
