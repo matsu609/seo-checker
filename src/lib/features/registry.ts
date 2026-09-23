@@ -126,6 +126,13 @@ export interface Feature {
    */
   hidden?: boolean;
   /**
+   * この画面の中で、**別の機能 ID** でゲートしているもの（タブの PlanGate と、画面が呼ぶ API の requireAuth）。
+   * 2026-09-19 以降に旧機能を 1 画面にまとめたとき、ゲートは旧 ID のまま残した（プランの線を変えないため）。
+   * 顧客管理の「機能の個別開放」は画面の ID だけを付けていたので、例えばページ改善を開けても
+   * 画面は page-diagnosis で塞がったままだった（2026-09-23 に修正。gateIdsForScreen / overrideScreens）。
+   */
+  innerGates?: readonly string[];
+  /**
    * この機能を使うのに必要な料金プラン（src/lib/plans/catalog.ts）。
    * 読む・測る系は light（ライト）、AI が成果物を作る系は standard（スタンダード）。
    * この線が料金表の「ライトとスタンダードの差」そのものなので、動かすときは catalog.ts の文言も直す。
@@ -372,6 +379,8 @@ const DIAGNOSIS: readonly Feature[] = [
     // 2026-09-22 に**タブを外して 1 本の流れ**にした（利用者の指摘「競合と比べたら
     // 改善案はそのページで提示すればよくない？」）。比較の結果が改修案の根拠に渡る。
     // 入口はライトで開け、改修案だけ旧 ID（improvement）でプランを確かめる（画面が 402 を案内に変える）
+    // 画面の PlanGate と比較の API は page-diagnosis、改修案の API は improvement
+    innerGates: ["page-diagnosis", "improvement"],
     plan: "light",
   },
 ];
@@ -425,6 +434,8 @@ const FOUNDATION: readonly Feature[] = [
     requires: ["dataforseo"],
     group: "diagnosis",
     category: "citation",
+    // 「登録する」タブは旧 ID（listings。スタンダード）でゲートしている
+    innerGates: ["listings"],
     // 読む・測る系なのでライト。1 回 = DataForSEO の検索 3 回（数円）
     plan: "light",
   },
@@ -504,6 +515,8 @@ const MEASURE: readonly Feature[] = [
     optional: ["dataforseo"],
     group: "measure",
     category: "seo",
+    // タブの API は旧 ID のまま（/api/search-estimate・/api/keywords）
+    innerGates: ["search-estimate", "keywords"],
     plan: "light",
   },
   {
@@ -595,6 +608,8 @@ const MEASURE: readonly Feature[] = [
     optional: ["anthropic", "places"],
     group: "improve",
     category: "meo",
+    // 「返す」タブと /api/replies/* は旧 ID（replies）でゲートしている
+    innerGates: ["replies"],
     plan: "standard",
   },
   {
@@ -889,6 +904,51 @@ export function toolGroupsForDisplay(): readonly FeatureGroup[] {
   return FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings")
     .map((g) => ({ ...g, features: g.features.filter((f) => !f.hidden) }))
     .filter((g) => g.features.length > 0);
+}
+
+/**
+ * 顧客管理の「機能の個別開放」で、1 つのチェックがまとめて付け外しする機能 ID（画面の ID + 同じプランの innerGates）。
+ * 上のプランの innerGates（例: ページ改善の中の改修案 = スタンダード）は含めない。画面を開けただけで
+ * 上の段の機能まで開くと、チェックの横に出しているプラン名と中身が食い違うため（別のチェックにする。overrideScreens）。
+ * レジストリに無い ID は空。innerGates を持たない ID（hidden の旧機能など）はその ID だけ。
+ */
+export function gateIdsForScreen(id: string): string[] {
+  const feature = findFeatureById(id);
+  if (!feature) return [];
+  const same = (feature.innerGates ?? []).filter((g) => findFeatureById(g)?.plan === feature.plan);
+  return [feature.id, ...same];
+}
+
+export interface OverrideScreen {
+  /** 画面（サイドバーに出る機能） */
+  screen: Feature;
+  /** 画面の中の、上のプランの部分（別のチェックとして並べる） */
+  extras: readonly Feature[];
+}
+
+export interface OverrideScreenGroup {
+  id: FeatureGroupId;
+  label: string;
+  screens: readonly OverrideScreen[];
+}
+
+/**
+ * 顧客管理の「機能の個別開放」に並べる画面。サイドバーに出るツール（toolGroupsForDisplay）と、
+ * 設定の中のプランで塞いでいる画面（お客様カルテ。料金・設定は誰でも使えるので出さない）。
+ * 2026-09-23 まで hidden の旧 ID で塞いでいる画面（ページ改善・掲載・順位計測・口コミ）が開けられず、
+ * お客様カルテは一覧に出ていなかった。
+ */
+export function overrideScreens(): readonly OverrideScreenGroup[] {
+  const toScreen = (f: Feature): OverrideScreen => ({
+    screen: f,
+    extras: (f.innerGates ?? [])
+      .map((g) => findFeatureById(g))
+      .filter((g): g is Feature => g !== null && g.plan !== f.plan),
+  });
+  const tools = toolGroupsForDisplay().map((g) => ({ id: g.id, label: g.label, screens: g.features.map(toScreen) }));
+  const settings = FEATURE_GROUPS.find((g) => g.id === "settings");
+  const gated = (settings?.features ?? []).filter((f) => !f.hidden && f.plan !== "free");
+  return settings && gated.length > 0 ? [...tools, { id: settings.id, label: settings.label, screens: gated.map(toScreen) }] : tools;
 }
 
 function normalizePath(pathname: string): string {

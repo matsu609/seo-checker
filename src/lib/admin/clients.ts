@@ -11,7 +11,8 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { stripeStateFromMetadata } from "@/lib/billing/state";
 import { defaultPlanFromEnv } from "@/lib/plans/current";
-import { overridesFromMetadata, toggleOverride, OVERRIDES_KEY } from "@/lib/plans/overrides";
+import { gateIdsForScreen } from "@/lib/features/registry";
+import { overridesFromMetadata, toggleOverrides, OVERRIDES_KEY } from "@/lib/plans/overrides";
 import { resolvePlanFromMetadata, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
 import { summarizeBilling, type BillingSummary } from "./billing";
@@ -155,8 +156,11 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
 }
 
 /**
- * 機能の個別開放を 1 件切り替えて、保存後の一覧を返す。
+ * 機能の個別開放を 1 画面ぶん切り替えて、保存後の一覧を返す。
  * 呼び出し側で requireClientAccess を必ず通すこと。
+ *
+ * 画面が複数の機能 ID でゲートしているとき（ページ改善 = page-improve + page-diagnosis など）は、
+ * 同じプランの ID をまとめて付け外しする（registry.ts の gateIdsForScreen。2026-09-23）。
  *
  * Clerk の updateUserMetadata は深いマージなので、変える featureOverrides だけを送る（配列は丸ごと置き換わる）。
  * 2026-09-23 まで publicMetadata を丸ごと送っていて、読んでから書くまでの間に入った Stripe の Webhook の
@@ -169,7 +173,7 @@ export async function toggleClientFeature(
 ): Promise<string[]> {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const next = toggleOverride(overridesFromMetadata(user.publicMetadata), featureId, enabled);
+  const next = toggleOverrides(overridesFromMetadata(user.publicMetadata), gateIdsForScreen(featureId), enabled);
   await client.users.updateUserMetadata(userId, { publicMetadata: { [OVERRIDES_KEY]: next } });
   return next;
 }

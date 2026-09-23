@@ -72,6 +72,15 @@ describe("顧客管理からの書き込みは変えるキーだけ", () => {
     expect(updateUserMetadata).toHaveBeenCalledWith("user_1", { publicMetadata: { featureOverrides: ["faq", "rank"] } });
   });
 
+  // 画面を 1 つ開けると、その画面を塞いでいる旧 ID もまとめて開く（M-1。2026-09-23）
+  it("ページ改善を開けると page-diagnosis も付く", async () => {
+    getUser.mockResolvedValue({ publicMetadata: {} });
+    updateUserMetadata.mockReset();
+    expect(await toggleClientFeature("user_1", "page-improve", true)).toEqual(["page-diagnosis", "page-improve"]);
+    getUser.mockResolvedValue({ publicMetadata: { featureOverrides: ["page-diagnosis", "page-improve", "faq"] } });
+    expect(await toggleClientFeature("user_1", "page-improve", false)).toEqual(["faq"]);
+  });
+
   it("割引", async () => {
     updateUserMetadata.mockReset();
     await assignClientPromo("user_1", "off10", "user_ops");

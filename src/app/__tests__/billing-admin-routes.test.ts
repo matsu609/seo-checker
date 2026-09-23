@@ -186,3 +186,20 @@ describe("認証が無効な環境で 500 にならない", () => {
     expect(authMock).not.toHaveBeenCalled();
   });
 });
+
+describe("お客様カルテの API は画面と同じプランのゲート（L-13。2026-09-23）", () => {
+  it("未契約は 402、ライト以上は通る（保存先が未設定なら available: false）", async () => {
+    enableAuth();
+    vi.stubEnv("DEFAULT_PLAN", "free");
+    vi.stubEnv("SUPABASE_URL", "");
+    authMock.mockResolvedValue({ userId: CUSTOMER.id });
+    currentUserMock.mockResolvedValue(CUSTOMER);
+    const { GET, PUT } = await import("@/app/api/karte/route");
+    expect((await GET()).status).toBe(402);
+    expect((await PUT(new Request("http://localhost/api/karte", { method: "PUT", body: "{}" }))).status).toBe(402);
+    currentUserMock.mockResolvedValue({ ...CUSTOMER, publicMetadata: { plan: "light" } });
+    const ok = await GET();
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ available: false });
+  });
+});

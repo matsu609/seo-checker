@@ -20,14 +20,26 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
-import { toolGroupsForDisplay } from "@/lib/features/registry";
+import { gateIdsForScreen, overrideScreens, type Feature } from "@/lib/features/registry";
+import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { planLabel } from "@/lib/plans/catalog";
 import type { ClientRow } from "@/lib/admin/clients";
 import { formatDate, planSourceLabel, STATUS_TONE } from "./format";
 import { PromoSelect } from "./PromoSelect";
 
-/** 個別開放の対象。設定・料金プランは誰でも使えるので出さない */
-const TOGGLEABLE = toolGroupsForDisplay();
+/**
+ * 個別開放の対象（画面ごと。料金プラン・設定は誰でも使えるので出さない）。
+ * 1 つのチェックが、その画面を開くのに要る機能 ID（registry.ts の gateIdsForScreen）をまとめて付け外しする。
+ * 画面の中の上のプランの部分（ページ改善の改修案・掲載の登録など）は、その下に別のチェックで出す（2026-09-23）。
+ */
+const TOGGLEABLE = overrideScreens();
+
+/** その画面（または部分）の機能 ID が何個開いているか */
+function coverage(overrides: readonly string[], feature: Feature): "all" | "some" | "none" {
+  const ids = gateIdsForScreen(feature.id);
+  const on = ids.filter((id) => overrides.includes(id)).length;
+  return on === 0 ? "none" : on === ids.length ? "all" : "some";
+}
 
 export interface ClientTableProps {
   initial: ClientRow[];
@@ -40,7 +52,7 @@ export interface ClientTableProps {
 
 export function ClientTable({
   initial,
-  freeRunLimit = 2,
+  freeRunLimit = FREE_RUN_LIMIT_DEFAULT,
   emptyTitle = "まだ顧客がいません",
   emptyDescription = "ログインしたアカウントがここに並びます。",
 }: ClientTableProps) {
@@ -53,7 +65,8 @@ export function ClientTable({
     setBusy(key);
     setError(null);
     const before = rows;
-    // 先に反映して、押した感触を止めない
+    // 先に反映して、押した感触を止めない（サーバーと同じく、画面のゲート ID をまとめて付け外しする）
+    const ids = gateIdsForScreen(featureId);
     setRows((prev) =>
       prev.map((r) =>
         r.userId !== userId
@@ -61,8 +74,8 @@ export function ClientTable({
           : {
               ...r,
               overrides: enabled
-                ? [...new Set([...r.overrides, featureId])]
-                : r.overrides.filter((f) => f !== featureId),
+                ? [...new Set([...r.overrides, ...ids])]
+                : r.overrides.filter((f) => !ids.includes(f)),
             },
       ),
     );
@@ -270,27 +283,32 @@ export function ClientTable({
                     <div key={group.id}>
                       <p className="text-[11px] text-muted">{group.label}</p>
                       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1.5">
-                        {group.features.map((f) => {
-                          const checked = row.overrides.includes(f.id);
-                          const key = `${row.userId}:${f.id}`;
-                          return (
-                            <label
-                              key={f.id}
-                              className="inline-flex cursor-pointer items-center gap-1.5 text-[13px] text-ink"
-                              title={`${f.label}（${planLabel(f.plan)}プラン）`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={busy === key}
-                                onChange={(e) => void toggle(row.userId, f.id, e.target.checked)}
-                                className="h-4 w-4 accent-accent"
-                              />
-                              <span>{f.shortLabel}</span>
-                              <span className="text-[10px] text-muted">{planLabel(f.plan)}</span>
-                            </label>
-                          );
-                        })}
+                        {group.screens.flatMap(({ screen, extras }) =>
+                          [screen, ...extras].map((f) => {
+                            const state = coverage(row.overrides, f);
+                            const key = `${row.userId}:${f.id}`;
+                            const inner = f.id !== screen.id;
+                            return (
+                              <label
+                                key={f.id}
+                                className="inline-flex cursor-pointer items-center gap-1.5 text-[13px] text-ink"
+                                title={`${inner ? `${screen.shortLabel}の中の「${f.label}」` : f.label}（${planLabel(f.plan)}プラン）`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={state === "all"}
+                                  disabled={busy === key}
+                                  onChange={(e) => void toggle(row.userId, f.id, e.target.checked)}
+                                  className="h-4 w-4 accent-accent"
+                                />
+                                <span>{inner ? `${screen.shortLabel} › ${f.shortLabel}` : f.shortLabel}</span>
+                                <span className="text-[10px] text-muted">{planLabel(f.plan)}</span>
+                                {/* 2026-09-23 より前に画面の ID だけを開けていた人（画面は塞がったまま）。押し直すと全部開く */}
+                                {state === "some" && <span className="text-[10px] text-warn">一部だけ</span>}
+                              </label>
+                            );
+                          }),
+                        )}
                       </div>
                     </div>
                   ))}
