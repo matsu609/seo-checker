@@ -4,7 +4,8 @@
  * 1 語 1 回の SERP から自社・競合・AI Overviews を全部読む（measure.ts）。鍵や上限の失敗は
  * 全語で同じように起きるので、最初の 1 件で打ち切って fatal に載せる。
  */
-import { measureFromSerp, runPool } from "./measure";
+import { runPool } from "@/lib/async/pool";
+import { measureFromSerp } from "./measure";
 import type { RankMeasureItem, SerpDevice } from "./types";
 import { SerpError } from "@/lib/serp/serpapi";
 import type { SerpProvider } from "@/lib/serp/types";

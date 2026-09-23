@@ -6,7 +6,7 @@
  */
 import robotsParser from "robots-parser";
 import { fetchText, looksLikeHtml, normalizeUrl } from "@/lib/analyzer/fetch";
-import { runPool } from "@/lib/rank/measure";
+import { runPool } from "@/lib/async/pool";
 import { incidentsFromSnapshot, internalLinksFrom, pageCheckFailed, pageCheckFromFetched } from "./checks";
 import { checkCertificate } from "./ssl";
 import type { LinkCheck, MonitorSnapshot, PageCheck } from "./types";

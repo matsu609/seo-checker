@@ -121,27 +121,3 @@ export function measureFromSerp(result: SerpResult, options: MeasureOptions): Ra
     fetchedAt: result.fetchedAt,
   };
 }
-
-/**
- * 同時実行数を絞って順に処理する。1 件の失敗で全体を落とさず、
- * 呼び出し側が「行ごとのエラー」を返せるように結果は入力順で戻す。
- */
-export async function runPool<T, R>(
-  items: readonly T[],
-  limit: number,
-  worker: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const size = Math.max(1, Math.min(limit, items.length || 1));
-  const out = new Array<R>(items.length);
-  let cursor = 0;
-  async function next(): Promise<void> {
-    for (;;) {
-      const index = cursor;
-      cursor += 1;
-      if (index >= items.length) return;
-      out[index] = await worker(items[index], index);
-    }
-  }
-  await Promise.all(Array.from({ length: size }, () => next()));
-  return out;
-}
