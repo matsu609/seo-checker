@@ -6,6 +6,7 @@
  * フォント（数 MB）の同梱が必要になるため、ここでは画面を画像化して
  * A4 に貼る方式にしている（文字は選択できないが、見た目は画面と同じ）。
  */
+import { downloadBlob } from "@/lib/export/download";
 
 /** A4 の用紙サイズと余白（mm） */
 const PAGE_WIDTH_MM = 210;
@@ -213,19 +214,6 @@ export async function downloadPdf({ element, fileName }: DownloadPdfOptions): Pr
     page += 1;
   }
 
-  save(pdf.output("blob"), `${fileName}.pdf`);
-}
-
-/** jsPDF の save() はファイル名が反映されないことがあるので、自前でリンクを踏む */
-function save(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  // click 直後に revoke するとダウンロードが始まらないブラウザがある
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  // jsPDF の save() はファイル名が反映されないことがあるので、自前でリンクを踏む
+  downloadBlob(pdf.output("blob"), `${fileName}.pdf`);
 }

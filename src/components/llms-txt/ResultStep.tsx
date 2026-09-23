@@ -5,21 +5,13 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { Badge, Button, Callout } from "@/components/ui";
+import { downloadBlob } from "@/lib/export/download";
 import { renderLlmsTxt, renderRobotsBlock } from "@/lib/llms-txt/render";
 import type { LlmsTxtState } from "@/lib/llms-txt/types";
 
 /** テキストをファイルとしてダウンロードさせる（クライアント専用） */
 function downloadText(fileName: string, text: string): void {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), fileName);
 }
 
 function Output({

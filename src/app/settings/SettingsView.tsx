@@ -23,6 +23,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { downloadBlob } from "@/lib/export/download";
 import { requireFeature } from "@/lib/features/registry";
 import { displayUrl, toSiteUrl } from "@/lib/site/target";
 import { exportAll, importAll, newId, resetAll, splitList, type Competitor, type Project } from "@/lib/store";
@@ -434,15 +435,7 @@ function DataCard() {
 
   function onExport() {
     const env = exportAll();
-    const blob = new Blob([JSON.stringify(env, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `seo-checker-data_${stamp()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadBlob(new Blob([JSON.stringify(env, null, 2)], { type: "application/json" }), `seo-checker-data_${stamp()}.json`);
     setMessage({ tone: "info", text: "JSON をダウンロードしました。" });
   }
 

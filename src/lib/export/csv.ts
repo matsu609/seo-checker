@@ -4,6 +4,7 @@
  * Excel で開いたときに日本語が化けないよう UTF-8 BOM を付ける。
  * ツール側は「列の定義」と「行」を渡すだけでよい。
  */
+import { downloadBlob } from "./download";
 
 export interface CsvColumn<Row> {
   /** 見出し行に出す名前 */
@@ -53,13 +54,5 @@ export function downloadCsv<Row>(
   const body = toCsv(columns, rows);
   // BOM が無いと Excel が Shift_JIS として開いて日本語が化ける
   const blob = new Blob([`﻿${body}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  downloadBlob(blob, fileName);
 }
