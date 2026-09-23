@@ -38,8 +38,12 @@ const SKIP_SCHEME = /^(?:mailto|tel|sms|javascript|data|ftp):/i;
 const NOFOLLOW_RELS = new Set(["nofollow", "ugc", "sponsored"]);
 /** アンカーテキストの保存上限（分析には先頭だけあればよい） */
 const MAX_ANCHOR_TEXT = 80;
-/** ページごとに残す電話番号の上限 */
-const MAX_PHONES = 5;
+/**
+ * ページごとに残す電話番号の上限。支店一覧のページで構造化データの番号との突き合わせ
+ * （seo-analysis/trust.ts）が取りこぼさないよう、表示の上限（5）より多く持つ（2026-09-23）。
+ * 異常なページで膨らまないよう上限は残す（AuditPage.phones は保存しない）
+ */
+const MAX_PHONES = 50;
 
 
 /** 日本の電話番号（0 始まりで 3 区切り、または +81）。日付や郵便番号は 3 区切りにならないので混ざらない */
