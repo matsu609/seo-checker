@@ -12,7 +12,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { adminEmails, isAdminEmail } from "./config";
 import { listUsers } from "./clients";
 import { displayName, hasVerifiedEmail, primaryEmail, verifiedEmails } from "./identity";
-import { isAgencyMetadata, isUserId, pickAgencyInvitation, withAgencyRole } from "./roles";
+import { agencyRolePatch, isAgencyMetadata, isUserId, pickAgencyInvitation, withAgencyRole } from "./roles";
 
 export interface AgencyRow {
   userId: string;
@@ -84,10 +84,8 @@ export async function addAgencyByEmail(email: string): Promise<AddAgencyResult> 
   const user = await findUserByExactEmail(email);
 
   if (user) {
-    const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-    await client.users.updateUserMetadata(user.id, {
-      publicMetadata: withAgencyRole(metadata, true),
-    });
+    // 変える role のキーだけを送る（updateUserMetadata は深いマージ。丸ごと送ると他の書き込みを巻き戻す）
+    await client.users.updateUserMetadata(user.id, { publicMetadata: agencyRolePatch(true) });
     return { kind: "promoted", email, userId: user.id };
   }
 
@@ -110,11 +108,9 @@ export async function addAgencyByEmail(email: string): Promise<AddAgencyResult> 
 export async function removeAgency(userId: string): Promise<void> {
   if (!isUserId(userId)) throw new Error("ユーザー ID の形が正しくありません。");
   const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: withAgencyRole(metadata, false),
-  });
+  // 存在しない相手なら getUser が投げる（知らない ID の metadata を作らない）
+  await client.users.getUser(userId);
+  await client.users.updateUserMetadata(userId, { publicMetadata: agencyRolePatch(false) });
 }
 
 /**
@@ -154,8 +150,7 @@ export async function claimAgencyInvitation(userId: string): Promise<boolean> {
   ).find((inv) => inv !== null);
   if (!found) return false;
 
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  await client.users.updateUserMetadata(userId, { publicMetadata: withAgencyRole(metadata, true) });
+  await client.users.updateUserMetadata(userId, { publicMetadata: agencyRolePatch(true) });
   try {
     await client.invitations.revokeInvitation(found.id);
   } catch {

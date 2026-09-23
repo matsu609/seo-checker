@@ -4,8 +4,9 @@
  * 役割は 3 つある。
  *   マスター       … 環境変数 ADMIN_EMAILS に書いたメールアドレス（src/lib/admin/config.ts）。
  *                    全登録者が見え、管理アカウントの追加・解除ができる。システム側（/admin）も見える
- *   管理アカウント … publicMetadata.role が "agency" のユーザー。全登録者が見え、ツールも全部使えるが、
- *                    システム側（/admin）は見えない（利用者の指示 2026-09-21。担当の割り当ては廃止）
+ *   管理アカウント … publicMetadata.role が "agency" のユーザー。全登録者が見え、割引・機能の開放・代理ログインができる。
+ *                    お客様向けのツールは使わない立場で（2026-09-21。2026-09-23 から API も plans/access.ts で断る）、
+ *                    システム側（/admin）も見えない（利用者の指示 2026-09-21。担当の割り当ては廃止）
  *   登録者         … 上のどちらでもないふつうのお客様
  *
  * 保存先は Clerk の publicMetadata（plan / featureOverrides / stripe と同じ場所）。
@@ -46,14 +47,20 @@ export function isAgencyMetadata(metadata: unknown): boolean {
 }
 
 /**
- * 代理店かどうかを切り替えた publicMetadata を作る（純粋）。
+ * 代理店かどうかを切り替えるときに Clerk へ送る差分（純粋）。
  *
- * 外すときはキーを消さずに null を入れる。Clerk の updateUserMetadata は
- * 「渡した値で置き換え、null は削除」なので、どちらの解釈でも
- * 「代理店ではない」に落ちる書き方にしておく。
+ * Clerk の updateUserMetadata は**深いマージ**（渡したキーだけが変わり、null を渡したキーは消える）。
+ * 2026-09-23 まで読み込んだ publicMetadata を丸ごと送っていたので、読んでから書くまでの間に入った
+ * 別の書き込み（Stripe の Webhook・個別開放など）を古い値で巻き戻していた。変えるキーだけを送る。
+ * 外すときは null（= キーを消す）。
  */
+export function agencyRolePatch(enabled: boolean): Record<string, unknown> {
+  return { [ROLE_KEY]: enabled ? AGENCY_ROLE : null };
+}
+
+/** 代理店かどうかを切り替えた publicMetadata の全体（純粋。招待の publicMetadata を作るときなど） */
 export function withAgencyRole(metadata: unknown, enabled: boolean): Record<string, unknown> {
-  return { ...record(metadata), [ROLE_KEY]: enabled ? AGENCY_ROLE : null };
+  return { ...record(metadata), ...agencyRolePatch(enabled) };
 }
 
 /**

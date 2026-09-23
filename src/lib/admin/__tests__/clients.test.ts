@@ -8,12 +8,13 @@ import { describe, expect, it, vi } from "vitest";
 
 // clients.ts は loadClients のために Clerk を import している。行づくりは Clerk に触らないことも確かめる
 const getUser = vi.fn();
+const updateUserMetadata = vi.fn();
 vi.mock("@clerk/nextjs/server", () => ({
-  clerkClient: async () => ({ users: { getUser }, billing: { getUserBillingSubscription: getUser } }),
+  clerkClient: async () => ({ users: { getUser, updateUserMetadata }, billing: { getUserBillingSubscription: getUser } }),
 }));
 
 import { stateFromSubscription, STRIPE_STATE_KEY } from "@/lib/billing/state";
-import { buildClientRows, type ClerkUserLike } from "../clients";
+import { assignClientPromo, buildClientRows, toggleClientFeature, type ClerkUserLike } from "../clients";
 
 const SUB = {
   id: "sub_1",
@@ -57,5 +58,24 @@ describe("顧客一覧の行", () => {
   it("Clerk には 1 回も問い合わせない（人数ぶんの API 呼び出しが無い）", () => {
     buildClientRows([user(), user({ id: "user_2" }), user({ id: "user_3" })], null);
     expect(getUser).not.toHaveBeenCalled();
+  });
+});
+
+// Clerk の updateUserMetadata は深いマージ。publicMetadata を丸ごと送り直すと、読んでから書くまでの間に
+// Webhook が書いた契約状態などを古い値で巻き戻す（2026-09-23 まで）。変えるキーだけを送る
+describe("顧客管理からの書き込みは変えるキーだけ", () => {
+  it("機能の個別開放", async () => {
+    getUser.mockResolvedValue({ publicMetadata: { plan: "light", stripe: { subscriptionId: "sub_old" }, featureOverrides: ["rank"] } });
+    updateUserMetadata.mockReset();
+    const next = await toggleClientFeature("user_1", "faq", true);
+    expect(next).toEqual(["faq", "rank"]);
+    expect(updateUserMetadata).toHaveBeenCalledWith("user_1", { publicMetadata: { featureOverrides: ["faq", "rank"] } });
+  });
+
+  it("割引", async () => {
+    updateUserMetadata.mockReset();
+    await assignClientPromo("user_1", "off10", "user_ops");
+    const [, params] = updateUserMetadata.mock.calls[0] as [string, { publicMetadata: Record<string, unknown> }];
+    expect(Object.keys(params.publicMetadata)).toEqual(["promo"]);
   });
 });

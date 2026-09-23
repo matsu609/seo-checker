@@ -19,7 +19,7 @@ import { adminEmails } from "./config";
 import { displayName, isOperatorUser, primaryEmail } from "./identity";
 import { isAgencyMetadata } from "./roles";
 
-import { assignedPromoFromMetadata, patternById, withAssignedPromo } from "@/lib/billing/promo";
+import { assignedPromoFromMetadata, assignedPromoPatch, patternById } from "@/lib/billing/promo";
 import { leadFromMetadata, type LeadProfile } from "@/lib/free/lead";
 import { freeRunLimit } from "@/lib/free/quota";
 import { freeRunsFromMetadata } from "@/lib/free/quota-rules";
@@ -156,9 +156,11 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
 
 /**
  * 機能の個別開放を 1 件切り替えて、保存後の一覧を返す。
- * 呼び出し側で管理者かどうかを必ず確認すること。
+ * 呼び出し側で requireClientAccess を必ず通すこと。
  *
- * publicMetadata は丸ごと置き換わるので、他のキー（plan など）を必ず残す。
+ * Clerk の updateUserMetadata は深いマージなので、変える featureOverrides だけを送る（配列は丸ごと置き換わる）。
+ * 2026-09-23 まで publicMetadata を丸ごと送っていて、読んでから書くまでの間に入った Stripe の Webhook の
+ * 書き込み（契約状態）を古い値で巻き戻すおそれがあった。
  */
 export async function toggleClientFeature(
   userId: string,
@@ -167,27 +169,18 @@ export async function toggleClientFeature(
 ): Promise<string[]> {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  const next = toggleOverride(overridesFromMetadata(metadata), featureId, enabled);
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: { ...metadata, [OVERRIDES_KEY]: next },
-  });
+  const next = toggleOverride(overridesFromMetadata(user.publicMetadata), featureId, enabled);
+  await client.users.updateUserMetadata(userId, { publicMetadata: { [OVERRIDES_KEY]: next } });
   return next;
 }
 
 /**
  * 顧客の割引を設定・解除する（null で解除）。保存後のパターン名を返す。
- * 呼び出し側で「運用者」か「その顧客の担当代理店」かを必ず確認すること。
- *
- * publicMetadata は丸ごと置き換わるので、他のキー（plan・overrides など）を必ず残す。
+ * 呼び出し側で requireClientAccess を必ず通すこと。変える promo のキーだけを送る（深いマージ）。
  */
 export async function assignClientPromo(userId: string, patternId: string | null, by: string): Promise<string | null> {
   if (patternId !== null && !patternById(patternId)) throw new Error("その割引はありません。");
   const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: withAssignedPromo(metadata, patternId, by),
-  });
+  await client.users.updateUserMetadata(userId, { publicMetadata: assignedPromoPatch(patternId, by) });
   return patternId ? (patternById(patternId)?.id ?? null) : null;
 }

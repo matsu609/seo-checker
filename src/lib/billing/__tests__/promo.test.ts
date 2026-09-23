@@ -92,6 +92,14 @@ describe("顧客ごとの割引（publicMetadata.promo。運用者・代理店�
     expect(patternShortLabel(assignedPatternFromMetadata(set)!)).toBe("30 日無料 + 月額 20,000 円引き");
   });
 
+  // Clerk へ送るのは promo のキーだけ（updateUserMetadata は深いマージ。2026-09-23）
+  it("Clerk へ送る差分は promo だけ。解除は null", async () => {
+    const { assignedPromoPatch } = await import("../promo");
+    expect(assignedPromoPatch("off10", "user_admin", "2026-09-23T00:00:00.000Z")).toEqual({ promo: { pattern: "off10", by: "user_admin", at: "2026-09-23T00:00:00.000Z" } });
+    expect(assignedPromoPatch(null, "user_admin")).toEqual({ promo: null });
+    expect(assignedPromoPatch("off99", "user_admin")).toEqual({ promo: null });
+  });
+
   it("形が違う・知らないパターンは null（手で入れた値を割引にしない）", async () => {
     const { assignedPromoFromMetadata } = await import("../promo");
     expect(assignedPromoFromMetadata(null)).toBeNull();

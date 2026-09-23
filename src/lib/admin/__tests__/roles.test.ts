@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   AGENCY_ROLE,
   ROLE_KEY,
+  agencyRolePatch,
   isAgencyMetadata,
   isManageableClient,
   isUserId,
@@ -48,7 +49,13 @@ describe("ユーザー ID の形", () => {
 });
 
 describe("publicMetadata の書き換え", () => {
-  // publicMetadata は丸ごと置き換わるので、他のキーを落とすとプランや契約が消える
+  // Clerk の updateUserMetadata は深いマージ。送るのは変える role だけ（丸ごと送ると他の書き込みを巻き戻す。2026-09-23）
+  it("Clerk へ送る差分は role だけ", () => {
+    expect(agencyRolePatch(true)).toEqual({ [ROLE_KEY]: AGENCY_ROLE });
+    expect(agencyRolePatch(false)).toEqual({ [ROLE_KEY]: null });
+  });
+
+  // 全体を作る版（招待の publicMetadata など）は他のキーを残す
   it("他のキーを残す", () => {
     const before = { plan: "standard", featureOverrides: ["faq"], stripe: { subscriptionId: "sub_1" } };
     expect(withAgencyRole(before, true)).toMatchObject(before);
