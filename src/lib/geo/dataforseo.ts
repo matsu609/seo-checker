@@ -20,28 +20,28 @@
  * dataforseo.com へ出られずドキュメントを直接開けないため、パスが違っていても
  * デプロイなしで直せるようにしてある（`DATAFORSEO_LABS_RANKED_PATH` と同じ考え方）。
  */
+import {
+  apiFailure,
+  asArray,
+  asRecord,
+  dataForSeoCredentials,
+  isDataForSeoConfigured,
+  kindFromHttpStatus,
+  requestDataForSeo,
+  str,
+  type DataForSeoFailureKind,
+} from "@/lib/dataforseo/client";
 import { normalizeDomain } from "./normalize";
 import { compactOrganic } from "./organic";
 import type { GeoProvider, ProviderOutcome, ProviderRequest, ProviderResult } from "./provider";
 import { isLiveOnlyModel, isLlmModel } from "./types";
 import type { GeoCitation, GeoLlmModel, MeasurementKind, OrganicHit } from "./types";
 
-export const DATAFORSEO_BASE = "https://api.dataforseo.com/v3";
+// 認証・送信・読み取りの小道具は共通のクライアントにまとめた（2026-09-23）。
+// ほかの機能がここから読んでいるので、名前はそのまま出しておく
+export { DATAFORSEO_BASE, asArray, asRecord, dataForSeoCredentials, isDataForSeoConfigured } from "@/lib/dataforseo/client";
+
 const TIMEOUT_MS = 30_000;
-
-export function dataForSeoCredentials(): { login: string; password: string } | null {
-  const login = process.env.DATAFORSEO_LOGIN?.trim();
-  const password = process.env.DATAFORSEO_PASSWORD?.trim();
-  return login && password ? { login, password } : null;
-}
-
-export function isDataForSeoConfigured(): boolean {
-  return dataForSeoCredentials() !== null;
-}
-
-function authHeader(login: string, password: string): string {
-  return `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`;
-}
 
 /** ロケール（既定は日本）。§11 の「ロケール」は日本固定 + 設定で変更可 にした */
 export function defaultLocale(): string {
@@ -105,43 +105,14 @@ export interface PostOutcome {
 /**
  * DataForSEO に 1 タスク POST する。**本文は必ず配列で包む**（API の約束）。
  * 鍵が無ければ叩かずに status 0 を返す（呼び出し側が「未設定」を出す）。
+ * 届かなかった・時間切れは例外（DataForSeoNetworkError）。送信の中身は共通のクライアント。
  */
 export async function postDataForSeo(path: string, body: unknown, options: PostOptions = {}): Promise<PostOutcome> {
-  const credentials = dataForSeoCredentials();
-  if (!credentials) return { ok: false, status: 0, payload: null };
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  const onAbort = () => controller.abort();
-  options.signal?.addEventListener("abort", onAbort, { once: true });
-  try {
-    const res = await fetchImpl(`${DATAFORSEO_BASE}${path}`, {
-      method: "POST",
-      headers: {
-        authorization: authHeader(credentials.login, credentials.password),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify([body]),
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    const payload: unknown = res.ok ? await res.json() : null;
-    return { ok: res.ok, status: res.status, payload };
-  } finally {
-    clearTimeout(timer);
-    options.signal?.removeEventListener("abort", onAbort);
-  }
+  if (!dataForSeoCredentials()) return { ok: false, status: 0, payload: null };
+  return requestDataForSeo(path, [body], { fetchImpl: options.fetchImpl, signal: options.signal, timeoutMs: TIMEOUT_MS });
 }
 
 /* ───────────── 応答の読み取り（純関数。テストしやすいように分ける） ───────────── */
-
-export function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-export function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-}
 
 /** DataForSEO の包み（tasks[0].result[0]）を剥がす */
 export function unwrapTask(payload: unknown): Record<string, unknown> | null {
@@ -151,11 +122,6 @@ export function unwrapTask(payload: unknown): Record<string, unknown> | null {
   if (status !== null && status >= 40000) return null;
   const result = asArray(first.result);
   return result.length > 0 ? asRecord(result[0]) : null;
-}
-
-/** 文字列っぽい値を拾う */
-function str(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 /** LLM の応答から本文と引用を取り出す */
@@ -291,6 +257,8 @@ export function createDataForSeoProvider(options: DataForSeoOptions = {}): GeoPr
             request.signal,
           );
           if (!res.ok) return httpFailure(res.status);
+          const failed = apiFailure(res.payload);
+          if (failed) return apiFailureOutcome(failed);
           const parsed = parseLlmResult(res.payload);
           return parsed
             ? { result: parsed, failure: null, message: null }
@@ -309,6 +277,8 @@ export function createDataForSeoProvider(options: DataForSeoOptions = {}): GeoPr
           request.signal,
         );
         if (!res.ok) return httpFailure(res.status);
+        const failed = apiFailure(res.payload);
+        if (failed) return apiFailureOutcome(failed);
         const parsed = parseSerpResult(res.payload);
         // 自然検索の並びは順位計測のときだけ計測に残す（AI Overviews / AI モードでは使わないので保存量を増やさない）
         if (parsed && request.kind !== "rank") parsed.organic = null;
@@ -322,19 +292,32 @@ export function createDataForSeoProvider(options: DataForSeoOptions = {}): GeoPr
   };
 }
 
+const AUTH_MESSAGE = "DataForSEO の認証に失敗しました（DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD を確認してください）";
+
+/** 失敗の種類 → この機能の失敗（no-key / rate-limit は以降も全部失敗するので、バッチはそこで止まる） */
+function outcomeFor(kind: DataForSeoFailureKind, message: string): ProviderOutcome {
+  const failure = kind === "auth" ? "no-key" : kind === "quota" ? "rate-limit" : kind === "not-found" ? "unsupported" : "upstream";
+  return { result: null, failure, message };
+}
+
 function httpFailure(status: number): ProviderOutcome {
-  if (status === 429) return { result: null, failure: "rate-limit", message: "DataForSEO の回数制限に達しました" };
-  if (status === 401 || status === 403) {
-    return { result: null, failure: "no-key", message: "DataForSEO の認証に失敗しました（DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD を確認してください）" };
-  }
-  if (status === 404) {
-    return {
-      result: null,
-      failure: "unsupported",
-      message: "DataForSEO にそのエンドポイントがありません（HTTP 404）。パスは GEO_PATH_* の環境変数で差し替えられます",
-    };
-  }
-  return { result: null, failure: "upstream", message: `DataForSEO がエラーを返しました（HTTP ${status}）` };
+  const kind = kindFromHttpStatus(status);
+  if (kind === "auth") return outcomeFor(kind, AUTH_MESSAGE);
+  // 402（残高不足）も以降は全部失敗する。以前は読み替えておらず、費用だけ出る失敗を続けていた（2026-09-23）
+  if (kind === "quota") return outcomeFor(kind, status === 402 ? "DataForSEO の残高が足りません（HTTP 402）" : "DataForSEO の回数制限に達しました");
+  if (kind === "not-found") return outcomeFor(kind, "DataForSEO にそのエンドポイントがありません（HTTP 404）。パスは GEO_PATH_* の環境変数で差し替えられます");
+  return outcomeFor(kind, `DataForSEO がエラーを返しました（HTTP ${status}）`);
+}
+
+/**
+ * HTTP 200 のまま本文で返る失敗（status_code 40000 番台）。以前は「応答を解釈できませんでした」に
+ * まとめていて、認証や残高の失敗でもバッチが止まらなかった（2026-09-23）
+ */
+function apiFailureOutcome(failed: { kind: DataForSeoFailureKind; message: string }): ProviderOutcome {
+  if (failed.kind === "auth") return outcomeFor(failed.kind, AUTH_MESSAGE);
+  if (failed.kind === "quota") return outcomeFor(failed.kind, `DataForSEO の残高または回数制限に達しました（${failed.message}）`);
+  if (failed.kind === "not-found") return outcomeFor(failed.kind, `DataForSEO にそのエンドポイントがありません（${failed.message}）。パスは GEO_PATH_* の環境変数で差し替えられます`);
+  return outcomeFor(failed.kind, `DataForSEO がエラーを返しました（${failed.message}）`);
 }
 
 /** 設定されていれば プロバイダ を返す。未設定なら null（ダミーは返さない） */
