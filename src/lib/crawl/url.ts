@@ -171,8 +171,10 @@ export function decodeEntities(s: string): string {
 /** sitemap.xml / sitemapindex から <loc> を取り出す（種類は区別しない） */
 export function extractSitemapLocs(xml: string): string[] {
   const locs: string[] = [];
-  for (const m of xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)) {
-    locs.push(decodeEntities(m[1]));
+  // `<loc><![CDATA[https://…]]></loc>` の書き方も読む（2026-09-23。以前は丸ごと捨てていた）。
+  // CDATA の中は実体参照を解かない（XML の決まり）
+  for (const m of xml.matchAll(/<loc>\s*(?:<!\[CDATA\[\s*([^\s\]<]+)\s*\]\]>|([^<\s]+))\s*<\/loc>/gi)) {
+    locs.push(m[1] ?? decodeEntities(m[2]));
   }
   return locs;
 }

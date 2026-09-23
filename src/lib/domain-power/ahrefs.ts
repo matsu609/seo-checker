@@ -89,6 +89,8 @@ export async function fetchAhrefsDr(domain: string, options: AhrefsOptions = {})
   const onAbort = () => controller.abort();
   options.signal?.addEventListener("abort", onAbort, { once: true });
   let outcome: AhrefsOutcome;
+  // 5xx は一時的な障害。429（rate-limit）・接続の失敗と同じくキャッシュしない（2026-09-23）
+  let transient = false;
   try {
     const res = await fetchImpl(`${AHREFS_DR_ENDPOINT}?target=${encodeURIComponent(domain)}&output=json`, {
       headers: { authorization: `Bearer ${key}`, accept: "application/json" },
@@ -98,6 +100,7 @@ export async function fetchAhrefsDr(domain: string, options: AhrefsOptions = {})
     if (res.status === 429) {
       outcome = { result: null, failure: "rate-limit", message: "Ahrefs の無料エンドポイントの回数制限に達しました（しばらく待つと戻ります）" };
     } else if (!res.ok) {
+      transient = res.status === 408 || res.status >= 500;
       outcome = {
         result: null,
         failure: "upstream",
@@ -113,6 +116,6 @@ export async function fetchAhrefsDr(domain: string, options: AhrefsOptions = {})
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", onAbort);
   }
-  if (outcome.failure !== "network" && outcome.failure !== "rate-limit") cache.set(domain, outcome);
+  if (outcome.failure !== "network" && outcome.failure !== "rate-limit" && !transient) cache.set(domain, outcome);
   return outcome;
 }

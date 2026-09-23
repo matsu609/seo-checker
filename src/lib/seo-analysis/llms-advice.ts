@@ -76,9 +76,12 @@ export function llmsAdvice(llms: SheetLlmsTxt, site: LlmsAdviceInput = {}): Llms
 
   // 中身の検証で落ちた項目（あるときだけ）
   if (llms.present) {
+    // リンクが 1 件も無いときは「リンクの記法」の指摘だけで足りる（説明・絶対 URL は評価できないだけ）
+    const noLinks = llms.checks.some((c) => c.id === "links" && c.level !== "pass");
     for (const c of llms.checks) {
       if (c.id === "exists" || c.level === "pass") continue;
       if (c.id === "sections") continue; // 上でセクション単位に具体化している
+      if (noLinks && (c.id === "descriptions" || c.id === "absolute")) continue;
       items.push({ title: `${c.label}を直す`, detail: c.detail });
     }
   }

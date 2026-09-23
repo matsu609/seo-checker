@@ -62,6 +62,17 @@ describe("RDAP の取得", () => {
     expect(outcome.message).toContain("RDAP");
   });
 
+  it("429・5xx はキャッシュせず、次の呼び出しで取り直す（2026-09-23 まで 1 日持っていた）", async () => {
+    let calls = 0;
+    const flaky = (async () => {
+      calls += 1;
+      return new Response("slow down", { status: calls === 1 ? 429 : 503 });
+    }) as unknown as typeof fetch;
+    expect((await fetchRdapDomain("rdap-transient.example", { fetchImpl: flaky })).failure).toBe("upstream");
+    await fetchRdapDomain("rdap-transient.example", { fetchImpl: flaky });
+    expect(calls).toBe(2);
+  });
+
   it("接続できないときは network", async () => {
     const boom = (async () => {
       throw new Error("ECONNREFUSED");

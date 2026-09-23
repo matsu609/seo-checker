@@ -47,6 +47,8 @@ describe("PageSpeed Insights のパース", () => {
     expect(empty.lab).toEqual({ lcp: null, cls: null, fcp: null, tbt: null });
     expect(empty.opportunities).toEqual([]);
     expect(empty.requestedUrl).toBe("https://example.co.jp/");
+    // fetchTime が無ければ今の時刻（2026-09-23 まで空文字になっていた）
+    expect(Number.isFinite(Date.parse(empty.fetchedAt))).toBe(true);
   });
 
   it("JSON でない値を渡しても落ちない", () => {

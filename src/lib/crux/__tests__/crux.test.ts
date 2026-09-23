@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { fetchCruxWithFallback } from "../client";
+import { fetchCruxRecord, fetchCruxWithFallback } from "../client";
 import { formatCrux, parseCruxHistory, parseCruxRecord, statusOf, trendOf } from "../parse";
 
 const RECORD = {
@@ -92,6 +92,30 @@ describe("URL → Origin のフォールバック", () => {
     const outcome = await fetchCruxWithFallback("https://fallback.example.test/page", { fetchImpl });
     expect(calls).toEqual(["https://fallback.example.test/page", "https://fallback.example.test"]);
     expect(outcome.result?.scope).toBe("origin");
+  });
+
+  // 2026-09-23 まで 429・5xx の失敗も 6 時間キャッシュしていた
+  it("一時的な失敗（503）はキャッシュせず、次の呼び出しで取り直す。恒久的な失敗（400）は持つ", async () => {
+    process.env.PAGESPEED_API_KEY = "test-key";
+    let calls = 0;
+    const flaky = (async () => {
+      calls += 1;
+      return new Response("unavailable", { status: 503 });
+    }) as unknown as typeof fetch;
+    const target = { origin: "https://transient.example.test" };
+    expect((await fetchCruxRecord(target, { fetchImpl: flaky })).failure).toBe("upstream");
+    await fetchCruxRecord(target, { fetchImpl: flaky });
+    expect(calls).toBe(2);
+
+    let badCalls = 0;
+    const bad = (async () => {
+      badCalls += 1;
+      return new Response("bad", { status: 400 });
+    }) as unknown as typeof fetch;
+    const other = { origin: "https://permanent.example.test" };
+    await fetchCruxRecord(other, { fetchImpl: bad });
+    await fetchCruxRecord(other, { fetchImpl: bad });
+    expect(badCalls).toBe(1);
   });
 
   it("キーが無ければ no-key", async () => {

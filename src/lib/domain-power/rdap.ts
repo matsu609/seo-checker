@@ -101,6 +101,8 @@ export async function fetchRdapDomain(domain: string, options: RdapOptions = {})
   const onAbort = () => controller.abort();
   options.signal?.addEventListener("abort", onAbort, { once: true });
   let outcome: RdapOutcome;
+  // 429・5xx は一時的な失敗なのでキャッシュしない（2026-09-23。以前は 1 日持っていた）
+  let transient = false;
   try {
     const res = await fetchImpl(`${RDAP_ENDPOINT}${encodeURIComponent(domain)}`, {
       headers: { accept: "application/rdap+json, application/json" },
@@ -111,6 +113,7 @@ export async function fetchRdapDomain(domain: string, options: RdapOptions = {})
     if (res.status === 404) {
       outcome = { result: null, failure: "not-found", message: "この TLD は RDAP（公開の登録情報）に対応していないか、登録がありません" };
     } else if (!res.ok) {
+      transient = res.status === 408 || res.status === 429 || res.status >= 500;
       outcome = { result: null, failure: "upstream", message: `RDAP がエラーを返しました（HTTP ${res.status}）` };
     } else {
       const payload: unknown = await res.json();
@@ -125,6 +128,6 @@ export async function fetchRdapDomain(domain: string, options: RdapOptions = {})
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", onAbort);
   }
-  if (outcome.failure !== "network") cache.set(domain, outcome);
+  if (outcome.failure !== "network" && !transient) cache.set(domain, outcome);
   return outcome;
 }

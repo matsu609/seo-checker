@@ -108,6 +108,12 @@ describe("llms.txt の検証", () => {
     expect(levelOf(validate("# サイト\n- [a](https://x.test/a): 説明\n"), "absolute")).toBe("pass");
   });
 
+  it("リンクが 0 件なら「すべて絶対 URL」と合格にしない（2026-09-23）", () => {
+    const result = validate("# サイト\n\n> 概要だけ\n");
+    expect(levelOf(result, "absolute")).toBe("warn");
+    expect(result.checks.find((c) => c.id === "absolute")?.detail).toContain("評価できません");
+  });
+
   it("大きすぎる・小さすぎるときはサイズを確認にする", () => {
     const huge = `# サイト\n\n> 概要\n\n${"あ".repeat(MAX_RECOMMENDED_BYTES)}\n- [a](https://x.test/a): 説明\n`;
     expect(levelOf(validate(huge), "size")).toBe("warn");
