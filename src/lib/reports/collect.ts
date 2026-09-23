@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 import { getUserStore } from "@/lib/db/user-stores";
+import { promptObservations } from "@/lib/geo/aggregate";
 import { listBrands, listObservations } from "@/lib/geo/store";
 import { listListings } from "@/lib/listings/store";
 import { allReportsForPlace } from "@/lib/maps/history";
@@ -65,7 +66,11 @@ export async function collectReportSources(userId: string, month: string): Promi
     const brands = await listBrands(userId);
     const ownIds = new Set(brands.filter((b) => b.type === "own").map((b) => b.id));
     if (ownIds.size === 0) return null;
-    const rows = (await listObservations(userId, 70)).filter((o) => ownIds.has(o.brandId));
+    // 前月の頭から対象月の終わりまでを、月の範囲で引く（2026-09-23）。以前は「今日から 70 日」で、
+    // 月末近くに前月分を手動で作ると前月の頭が抜けていた。
+    // 数えるのは**登録したプロンプトへの回答だけ**（ダッシュボードのブランドシェアと同じ母集団。仕様書 §3.3）。
+    // 以前はキーワード側の観測（本文の無い順位計測を含む）まで分母に入り、参照率が実際より低く出ていた
+    const rows = promptObservations(await listObservations(userId, { start: prev.start, end: range.end })).filter((o) => ownIds.has(o.brandId));
     return { observations: rows.map((o) => ({ executedAt: o.executedAt, mentioned: o.mentioned, cited: o.cited })) };
   });
 

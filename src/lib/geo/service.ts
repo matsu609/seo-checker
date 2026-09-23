@@ -7,16 +7,17 @@
 import { isAnthropicEnabled } from "@/lib/llm/anthropic";
 import { defaultLocale, getGeoProvider, isDataForSeoConfigured } from "./dataforseo";
 import { fetchTopDomains, type MentionsReport } from "./mentions";
-import { canRun, consume, creditAction, creditCost, needsReset, nextResetAt, resetMonthly } from "./credits";
+import { balanceAfterReset, canRun, creditAction, creditCost, deductCredits, nextResetAt } from "./credits";
 import { costUsd, mentionsCostUsd, unitPrices } from "./pricing";
 import { classifyDomain, judgeCitation, judgeMentions } from "./extract";
 import { resolveCitations } from "./resolve";
-import { planToday, runForAccount, type RunSummary } from "./run";
+import { jstDayStart, planToday, runForAccount, skipDone, usedMeasurements, type RunSummary } from "./run";
 import {
   ensureAccount,
   findCachedMeasurement,
   latestModelVersion,
   listBrands,
+  listObservedMeasurements,
   listPrompts,
   recordCredit,
   saveMeasurement,
@@ -26,7 +27,29 @@ import {
 } from "./store";
 import { syncGeoFromSettings } from "./sync";
 import { loadSharedSettings } from "@/lib/settings/server";
-import type { CreditAction, GeoModel, GeoObservation, MentionPlatform } from "./types";
+import type { CreditAction, GeoAccount, GeoModel, GeoObservation, MentionPlatform } from "./types";
+
+/** アカウントを読み、月が変わっていればリセット（繰越なし。§6.1）を当てて保存してから返す */
+async function loadAccountWithReset(userId: string, now: Date): Promise<GeoAccount> {
+  const account = await ensureAccount(userId, now);
+  const reset = balanceAfterReset(account, now);
+  if (!reset.reset) return account;
+  const creditResetAt = nextResetAt(now);
+  await updateAccount(userId, { creditBalance: reset.balance, creditResetAt });
+  return { ...account, creditBalance: reset.balance, creditResetAt };
+}
+
+/**
+ * 使った分を残高から引いて保存し、新しい残高を返す。
+ * **書く直前に読み直す**（計測に数十秒かかる間に、別の実行（定期実行と「今すぐ実行」）が
+ * 残高を減らしていても、古い値で上書きして消さない。2026-09-23）
+ */
+async function chargeBalance(userId: string, credits: number, now: Date): Promise<number> {
+  const latest = await loadAccountWithReset(userId, now);
+  const balance = deductCredits(latest.creditBalance, credits);
+  await updateAccount(userId, { creditBalance: balance });
+  return balance;
+}
 
 /** 定期バッチが 1 アカウント分を回す */
 export async function runDailyForUser(userId: string, options: { now?: Date; budgetMs?: number; signal?: AbortSignal } = {}): Promise<RunSummary> {
@@ -36,36 +59,39 @@ export async function runDailyForUser(userId: string, options: { now?: Date; bud
     return emptySummary("DataForSEO が未設定のため計測していません（DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD）");
   }
 
-  const account = await ensureAccount(userId, now);
-  // 月次リセット（繰越なし。§6.1）
-  if (needsReset(account.creditResetAt, now)) {
-    const fresh = resetMonthly();
-    await updateAccount(userId, { creditBalance: fresh.balance, creditResetAt: nextResetAt(now) });
-  }
+  // 月次リセット（繰越なし。§6.1）はここで当てて保存する
+  const account = await loadAccountWithReset(userId, now);
 
   // ブランド・競合・キーワードは設定（/settings）が正。計測の前に geo テーブルへ写す（2026-09-19）
   const synced = await syncGeoFromSettings(userId, await loadSharedSettings(userId));
   const brands = synced.brands;
   const keywords = synced.keywords;
   const prompts = await listPrompts(userId);
-  const items = planToday(prompts, keywords, account.runDayOffset, now);
+  // 今日すでに観測した分は測り直さない（同じ日の再実行で観測とクレジットが二重にならないように。2026-09-23）
+  const observedToday = await listObservedMeasurements(userId, jstDayStart(now));
+  const items = skipDone(planToday(prompts, keywords, account.runDayOffset, now), usedMeasurements(observedToday));
   if (items.length === 0) return emptySummary("今日は実行対象がありません（反復は週内の別の日に分散しています）");
 
-  const summary = await runForAccount(userId, items, brands, {
-    provider,
-    locale: defaultLocale(),
-    findCached: (hash, model, locale) => findCachedMeasurement(hash, model, locale, now),
-    saveMeasurement,
-    saveObservations,
-    recordCredit,
-    latestModelVersion,
-    saveModelVersionEvent,
-  }, { now, budgetMs: options.budgetMs, signal: options.signal });
+  // runForAccount は保存の失敗でも例外を投げず、それまでに**台帳へ記帳した分だけ**を creditsUsed で返す。
+  // 以前は途中の例外で残高の更新が飛ばされ、台帳と残高がずれていた（2026-09-23）
+  const summary = await runForAccount(
+    userId,
+    items,
+    brands,
+    {
+      provider,
+      locale: defaultLocale(),
+      findCached: (lookup) => findCachedMeasurement(lookup, now),
+      saveMeasurement,
+      saveObservations,
+      recordCredit,
+      latestModelVersion,
+      saveModelVersionEvent,
+    },
+    { now, budgetMs: options.budgetMs, signal: options.signal, observedToday },
+  );
 
-  if (summary.creditsUsed > 0) {
-    const after = consume({ balance: account.creditBalance, granted: 0 }, "llm_standard", 0);
-    await updateAccount(userId, { creditBalance: Math.round((after.balance - summary.creditsUsed) * 100) / 100 });
-  }
+  if (summary.creditsUsed > 0) await chargeBalance(userId, summary.creditsUsed, now);
   if (!isAnthropicEnabled()) {
     summary.notes.push("ブランド参照は文字列一致だけで判定しています（ANTHROPIC_API_KEY があれば文脈で確かめます）");
   }
@@ -99,7 +125,8 @@ export async function runLive(userId: string, promptText: string, model: GeoMode
     return fail("DataForSEO が未設定です", 0);
   }
 
-  const account = await ensureAccount(userId, now);
+  // 月が変わっていればリセットしてから残高を見る（定期実行より先に押されても先月の残高で止めない）
+  const account = await loadAccountWithReset(userId, now);
   const action = creditAction("llm", "live");
   const gate = canRun({ balance: account.creditBalance, granted: 0 }, action);
   if (!gate.allowed) return fail(gate.reason ?? "クレジットが足りません", account.creditBalance);
@@ -152,8 +179,7 @@ export async function runLive(userId: string, promptText: string, model: GeoMode
 
   const credits = creditCost(action);
   await recordCredit(userId, action, credits, measurement.id, false);
-  const balance = Math.round((account.creditBalance - credits) * 100) / 100;
-  await updateAccount(userId, { creditBalance: balance });
+  const balance = await chargeBalance(userId, credits, now);
 
   return {
     ok: true,
@@ -199,7 +225,7 @@ export async function runIndustryMap(
   const now = options.now ?? new Date();
   if (!isDataForSeoConfigured()) return mapFail("DataForSEO が未設定です（DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD）", 0);
 
-  const account = await ensureAccount(userId, now);
+  const account = await loadAccountWithReset(userId, now);
   const action: CreditAction = "llm_mentions";
   const gate = canRun({ balance: account.creditBalance, granted: 0 }, action);
   if (!gate.allowed) return mapFail(gate.reason ?? "クレジットが足りません", account.creditBalance);
@@ -222,8 +248,7 @@ export async function runIndustryMap(
 
   const credits = creditCost(action);
   await recordCredit(userId, action, credits, null, false);
-  const balance = Math.round((account.creditBalance - credits) * 100) / 100;
-  await updateAccount(userId, { creditBalance: balance });
+  const balance = await chargeBalance(userId, credits, now);
 
   return {
     ok: true,

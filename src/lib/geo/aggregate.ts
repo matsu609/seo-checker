@@ -9,7 +9,7 @@
  */
 import { weekStart } from "./schedule";
 import { toBand, wilsonInterval, type Band } from "./stats";
-import type { DomainClass, GeoAggregate, GeoModel } from "./types";
+import type { DomainClass, GeoAggregate, GeoModel, MeasurementKind } from "./types";
 
 /** 集計に渡す 1 観測（保存形からの写し。必要な列だけ） */
 export interface AggregateInput {
@@ -28,6 +28,46 @@ export interface AggregateInput {
   domainClasses: readonly DomainClass[];
   /** 引用されたドメインそのもの（ドメイン別の集計に使う。2026-09-22） */
   citedDomains: readonly string[];
+  /**
+   * 計測の種類（2026-09-23）。省略時はプロンプトの観測を LLM、キーワードの観測を順位計測とみなす
+   * （順位計測も model = "aio" なので、種類が無いと AI Overviews と区別できない）
+   */
+  kind?: MeasurementKind;
+}
+
+/** 種類が無い行の種類（プロンプト → LLM、キーワード → 順位計測。分母に入れない側に倒す） */
+function kindOf(o: Pick<AggregateInput, "kind" | "promptId">): MeasurementKind {
+  return o.kind ?? (o.promptId ? "llm" : "rank");
+}
+
+/**
+ * ブランドシェア（§3.3）の母集団: **登録したプロンプトへの LLM の回答だけ**（2026-09-23）。
+ *
+ * 以前はキーワード側（順位・AI Overviews・AI モード）の観測まで同じ分母に入っていた。
+ * 順位計測は回答本文が無い（必ず「言及なし」）ので、キーワードが多い人ほどシェアが
+ * 実際より低く出ていた。「今すぐ実行」（どのプロンプトにも紐づかない単発の問い）も
+ * 登録したプロンプト群ではないので入れない。
+ */
+export function promptObservations<T extends Pick<AggregateInput, "kind" | "promptId">>(observations: readonly T[]): T[] {
+  return observations.filter((o) => o.promptId !== null && kindOf(o) === "llm");
+}
+
+/**
+ * キーワード側の AI の回答（AI Overviews / AI モード）だけ。**順位計測は入れない**
+ * （順位計測も model = "aio" で保存しているので、入れると AI Overviews の n が倍に数えられていた）。
+ */
+export function keywordAiObservations<T extends Pick<AggregateInput, "kind" | "promptId" | "keywordId">>(observations: readonly T[]): T[] {
+  return observations.filter((o) => o.keywordId !== null && (kindOf(o) === "aio" || kindOf(o) === "ai_mode"));
+}
+
+/**
+ * モデル別シェアの母集団: プロンプトの回答（LLM ごと）+ キーワードの AI の回答（AI Overviews / AI モード）。
+ * モデルごとに分けて数えるので、1 つのモデルの中でプロンプトとキーワードが混ざることはない。
+ */
+export function answerObservations<T extends Pick<AggregateInput, "kind" | "promptId" | "keywordId">>(observations: readonly T[]): T[] {
+  const prompts = new Set(promptObservations(observations));
+  const keywords = new Set(keywordAiObservations(observations));
+  return observations.filter((o) => prompts.has(o) || keywords.has(o));
 }
 
 export interface ShareResult {

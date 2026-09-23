@@ -10,13 +10,13 @@ import { supabaseRest } from "@/lib/db/supabase";
 import { eq, gte } from "@/lib/db/filters";
 import { cacheKey } from "./normalize";
 import { MONTHLY_CREDITS, nextResetAt } from "./credits";
+import { decodeStoredCitations, encodeStoredCitations, rankForDomains } from "./organic";
 import { runDayOffsetFor } from "./schedule";
 import type {
   CreditAction,
   CreditLedgerEntry,
   GeoAccount,
   GeoBrand,
-  GeoCitation,
   GeoKeyword,
   GeoMeasurement,
   GeoModel,
@@ -275,6 +275,8 @@ const MeasurementRow = z.object({
 });
 
 function toMeasurement(row: z.infer<typeof MeasurementRow>): GeoMeasurement {
+  // 順位計測は citations 列に自然検索の並びも持つ（organic.ts。2026-09-23）
+  const stored = decodeStoredCitations(row.citations);
   return {
     id: row.id,
     kind: row.kind as MeasurementKind,
@@ -285,22 +287,55 @@ function toMeasurement(row: z.infer<typeof MeasurementRow>): GeoMeasurement {
     executedAt: row.executed_at,
     modelVersion: row.model_version,
     responseText: row.response_text,
-    citations: (row.citations as GeoCitation[] | null) ?? [],
+    citations: stored.citations,
     rank: row.rank,
+    organic: stored.organic,
     mode: row.mode as RunMode,
     costUsd: row.cost_usd,
   };
 }
 
+/** キャッシュの引き方（§7.1 の鍵 + 2026-09-23 に足した条件） */
+export interface CacheLookup {
+  hash: string;
+  model: GeoModel;
+  locale: string;
+  /**
+   * 計測の種類。**同じキーワード・同じモデル名でも順位計測と AI Overviews は別物**
+   * （順位計測も model = "aio" で保存しているため、種類で分けないと AI Overviews の
+   * 計測が数秒前の順位計測（`load_async_ai_overview` なし）を拾い、AIO の判定が壊れていた。2026-09-23）
+   */
+  kind: MeasurementKind;
+  /** これより前の計測は使わない（ISO）。既定は 24 時間前 */
+  since?: string;
+  /** 使わない計測の ID（同じアカウントがもう数えた回答を、別の反復として数え直さない） */
+  exclude?: readonly string[];
+}
+
+/** PostgREST の `not.in.(...)` に入れてよい ID（uuid の形）だけを通す。値を URL に直に差し込まないため */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 除外する計測 ID のフィルタ（無ければ空文字）。純関数（テスト用に公開） */
+export function excludeIdsFilter(ids: readonly string[] | undefined): string {
+  const safe = (ids ?? []).filter((id) => UUID.test(id));
+  return safe.length > 0 ? `&id=not.in.(${safe.join(",")})` : "";
+}
+
+/** キャッシュ照会の問い合わせ文字列（純関数。テスト用に公開） */
+export function cacheQuery(lookup: CacheLookup, now = new Date()): string {
+  const since = lookup.since ?? new Date(now.getTime() - CACHE_WINDOW_MS).toISOString();
+  return (
+    `${T_MEASUREMENT}?select=*&normalized_hash=${eq(lookup.hash)}&model=${eq(lookup.model)}&locale=${eq(lookup.locale)}` +
+    `&kind=${eq(lookup.kind)}&executed_at=${gte(since)}${excludeIdsFilter(lookup.exclude)}&order=executed_at.desc,id.desc&limit=1`
+  );
+}
+
 /**
  * 24 時間以内の同じ計測があれば使い回す（§7.1）。
- * **ここが顧客間の原価共有の実体**。ハッシュ × モデル × ロケールで引く。
+ * **ここが顧客間の原価共有の実体**。ハッシュ × モデル × ロケール × 種類で引く。
  */
-export async function findCachedMeasurement(hash: string, model: GeoModel, locale: string, now = new Date()): Promise<GeoMeasurement | null> {
-  const since = new Date(now.getTime() - CACHE_WINDOW_MS).toISOString();
-  const rows = await supabaseRest<unknown>(
-    `${T_MEASUREMENT}?select=*&normalized_hash=${eq(hash)}&model=${eq(model)}&locale=${eq(locale)}&executed_at=${gte(since)}&order=executed_at.desc&limit=1`,
-  );
+export async function findCachedMeasurement(lookup: CacheLookup, now = new Date()): Promise<GeoMeasurement | null> {
+  const rows = await supabaseRest<unknown>(cacheQuery(lookup, now));
   const parsed = z.array(MeasurementRow).safeParse(rows);
   return parsed.success && parsed.data[0] ? toMeasurement(parsed.data[0]) : null;
 }
@@ -317,7 +352,7 @@ export async function saveMeasurement(input: Omit<GeoMeasurement, "id">): Promis
       executed_at: input.executedAt,
       model_version: input.modelVersion,
       response_text: input.responseText,
-      citations: input.citations,
+      citations: encodeStoredCitations(input.citations, input.organic ?? null),
       rank: input.rank,
       mode: input.mode,
       cost_usd: input.costUsd,
@@ -390,29 +425,56 @@ const ObservationJoinRow = z.object({
   cited_domains: z.array(z.string()).nullable(),
   domain_class: z.string().nullable(),
   observed_at: z.string(),
-  geo_measurements: z.object({ model: z.string(), executed_at: z.string() }).nullable(),
+  geo_measurements: z.object({ model: z.string(), executed_at: z.string(), kind: z.string().optional() }).nullable(),
 });
 
-/** ダッシュボード用。観測にモデルと実行日時を添えて返す */
-export async function listObservations(userId: string, days = 90): Promise<
-  {
-    brandId: string;
-    promptId: string | null;
-    keywordId: string | null;
-    /** 引用されたドメイン（SQL では取っていたのに捨てていた。2026-09-22） */
-    citedDomains: string[];
-    mentioned: boolean;
-    cited: boolean;
-    confidence: number;
-    domainClass: string | null;
-    model: GeoModel;
-    executedAt: string;
-  }[]
-> {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  const rows = await supabaseRest<unknown>(
-    `${T_OBSERVATION}?select=brand_id,prompt_id,keyword_id,mentioned,cited,mention_confidence,cited_domains,domain_class,observed_at,geo_measurements(model,executed_at)&user_id=${eq(userId)}&observed_at=${gte(since)}&order=observed_at.desc&limit=20000`,
+/** 観測 1 行（ダッシュボード・月次レポートが読む形） */
+export interface ObservationRow {
+  brandId: string;
+  promptId: string | null;
+  keywordId: string | null;
+  /** 引用されたドメイン（SQL では取っていたのに捨てていた。2026-09-22） */
+  citedDomains: string[];
+  mentioned: boolean;
+  cited: boolean;
+  confidence: number;
+  domainClass: string | null;
+  model: GeoModel;
+  /**
+   * 計測の種類（2026-09-23 に足した）。順位計測（rank）も model = "aio" で保存しているので、
+   * **種類を見ないとシェアの分母にプロンプトとキーワードの観測が混ざる**
+   */
+  kind: MeasurementKind;
+  executedAt: string;
+}
+
+/** 観測の期間。`days`（今から何日前まで）か、ISO の範囲（end は含まない）で指定する */
+export type ObservationRange = number | { start: string; end: string };
+
+/** 未満フィルタ（`lt.<エスケープ済みの値>`）。月の範囲で引くときに使う */
+function lt(value: string): string {
+  return `lt.${encodeURIComponent(value)}`;
+}
+
+/** 観測を引く問い合わせ文字列（純関数。テスト用に公開） */
+export function observationsQuery(userId: string, range: ObservationRange, now = new Date()): string {
+  const period =
+    typeof range === "number"
+      ? `&observed_at=${gte(new Date(now.getTime() - range * 24 * 60 * 60 * 1000).toISOString())}`
+      : `&observed_at=${gte(range.start)}&observed_at=${lt(range.end)}`;
+  return (
+    `${T_OBSERVATION}?select=brand_id,prompt_id,keyword_id,mentioned,cited,mention_confidence,cited_domains,domain_class,observed_at,` +
+    `geo_measurements(model,executed_at,kind)&user_id=${eq(userId)}${period}&order=observed_at.desc&limit=20000`
   );
+}
+
+/**
+ * ダッシュボード・月次レポート用。観測にモデル・種類・実行日時を添えて返す。
+ * 期間は「直近 N 日」か「月の範囲」（月次レポートは対象月で引く。今日から数えると
+ * 月末近くに前月分を作ったときに前月の頭が抜けていた。2026-09-23）。
+ */
+export async function listObservations(userId: string, range: ObservationRange = 90): Promise<ObservationRow[]> {
+  const rows = await supabaseRest<unknown>(observationsQuery(userId, range));
   const parsed = z.array(ObservationJoinRow).safeParse(rows);
   if (!parsed.success) return [];
   return parsed.data.map((r) => ({
@@ -425,8 +487,63 @@ export async function listObservations(userId: string, days = 90): Promise<
     confidence: r.mention_confidence,
     domainClass: r.domain_class,
     model: (r.geo_measurements?.model ?? "chatgpt") as GeoModel,
+    kind: observationKind(r.geo_measurements?.kind, r.prompt_id, r.keyword_id, r.geo_measurements?.model),
     executedAt: r.geo_measurements?.executed_at ?? r.observed_at,
   }));
+}
+
+/**
+ * 計測の種類が取れなかった行の種類を推す（純関数）。
+ * プロンプトの観測（と、どちらにも紐づかない「今すぐ実行」）は LLM、キーワードの観測は model から。
+ * キーワードで model = "aio" の行は順位計測と AI Overviews の区別が付かないので、
+ * シェアの分母に入れない側（rank）に倒す。
+ */
+export function observationKind(kind: string | undefined, promptId: string | null, keywordId: string | null, model: string | undefined): MeasurementKind {
+  if (kind === "llm" || kind === "rank" || kind === "aio" || kind === "ai_mode") return kind;
+  if (promptId || !keywordId) return "llm";
+  return model === "ai_mode" ? "ai_mode" : "rank";
+}
+
+/** このアカウントが観測に使った計測 1 件（同じ日の二重実行を防ぐのに使う） */
+export interface ObservedMeasurement {
+  measurementId: string;
+  promptId: string | null;
+  keywordId: string | null;
+  kind: MeasurementKind;
+  model: GeoModel;
+}
+
+/**
+ * ある時刻以降にこのアカウントが観測に使った計測（2026-09-23）。
+ * 1 計測にブランド数ぶんの行があるので、計測 ID ごとに 1 件へ畳んで返す。
+ */
+export async function listObservedMeasurements(userId: string, since: string): Promise<ObservedMeasurement[]> {
+  const rows = await supabaseRest<unknown>(
+    `${T_OBSERVATION}?select=measurement_id,prompt_id,keyword_id,geo_measurements(kind,model)&user_id=${eq(userId)}&observed_at=${gte(since)}&limit=20000`,
+  );
+  const parsed = z
+    .array(
+      z.object({
+        measurement_id: z.string(),
+        prompt_id: z.string().nullable(),
+        keyword_id: z.string().nullable(),
+        geo_measurements: z.object({ kind: z.string(), model: z.string() }).nullable(),
+      }),
+    )
+    .safeParse(rows);
+  if (!parsed.success) return [];
+  const byId = new Map<string, ObservedMeasurement>();
+  for (const r of parsed.data) {
+    if (!r.geo_measurements || byId.has(r.measurement_id)) continue;
+    byId.set(r.measurement_id, {
+      measurementId: r.measurement_id,
+      promptId: r.prompt_id,
+      keywordId: r.keyword_id,
+      kind: observationKind(r.geo_measurements.kind, r.prompt_id, r.keyword_id, r.geo_measurements.model),
+      model: r.geo_measurements.model as GeoModel,
+    });
+  }
+  return [...byId.values()];
 }
 
 /* ───────────── クレジット台帳 ───────────── */
@@ -567,32 +684,54 @@ export interface KeywordOutcomeInput {
 }
 
 /**
+ * 観測 1 行 → キーワードの成果の入力（純関数。テスト用に公開）。
+ *
+ * **順位は計測に残した自然検索の並びから、利用者のドメインで引く**（2026-09-23）。
+ * 共有の計測には誰の順位も入っていない（`rank` は常に null）ので、以前は全キーワードが
+ * 「圏外」になっていた。並びを保存していない古い順位計測は、圏外ではなく**未計測**として捨てる
+ * （「圏外」と言える根拠が無いため）。
+ */
+export function toKeywordOutcome(row: unknown, ownDomains: readonly string[]): KeywordOutcomeInput | null {
+  const parsed = KeywordOutcomeRow.safeParse(row);
+  if (!parsed.success) return null;
+  const m = parsed.data.geo_measurements;
+  const keywordId = parsed.data.keyword_id;
+  if (!m || !keywordId) return null;
+  const stored = decodeStoredCitations(m.citations);
+  let rank = m.rank;
+  if (m.kind === "rank") {
+    if (stored.organic === null && rank === null) return null;
+    if (stored.organic !== null) rank = rankForDomains(stored.organic, ownDomains);
+  }
+  return {
+    keywordId,
+    kind: m.kind as MeasurementKind,
+    model: m.model as GeoModel,
+    executedAt: m.executed_at,
+    rank,
+    citationCount: stored.citations.length,
+    cited: parsed.data.cited,
+  };
+}
+
+/**
  * キーワード計測（順位・AI Overviews・AI モード）を自社ブランドぶんだけ引く。
  *
  * プロンプト側（LLM）は対象外なので `keyword_id` がある行に絞る。
  * 件数はキーワード数 × 3 種 × 週数なので、観測の全件取得よりずっと軽い。
+ * `ownDomains` は自社のドメイン（順位を引くのに使う。サブドメインを含む）。
  */
-export async function listKeywordOutcomes(userId: string, ownBrandId: string, days = 28): Promise<KeywordOutcomeInput[]> {
+export async function listKeywordOutcomes(userId: string, ownBrandId: string, days = 28, ownDomains: readonly string[] = []): Promise<KeywordOutcomeInput[]> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const rows = await supabaseRest<unknown>(
     `${T_OBSERVATION}?select=keyword_id,cited,geo_measurements(kind,model,executed_at,rank,citations)` +
       `&user_id=${eq(userId)}&brand_id=${eq(ownBrandId)}&keyword_id=not.is.null&observed_at=${gte(since)}&order=observed_at.desc&limit=5000`,
   );
-  const parsed = z.array(KeywordOutcomeRow).safeParse(rows);
-  if (!parsed.success) return [];
+  if (!Array.isArray(rows)) return [];
   const out: KeywordOutcomeInput[] = [];
-  for (const r of parsed.data) {
-    const m = r.geo_measurements;
-    if (!m || !r.keyword_id) continue;
-    out.push({
-      keywordId: r.keyword_id,
-      kind: m.kind as MeasurementKind,
-      model: m.model as GeoModel,
-      executedAt: m.executed_at,
-      rank: m.rank,
-      citationCount: Array.isArray(m.citations) ? m.citations.length : 0,
-      cited: r.cited,
-    });
+  for (const r of rows) {
+    const row = toKeywordOutcome(r, ownDomains);
+    if (row) out.push(row);
   }
   return out;
 }

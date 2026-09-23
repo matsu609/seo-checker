@@ -7,11 +7,14 @@
  */
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import {
+  answerObservations,
   applyFilter,
   brandedMetrics,
   byModel,
   domainCitations,
+  keywordAiObservations,
   keywordOutcomes,
+  promptObservations,
   recentWeekStarts,
   ROLLING_DAYS,
   shares,
@@ -21,7 +24,7 @@ import {
   type ObservationFilter,
   type TargetShare,
 } from "@/lib/geo/aggregate";
-import { forecastStandardPlan } from "@/lib/geo/credits";
+import { balanceAfterReset, forecastStandardPlan, nextResetAt } from "@/lib/geo/credits";
 import {
   ensureAccount,
   listBrands,
@@ -81,6 +84,7 @@ export async function GET(request: NextRequest) {
         tags: prompt?.tags ?? [],
         isBranded: prompt?.isBranded ?? false,
         model: r.model as GeoModel,
+        kind: r.kind,
         executedAt: r.executedAt,
         mentioned: r.mentioned,
         cited: r.cited,
@@ -92,39 +96,46 @@ export async function GET(request: NextRequest) {
     const own = brands.find((b) => b.type === "own") ?? null;
     // フィルタを当ててから集計する（期間 → モデル → タグ）
     const filtered = applyFilter(observations, filter, now);
-    const overall = shares(filtered);
+    // 母集団を分けて数える（2026-09-23）。以前はプロンプトの回答と、キーワード側の観測
+    // （本文の無い順位計測を含む）が同じ分母に入っていた:
+    //   ブランドシェア     … 登録したプロンプトへの LLM の回答だけ（仕様書 §3.3）
+    //   モデル別シェア     … 上に加えて、キーワードの AI Overviews / AI モードの回答（モデルごとなので混ざらない）
+    //   キーワードの引用率 … AI Overviews / AI モードだけ（順位計測も model = "aio" なので入れると n が倍になる）
+    const answers = answerObservations(filtered);
+    const overall = shares(promptObservations(filtered));
     const perModel: Record<string, ReturnType<typeof shares>> = {};
-    for (const [model, modelRows] of byModel(filtered)) perModel[model] = shares(modelRows);
+    for (const [model, modelRows] of byModel(answers)) perModel[model] = shares(modelRows);
 
     // 計測対象ごとの出現率（棒グラフ）。自社ブランドが無いうちは空で返す
     const withLabel = (shares: TargetShare[], labels: Map<string, string>) =>
       shares.filter((s) => labels.has(s.targetId)).map((s) => ({ ...s, label: labels.get(s.targetId) ?? s.targetId }));
     const promptLabels = new Map(prompts.map((p) => [p.id, p.text]));
     const keywordLabels = new Map(keywords.map((k) => [k.id, k.text]));
-    const perPrompt = own ? withLabel(targetShares(filtered, { brandId: own.id, axis: "prompt", metric: "mention" }), promptLabels) : [];
-    const perKeyword = own ? withLabel(targetShares(filtered, { brandId: own.id, axis: "keyword", metric: "citation" }), keywordLabels) : [];
+    const perPrompt = own ? withLabel(targetShares(promptObservations(filtered), { brandId: own.id, axis: "prompt", metric: "mention" }), promptLabels) : [];
+    const perKeyword = own ? withLabel(targetShares(keywordAiObservations(filtered), { brandId: own.id, axis: "keyword", metric: "citation" }), keywordLabels) : [];
 
     // 週ごとの推移（折れ線グラフ。利用者の指示 2026-09-21）
     const weeks = TREND_WEEKS;
+    // 推移は「期間」ではなく常に 8 週ぶん見せる（傾きを読む図なので短く切らない）。
+    // モデル・タグの絞り込みだけを効かせる
+    const trendRows = applyFilter(observations, { ...filter, days: 90 }, now);
     const trends = {
       weeks: recentWeekStarts(weeks, now),
-      // 推移は「期間」ではなく常に 8 週ぶん見せる（傾きを読む図なので短く切らない）。
-      // モデル・タグの絞り込みだけを効かせる
-      prompt: own ? weeklySeries(applyFilter(observations, { ...filter, days: 90 }, now), { brandId: own.id, axis: "prompt", metric: "mention", labels: promptLabels, weeks }, now) : [],
-      keyword: own ? weeklySeries(applyFilter(observations, { ...filter, days: 90 }, now), { brandId: own.id, axis: "keyword", metric: "citation", labels: keywordLabels, weeks }, now) : [],
+      prompt: own ? weeklySeries(promptObservations(trendRows), { brandId: own.id, axis: "prompt", metric: "mention", labels: promptLabels, weeks }, now) : [],
+      keyword: own ? weeklySeries(keywordAiObservations(trendRows), { brandId: own.id, axis: "keyword", metric: "citation", labels: keywordLabels, weeks }, now) : [],
     };
 
-    // ドメイン別の引用（自分の観測範囲の実測）
+    // ドメイン別の引用（自分の観測範囲の実測。順位計測の行は AI Overviews と重なるので入れない）
     const ownDomains = brands.filter((b) => b.type === "own").flatMap((b) => b.domains);
     const competitorDomains = brands.filter((b) => b.type === "competitor").flatMap((b) => b.domains);
-    const domains = domainCitations(filtered, { own: ownDomains, competitors: competitorDomains });
+    const domains = domainCitations(answers, { own: ownDomains, competitors: competitorDomains });
 
     // 最近の生成結果（実際の LLM 出力）と、定期実行の予定
     const recent = own ? await listRecentOutputs(userId, 8, own.id) : [];
 
-    // キーワードごとの成果（SEO 順位 × AI の出現 × 引用）
+    // キーワードごとの成果（SEO 順位 × AI の出現 × 引用）。順位は自社のドメインで引く（2026-09-23）
     const outcomes = own
-      ? keywordOutcomes(await listKeywordOutcomes(userId, own.id, filter.days ?? ROLLING_DAYS), keywordLabels)
+      ? keywordOutcomes(await listKeywordOutcomes(userId, own.id, filter.days ?? ROLLING_DAYS, ownDomains), keywordLabels)
       : { rows: [], appearedCount: 0, citedCount: 0, citedRate: null, opportunities: [] };
     const lastRun = observations.reduce<string | null>((acc, o) => (acc === null || o.executedAt > acc ? o.executedAt : acc), null);
     const schedule = { nextRunAt: nextCronRun(now).toISOString(), lastRunAt: lastRun, enabled: true };
@@ -134,9 +145,15 @@ export async function GET(request: NextRequest) {
     for (const entry of ledger) spentByAction[entry.action] = Math.round(((spentByAction[entry.action] ?? 0) + entry.credits) * 100) / 100;
     const spent = Math.round(Object.values(spentByAction).reduce((a, b) => a + b, 0) * 100) / 100;
 
+    // 月が変わってまだ定期実行が走っていないときも、リセット後の残高と次のリセット日を見せる
+    // （保存は定期実行・今すぐ実行が行う。2026-09-23）
+    const reset = balanceAfterReset(account, now);
+    const balance = reset.balance;
+    const shownAccount = reset.reset ? { ...account, creditBalance: balance, creditResetAt: nextResetAt(now) } : account;
+
     return Response.json(
       {
-        account,
+        account: shownAccount,
         brands,
         promptCount: prompts.length,
         precisionCount: prompts.filter((p) => p.precisionMode).length,
@@ -154,7 +171,7 @@ export async function GET(request: NextRequest) {
         keywordCount: keywords.length,
         branded: own ? brandedMetrics(observations, own.id) : null,
         versions,
-        credits: { balance: account.creditBalance, spent, byAction: spentByAction, forecast: forecastStandardPlan() },
+        credits: { balance, spent, byAction: spentByAction, forecast: forecastStandardPlan() },
         needsReview: rows.filter((r) => r.mentioned && r.confidence < 0.7).length,
       },
       { headers: { "cache-control": "no-store" } },

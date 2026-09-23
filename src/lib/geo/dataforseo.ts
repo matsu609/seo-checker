@@ -21,9 +21,10 @@
  * デプロイなしで直せるようにしてある（`DATAFORSEO_LABS_RANKED_PATH` と同じ考え方）。
  */
 import { normalizeDomain } from "./normalize";
+import { compactOrganic } from "./organic";
 import type { GeoProvider, ProviderOutcome, ProviderRequest, ProviderResult } from "./provider";
 import { isLiveOnlyModel, isLlmModel } from "./types";
-import type { GeoCitation, GeoLlmModel, MeasurementKind } from "./types";
+import type { GeoCitation, GeoLlmModel, MeasurementKind, OrganicHit } from "./types";
 
 export const DATAFORSEO_BASE = "https://api.dataforseo.com/v3";
 const TIMEOUT_MS = 30_000;
@@ -201,18 +202,19 @@ export function parseSerpResult(payload: unknown, targetDomains: readonly string
   const items = asArray(result.items);
   const citations: GeoCitation[] = [];
   const texts: string[] = [];
+  const organic: OrganicHit[] = [];
   let rank: number | null = null;
 
   for (const raw of items) {
     const item = asRecord(raw);
     const type = str(item.type);
 
-    if (type === "organic" && rank === null && targetDomains.length > 0) {
+    if (type === "organic") {
       const domain = normalizeDomain(str(item.domain) ?? str(item.url) ?? "");
-      if (domain && targetDomains.some((d) => domain === d || domain.endsWith(`.${d}`))) {
-        const position = typeof item.rank_absolute === "number" ? item.rank_absolute : null;
-        rank = position;
-      }
+      const position = typeof item.rank_absolute === "number" ? item.rank_absolute : null;
+      // 自然検索の並びは対象ドメインに関係なく残す（共有の計測なので、順位は集計のときに引く。2026-09-23）
+      if (domain && position !== null) organic.push({ domain, rank: position });
+      if (rank === null && domain && targetDomains.some((d) => domain === d || domain.endsWith(`.${d}`))) rank = position;
     }
 
     // AI モードの応答も同じ形（references / items / text）で返るので同じ枝で読む
@@ -233,6 +235,7 @@ export function parseSerpResult(payload: unknown, targetDomains: readonly string
     responseText: texts.join("\n").trim(),
     citations: dedupeCitations(citations),
     rank,
+    organic: compactOrganic(organic),
     modelVersion: null,
     costUsd: typeof asRecord(payload).cost === "number" ? (asRecord(payload).cost as number) : null,
   };
@@ -307,6 +310,8 @@ export function createDataForSeoProvider(options: DataForSeoOptions = {}): GeoPr
         );
         if (!res.ok) return httpFailure(res.status);
         const parsed = parseSerpResult(res.payload);
+        // 自然検索の並びは順位計測のときだけ計測に残す（AI Overviews / AI モードでは使わないので保存量を増やさない）
+        if (parsed && request.kind !== "rank") parsed.organic = null;
         return parsed
           ? { result: parsed, failure: null, message: null }
           : { result: null, failure: "upstream", message: "DataForSEO の応答を解釈できませんでした" };

@@ -8,6 +8,12 @@ export const JOB_IDS = ["gbp-posts", "maps-refresh", "rank-weekly", "site-monito
 
 export type JobId = (typeof JOB_IDS)[number];
 
+/**
+ * cron_runs に記録する処理の名前。日次 Cron のジョブに加えて、別の Cron で動く
+ * AI 検索モニタリング（/api/cron/geo-run）も記録する（前回どこまで回れたかを残すため。2026-09-23）
+ */
+export type RecordedJob = JobId | "geo-run";
+
 export type JobRunStatus = "ok" | "failed" | "aborted" | "skipped";
 
 export interface JobOutcome {
