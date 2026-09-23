@@ -3,7 +3,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { findFeatureById } from "@/lib/features/registry";
-import { USAGE_FEATURES, USAGE_LIMITS, usageLimitFor, usageLimitMessage, usageRemaining, usageResetsOn } from "../limits";
+import { featureAllowed, type AccessSubject } from "@/lib/plans/access";
+import { usableUsageFeatures, USAGE_FEATURES, USAGE_LIMITS, usageLimitFor, usageLimitMessage, usageRemaining, usageResetsOn } from "../limits";
 
 describe("上限の定義", () => {
   it("全部の機能がレジストリの機能 ID を指し、プランの順序（ライト ≤ スタンダード ≤ プレミアム）を守る", () => {
@@ -56,5 +57,26 @@ describe("文面と日付", () => {
     expect(usageRemaining(35, 30)).toBe(0);
     expect(usageRemaining(3, 30)).toBe(27);
     expect(usageRemaining(3, null)).toBeNull();
+  });
+});
+
+// 2026-09-23 まで全部を返していて、ライトの人に「FAQ 提案 0 / 20」と使えない機能の上限が出ていた
+describe("設定画面に並べる機能は、その人が使えるものだけ", () => {
+  const canUse = (subject: AccessSubject) => (id: string) => featureAllowed(subject, findFeatureById(id));
+
+  it("ライトは AI が作る機能（FAQ 提案・HP 改修提案）を出さない。個別開放していれば出す", () => {
+    const light = usableUsageFeatures(canUse({ plan: "light", overrides: [], admin: false }));
+    expect(light).not.toContain("faq");
+    expect(light).not.toContain("improvement");
+    expect(light).toContain("page-diagnosis");
+    expect(light).toContain("rank-measure");
+    expect(usableUsageFeatures(canUse({ plan: "light", overrides: ["faq"], admin: false }))).toContain("faq");
+  });
+
+  it("スタンダード・運用者は全部、未契約・管理アカウントは何も出さない", () => {
+    expect(usableUsageFeatures(canUse({ plan: "standard", overrides: [], admin: false }))).toEqual([...USAGE_FEATURES]);
+    expect(usableUsageFeatures(canUse({ plan: "free", overrides: [], admin: true }))).toEqual([...USAGE_FEATURES]);
+    expect(usableUsageFeatures(canUse({ plan: "free", overrides: [], admin: false }))).toEqual([]);
+    expect(usableUsageFeatures(canUse({ plan: "premium", overrides: [], admin: false, agency: true }))).toEqual([]);
   });
 });

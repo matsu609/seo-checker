@@ -144,6 +144,15 @@ export function usageLimitFor(key: UsageFeature, plan: PlanId, staff: boolean): 
   return own > 0 ? own : limits.standard;
 }
 
+/**
+ * 設定画面の「今月の利用回数」に並べる機能（純粋）。その人が使えるものだけ。
+ * 使えるかどうかは呼び出し側が渡す（plans/access.ts の判定。プラン・個別開放・運用者）。
+ * 2026-09-23 まで全部を返していたので、ライトの人に「FAQ 提案 0 / 20」のような使えない機能の上限が出ていた。
+ */
+export function usableUsageFeatures(canUse: (featureId: string) => boolean): UsageFeature[] {
+  return USAGE_FEATURES.filter((key) => canUse(USAGE_LIMITS[key].featureId));
+}
+
 /** 翌月 1 日（日本時間）の日付。「いつ戻るか」を画面に出す */
 export function usageResetsOn(now = new Date()): string {
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
