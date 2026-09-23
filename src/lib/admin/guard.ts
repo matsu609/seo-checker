@@ -54,9 +54,9 @@ export async function requireAdmin(): Promise<Response | null> {
 }
 
 /**
- * ログイン中のユーザーが代理店なら、その代理店のユーザー ID を返す。違えば null。
- * 「担当の一覧を引く鍵」そのものなので、ID は必ずこの関数から取る
- * （リクエストの本文で受け取った ID を信用すると、他の代理店の担当が見えてしまう）。
+ * ログイン中のユーザーが管理アカウント（旧称: 代理店）なら、そのユーザー ID を返す。違えば null。
+ * 立場は必ずセッションから取る（リクエストの本文で受け取った ID を信用すると、誰でも管理アカウントを名乗れる）。
+ * 担当の割り当て（agencyId）は 2026-09-21 に廃止したので、この ID で絞り込む先はもう無い。
  */
 export async function currentAgencyId(): Promise<string | null> {
   if (!isAuthEnabled()) return null;
@@ -82,8 +82,8 @@ export async function isAgency(): Promise<boolean> {
 /**
  * 顧客管理の画面（/clients）と、顧客 1 人への操作をしてよい立場かどうか。
  *
- *   master  … 運用者（ADMIN_EMAILS）。全登録者が見え、担当の付け替えもできる
- *   manager … 管理アカウント（publicMetadata.role = agency）。担当の登録者だけ
+ *   master  … 運用者（ADMIN_EMAILS）。全登録者が見える。システム側（/admin）も見える
+ *   manager … 管理アカウント（publicMetadata.role = agency）。全登録者が見える（担当の割り当ては 2026-09-21 に廃止）
  *
  * どちらでもなければ null（画面は 404、API も 404）。
  */
@@ -96,14 +96,25 @@ export async function currentClientScope(): Promise<ClientScope | null> {
 }
 
 /**
+ * API ルート用。運用者か管理アカウントでなければ 404 の Response、そうならその立場を返す。
+ *
+ * **本文を読む前に呼ぶ**（2026-09-23）。先に本文を検証すると、権限の無い人に 400（入力が正しくない）が
+ * 返って「この API は存在する」と教えてしまう。404 にそろえる意味が無くなる。
+ */
+export async function requireClientScope(): Promise<ClientScope | Response> {
+  return (await currentClientScope()) ?? notFoundResponse();
+}
+
+/**
  * API ルート用。その顧客に触ってよいか調べ、だめなら 404 の Response を返す。
  *
  * 運用者と管理アカウントは、どちらも**全登録者**に触れる（利用者の指示 2026-09-21。
  * 担当による絞り込みはやめた）。唯一触れないのは**他の管理アカウント**で、宛先がそれなら 404
  * （存在そのものを教えない）。立場の判定は必ずセッションから取る（リクエストの値を信用しない）。
+ * requireClientScope で取った立場を渡せば、Clerk への問い合わせを繰り返さない。
  */
-export async function requireClientAccess(userId: string): Promise<Response | null> {
-  const scope = await currentClientScope();
+export async function requireClientAccess(userId: string, known?: ClientScope): Promise<Response | null> {
+  const scope = known ?? (await currentClientScope());
   if (!scope) return notFoundResponse();
   if (scope.kind === "master") return null;
 

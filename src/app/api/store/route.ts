@@ -10,6 +10,7 @@
  * Supabase が未設定なら 503（code: not_configured）。クライアントはそれを見て同期を止める。
  */
 import { isImpersonating } from "@/lib/admin/impersonate";
+import { isAuthEnabled } from "@/lib/auth/config";
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
@@ -29,7 +30,8 @@ async function gate(write: boolean): Promise<{ userId: string } | Response> {
   if (!isSupabaseConfigured()) return Response.json({ error: "保存機能が設定されていません", code: "not_configured" }, { status: 503, headers: NO_STORE });
   const userId = await currentUserId();
   if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401, headers: NO_STORE });
-  if (write && (await isImpersonating())) {
+  // 認証が無効な環境（開発・E2E）には代理ログインが無い。判定を呼ぶと Clerk が無くて 500 になっていた（2026-09-23）
+  if (write && isAuthEnabled() && (await isImpersonating())) {
     return Response.json({ error: "代理ログイン中はお客様のデータを書き換えられません", code: "impersonating" }, { status: 403, headers: NO_STORE });
   }
   return { userId };
