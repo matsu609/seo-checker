@@ -27,8 +27,8 @@
  *   alter table gbp_posts enable row level security;
  */
 import { z } from "zod";
-import { eq } from "@/lib/db/filters";
-import { supabaseRest } from "@/lib/db/supabase";
+import { eq, gte, lt, lte } from "@/lib/db/filters";
+import { supabaseCount, supabaseRest } from "@/lib/db/supabase";
 import { CTA_TYPES, POST_STATUSES, POST_TOPICS, type GbpPost, type PostInput } from "./types";
 
 const TABLE = "gbp_posts";
@@ -146,20 +146,19 @@ export async function deletePost(userId: string, id: string): Promise<void> {
 /** 予定時刻を過ぎた予約済みの投稿（全利用者。定期処理だけが使う） */
 export async function listDuePosts(now: Date, limit = 200): Promise<(GbpPost & { userId: string })[]> {
   return parseRows(
-    await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&status=eq.scheduled&scheduled_at=lte.${encodeURIComponent(now.toISOString())}&order=scheduled_at.asc&limit=${limit}`),
+    await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&status=eq.scheduled&scheduled_at=${lte(now.toISOString())}&order=scheduled_at.asc&limit=${limit}`),
   );
 }
 
-/** ある期間に投稿できた件数（月次レポート用） */
+/**
+ * ある期間に投稿できた件数（月次レポート用）。
+ * 件数はデータベースに数えさせる（行を受け取って数えると 1,000 件で黙って頭打ちになる。2026-09-23）
+ */
 export async function countPublishedBetween(userId: string, startIso: string, endIso: string): Promise<number> {
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=id&user_id=${eq(userId)}&status=eq.published&published_at=gte.${encodeURIComponent(startIso)}&published_at=lt.${encodeURIComponent(endIso)}&limit=1000`,
-  );
-  return Array.isArray(rows) ? rows.length : 0;
+  return supabaseCount(`${TABLE}?select=id&user_id=${eq(userId)}&status=eq.published&published_at=${gte(startIso)}&published_at=${lt(endIso)}`);
 }
 
 /** 予約済みの投稿の数（月次レポートの「来月やること」用） */
 export async function countScheduled(userId: string): Promise<number> {
-  const rows = await supabaseRest<unknown>(`${TABLE}?select=id&user_id=${eq(userId)}&status=eq.scheduled&limit=1000`);
-  return Array.isArray(rows) ? rows.length : 0;
+  return supabaseCount(`${TABLE}?select=id&user_id=${eq(userId)}&status=eq.scheduled`);
 }

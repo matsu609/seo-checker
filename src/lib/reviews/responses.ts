@@ -12,7 +12,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { DbError, supabaseRest } from "@/lib/db/supabase";
-import { eq, gte } from "@/lib/db/filters";
+import { eq, gte, lt } from "@/lib/db/filters";
 import { isSurveyLocale, type SurveyLocale } from "./i18n";
 import { RawAnswersSchema, type Answers } from "./questions";
 
@@ -198,7 +198,7 @@ export async function listResponses(formId: string, filter: ListFilter = {}, lim
   if (filter.lowOnly) params.push("is_low=is.true");
   if (filter.channelId) params.push(`channel_id=${eq(filter.channelId)}`);
   if (filter.from) params.push(`created_at=${gte(filter.from)}`);
-  if (filter.to) params.push(`created_at=lt.${encodeURIComponent(filter.to)}`);
+  if (filter.to) params.push(`created_at=${lt(filter.to)}`);
   const rows = await withLangFallback((cols) => supabaseRest<unknown>(`${TABLE}?select=${cols}&${params.join("&")}`));
   return parseRows(rows);
 }

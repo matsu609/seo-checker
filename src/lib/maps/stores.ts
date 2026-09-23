@@ -8,7 +8,7 @@
  * テーブル定義は docs/dev/OPERATIONS.md の SQL を参照。
  */
 import { z } from "zod";
-import { supabaseRest } from "@/lib/db/supabase";
+import { selectAllPages, supabaseRest } from "@/lib/db/supabase";
 import { eq } from "@/lib/db/filters";
 import { MAX_COMPETITORS } from "./types";
 
@@ -63,11 +63,15 @@ function parseRows(rows: unknown): MeoStoreRow[] {
   return parsed.data;
 }
 
-/** 利用者の登録店舗（自社 → 競合の順、古い順） */
+/**
+ * 利用者の登録店舗（自社 → 競合の順、古い順）。
+ * 上限（自社 200 × 競合込み = 1,200 行）は Supabase が 1 回で返す 1,000 行を超えるので、
+ * ページに分けて読む（2026-09-23。以前は `limit=1200` の 1 回で、1,000 行目以降が黙って消えていた）。
+ */
 export async function listStores(userId: string): Promise<MeoStore[]> {
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=${COLUMNS}&user_id=${eq(userId)}&order=own_place_id.asc,created_at.asc&limit=${MAX_OWN_STORES * (1 + MAX_COMPETITORS_PER_STORE)}`,
-  );
+  const rows = await selectAllPages(`${TABLE}?select=${COLUMNS}&user_id=${eq(userId)}&order=own_place_id.asc,created_at.asc,id.asc`, {
+    max: MAX_OWN_STORES * (1 + MAX_COMPETITORS_PER_STORE),
+  });
   return parseRows(rows).map(fromStoreRow);
 }
 
@@ -119,11 +123,12 @@ export async function removeStore(userId: string, id: string): Promise<number> {
   return count;
 }
 
-/** 一斉更新の対象（全利用者）。更新が古い順。同じ店舗が複数の利用者に登録されていれば複数行返る */
+/**
+ * 一斉更新の対象（全利用者）。更新が古い順に最大 limit 行。同じ店舗が複数の利用者に登録されていれば複数行返る。
+ * 1,000 行を超える分はページに分けて読む（2026-09-23。以前は 1 回で頼み、1,000 行で黙って切られていた）。
+ */
 export async function listStoresDue(limit: number): Promise<MeoStoreRow[]> {
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=${COLUMNS}&order=last_refreshed_at.asc.nullsfirst,created_at.asc&limit=${limit}`,
-  );
+  const rows = await selectAllPages(`${TABLE}?select=${COLUMNS}&order=last_refreshed_at.asc.nullsfirst,created_at.asc,id.asc`, { max: limit });
   return parseRows(rows);
 }
 
@@ -136,9 +141,17 @@ export async function markRefreshed(placeId: string, at: Date): Promise<void> {
   });
 }
 
-/** 自社店舗を登録している利用者の ID（重複なし。月次レポートの対象を集めるときに使う） */
-export async function listOwnStoreUserIds(limit = 2000): Promise<string[]> {
-  const rows = await supabaseRest<unknown>(`${TABLE}?select=user_id&own_place_id=eq.&limit=${limit}`);
+/** 自社店舗の行を読む上限（利用者の数ではなく行の数。1 人で最大 200 行） */
+export const OWN_STORE_SCAN_MAX = 50_000;
+
+/**
+ * 自社店舗を登録している利用者の ID（重複なし。月次レポートの対象を集めるときに使う）。
+ * 行は店舗ごとなので、利用者の数より多い。以前は `limit=2000` 行の 1 回で読み、Supabase の
+ * 1,000 行の上限で黙って切られていた（店舗の多い利用者が先に並ぶと、ほかの利用者が丸ごと漏れる）。
+ * ページに分けて最後まで読んでから重複を除く（2026-09-23）。
+ */
+export async function listOwnStoreUserIds(maxRows = OWN_STORE_SCAN_MAX): Promise<string[]> {
+  const rows = await selectAllPages(`${TABLE}?select=user_id&own_place_id=eq.&order=user_id.asc,id.asc`, { max: maxRows });
   const parsed = z.array(z.object({ user_id: z.string() })).safeParse(rows);
   if (!parsed.success) return [];
   return [...new Set(parsed.data.map((r) => r.user_id))];
