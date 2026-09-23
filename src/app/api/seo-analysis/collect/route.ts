@@ -10,7 +10,8 @@ import { FetchError } from "@/lib/analyzer/fetch";
 import { dbErrorResponse, DbError, isSupabaseConfigured } from "@/lib/db/supabase";
 import { isAnthropicEnabled } from "@/lib/llm/anthropic";
 import { collectFactSheet } from "@/lib/seo-analysis/collect";
-import { acquireCrawlSlot, clientKeyOf } from "@/lib/seo-analysis/gate";
+import { acquireCrawlSlot, crawlClientKey } from "@/lib/crawl/gate";
+import { ndjsonResponse } from "@/lib/crawl/stream";
 import { AnalysisInputSchema, normalizeInput } from "@/lib/seo-analysis/input";
 import { quotaExceeded, quotaFor } from "@/lib/seo-analysis/quota";
 import { createRun } from "@/lib/seo-analysis/runs";
@@ -18,12 +19,6 @@ import { requireUser } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-const NDJSON_HEADERS = {
-  "Content-Type": "application/x-ndjson; charset=utf-8",
-  "Cache-Control": "no-cache, no-store, no-transform",
-  "X-Accel-Buffering": "no",
-};
 
 export async function POST(request: NextRequest) {
   const userId = await requireUser({ feature: "seo-analysis" });
@@ -60,15 +55,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const release = acquireCrawlSlot(clientKeyOf(request.headers));
+  // サイト診断（/api/site-audit）と同じ "audit" の枠を合計で数える（crawl/gate.ts）
+  const release = acquireCrawlSlot("audit", crawlClientKey(request.headers));
   if (!release) {
     return Response.json({ error: "他の診断が実行中です。しばらく待ってからもう一度お試しください", code: "busy" }, { status: 429 });
   }
 
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const send = (obj: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
+  // 共通の NDJSON 応答（nosniff 付き・切断後は書かない。crawl/stream.ts）。
+  // 2026-09-23: 以前は切断後の enqueue が例外になり、保存の直後の result 行で落ちていた
+  return ndjsonResponse<unknown>(
+    async (sink) => {
+      const send = (obj: unknown) => sink.send(obj);
       try {
         const { sheet, audit } = await collectFactSheet(input, {
           signal: request.signal,
@@ -87,16 +84,8 @@ export async function POST(request: NextRequest) {
         }
       } finally {
         release();
-        try {
-          controller.close();
-        } catch {
-          /* 既に閉じている */
-        }
       }
     },
-    cancel() {
-      release();
-    },
-  });
-  return new Response(stream, { headers: NDJSON_HEADERS });
+    { onCancel: release },
+  );
 }

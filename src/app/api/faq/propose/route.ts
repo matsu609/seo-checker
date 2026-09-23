@@ -19,6 +19,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { FetchError } from "@/lib/analyzer/fetch";
+import { fetchErrorResponse, publicUrlError } from "@/lib/analyzer/fetch-response";
 import { NO_STORE } from "@/lib/api/headers";
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
@@ -82,6 +83,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 形式の誤った URL・内部ネットワークは、連打の間隔・1 日の上限・月の回数を消費する前に 400 で返す
+  // （2026-09-23: 以前は回数を数えてから proposeFaq の中で検査し、形式の誤りを 502 で返していた）
+  const invalid = await publicUrlError(url);
+  if (invalid) return invalid;
+
   try {
     if (auditOnly) {
       // 事実を出すだけ。AI を呼ばないので月の回数は数えない。
@@ -135,9 +141,7 @@ export async function POST(request: NextRequest) {
     cache.set(key, result);
     return Response.json({ result, cached: false });
   } catch (err) {
-    if (err instanceof FetchError) {
-      return Response.json({ error: err.message }, { status: err.code === "blocked_host" ? 400 : 502 });
-    }
+    if (err instanceof FetchError) return fetchErrorResponse(err);
     const api = toApiError(err);
     return Response.json({ error: api.message }, { status: api.status });
   }

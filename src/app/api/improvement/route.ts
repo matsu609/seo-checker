@@ -8,6 +8,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { FetchError } from "@/lib/analyzer/fetch";
+import { fetchErrorResponse, publicUrlError } from "@/lib/analyzer/fetch-response";
 import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { generateImprovement, type ImprovementResult } from "@/lib/improvement/generate";
@@ -85,6 +86,11 @@ export async function POST(request: NextRequest) {
     if (hit) return Response.json({ result: hit, cached: true });
   }
 
+  // 形式の誤った URL・内部ネットワークは回数を数える前に 400 で返す（2026-09-23: 以前は
+  // 回数を数えてから generateImprovement の中で検査し、形式の誤りを 502 で返していた）
+  const invalid = await publicUrlError(url);
+  if (invalid) return invalid;
+
   // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
   const over = await takeUsage("improvement");
   if (over) return over;
@@ -93,9 +99,7 @@ export async function POST(request: NextRequest) {
     cache.set(key, result);
     return Response.json({ result, cached: false });
   } catch (err) {
-    if (err instanceof FetchError) {
-      return Response.json({ error: err.message }, { status: err.code === "blocked_host" ? 400 : 502 });
-    }
+    if (err instanceof FetchError) return fetchErrorResponse(err);
     const api = toApiError(err);
     return Response.json({ error: api.message }, { status: api.status });
   }

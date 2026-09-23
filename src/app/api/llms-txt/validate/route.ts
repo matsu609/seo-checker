@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { FetchError, assertPublicHost, fetchText, normalizeUrl } from "@/lib/analyzer/fetch";
+import { fetchErrorResponse } from "@/lib/analyzer/fetch-response";
 import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { applyLinkStatuses, validateLlmsTxt } from "@/lib/llms-txt/validate";
@@ -48,10 +49,7 @@ export async function POST(request: NextRequest) {
       : new URL("/llms.txt", normalized.origin);
     await assertPublicHost(target);
   } catch (err) {
-    if (err instanceof FetchError) {
-      const status = err.code === "invalid_url" || err.code === "blocked_host" ? 400 : 502;
-      return Response.json({ error: err.message, code: err.code }, { status });
-    }
+    if (err instanceof FetchError) return fetchErrorResponse(err);
     return Response.json({ error: "URL の形式が正しくありません" }, { status: 400 });
   }
 
@@ -85,10 +83,7 @@ export async function POST(request: NextRequest) {
     cache.set(key, validation);
     return Response.json({ validation, cached: false });
   } catch (err) {
-    if (err instanceof FetchError) {
-      const status = err.code === "invalid_url" || err.code === "blocked_host" ? 400 : 502;
-      return Response.json({ error: err.message, code: err.code }, { status });
-    }
+    if (err instanceof FetchError) return fetchErrorResponse(err);
     console.error("[llms-txt/validate] unexpected error", err);
     return Response.json({ error: "llms.txt の検証中にエラーが発生しました" }, { status: 500 });
   }
