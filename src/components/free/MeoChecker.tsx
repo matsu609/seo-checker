@@ -14,6 +14,7 @@ import type { FreeMeoSearchResponse } from "@/app/api/meo/search/route";
 import { MeoReportView } from "@/components/maps/report/MeoReportView";
 import { formatCount, formatRating, statusLabel } from "@/components/maps/format";
 import { Button, Callout, DataTable, Field, Input, type Column } from "@/components/ui";
+import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
 import { FREE_SUITE_LABEL } from "@/lib/features/registry";
 import { isExhausted, type FreeQuota } from "@/lib/free/quota-rules";
 import { SIGN_UP_PATH } from "@/lib/free/upsell";
@@ -32,16 +33,6 @@ type Report =
   | { phase: "loading"; placeId: string }
   | { phase: "error"; message: string }
   | { phase: "done"; data: FreeMeoReportResponse; placeId: string };
-
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: unknown };
-    if (typeof body.error === "string" && body.error) return body.error;
-  } catch {
-    // JSON でない応答
-  }
-  return `リクエストに失敗しました（HTTP ${res.status}）`;
-}
 
 export interface MeoCheckerProps {
   /** Places API が設定されているか（サーバーで判定して渡す） */
@@ -76,7 +67,7 @@ export function MeoChecker({ enabled, quota: initialQuota }: MeoCheckerProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query: q }),
       });
-      if (!res.ok) throw new Error(await errorMessage(res));
+      if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       setSearch({ phase: "done", data: (await res.json()) as FreeMeoSearchResponse });
     } catch (err) {
       setSearch({ phase: "error", message: err instanceof Error ? err.message : "検索に失敗しました" });
@@ -93,7 +84,7 @@ export function MeoChecker({ enabled, quota: initialQuota }: MeoCheckerProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ placeId: place.id }),
       });
-      if (!res.ok) throw new Error(await errorMessage(res));
+      if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       setReport({ phase: "done", data: (await res.json()) as FreeMeoReportResponse, placeId: place.id });
       // 報告書までスクロール（フォームは上に残す）
       setTimeout(() => reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);

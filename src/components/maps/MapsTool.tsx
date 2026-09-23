@@ -27,6 +27,7 @@ import { Card } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select } from "@/components/ui/Field";
+import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
 import { toCommentaryInput } from "@/lib/maps/commentary-input";
 import type { MeoHistoryItem, SavedMeoReport } from "@/lib/maps/history";
 import { meoReportFileName } from "@/lib/maps/report";
@@ -68,19 +69,10 @@ interface Shown {
   fromHistory: boolean;
 }
 
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: unknown };
-    if (typeof body.error === "string" && body.error) return body.error;
-  } catch {
-    // JSON でない応答
-  }
-  return `リクエストに失敗しました（HTTP ${res.status}）`;
-}
-
+/** requestJson（lib/api/client）と違い 204 を特別扱いしない（当時のまま） */
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, { cache: "no-store", signal });
-  if (!res.ok) throw new Error(await errorMessage(res));
+  if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
   return (await res.json()) as T;
 }
 
@@ -224,7 +216,7 @@ export function MapsTool() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ placeId: place.id, name: place.name, ownPlaceId: role === "competitor" ? ownId : undefined }),
       });
-      if (!res.ok) throw new Error(await errorMessage(res));
+      if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       const body = (await res.json()) as MapsStoreAddResponse;
       await loadStores();
       if (role === "own") setView((prev) => ({ ...prev, currentOwnId: place.id }));
@@ -253,7 +245,7 @@ export function MapsTool() {
     setBusyId(store.id);
     try {
       const res = await fetch(`/api/maps/stores/${encodeURIComponent(store.id)}`, { method: "DELETE" });
-      if (!res.ok && res.status !== 404) throw new Error(await errorMessage(res));
+      if (!res.ok && res.status !== 404) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       await loadStores();
       if (store.role === "competitor" && ownId) void loadCompare(ownId);
     } catch (err) {
@@ -314,7 +306,7 @@ export function MapsTool() {
     setBusyId(item.id);
     try {
       const res = await fetch(`/api/maps/history/${encodeURIComponent(item.id)}`, { method: "DELETE" });
-      if (!res.ok && res.status !== 404) throw new Error(await errorMessage(res));
+      if (!res.ok && res.status !== 404) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       if (ownId) await loadHistory(ownId);
     } catch (err) {
       setHistory((prev) => ({ ...prev, error: err instanceof Error ? err.message : "削除できませんでした" }));

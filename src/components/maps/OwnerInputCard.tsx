@@ -14,6 +14,7 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
 import type { MeoHistoryEntry } from "@/lib/maps/history";
 import {
   answeredCount,
@@ -109,16 +110,6 @@ export function fromDraft(d: Draft): MeoOwnerInput {
   };
 }
 
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: unknown };
-    if (typeof body.error === "string" && body.error) return body.error;
-  } catch {
-    // JSON でない応答
-  }
-  return `リクエストに失敗しました（HTTP ${res.status}）`;
-}
-
 function TriSelect({ value, onChange, yes, no }: { value: Tri; onChange: (v: Tri) => void; yes: string; no: string }) {
   return (
     <Select value={value} onChange={(e) => onChange(e.target.value as Tri)}>
@@ -148,7 +139,7 @@ export function OwnerInputCard({ number, store, ratingCount, onSaved }: OwnerInp
       setLoading(true);
       try {
         const res = await fetch(`/api/maps/stores/${encodeURIComponent(storeId)}/owner`, { cache: "no-store", signal: ac.signal });
-        if (!res.ok) throw new Error(await errorMessage(res));
+        if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
         const body = (await res.json()) as MapsOwnerResponse;
         if (ac.signal.aborted) return;
         setSaved(body.owner);
@@ -182,7 +173,7 @@ export function OwnerInputCard({ number, store, ratingCount, onSaved }: OwnerInp
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ input: fromDraft(draft) }),
       });
-      if (!res.ok) throw new Error(await errorMessage(res));
+      if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       const body = (await res.json()) as MapsOwnerSaveResponse;
       setSaved(body.owner);
       if (body.owner) setDraft(toDraft(body.owner.input));
@@ -203,7 +194,7 @@ export function OwnerInputCard({ number, store, ratingCount, onSaved }: OwnerInp
     setNotice(null);
     try {
       const res = await fetch(`/api/maps/stores/${encodeURIComponent(storeId)}/owner`, { method: "DELETE" });
-      if (!res.ok) throw new Error(await errorMessage(res));
+      if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       const body = (await res.json()) as MapsOwnerSaveResponse;
       setSaved(null);
       setDraft(toDraft(emptyOwnerInput()));

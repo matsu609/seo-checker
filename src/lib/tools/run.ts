@@ -7,23 +7,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
 
 export type RunState<T> =
   | { phase: "idle" }
   | { phase: "running" }
   | { phase: "error"; message: string }
   | { phase: "done"; data: T };
-
-/** API のエラー応答（全ルート共通の形） */
-async function messageFromResponse(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: unknown };
-    if (typeof body.error === "string" && body.error) return body.error;
-  } catch {
-    // JSON でない応答（プロキシのエラーページなど）
-  }
-  return `リクエストに失敗しました（HTTP ${res.status}）`;
-}
 
 export function useToolRun<T>() {
   const [state, setState] = useState<RunState<T>>({ phase: "idle" });
@@ -56,7 +46,7 @@ export function useToolRun<T>() {
         body: JSON.stringify(body),
         signal: ac.signal,
       });
-      if (!res.ok) throw new Error(await messageFromResponse(res));
+      if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       const data = (await res.json()) as T;
       // 中止済み・アンマウント済みなら結果を捨てる（古い応答で画面を上書きしない）
       if (ac.signal.aborted || !alive.current || controller.current !== ac) return null;

@@ -23,6 +23,7 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { requestFailedMessage, requestJson } from "@/lib/api/client";
 import type { BpReview } from "@/lib/google/business-profile";
 import { OWNER_NOTE_MAX, REPLY_MAX, SIGNATURE_MAX } from "@/lib/replies/constants";
 import { TONE_LABELS, TONES, type Tone } from "@/lib/reviews/questions";
@@ -34,21 +35,8 @@ import { ReviewMixCard } from "./ReviewMixCard";
 
 const GBP_REVIEWS_URL = "https://business.google.com/reviews";
 
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: unknown };
-    if (typeof body.error === "string" && body.error) return body.error;
-  } catch {
-    // JSON でない応答
-  }
-  return `リクエストに失敗しました（HTTP ${res.status}）`;
-}
-
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { cache: "no-store", ...init, headers: { ...(init?.body ? { "content-type": "application/json" } : {}), ...(init?.headers ?? {}) } });
-  if (!res.ok) throw new Error(await errorMessage(res));
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+function request<T>(url: string, init?: RequestInit): Promise<T> {
+  return requestJson<T>(url, init, requestFailedMessage);
 }
 
 /** 一覧に出す口コミ（Google ビジネス プロフィール / 公開情報 の両方をこの形に揃える） */

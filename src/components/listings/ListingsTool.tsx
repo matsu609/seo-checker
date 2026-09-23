@@ -28,6 +28,7 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
 import { HINT_MAX } from "@/lib/listings/constants";
 import {
   LISTING_MEDIA,
@@ -72,19 +73,10 @@ import {
 } from "@/lib/listings/profile";
 import { formatDateTime } from "@/lib/report/format";
 
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: unknown };
-    if (typeof body.error === "string" && body.error) return body.error;
-  } catch {
-    // JSON でない応答
-  }
-  return `リクエストに失敗しました（HTTP ${res.status}）`;
-}
-
+/** requestJson（lib/api/client）と違い 204 を特別扱いしない（当時のまま） */
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init, headers: { ...(init?.body ? { "content-type": "application/json" } : {}), ...(init?.headers ?? {}) } });
-  if (!res.ok) throw new Error(await errorMessage(res));
+  if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
   return (await res.json()) as T;
 }
 

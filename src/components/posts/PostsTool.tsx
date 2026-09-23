@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PostsResponse } from "@/app/api/posts/route";
 import { Badge, Button, Callout, Card, EmptyState, Field, Input, Select, Textarea } from "@/components/ui";
+import { httpStatusMessage, requestJson } from "@/lib/api/client";
 import { fromLocalInput, sortPosts, toLocalInput, validatePost } from "@/lib/posts/schedule";
 import {
   CTA_LABELS,
@@ -31,20 +32,9 @@ import { CadenceCard } from "./CadenceCard";
 
 const STATUS_TONE: Record<GbpPost["status"], "pass" | "info" | "warn" | "fail" | "neutral"> = { draft: "neutral", scheduled: "info", published: "pass", failed: "fail", cancelled: "neutral" };
 
-async function readError(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: string };
-    if (body.error) return body.error;
-  } catch {
-    // JSON でない
-  }
-  return `HTTP ${res.status}`;
-}
-
-async function call<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { cache: "no-store", ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
-  if (!res.ok) throw new Error(await readError(res));
-  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+function call<T>(url: string, init?: RequestInit): Promise<T> {
+  // この画面は本文の無い GET / DELETE にも content-type を付けてきた（そのまま）
+  return requestJson<T>(url, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } }, httpStatusMessage);
 }
 
 function fetchPosts(pid: string): Promise<PostsResponse> {

@@ -8,25 +8,16 @@ import { useSearchParams } from "next/navigation";
 import type { NotificationsResponse } from "@/app/api/notifications/route";
 import type { ReportsResponse } from "@/app/api/reports/route";
 import { Badge, Button, Callout, Card, EmptyState, Select, StatCard } from "@/components/ui";
+import { apiErrorMessage, httpStatusMessage } from "@/lib/api/client";
 import { NOTIFICATION_KIND_LABELS } from "@/lib/notifications/types";
 import { downloadPdf } from "@/lib/pdf/download";
 import type { RankChange, ReportDelta } from "@/lib/reports/types";
 import { formatDateTime } from "@/lib/report/format";
 import { monthLabel } from "@/lib/time/jst";
 
-async function readError(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: string };
-    if (body.error) return body.error;
-  } catch {
-    // JSON でない
-  }
-  return `HTTP ${res.status}`;
-}
-
 async function fetchReport(m: string | null): Promise<ReportsResponse> {
   const res = await fetch(`/api/reports${m ? `?month=${encodeURIComponent(m)}` : ""}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) throw new Error(await apiErrorMessage(res, httpStatusMessage));
   return (await res.json()) as ReportsResponse;
 }
 
@@ -117,7 +108,7 @@ export function ReportsTool() {
     setError(null);
     try {
       const res = await fetch("/api/reports/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ month: m }) });
-      if (!res.ok) throw new Error(await readError(res));
+      if (!res.ok) throw new Error(await apiErrorMessage(res, httpStatusMessage));
       await load(m);
     } catch (err) {
       setError(err instanceof Error ? err.message : "作れませんでした");

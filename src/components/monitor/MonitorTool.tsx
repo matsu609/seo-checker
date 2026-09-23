@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { MonitorResponse } from "@/app/api/monitor/route";
 import { LineChart, SampleBadge, SampleChart } from "@/components/charts";
 import { Badge, Button, Callout, Card, DataTable, EmptyState, StatStrip, type Column } from "@/components/ui";
+import { apiErrorMessage, httpStatusMessage } from "@/lib/api/client";
 import { dayLabel } from "@/lib/demo/dates";
 import { sampleIncidentChecks } from "@/lib/demo/site";
 import { jstDateKey } from "@/lib/time/jst";
@@ -20,19 +21,9 @@ import { INCIDENT_LABELS, type Incident, type MonitorDiff, type MonitorSnapshot,
 import { formatDateTime } from "@/lib/report/format";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
 
-async function readError(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: string };
-    if (body.error) return body.error;
-  } catch {
-    // JSON でない
-  }
-  return `HTTP ${res.status}`;
-}
-
 async function fetchMonitor(): Promise<MonitorResponse> {
   const res = await fetch("/api/monitor", { cache: "no-store" });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) throw new Error(await apiErrorMessage(res, httpStatusMessage));
   return (await res.json()) as MonitorResponse;
 }
 
@@ -94,7 +85,7 @@ export function MonitorTool() {
     setError(null);
     try {
       const res = await fetch("/api/monitor/run", { method: "POST" });
-      if (!res.ok) throw new Error(await readError(res));
+      if (!res.ok) throw new Error(await apiErrorMessage(res, httpStatusMessage));
       const body = (await res.json()) as { latest: MonitorSnapshot; diff: MonitorDiff };
       setData((prev) => (prev ? { ...prev, latest: body.latest, diff: body.diff } : prev));
       await load();
