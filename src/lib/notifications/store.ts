@@ -20,8 +20,8 @@
  *   alter table notifications enable row level security;
  */
 import { z } from "zod";
-import { eq } from "@/lib/db/filters";
-import { supabaseRest } from "@/lib/db/supabase";
+import { eq, gte, lt } from "@/lib/db/filters";
+import { selectAllPages, supabaseRest } from "@/lib/db/supabase";
 import { NOTIFICATION_KINDS, type Notification, type NotificationKind } from "./types";
 
 const TABLE = "notifications";
@@ -78,10 +78,18 @@ export async function markAllRead(userId: string, at = new Date()): Promise<void
   await supabaseRest<unknown>(`${TABLE}?user_id=${eq(userId)}&read_at=is.null`, { method: "PATCH", body: { read_at: at.toISOString() }, prefer: "return=minimal" });
 }
 
-/** ある月の種類ごとの件数（月次レポートの「今月の出来事」に使う） */
+/** 1 か月ぶんの集計で読む行数の上限（1 利用者のお知らせ。ふつうは数十件） */
+export const COUNT_SCAN_MAX = 10_000;
+
+/**
+ * ある月の種類ごとの件数（月次レポートの「今月の出来事」に使う）。
+ * 以前は `limit=2000` の 1 回で読んでいたが、Supabase は 1 回の応答を 1,000 行に切るので、
+ * 1,000 件を超えた月は黙って少なく数えていた。ページに分けて最後まで読む（2026-09-23）。
+ */
 export async function countNotificationsBetween(userId: string, startIso: string, endIso: string): Promise<Record<string, number>> {
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=kind&user_id=${eq(userId)}&created_at=gte.${encodeURIComponent(startIso)}&created_at=lt.${encodeURIComponent(endIso)}&limit=2000`,
+  const rows = await selectAllPages(
+    `${TABLE}?select=kind&user_id=${eq(userId)}&created_at=${gte(startIso)}&created_at=${lt(endIso)}&order=created_at.asc,id.asc`,
+    { max: COUNT_SCAN_MAX },
   );
   const parsed = z.array(z.object({ kind: z.string() })).safeParse(rows);
   const out: Record<string, number> = {};

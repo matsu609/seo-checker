@@ -8,7 +8,8 @@ import fixture from "./fixtures/place.json";
 import { PlacesError } from "../client";
 import { parseDetailResponse } from "../parse";
 import { emptyOwnerInput } from "../owner-input";
-import { lastRefreshAt, nextRefreshAt, refreshStores, type RefreshDeps } from "../refresh";
+import { classifyRefreshError, lastRefreshAt, MAX_CONSECUTIVE_TRANSIENT, nextRefreshAt, refreshStores, type RefreshDeps } from "../refresh";
+import type { PlaceDetail } from "../types";
 import type { MeoStoreRow } from "../stores";
 
 describe("次回の一斉更新", () => {
@@ -165,5 +166,113 @@ describe("一斉更新と順位・周辺（r29）", () => {
     expect(byUser.get("u1")!.area).toBeNull();
     expect(byUser.get("u2")!.rank).toBeUndefined();
     expect(byUser.get("u3")!.rank).toBeUndefined();
+  });
+});
+
+describe("一時的な失敗で全体を止めない（2026-09-23）", () => {
+  function timeout(): Error {
+    // AbortSignal.timeout が投げるのは PlacesError ではなく name = TimeoutError の DOMException
+    return new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  }
+
+  it("1 店舗のタイムアウトや Google の 5xx は failed に数えて次の店舗へ進む", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { d, save, markRefreshed } = deps([row("A", "u1"), row("B", "u1"), row("C", "u1"), row("D", "u1")], {
+      getDetail: async (id) => {
+        if (id === "A") throw timeout();
+        if (id === "B") throw new PlacesError("Google マップの API がエラーを返しました（HTTP 503）", "upstream");
+        if (id === "C") throw new TypeError("fetch failed");
+        return { ...DETAIL, id };
+      },
+    });
+    const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+    expect(summary).toMatchObject({ fetched: 1, saved: 1, failed: 3, remaining: 0, aborted: null });
+    expect(save).toHaveBeenCalledTimes(1);
+    // 取れなかった店舗は更新日時を進めない（次回の先頭で取り直す）
+    expect(markRefreshed).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it("キー未設定・拒否（403）も全体を止める", async () => {
+    for (const code of ["not_configured", "denied"] as const) {
+      const { d } = deps([row("A", "u1"), row("B", "u1")], {
+        getDetail: async () => {
+          throw new PlacesError("止める", code);
+        },
+      });
+      const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+      expect(summary).toMatchObject({ fetched: 0, aborted: "止める", remaining: 2 });
+    }
+  });
+
+  it("一時的な失敗が続いたら Google 側の障害とみて止め、残りを次回に回す", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ids = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    const getDetail = vi.fn(async (): Promise<PlaceDetail> => {
+      throw timeout();
+    });
+    const { d } = deps(
+      ids.map((id) => row(id, "u1")),
+      { getDetail },
+    );
+    const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+    expect(getDetail).toHaveBeenCalledTimes(MAX_CONSECUTIVE_TRANSIENT);
+    expect(summary.failed).toBe(MAX_CONSECUTIVE_TRANSIENT);
+    expect(summary.remaining).toBe(ids.length - MAX_CONSECUTIVE_TRANSIENT);
+    expect(summary.aborted).toContain("続けて応答しなかった");
+    spy.mockRestore();
+  });
+
+  it("成功をはさめば連続には数えない", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ids = Array.from({ length: 12 }, (_, i) => `P${i}`);
+    const { d } = deps(
+      ids.map((id) => row(id, "u1")),
+      {
+        getDetail: async (id) => {
+          // 4 回失敗 → 1 回成功 を繰り返す
+          if (Number(id.slice(1)) % 5 !== 4) throw timeout();
+          return { ...DETAIL, id };
+        },
+      },
+    );
+    const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+    expect(summary.aborted).toBeNull();
+    expect(summary.fetched + summary.failed).toBe(12);
+    spy.mockRestore();
+  });
+
+  it("失敗の分類", () => {
+    expect(classifyRefreshError(new PlacesError("x", "rate_limited"))).toBe("fatal");
+    expect(classifyRefreshError(new PlacesError("x", "not_found"))).toBe("skip");
+    expect(classifyRefreshError(new PlacesError("x", "upstream"))).toBe("transient");
+    expect(classifyRefreshError(timeout())).toBe("transient");
+  });
+});
+
+describe("プランの対象外の利用者（2026-09-23）", () => {
+  it("対象外の利用者の行は飛ばし、誰も使えない店舗は Google に問い合わせない", async () => {
+    const allowsUser = vi.fn(async (userId: string) => userId !== "gone");
+    // A: 使える u1 と対象外の gone が共有 / B: gone だけ（自社と競合の 2 行） / C: u2 だけ
+    const { d, getDetail, save, markRefreshed } = deps([row("A", "u1"), row("A", "gone"), row("B", "gone"), row("C", "u2"), row("B", "gone", "A")], { allowsUser });
+    const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+    expect(getDetail.mock.calls.map((c) => c[0])).toEqual(["A", "C"]);
+    expect(save.mock.calls.map((c) => (c as unknown as [string])[0])).toEqual(["u1", "u2"]);
+    expect(summary).toMatchObject({ fetched: 2, saved: 2, skippedPlan: 1, aborted: null });
+    // 判定は利用者ごとに 1 回
+    expect(allowsUser).toHaveBeenCalledTimes(3);
+    // 飛ばした店舗も更新日時は進める（古い順の先頭に居座って、ほかの店舗を押し出さない）
+    expect(markRefreshed.mock.calls.map((c) => (c as unknown as [string])[0])).toEqual(["A", "B", "C"]);
+  });
+
+  it("プランの判定が失敗した利用者は対象外として扱う（開ける方向には倒さない）", async () => {
+    const { d, getDetail } = deps([row("A", "u1")], {
+      allowsUser: async () => {
+        throw new Error("clerk down");
+      },
+    });
+    const summary = await refreshStores(d, { limit: 100, budgetMs: 60_000 });
+    expect(getDetail).not.toHaveBeenCalled();
+    expect(summary.skippedPlan).toBe(1);
   });
 });

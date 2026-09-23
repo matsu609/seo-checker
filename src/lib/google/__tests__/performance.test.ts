@@ -9,10 +9,12 @@ import {
   buildSearchKeywordsUrl,
   compareKeywords,
   defaultReportMonth,
+  earliestAvailableMonth,
   endOfMonth,
   fetchPerformanceSummary,
   parseDailyMetrics,
   parseSearchKeywords,
+  selectableMonths,
   shiftMonth,
   summarizeMonthly,
   toPerformanceLocationName,
@@ -33,6 +35,9 @@ const DAILY = {
     },
   ],
 };
+
+/** 2026-09-17 9:00 JST */
+const NOW = new Date("2026-09-17T00:00:00Z");
 
 describe("月の計算", () => {
   it("YYYY-MM をずらす・末日・既定の当月は先月", () => {
@@ -153,7 +158,8 @@ describe("呼び出し", () => {
       if (u.includes("startMonth.month=8")) return new Response(JSON.stringify({ searchKeywordsCounts: [{ searchKeyword: "a", insightsValue: { value: "3" } }] }), { status: 200 });
       return new Response(JSON.stringify({ searchKeywordsCounts: [] }), { status: 200 });
     }) as unknown as typeof fetch;
-    const s = await fetchPerformanceSummary("accounts/1/locations/22", "2026-08", { fetchImpl, getToken: async () => "tok", endpoint: "https://x" });
+    // 2026-09-23: 期間を Google がさかのぼれる範囲に収めるようになり、結果が「いま」に依存するので now を固定する
+    const s = await fetchPerformanceSummary("accounts/1/locations/22", "2026-08", { fetchImpl, getToken: async () => "tok", endpoint: "https://x", now: NOW });
     expect(calls).toHaveLength(3);
     expect(calls[0]).toContain("/locations/22:fetchMultiDailyMetricsTimeSeries?");
     expect(calls[0]).toContain("dailyRange.startDate.year=2025");
@@ -163,10 +169,47 @@ describe("呼び出し", () => {
 
   it("403 は API 未承認の案内、401 は再接続の案内", async () => {
     const forbidden = (async () => new Response("{}", { status: 403 })) as unknown as typeof fetch;
-    await expect(fetchPerformanceSummary("locations/1", "2026-08", { fetchImpl: forbidden, getToken: async () => "t" })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(fetchPerformanceSummary("locations/1", "2026-08", { fetchImpl: forbidden, getToken: async () => "t", now: NOW })).rejects.toMatchObject({ code: "forbidden" });
     const unauthorized = (async () => new Response("{}", { status: 401 })) as unknown as typeof fetch;
-    const err = await fetchPerformanceSummary("locations/1", "2026-08", { fetchImpl: unauthorized, getToken: async () => "t" }).catch((e) => e);
+    const err = await fetchPerformanceSummary("locations/1", "2026-08", { fetchImpl: unauthorized, getToken: async () => "t", now: NOW }).catch((e) => e);
     expect(err).toBeInstanceOf(GoogleLinkError);
     expect(err.code).toBe("not_connected");
+  });
+
+  it("選べる最古の月でも、日次の開始日は Google がさかのぼれる範囲に収める（以前は約 35 か月前を頼んでいた）", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify({}), { status: 200 });
+    }) as unknown as typeof fetch;
+    const getToken = vi.fn(async () => "tok");
+    const oldest = selectableMonths(NOW).at(-1)!;
+    expect(oldest).toBe("2025-04");
+    const s = await fetchPerformanceSummary("locations/22", oldest, { fetchImpl, getToken, endpoint: "https://x", now: NOW });
+    const daily = new URL(calls.find((u) => u.includes("fetchMultiDailyMetricsTimeSeries"))!);
+    expect(daily.searchParams.get("dailyRange.startDate.year")).toBe("2025");
+    expect(daily.searchParams.get("dailyRange.startDate.month")).toBe("4");
+    // 前月（2025-03）は Google がさかのぼれないので頼まない
+    expect(calls.filter((u) => u.includes("searchkeywords"))).toHaveLength(1);
+    // さかのぼれない月を「データなし」の行で埋めない
+    expect(s.months.map((m) => m.month)).toEqual(["2025-04"]);
+    // トークンは 1 回だけ取る
+    expect(getToken).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("選べる月（日本時間。2026-09-23）", () => {
+  it("既定の当月は日本時間の先月（毎月 1 日の 0〜9 時に 2 か月前にならない）", () => {
+    // 2026-10-01 0:30 JST = 2026-09-30 15:30 UTC
+    expect(defaultReportMonth(new Date("2026-09-30T15:30:00Z"))).toBe("2026-09");
+    expect(defaultReportMonth(new Date("2026-09-30T14:59:00Z"))).toBe("2026-08");
+  });
+
+  it("先月から、今月を含めて 18 か月前の月まで（新しい順）", () => {
+    const months = selectableMonths(NOW);
+    expect(months[0]).toBe("2026-08");
+    expect(months.at(-1)).toBe(earliestAvailableMonth(NOW));
+    expect(earliestAvailableMonth(NOW)).toBe("2025-04");
+    expect(months).toHaveLength(17);
   });
 });

@@ -3,11 +3,13 @@
  *
  *   GET  ?placeId=  → { enabled, stores, google, aiEnabled, posts, nextRunAt }
  *   POST { placeId, ...PostInput } → 手で 1 本作る（scheduledAt があれば予約済み、無ければ下書き）
+ *        代理ログイン中の予約は 403（定期処理がお客様の名前で Google に送るため。下書きは作れる）
  */
 import { z } from "zod";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { canUse } from "@/lib/google/scopes";
+import { blockGoogleWriteWhileImpersonating } from "@/lib/google/write-guard";
 import { getGoogleConnection } from "@/lib/google/token";
 import { scheduleOf } from "@/lib/jobs/schedule";
 import { isAnthropicEnabled } from "@/lib/llm/anthropic";
@@ -67,6 +69,10 @@ export async function POST(request: Request) {
   const parsed = CreateSchema.safeParse(raw);
   if (!parsed.success) return badRequest(parsed.error.issues[0]?.message ?? "入力が正しくありません");
   const { placeId, ...input } = parsed.data;
+  if (input.scheduledAt) {
+    const blocked = await blockGoogleWriteWhileImpersonating("投稿の予約");
+    if (blocked) return blocked;
+  }
   try {
     const own = (await listStores(userId)).some((s) => s.role === "own" && s.placeId === placeId);
     if (!own) return Response.json({ error: "その店舗は MEO の自社店舗に登録されていません" }, { status: 404, headers: NO_STORE });

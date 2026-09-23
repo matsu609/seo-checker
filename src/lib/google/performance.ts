@@ -13,7 +13,9 @@
  * 利用申請の承認が要る（承認までクォータ 0 = 403）。
  * 応答の読み取りは落ちない純関数（parse*）。集計（summarize*）も純関数でテストする。
  */
-import { GoogleLinkError, mapGoogleHttpError } from "./errors";
+import { jstMonthKey, previousMonthKey } from "@/lib/time/jst";
+import { callGoogleApi, httpErrorMapper, withResolvedToken, type GoogleApiSpec, type GoogleCallOptions } from "./call";
+import { GoogleLinkError } from "./errors";
 import {
   ACTION_KEYS,
   DAILY_METRICS,
@@ -26,7 +28,6 @@ import {
   type PerformanceSummary,
   type SearchKeywordCount,
 } from "./performance-types";
-import { getGoogleTokenFor } from "./token";
 
 export const PERFORMANCE_ENDPOINT = "https://businessprofileperformance.googleapis.com/v1";
 const TIMEOUT_MS = 30_000;
@@ -49,12 +50,10 @@ export {
   type SearchKeywordCount,
 } from "./performance-types";
 
-export interface PerformanceOptions {
+export interface PerformanceOptions extends GoogleCallOptions {
   endpoint?: string;
-  timeoutMs?: number;
-  fetchImpl?: typeof fetch;
-  /** テスト用。省略時は Clerk からユーザーのトークンを取る */
-  getToken?: () => Promise<string>;
+  /** いまの日時（Google がさかのぼれる範囲の計算に使う。テスト用） */
+  now?: Date;
 }
 
 /* ───────────── 純関数 ───────────── */
@@ -86,13 +85,29 @@ export function shiftMonth(month: string, delta: number): string {
   return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
 }
 
-/** 前の月（YYYY-MM）。Google の集計は数日遅れるので、既定の「当月」は先月にする */
+/**
+ * 前の月（YYYY-MM）。Google の集計は数日遅れるので、既定の「当月」は先月にする。
+ * 月は日本時間で数える（2026-09-23 まで UTC の月だったため、毎月 1 日の 0〜9 時は 2 か月前になっていた）。
+ */
 export function defaultReportMonth(now = new Date()): string {
-  return shiftMonth(`${now.getUTCFullYear()}-${pad2(now.getUTCMonth() + 1)}`, -1);
+  return previousMonthKey(jstMonthKey(now));
 }
 
-export function isMonthKey(value: string): boolean {
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+/**
+ * Google がさかのぼれる最古の月（今月を含めて MAX_MONTHS_BACK か月）。これより前の日付を頼むと
+ * Google が受け付けず、画面ごとエラーになる。
+ */
+export function earliestAvailableMonth(now = new Date()): string {
+  return shiftMonth(jstMonthKey(now), -(MAX_MONTHS_BACK - 1));
+}
+
+/** 画面で選べる月（新しい順）。先月から、Google がさかのぼれる最古の月まで */
+export function selectableMonths(now = new Date()): string[] {
+  const latest = defaultReportMonth(now);
+  const earliest = earliestAvailableMonth(now);
+  const out: string[] = [];
+  for (let m = latest; m >= earliest && out.length < MAX_MONTHS_BACK; m = shiftMonth(m, -1)) out.push(m);
+  return out;
 }
 
 /** その月の末日（YYYY-MM-DD） */
@@ -244,9 +259,12 @@ export function buildPerformanceSummary(
   currentKeywords: readonly SearchKeywordCount[],
   previousKeywords: readonly SearchKeywordCount[],
   monthsBack = MAX_MONTHS_BACK,
+  /** これより前の月は並べない（Google がさかのぼれない月を「データなし」の行で埋めない） */
+  earliestMonth: string | null = null,
 ): PerformanceSummary {
   const previousMonth = shiftMonth(month, -1);
-  const months = summarizeMonthly(points, shiftMonth(month, -(monthsBack - 1)), month);
+  const from = shiftMonth(month, -(monthsBack - 1));
+  const months = summarizeMonthly(points, earliestMonth && earliestMonth > from ? earliestMonth : from, month);
   const current = months.find((r) => r.month === month)?.totals ?? emptyTotals();
   const previous = months.find((r) => r.month === previousMonth)?.totals ?? emptyTotals();
   const { keywords, risers, fallers } = compareKeywords(currentKeywords, previousKeywords);
@@ -265,40 +283,19 @@ export function buildPerformanceSummary(
 
 /* ───────────── 通信 ───────────── */
 
-/** 403 は「権限」だけでなく「API 未有効 / 利用申請が未承認」のことが多いので、案内を変える */
-function mapError(status: number): GoogleLinkError {
-  if (status === 403) {
-    return new GoogleLinkError(
-      `${LABEL}にアクセスできませんでした。Business Profile API の利用申請が承認され、Google Cloud で「Business Profile Performance API」が有効になっているか、接続した Google アカウントがそのビジネスの管理者かをご確認ください。`,
-      "forbidden",
-    );
-  }
-  if (status === 404) return new GoogleLinkError(`${LABEL}に該当するビジネスが見つかりませんでした。`, "forbidden");
-  return mapGoogleHttpError(status, LABEL);
-}
+const API: GoogleApiSpec = {
+  label: LABEL,
+  service: "business-profile",
+  timeoutMs: TIMEOUT_MS,
+  // 403 は「権限」だけでなく「API 未有効 / 利用申請が未承認」のことが多いので、案内を変える
+  mapError: httpErrorMapper(LABEL, {
+    forbidden: `${LABEL}にアクセスできませんでした。Business Profile API の利用申請が承認され、Google Cloud で「Business Profile Performance API」が有効になっているか、接続した Google アカウントがそのビジネスの管理者かをご確認ください。`,
+    notFound: `${LABEL}に該当するビジネスが見つかりませんでした。`,
+  }),
+};
 
-async function callApi(url: string, options: PerformanceOptions): Promise<unknown> {
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const getToken = options.getToken ?? (() => getGoogleTokenFor("business-profile"));
-  const token = await getToken();
-  let res: Response;
-  try {
-    res = await fetchImpl(url, {
-      method: "GET",
-      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
-      signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
-      cache: "no-store",
-    });
-  } catch (err) {
-    const timedOut = err instanceof Error && err.name === "TimeoutError";
-    throw new GoogleLinkError(timedOut ? `${LABEL}の応答がありませんでした（タイムアウト）` : `${LABEL}に接続できませんでした`, "network");
-  }
-  if (!res.ok) throw mapError(res.status);
-  try {
-    return await res.json();
-  } catch {
-    throw new GoogleLinkError(`${LABEL}の応答を解釈できませんでした`, "network");
-  }
+function callApi(url: string, options: PerformanceOptions): Promise<unknown> {
+  return callGoogleApi(url, { method: "GET" }, API, options);
 }
 
 /** 日次の指標を期間ぶん取る */
@@ -325,14 +322,24 @@ export async function fetchSearchKeywords(locationName: string, month: string, o
   return all;
 }
 
-/** 月次レポートに要るものを一式取る（日次 18 か月 + 当月と前月のキーワード = 3〜4 リクエスト） */
+/**
+ * 月次レポートに要るものを一式取る（日次 18 か月 + 当月と前月のキーワード = 3〜4 リクエスト）。
+ *
+ * 期間は Google がさかのぼれる範囲（earliestAvailableMonth）に収める。2026-09-23 まで、選べる最古の月を
+ * 選ぶと日次の開始日が約 35 か月前になり、Google が受け付けずに画面ごとエラーになっていた。
+ * トークンは最初に 1 回だけ取る。
+ */
 export async function fetchPerformanceSummary(locationName: string, month: string, options: PerformanceOptions = {}): Promise<PerformanceSummary> {
-  const start = `${shiftMonth(month, -(MAX_MONTHS_BACK - 1))}-01`;
+  const opts = withResolvedToken(options, "business-profile");
+  const earliest = earliestAvailableMonth(options.now ?? new Date());
+  const from = shiftMonth(month, -(MAX_MONTHS_BACK - 1));
+  const start = `${from < earliest ? earliest : from}-01`;
   const end = endOfMonth(month);
+  const previousMonth = shiftMonth(month, -1);
   const [points, currentKeywords, previousKeywords] = await Promise.all([
-    fetchDailyMetrics(locationName, start, end, options),
-    fetchSearchKeywords(locationName, month, options),
-    fetchSearchKeywords(locationName, shiftMonth(month, -1), options),
+    month >= earliest ? fetchDailyMetrics(locationName, start, end, opts) : Promise.resolve([]),
+    month >= earliest ? fetchSearchKeywords(locationName, month, opts) : Promise.resolve([]),
+    previousMonth >= earliest ? fetchSearchKeywords(locationName, previousMonth, opts) : Promise.resolve([]),
   ]);
-  return buildPerformanceSummary(month, points, currentKeywords, previousKeywords);
+  return buildPerformanceSummary(month, points, currentKeywords, previousKeywords, MAX_MONTHS_BACK, earliest);
 }

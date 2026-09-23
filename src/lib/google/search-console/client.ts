@@ -4,8 +4,8 @@
  * エンドポイントは固定（ユーザー入力の URL ではないので assertPublicHost の対象外）。
  * アクセストークンはログイン中のユーザーのものを Clerk から取る（token.ts）。
  */
-import { GoogleLinkError, mapGoogleHttpError } from "../errors";
-import { getGoogleTokenFor } from "../token";
+import { callGoogleApi, withResolvedToken, type GoogleApiSpec, type GoogleCallOptions } from "../call";
+import { GoogleLinkError } from "../errors";
 import { parseSearchAnalytics, parseSites } from "./parse";
 import type {
   SearchAnalyticsQuery,
@@ -20,59 +20,24 @@ const TIMEOUT_MS = 30_000;
 export const MAX_ROW_LIMIT = 25_000;
 const DEFAULT_ROW_LIMIT = 1_000;
 
-export interface SearchConsoleClientOptions {
+export interface SearchConsoleClientOptions extends GoogleCallOptions {
   endpoint?: string;
-  timeoutMs?: number;
-  fetchImpl?: typeof fetch;
-  /** テスト用。省略時は Clerk からユーザーのトークンを取る */
-  getToken?: () => Promise<string>;
 }
 
-const LABEL = "Search Console";
+const API: GoogleApiSpec = { label: "Search Console", spaced: true, service: "search-console", timeoutMs: TIMEOUT_MS };
 
-async function callApi(
-  path: string,
-  init: RequestInit,
-  options: SearchConsoleClientOptions,
-): Promise<unknown> {
-  const endpoint = options.endpoint ?? SEARCH_CONSOLE_ENDPOINT;
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const getToken = options.getToken ?? (() => getGoogleTokenFor("search-console"));
-  const token = await getToken();
-
-  let res: Response;
-  try {
-    res = await fetchImpl(`${endpoint}${path}`, {
-      ...init,
-      headers: {
-        ...init.headers,
-        authorization: `Bearer ${token}`,
-        accept: "application/json",
-      },
-      signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
-      cache: "no-store",
-    });
-  } catch (err) {
-    const timedOut = err instanceof Error && err.name === "TimeoutError";
-    throw new GoogleLinkError(
-      timedOut ? `${LABEL} の応答がありませんでした（タイムアウト）` : `${LABEL} に接続できませんでした`,
-      "network",
-    );
-  }
-  if (!res.ok) throw mapGoogleHttpError(res.status, LABEL);
-  try {
-    return await res.json();
-  } catch {
-    throw new GoogleLinkError(`${LABEL} の応答を解釈できませんでした`, "network");
-  }
-}
-
+/**
+ * クライアントは 1 回の処理（1 リクエスト）ごとに作る。トークンは最初の呼び出しで 1 回だけ取り、
+ * 同じクライアントの呼び出し（検索パフォーマンスは 5 本並行）で使い回す（2026-09-23）。
+ */
 export function createSearchConsoleClient(
-  options: SearchConsoleClientOptions = {},
+  clientOptions: SearchConsoleClientOptions = {},
 ): SearchConsoleClient {
+  const options = withResolvedToken(clientOptions, "search-console");
+  const callApi = (path: string, init: RequestInit) => callGoogleApi(`${options.endpoint ?? SEARCH_CONSOLE_ENDPOINT}${path}`, init, API, options);
   return {
     async listSites(): Promise<SearchConsoleSite[]> {
-      return parseSites(await callApi("/sites", { method: "GET" }, options));
+      return parseSites(await callApi("/sites", { method: "GET" }));
     },
 
     async query(siteUrl: string, q: SearchAnalyticsQuery): Promise<SearchAnalyticsRow[]> {
@@ -89,11 +54,7 @@ export function createSearchConsoleClient(
         rowLimit: Math.min(Math.max(1, q.rowLimit ?? DEFAULT_ROW_LIMIT), MAX_ROW_LIMIT),
         ...(q.startRow ? { startRow: q.startRow } : {}),
       };
-      const payload = await callApi(
-        path,
-        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) },
-        options,
-      );
+      const payload = await callApi(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       return parseSearchAnalytics(payload);
     },
   };

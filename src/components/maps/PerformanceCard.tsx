@@ -132,7 +132,7 @@ export function PerformanceCard({ number, placeId, storeName }: PerformanceCardP
                   取得した数字は、この画面に表示する以外の用途には使いません。
                 </p>
               </Callout>
-              <ConnectBusinessButton label={data.reason === "no_scope" ? "Google に口コミ返信・インサイトの権限を追加する" : "Google アカウントを接続する"} />
+              <ConnectBusinessButton grantedScopes={data.grantedScopes} label={data.reason === "no_scope" ? "Google に口コミ返信・インサイトの権限を追加する" : "Google アカウントを接続する"} />
             </>
           )}
           {data.reason === "not_managed" && (

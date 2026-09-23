@@ -4,6 +4,7 @@
  * 報告書は週 1 回保存される（月曜の一斉更新）。各報告書の `rank.keywords[].rank` を
  * キーワードごとに日付順に並べる。順位が無い週（取得失敗・圏外）は null のまま残す。
  */
+import { jstDateKey } from "@/lib/time/jst";
 import type { SavedMeoReport } from "./history";
 
 export interface RankSeriesPoint {
@@ -26,12 +27,10 @@ export interface RankHistory {
   dates: string[];
 }
 
-const JST_MS = 9 * 60 * 60 * 1000;
-
+/** 生成日時 → JST の日付キー。読めない日時は null（手書きの JST 計算を time/jst.ts に寄せた。2026-09-23） */
 function dateKeyJst(iso: string): string | null {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  return new Date(t + JST_MS).toISOString().slice(0, 10);
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : jstDateKey(d);
 }
 
 /** 報告書（順不同）→ 系列。同じ日に 2 件あれば新しいほう */

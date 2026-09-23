@@ -27,9 +27,9 @@
  *   alter table gbp_posts enable row level security;
  */
 import { z } from "zod";
-import { eq } from "@/lib/db/filters";
-import { supabaseRest } from "@/lib/db/supabase";
-import { CTA_TYPES, POST_STATUSES, POST_TOPICS, type GbpPost, type PostInput } from "./types";
+import { eq, gte, inList, lt, lte, notInList } from "@/lib/db/filters";
+import { supabaseCount, supabaseRest } from "@/lib/db/supabase";
+import { CTA_TYPES, POST_STATUSES, POST_TOPICS, type GbpPost, type PostInput, type PostStatus } from "./types";
 
 const TABLE = "gbp_posts";
 const COLUMNS = "id,user_id,place_id,location_name,topic_type,title,summary,cta_type,cta_url,event_start,event_end,status,scheduled_at,published_at,google_name,error,created_at,updated_at";
@@ -143,23 +143,48 @@ export async function deletePost(userId: string, id: string): Promise<void> {
   await supabaseRest<unknown>(`${TABLE}?user_id=${eq(userId)}&id=${eq(id)}`, { method: "DELETE", prefer: "return=minimal" });
 }
 
-/** 予定時刻を過ぎた予約済みの投稿（全利用者。定期処理だけが使う） */
-export async function listDuePosts(now: Date, limit = 200): Promise<(GbpPost & { userId: string })[]> {
+/**
+ * 送る権利を取る（1 回の PATCH で原子的に）。状態が `from` のどれかで、`dueBy` があれば予定時刻を
+ * 過ぎている行だけを「送信中」に変え、変えた行（その時点の内容）を返す。
+ * null なら、別の処理（定期処理・もう 1 回の「今すぐ投稿」）が先に取ったか、状態が変わっていた。
+ *
+ * 2026-09-23 まで、定期処理と「今すぐ投稿」は読んだ状態のまま送っていたため、同時に動くと
+ * 同じ投稿が Google に 2 回出ていた。「送信中」に変えられた 1 つの処理だけが送る。
+ */
+export async function claimPost(userId: string, id: string, from: readonly PostStatus[], at = new Date(), dueBy?: Date): Promise<GbpPost | null> {
+  if (from.length === 0) return null;
+  const due = dueBy ? `&scheduled_at=${lte(dueBy.toISOString())}` : "";
+  const rows = await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&user_id=${eq(userId)}&id=${eq(id)}&status=${inList(from)}${due}`, {
+    method: "PATCH",
+    body: { status: "publishing", error: null, updated_at: at.toISOString() },
+    prefer: "return=representation",
+  });
+  return parseRows(rows)[0] ?? null;
+}
+
+/** 除外する利用者の上限（URL の長さを抑える。超えた分は翌日に回る） */
+export const DUE_EXCLUDE_MAX = 100;
+
+/**
+ * 予定時刻を過ぎた予約済みの投稿（全利用者。定期処理だけが使う）。予定時刻の古い順。
+ * `excludeUserIds` はプランの対象外と分かった利用者（その人の投稿で枠を埋めないため）。
+ */
+export async function listDuePosts(now: Date, limit = 200, excludeUserIds: readonly string[] = []): Promise<(GbpPost & { userId: string })[]> {
+  const exclude = excludeUserIds.length > 0 ? `&user_id=${notInList(excludeUserIds.slice(0, DUE_EXCLUDE_MAX))}` : "";
   return parseRows(
-    await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&status=eq.scheduled&scheduled_at=lte.${encodeURIComponent(now.toISOString())}&order=scheduled_at.asc&limit=${limit}`),
+    await supabaseRest<unknown>(`${TABLE}?select=${COLUMNS}&status=eq.scheduled&scheduled_at=${lte(now.toISOString())}${exclude}&order=scheduled_at.asc,id.asc&limit=${limit}`),
   );
 }
 
-/** ある期間に投稿できた件数（月次レポート用） */
+/**
+ * ある期間に投稿できた件数（月次レポート用）。
+ * 件数はデータベースに数えさせる（行を受け取って数えると 1,000 件で黙って頭打ちになる。2026-09-23）
+ */
 export async function countPublishedBetween(userId: string, startIso: string, endIso: string): Promise<number> {
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=id&user_id=${eq(userId)}&status=eq.published&published_at=gte.${encodeURIComponent(startIso)}&published_at=lt.${encodeURIComponent(endIso)}&limit=1000`,
-  );
-  return Array.isArray(rows) ? rows.length : 0;
+  return supabaseCount(`${TABLE}?select=id&user_id=${eq(userId)}&status=eq.published&published_at=${gte(startIso)}&published_at=${lt(endIso)}`);
 }
 
 /** 予約済みの投稿の数（月次レポートの「来月やること」用） */
 export async function countScheduled(userId: string): Promise<number> {
-  const rows = await supabaseRest<unknown>(`${TABLE}?select=id&user_id=${eq(userId)}&status=eq.scheduled&limit=1000`);
-  return Array.isArray(rows) ? rows.length : 0;
+  return supabaseCount(`${TABLE}?select=id&user_id=${eq(userId)}&status=eq.scheduled`);
 }

@@ -3,11 +3,14 @@
  *
  * PUT    … { reviewName, comment } → { reply: { comment, updatedAt } }（既に返信があれば上書き）
  * DELETE … { reviewName }
+ *
+ * 代理ログイン中はどちらも 403（返信はお客様の名前で Google マップに公開される。2026-09-23）。
  */
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth/guard";
 import { deleteReply, isReviewName, REPLY_MAX, replyToReview } from "@/lib/google/business-profile";
 import { googleErrorResponse } from "@/lib/google/errors";
+import { blockGoogleWriteWhileImpersonating } from "@/lib/google/write-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -35,6 +38,8 @@ async function readJson(request: Request): Promise<unknown | Response> {
 export async function PUT(request: Request) {
   const denied = await requireAuth({ feature: "replies" });
   if (denied) return denied;
+  const blocked = await blockGoogleWriteWhileImpersonating("口コミへの返信の投稿");
+  if (blocked) return blocked;
   const raw = await readJson(request);
   if (raw instanceof Response) return raw;
   const parsed = ReplySchema.safeParse(raw);
@@ -51,6 +56,8 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   const denied = await requireAuth({ feature: "replies" });
   if (denied) return denied;
+  const blocked = await blockGoogleWriteWhileImpersonating("口コミへの返信の削除");
+  if (blocked) return blocked;
   const raw = await readJson(request);
   if (raw instanceof Response) return raw;
   const parsed = DeleteSchema.safeParse(raw);

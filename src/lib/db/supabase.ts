@@ -65,11 +65,8 @@ export interface RestOptions {
   signal?: AbortSignal;
 }
 
-/**
- * `path` は `meo_reports?user_id=eq.xxx&order=...` のようにテーブル名から書く。
- * 応答の JSON をそのまま返す（形の検証は呼び出し側で zod を使う）。
- */
-export async function supabaseRest<T = unknown>(path: string, options: RestOptions = {}): Promise<T> {
+/** 認証・URL・エラーの扱いをそろえた 1 回の呼び出し（本文の読み取りは呼び出し側） */
+async function send(path: string, options: Omit<RestOptions, "method"> & { method?: RestOptions["method"] | "HEAD" }): Promise<Response> {
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) {
@@ -102,6 +99,15 @@ export async function supabaseRest<T = unknown>(path: string, options: RestOptio
     const hint = res.status === 404 ? "テーブルが見つかりません（SQL の実行を確認してください）" : `データベースがエラーを返しました（HTTP ${res.status}）`;
     throw new DbError("upstream", hint, res.status);
   }
+  return res;
+}
+
+/**
+ * `path` は `meo_reports?user_id=eq.xxx&order=...` のようにテーブル名から書く。
+ * 応答の JSON をそのまま返す（形の検証は呼び出し側で zod を使う）。
+ */
+export async function supabaseRest<T = unknown>(path: string, options: RestOptions = {}): Promise<T> {
+  const res = await send(path, options);
   // 本文が無い応答（204 No Content と、Prefer: return=minimal の 200 / 201）は undefined
   // PostgREST は return=minimal の POST に 201 Created + 空本文を返すので、
   // status だけで判断すると res.json() が必ず失敗する（2026-09-19 の不具合）
@@ -113,6 +119,54 @@ export async function supabaseRest<T = unknown>(path: string, options: RestOptio
   } catch {
     throw new DbError("upstream", "データベースの応答を読めませんでした");
   }
+}
+
+/** `Content-Range` の総数（`0-24/1234` の 1234。HEAD では範囲が `*` になる）。読めなければ null */
+export function totalFromContentRange(value: string | null): number | null {
+  const m = /\/(\d+)\s*$/.exec(value ?? "");
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * 条件に合う行の数（`Prefer: count=exact` の HEAD。行そのものは受け取らない）。
+ *
+ * 2026-09-23: 件数だけ欲しい集計（月次レポートの投稿数など）が `select=id&limit=1000` で行を
+ * 全部受け取って数えていた。Supabase は 1 回の応答を既定で 1,000 行に切るので、それを超えると
+ * 黙って 1,000 になる。総数はデータベースに数えさせる。
+ */
+export async function supabaseCount(path: string, options: { signal?: AbortSignal } = {}): Promise<number> {
+  const res = await send(path, { method: "HEAD", prefer: "count=exact", signal: options.signal });
+  const total = totalFromContentRange(res.headers.get("content-range"));
+  if (total === null) throw new DbError("upstream", "データベースの応答から件数を読めませんでした");
+  return total;
+}
+
+/**
+ * Supabase（PostgREST）が 1 回の応答で返す行数の上限。プロジェクトの設定「Max rows」の既定値。
+ * 設定で下げたときはここも同じ値に下げる（上限より大きい limit を頼むと、黙って上限で切られる）。
+ */
+export const DB_PAGE_SIZE = 1000;
+
+/**
+ * 1,000 行を超えうる一覧を、ページに分けて最後まで（最大 `max` 行）読む。
+ *
+ * 2026-09-23: `limit=2000` のように上限を超える行数を 1 回で頼んでいた箇所が、黙って 1,000 行で
+ * 切られていた（週 1 回の一斉更新の対象・月次レポートの対象者・お知らせの集計）。
+ * `path` には limit / offset を付けない。**order は必ず付けて、同じ値が並ばない列で終える**
+ * （id など。並びが決まらないと、ページの境目で行が重複・欠落する）。
+ */
+export async function selectAllPages(path: string, { max, pageSize = DB_PAGE_SIZE }: { max: number; pageSize?: number }): Promise<unknown[]> {
+  const out: unknown[] = [];
+  const size = Math.max(1, Math.min(pageSize, DB_PAGE_SIZE));
+  while (out.length < max) {
+    const want = Math.min(size, max - out.length);
+    const offset = out.length > 0 ? `&offset=${out.length}` : "";
+    const rows = await supabaseRest<unknown>(`${path}&limit=${want}${offset}`);
+    if (!Array.isArray(rows)) throw new DbError("upstream", "データベースの応答を読めませんでした");
+    out.push(...rows);
+    if (rows.length < want) break;
+  }
+  return out;
 }
 
 /** DbError を API 応答に変える（他の *ErrorResponse と同じ形） */

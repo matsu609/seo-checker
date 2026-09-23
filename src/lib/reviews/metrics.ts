@@ -4,6 +4,7 @@
  * Google マップへの投稿はコールバックが取れないので、実投稿数は分からない。
  * 出せるのは「投稿ボタンの押下数・押下率」までで、画面にもそう明記する。
  */
+import { jstWeekStart } from "@/lib/time/jst";
 import { channelDisplayName, type ReviewChannel } from "./forms";
 import type { ReviewResponse } from "./responses";
 
@@ -46,15 +47,10 @@ function avg(values: number[]): number | null {
   return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
 }
 
-/** 日付 → その週の月曜（YYYY-MM-DD、JST） */
+/** 日付 → その週の月曜（YYYY-MM-DD、JST）。読めない日時は ""（手書きの JST 計算を time/jst.ts に寄せた。2026-09-23） */
 export function weekStartOf(iso: string): string {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  // JST に寄せてから曜日を見る
-  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-  const day = (jst.getUTCDay() + 6) % 7; // 月曜 = 0
-  jst.setUTCDate(jst.getUTCDate() - day);
-  return jst.toISOString().slice(0, 10);
+  return Number.isNaN(d.getTime()) ? "" : jstWeekStart(d);
 }
 
 export function computeMetrics(responses: readonly ReviewResponse[], channels: readonly ReviewChannel[], weeks = 8): ReviewMetrics {

@@ -9,11 +9,12 @@ import { isAuthEnabled } from "@/lib/auth/config";
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { globalCache } from "@/lib/cache";
-import { listAllLocations } from "@/lib/google/business-profile";
+import { findLocationByPlaceId } from "@/lib/google/business-profile";
 import { GoogleLinkError, googleErrorResponse } from "@/lib/google/errors";
-import { defaultReportMonth, fetchPerformanceSummary, isMonthKey, shiftMonth, type PerformanceSummary } from "@/lib/google/performance";
-import { canUse } from "@/lib/google/scopes";
+import { fetchPerformanceSummary, selectableMonths, type PerformanceSummary } from "@/lib/google/performance";
+import { apiScopes, canUse } from "@/lib/google/scopes";
 import { getGoogleConnection } from "@/lib/google/token";
+import { isMonthKey } from "@/lib/time/jst";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -38,8 +39,10 @@ export interface MapsPerformanceResponse {
   error: string | null;
   email: string | null;
   month: string;
-  /** 選べる月（新しい順、18 か月） */
+  /** 選べる月（新しい順。先月から、Google がさかのぼれる最古の月まで） */
   months: string[];
+  /** 付与済みの API のスコープ。権限を足すときに、既存の権限を落とさないよう一緒に要求する */
+  grantedScopes: string[];
   summary: PerformanceSummary | null;
   cached: boolean;
 }
@@ -52,11 +55,12 @@ export async function GET(request: Request) {
   const placeId = url.searchParams.get("placeId") ?? "";
   if (!PLACE_ID.test(placeId)) return Response.json({ error: "店舗の ID が正しくありません" }, { status: 400, headers });
   const requested = url.searchParams.get("month") ?? "";
-  const latest = defaultReportMonth();
-  const month = isMonthKey(requested) && requested <= latest && requested >= shiftMonth(latest, -17) ? requested : latest;
-  const months = Array.from({ length: 18 }, (_, i) => shiftMonth(latest, -i));
+  // 選べる月は Google がさかのぼれる範囲だけ（2026-09-23。以前は 18 か月を並べ、最古の月を選ぶと
+  // 日次の開始日が約 35 か月前になって Google が受け付けなかった）
+  const months = selectableMonths();
+  const month = isMonthKey(requested) && months.includes(requested) ? requested : months[0]!;
 
-  const body: MapsPerformanceResponse = { enabled: false, reason: null, error: null, email: null, month, months, summary: null, cached: false };
+  const body: MapsPerformanceResponse = { enabled: false, reason: null, error: null, email: null, month, months, grantedScopes: [], summary: null, cached: false };
   if (!isAuthEnabled()) {
     body.reason = "auth_disabled";
     return Response.json(body, { headers });
@@ -66,6 +70,7 @@ export async function GET(request: Request) {
 
   const connection = await getGoogleConnection();
   body.email = connection.email ?? null;
+  body.grantedScopes = apiScopes(connection.scopes);
   if (!connection.connected) {
     body.reason = "not_connected";
     return Response.json(body, { headers });
@@ -80,7 +85,7 @@ export async function GET(request: Request) {
   if (cached) return Response.json({ ...body, enabled: true, summary: cached, cached: true }, { headers });
 
   try {
-    const location = (await listAllLocations()).find((l) => l.placeId === placeId) ?? null;
+    const location = await findLocationByPlaceId(placeId);
     if (!location) {
       body.reason = "not_managed";
       return Response.json(body, { headers });

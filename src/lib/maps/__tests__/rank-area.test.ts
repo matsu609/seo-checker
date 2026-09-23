@@ -5,7 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 import fixture from "./fixtures/place.json";
 import { areaError, buildArea, topPercent } from "../area";
 import { parseDetailResponse, parseNearbyResponse, parseRankResponse, type NearbyPlace, type RankedPlace } from "../parse";
+import { enrichOwnReport } from "../enrich";
 import { formatRank, measureRanks, rankOf, type MeoRankResult } from "../rank";
+import type { MeoReport } from "../report";
 
 const OWN = parseDetailResponse(fixture)!;
 const NOW = new Date("2026-09-14T20:00:00Z");
@@ -95,6 +97,32 @@ describe("検索順位", () => {
     // 使い回さず previous だけ渡すと、全部検索して previous が付く
     const weekly = await measureRanks({ keywords: ["渋谷 美容室"], ownPlaceId: OWN.id, competitors: [], center: CENTER, previous, search, now: () => NOW });
     expect(weekly.keywords[0]).toMatchObject({ rank: 1, previous: 5, measuredAt: NOW.toISOString() });
+  });
+
+  it("オーナー情報の保存で最新を採点し直すとき、前週比は 1 つ前の報告書から取る（2026-09-23）", async () => {
+    const kw = (rank: number | null, previous?: number | null) => ({ keyword: "渋谷 美容室", rank, previous, top: [], competitors: [], total: 20, measuredAt: "2026-09-14T20:00:00Z", error: null });
+    const before: MeoRankResult = { center: CENTER, radiusM: 3000, limit: 20, keywords: [kw(8)] };
+    const latest: MeoRankResult = { center: CENTER, radiusM: 3000, limit: 20, keywords: [kw(5, 8)] };
+    const search = vi.fn(async () => results(OWN.id));
+    // 以前の渡し方（reuse も previous も最新）だと、前回値が今回値と同じになって前週比が消えていた
+    const buggy = await measureRanks({ keywords: ["渋谷 美容室"], ownPlaceId: OWN.id, competitors: [], center: CENTER, reuse: latest, previous: latest, search, now: () => NOW });
+    expect(buggy.keywords[0]).toMatchObject({ rank: 5, previous: 5 });
+    const fixed = await measureRanks({ keywords: ["渋谷 美容室"], ownPlaceId: OWN.id, competitors: [], center: CENTER, reuse: latest, previous: before, search, now: () => NOW });
+    expect(fixed.keywords[0]).toMatchObject({ rank: 5, previous: 8 });
+    // 1 つ前が無い（報告書が 1 件だけ）なら、最新が持っていた前回値をそのまま残す
+    const first = await measureRanks({ keywords: ["渋谷 美容室"], ownPlaceId: OWN.id, competitors: [], center: CENTER, reuse: latest, previous: null, search, now: () => NOW });
+    expect(first.keywords[0]).toMatchObject({ rank: 5, previous: 8 });
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("周辺を取り直さないときは、置き換える報告書（reuse）の周辺を引き継ぐ", async () => {
+    const reuseArea = areaError(OWN, "最新の周辺", NOW, 1000);
+    const beforeArea = areaError(OWN, "1 つ前の周辺", NOW, 1000);
+    const base = { detail: OWN } as unknown as MeoReport;
+    const r = await enrichOwnReport("u1", OWN, [], { reuse: { ...base, area: reuseArea }, previous: { ...base, area: beforeArea }, refreshArea: false });
+    expect(r.area).toBe(reuseArea);
+    const p = await enrichOwnReport("u1", OWN, [], { previous: { ...base, area: beforeArea }, refreshArea: false });
+    expect(p.area).toBe(beforeArea);
   });
 
   it("1 本の失敗は error に入れて続ける", async () => {

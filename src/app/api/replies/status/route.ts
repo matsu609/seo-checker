@@ -9,7 +9,7 @@
 import { isAuthEnabled } from "@/lib/auth/config";
 import { listAllLocations, type BpLocation } from "@/lib/google/business-profile";
 import { GoogleLinkError } from "@/lib/google/errors";
-import { canUse } from "@/lib/google/scopes";
+import { apiScopes, canUse } from "@/lib/google/scopes";
 import { getGoogleConnection } from "@/lib/google/token";
 import { isAnthropicEnabled } from "@/lib/llm/anthropic";
 import { listStores } from "@/lib/maps/stores";
@@ -30,6 +30,8 @@ export interface RepliesStatusResponse {
   email: string | null;
   /** business.manage が許可されているか */
   hasScope: boolean;
+  /** 付与済みの API のスコープ。権限を足すときに、既存の権限（サーチコンソールなど）を落とさないよう一緒に要求する */
+  grantedScopes: string[];
   locations: BpLocation[];
   /** ビジネス一覧を取れなかった理由（API 未承認など） */
   locationsError: string | null;
@@ -46,6 +48,7 @@ export async function GET() {
     connected: false,
     email: null,
     hasScope: false,
+    grantedScopes: [],
     locations: [],
     locationsError: null,
     stores: [],
@@ -63,6 +66,7 @@ export async function GET() {
     body.connected = connection.connected;
     body.email = connection.email ?? null;
     body.hasScope = connection.connected && canUse(connection.scopes, "business-profile");
+    body.grantedScopes = apiScopes(connection.scopes);
     if (body.hasScope) {
       try {
         body.locations = await listAllLocations();

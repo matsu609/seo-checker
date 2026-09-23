@@ -4,6 +4,7 @@
  * 呼び出し元は 2 つ: 日次の Cron（/api/cron/daily の月曜分）と、旧パスの /api/cron/maps-refresh
  * （手動で叩けるように残してある）。中身はどちらも同じ。
  */
+import { accessAllows, loadUserAccess } from "@/lib/plans/user";
 import { getPlace } from "./client";
 import { enrichOwnReport } from "./enrich";
 import { latestReports, saveMeoReport } from "./history";
@@ -22,6 +23,8 @@ export async function runMapsRefresh(options: { limit?: number; budgetMs: number
       save: (userId, report) => saveMeoReport(userId, { ...report, aiCommentary: null }),
       markRefreshed,
       getOwnerInput: getOwnerInputOrNull,
+      // 契約の無い人（解約・プラン変更）のために Places を呼ばない（2026-09-23。投稿・順位・監視の定期処理と同じ判定）
+      allowsUser: async (userId) => accessAllows(await loadUserAccess(userId), "maps"),
       // 検索順位は毎週取り直し（前回の順位を previous に）、周辺の同業も毎週取り直す
       enrich: async (userId, detail, owner) => {
         const previous = (await latestReports(userId, [detail.id])).get(detail.id)?.report ?? null;

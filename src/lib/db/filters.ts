@@ -22,3 +22,31 @@ export function eq(value: string): string {
 export function gte(value: string): string {
   return `gte.${encodeURIComponent(value)}`;
 }
+
+/** 未満フィルタ（`lt.<エスケープ済みの値>`）。日時の範囲の終わり（含まない）に使う */
+export function lt(value: string): string {
+  return `lt.${encodeURIComponent(value)}`;
+}
+
+/** 以下フィルタ（`lte.<エスケープ済みの値>`） */
+export function lte(value: string): string {
+  return `lte.${encodeURIComponent(value)}`;
+}
+
+/**
+ * いずれかに一致（`in.("a","b")`）。空の配列は渡さない（呼び出し側で先に返す）。
+ *
+ * 値は二重引用符で囲む。PostgREST の in は `,` `(` `)` を区切りとして読むので、囲まないと
+ * 値の中の `,` で 2 つに割れる。値の中の `"` と `\` は `\` でエスケープし、全体を
+ * encodeURIComponent に通す（`&` や `=` で別のパラメータを足せないようにする）。
+ * 2026-09-23 に追加。それまでは `lt.` / `lte.` / `in.(…)` を各所で手書きしていた。
+ */
+export function inList(values: readonly string[]): string {
+  const quoted = values.map((v) => `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",");
+  return `in.${encodeURIComponent(`(${quoted})`)}`;
+}
+
+/** いずれにも一致しない（`not.in.("a","b")`）。空の配列は渡さない */
+export function notInList(values: readonly string[]): string {
+  return `not.${inList(values)}`;
+}

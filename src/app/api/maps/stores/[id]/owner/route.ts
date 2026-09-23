@@ -12,7 +12,7 @@
 import { z } from "zod";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { enrichOwnReport } from "@/lib/maps/enrich";
-import { rescoreLatestReport, type MeoHistoryEntry } from "@/lib/maps/history";
+import { allReportsForPlace, rescoreLatestReport, type MeoHistoryEntry } from "@/lib/maps/history";
 import { MeoOwnerInputSchema, type MeoOwnerData } from "@/lib/maps/owner-input";
 import { deleteOwnerInput, getOwnerInput, putOwnerInput } from "@/lib/maps/owner-store";
 import { getStore, type MeoStore } from "@/lib/maps/stores";
@@ -85,9 +85,12 @@ export async function PUT(request: Request, context: Ctx) {
     if (store instanceof Response) return store;
     const owner = await putOwnerInput(userId, store.placeId, parsed.data.input);
     // 対策キーワードが増えていれば、その分だけ順位を計測する（同じキーワードは前回の結果を使い回す。周辺は取り直さない）
-    const rescored = await rescoreLatestReport(userId, store.placeId, owner, (latest) =>
-      enrichOwnReport(userId, latest.detail, owner.input.keywords, { reuse: latest, previous: latest, refreshArea: false }),
-    );
+    const rescored = await rescoreLatestReport(userId, store.placeId, owner, async (latest) => {
+      // 前回の順位は「最新の 1 つ前」の報告書から取る。2026-09-23 まで最新そのものを previous に渡していたため、
+      // 使い回したキーワードの前回値が今回値と同じになり、保存するたびに前週比が消えていた
+      const [, before] = await allReportsForPlace(userId, store.placeId, 2);
+      return enrichOwnReport(userId, latest.detail, owner.input.keywords, { reuse: latest, previous: before ?? null, refreshArea: false });
+    });
     const body: MapsOwnerSaveResponse = { owner, rescored };
     return Response.json(body, { headers: { "cache-control": "no-store" } });
   } catch (err) {

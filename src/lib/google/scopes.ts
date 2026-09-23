@@ -3,7 +3,7 @@
  *
  * 使うのは口コミ返信の Google ビジネス プロフィールと、SEO の「Google サーチコンソール連携」
  * （2026-09-23 に利用者の指示で再開。GA4 は使わないまま）。スコープはそれぞれの画面から
- * その場で要求する（ConnectBusinessButton / ConnectSearchConsoleButton の additionalScopes）。
+ * その場で要求する（ConnectGoogleButton の additionalScopes。要求する一覧は scopesToRequest）。
  * Clerk のダッシュボードで足す必要はない。
  */
 
@@ -50,4 +50,24 @@ export function missingScopes(granted: readonly string[]): string[] {
 /** そのサービスを使えるか */
 export function canUse(granted: readonly string[], service: GoogleService): boolean {
   return hasScope(granted, SCOPE_BY_SERVICE[service]);
+}
+
+/** Google API 呼び出し用のスコープだけを残す（openid / email / profile はログイン側が付ける） */
+export function apiScopes(scopes: readonly string[]): string[] {
+  return scopes.filter((s) => s.startsWith("https://www.googleapis.com/auth/"));
+}
+
+/**
+ * 権限を足すときに要求するスコープ = すでに許可されている API のスコープ + 足したいスコープ（重複なし）。
+ *
+ * 足したいスコープだけを要求すると、新しいトークンから既存の権限が外れることがある
+ * （口コミ返信の権限を足したらサーチコンソールが止まる、またはその逆）。2026-09-23 まで
+ * 口コミ返信の接続ボタンだけがこれをしていなかった。
+ *
+ * granted はサーバーが Clerk から取ったトークンのスコープ、approved はブラウザ側の Clerk の
+ * 外部アカウントが持つ approvedScopes（空白区切り）。どちらか片方しか無くても落とさない。
+ */
+export function scopesToRequest(scope: string, granted: readonly string[] = [], approved = ""): string[] {
+  const fromClient = approved.split(/[\s,]+/).filter(Boolean);
+  return [...new Set([...apiScopes(granted), ...apiScopes(fromClient), scope])];
 }

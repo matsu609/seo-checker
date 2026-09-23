@@ -11,11 +11,15 @@
  *
  * 本文: { placeId, mediaIds? }
  * 応答: { results, files, record }
+ *
+ * 代理ログイン中に Google へ送る先が含まれていれば 403（Google のビジネス情報をお客様の名前で
+ * 書き換えるため。2026-09-23）。入稿データ・手順だけの媒体は代理中でも作れる。
  */
 import { z } from "zod";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { GoogleLinkError } from "@/lib/google/errors";
-import { listAllLocations, updateLocationNap } from "@/lib/google/business-profile";
+import { blockGoogleWriteWhileImpersonating } from "@/lib/google/write-guard";
+import { findLocationByPlaceId, updateLocationNap } from "@/lib/google/business-profile";
 import { badRequest, NO_STORE, PLACE_ID, readJson, requireListingsUser } from "@/lib/listings/api";
 import { mediaById } from "@/lib/listings/media";
 import { parseHoursText } from "@/lib/listings/profile";
@@ -51,7 +55,7 @@ async function sendToGoogle(placeId: string, record: ListingRecord): Promise<Pub
   const media = mediaById("GOOGLE_MAPS")!;
   const base = { mediaId: media.id, mediaName: media.name, integration: media.integration, url: media.url } as const;
   try {
-    const location = (await listAllLocations()).find((l) => l.placeId === placeId) ?? null;
+    const location = await findLocationByPlaceId(placeId);
     if (!location) {
       return {
         ...base,
@@ -104,6 +108,10 @@ export async function POST(request: Request) {
 
     const targets = publishTargets(record.states, mediaIds);
     if (targets.length === 0) return badRequest("送る先がありません（すべて掲載済み、または対象外です）");
+    if (targets.some((m) => m.integration === "api")) {
+      const blocked = await blockGoogleWriteWhileImpersonating("Google への基本情報の送信");
+      if (blocked) return blocked;
+    }
 
     const results: PublishResult[] = [];
     for (const m of targets) {

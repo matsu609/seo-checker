@@ -29,7 +29,8 @@ export const defaultGoogleLookup: GoogleLookup = {
     const reports = await latestReports(userId, own.map((s) => s.placeId));
     return [...reports.values()].map((e) => e.report.detail);
   },
-  search: async (query) => (await searchPlaces(query, 3)).map((p) => ({ id: p.id, name: p.name, address: p.address })),
+  // 使うのは id・名前・住所だけなので、評価・件数を取らない安い区分で探す（Enterprise → Pro。2026-09-23）
+  search: async (query) => (await searchPlaces(query, 3, { fields: "basic" })).map((p) => ({ id: p.id, name: p.name, address: p.address })),
   detail: (placeId) => getPlace(placeId),
   configured: isPlacesConfigured,
 };

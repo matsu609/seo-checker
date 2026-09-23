@@ -65,14 +65,34 @@ describe("フィルタの組み立て（eq / gte）", () => {
     // 自分自身を呼ぶ実装になっていないこと（再帰で落ちない）
     expect(() => gte("x")).not.toThrow();
   });
+
+  it("lt / lte も同じ無害化（2026-09-23 に追加。それまでは手書きの lt. / lte. だった）", async () => {
+    const { lt, lte } = await import("../filters");
+    expect(lt("2026-09-01T00:00:00.000Z")).toBe("lt.2026-09-01T00%3A00%3A00.000Z");
+    expect(lt(EVIL)).toBe(`lt.${EVIL_ENC}`);
+    expect(lte(EVIL)).toBe(`lte.${EVIL_ENC}`);
+  });
+
+  it("inList は値を二重引用符で囲み、全体を無害化する（値の中の , で割れない）", async () => {
+    const { inList, notInList } = await import("../filters");
+    expect(inList(["a", "b"])).toBe(`in.${encodeURIComponent('("a","b")')}`);
+    // 値の中の , ( ) は引用符の中に収まり、" と \ は \ でエスケープされる
+    const tricky = ["x,y", 'q"z', "b\\s", "(p)"];
+    expect(decodeURIComponent(inList(tricky).slice("in.".length))).toBe(String.raw`("x,y","q\"z","b\\s","(p)")`);
+    const encoded = inList([EVIL]);
+    expect(encoded).not.toContain("&");
+    expect(encoded).not.toContain("=");
+    expect(notInList(["u1"])).toBe(`not.in.${encodeURIComponent('("u1")')}`);
+  });
 });
 
 describe("8 モジュールが組み立てる URL（1 文字も変えない）", () => {
   it("meo_stores: 一覧", async () => {
     const { listStores } = await import("@/lib/maps/stores");
     await listStores(EVIL);
+    // 2026-09-23: 以前は limit=1200 の 1 回（Supabase は 1,000 行で切る）。1,000 行ずつ読み、並びは id で確定させる
     expect(query()).toBe(
-      `meo_stores?select=id,user_id,place_id,place_name,own_place_id,created_at,last_refreshed_at&user_id=eq.${EVIL_ENC}&order=own_place_id.asc,created_at.asc&limit=1200`,
+      `meo_stores?select=id,user_id,place_id,place_name,own_place_id,created_at,last_refreshed_at&user_id=eq.${EVIL_ENC}&order=own_place_id.asc,created_at.asc,id.asc&limit=1000`,
     );
   });
 

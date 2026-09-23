@@ -6,6 +6,7 @@
  * 取得できなければ「確認できず」（消えたとは言わない）。
  */
 import * as cheerio from "cheerio";
+import { phoneDigits } from "@/lib/nap/compare";
 import { addDays, nextMonthDayAtJst } from "@/lib/time/jst";
 import { normalizeForCompare, type ListingProfile, type ListingState, type ListingStates } from "./profile";
 import { RECHECK_LABELS, type RecheckLine, type RecheckOutcome, type RecheckResult } from "./recheck-labels";
@@ -30,11 +31,11 @@ export function htmlToText(html: string): string {
   return $("body").text() || $.root().text();
 }
 
-/** 電話番号の数字だけ（+81 は 0 に戻す） */
-export function phoneDigits(value: string): string {
-  const d = value.normalize("NFKC").replace(/[^\d+]/g, "");
-  return d.startsWith("+81") ? `0${d.slice(3)}` : d.replace(/^\+/, "");
-}
+/**
+ * 電話番号の数字だけ（+81 は 0 に戻す）。2026-09-23 に NAP チェックと同じ実装（citations/analyze.ts）へ寄せた。
+ * 違いは「途中の + も消す」だけで、本文全体を数字にして探すこの用途ではそのほうが取りこぼさない。
+ */
+export { phoneDigits };
 
 /** 住所の「見つかった」判定。全体が無ければ、先頭からの一部（8 文字以上・6 割以上）で見る */
 export function addressFound(text: string, address: string): boolean {

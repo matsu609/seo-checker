@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import type { PlaceDetail } from "@/lib/maps/types";
+import { sameAddress, sameName, samePhone, sameWebsite } from "@/lib/nap/compare";
 import { LISTING_MEDIA, type ListingMedia } from "./media";
 
 export const NAME_MAX = 100;
@@ -155,7 +156,18 @@ export interface NapMismatch {
   google: string;
 }
 
-/** 基本情報と Google マップの公開情報のずれ（どちらかが空なら比べない） */
+const SAME_BY_FIELD: Record<NapMismatch["field"], (a: string, b: string) => boolean> = {
+  name: sameName,
+  address: sameAddress,
+  phone: samePhone,
+  website: sameWebsite,
+};
+
+/**
+ * 基本情報と Google マップの公開情報のずれ（どちらかが空なら比べない）。
+ * 判定は NAP チェックと同じ（src/lib/nap/compare.ts）。2026-09-23 までは全角 / 半角・空白・ハイフンしか
+ * そろえておらず、「0312345678」と「03-1234-5678」や、丁目 / 番地の書き方の違いを「ずれ」と出していた。
+ */
 export function compareNap(profile: ListingProfile, detail: Pick<PlaceDetail, "name" | "address" | "phone" | "website">): NapMismatch[] {
   const pairs: { field: NapMismatch["field"]; label: string; a: string; b: string | null }[] = [
     { field: "name", label: "店名", a: profile.name, b: detail.name },
@@ -166,10 +178,7 @@ export function compareNap(profile: ListingProfile, detail: Pick<PlaceDetail, "n
   const out: NapMismatch[] = [];
   for (const p of pairs) {
     if (!p.a || !p.b) continue;
-    const a = normalizeForCompare(p.a);
-    const b = normalizeForCompare(p.b);
-    // 住所は Google が「日本、〒…」を付けるので、片方がもう片方を含んでいれば同じと見なす
-    if (a === b || (p.field === "address" && (a.includes(b) || b.includes(a)))) continue;
+    if (SAME_BY_FIELD[p.field](p.a, p.b)) continue;
     out.push({ field: p.field, label: p.label, profile: p.a, google: p.b });
   }
   return out;
