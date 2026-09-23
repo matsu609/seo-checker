@@ -11,6 +11,7 @@
  * （画面に見えない内容をマークアップしてはいけない）なので、食い違いは必ず拾う。
  */
 import * as cheerio from "cheerio";
+import { typeNamesOf, walkJsonLd } from "@/lib/analyzer/jsonld-walk";
 
 export type FaqFindingStatus = "ok" | "warn" | "fail";
 
@@ -64,26 +65,6 @@ export function normalizeForMatch(text: string): string {
   return text.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
 }
 
-/** JSON-LD を 1 つずつ平らにする（@graph・配列・入れ子をすべて展開する） */
-function flatten(node: unknown, out: Record<string, unknown>[]): void {
-  if (Array.isArray(node)) {
-    for (const item of node) flatten(item, out);
-    return;
-  }
-  if (!node || typeof node !== "object") return;
-  const obj = node as Record<string, unknown>;
-  out.push(obj);
-  if ("@graph" in obj) flatten(obj["@graph"], out);
-  if ("mainEntity" in obj) flatten(obj.mainEntity, out);
-  if ("itemListElement" in obj) flatten(obj.itemListElement, out);
-}
-
-function typesOf(obj: Record<string, unknown>): string[] {
-  const raw = obj["@type"];
-  if (typeof raw === "string") return [raw];
-  if (Array.isArray(raw)) return raw.filter((t): t is string => typeof t === "string");
-  return [];
-}
 
 function textOf(value: unknown): string {
   if (typeof value === "string") return value.trim();
@@ -121,14 +102,16 @@ export function auditFaq(html: string): FaqAudit {
       brokenBlocks += 1;
       return;
     }
-    const nodes: Record<string, unknown>[] = [];
-    flatten(data, nodes);
-    if (nodes.some((n) => typesOf(n).includes("FAQPage"))) hasFaqPage = true;
-    for (const node of nodes) {
-      if (!typesOf(node).includes("Question")) continue;
+    // クイック診断（analyzer/jsonld.ts）と同じ辿り方・同じ @type の読み方にする（2026-09-23）。
+    // 以前は @graph / mainEntity / itemListElement しか降りず、`schema:FAQPage` の接頭辞も
+    // 外していなかったため、hasPart の中の FAQPage などを「入っていません」と出していた
+    walkJsonLd(data, (node) => {
+      const types = typeNamesOf(node["@type"]);
+      if (types.includes("FAQPage")) hasFaqPage = true;
+      if (!types.includes("Question")) return;
       const name = stripTags(textOf(node.name));
       if (name) jsonLdQuestions.push(name);
-    }
+    });
   });
 
   // --- 画面に見えている FAQ ---
