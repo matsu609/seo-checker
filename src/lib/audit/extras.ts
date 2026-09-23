@@ -8,7 +8,7 @@
 import type * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { MetaInfo } from "@/lib/analyzer/meta";
-import { typeNamesOf, walkJsonLd } from "@/lib/analyzer/jsonld-walk";
+import { ORGANIZATION_TYPES, typeNamesOf, walkJsonLd, walkOperatorCandidates } from "@/lib/analyzer/jsonld-walk";
 import { canonicalizeUrl } from "@/lib/crawl/url";
 import type { AuditLink, OrganizationSchema } from "./types";
 
@@ -41,9 +41,6 @@ const MAX_ANCHOR_TEXT = 80;
 /** ページごとに残す電話番号の上限 */
 const MAX_PHONES = 5;
 
-/** Organization / LocalBusiness 系とみなす @type（接頭辞は落として比較） */
-const ORG_TYPE_RE =
-  /^(?:Organization|Corporation|LocalBusiness|Store|Restaurant|MedicalBusiness|ProfessionalService|EducationalOrganization|GovernmentOrganization|NGO|Dentist|Physician|Hospital|Hotel|LodgingBusiness|FoodEstablishment|AutoDealer|RealEstateAgent|LegalService|Attorney|AccountingService|FinancialService|HealthAndBeautyBusiness|BeautySalon|HairSalon|DaySpa|SportsActivityLocation|HomeAndConstructionBusiness|TravelAgency|InsuranceAgency|AutomotiveBusiness|EntertainmentBusiness|ChildCare|Library|School|Church|ShoppingCenter|ClothingStore|ElectronicsStore|Florist|Bakery|CafeOrCoffeeShop|BarOrPub)$/;
 
 /** 日本の電話番号（0 始まりで 3 区切り、または +81）。日付や郵便番号は 3 区切りにならないので混ざらない */
 const PHONE_RE = /(?:\+81[-\s()]*\d{1,4}|0\d{1,4})[-\s()]+\d{1,4}[-\s()]+\d{3,4}(?!\d)/g;
@@ -238,22 +235,23 @@ function readJsonLd($: cheerio.CheerioAPI): JsonLdFacts {
       if (!facts.datePublished && typeof node.datePublished === "string") facts.datePublished = node.datePublished;
       if (!facts.dateModified && typeof node.dateModified === "string") facts.dateModified = node.dateModified;
       if (node.author) facts.hasAuthor = true;
-      if (!facts.organization) {
-        const type = typeNamesOf(node["@type"]).find((t) => ORG_TYPE_RE.test(t));
-        if (type) {
-          facts.organization = {
-            type,
-            telephone: typeof node.telephone === "string" ? normalizePhone(node.telephone) : null,
-            hasAddress: hasValue(node.address),
-            sameAs: Array.isArray(node.sameAs) ? node.sameAs.length : typeof node.sameAs === "string" && node.sameAs ? 1 : 0,
-          };
-        }
-      }
+    });
+    // 運営者は最上位・@graph・publisher などのノードだけで探す（クイック診断の jsonld.ts と同じ。
+    // 記事の著者や商品のブランドの Organization を運営者として拾わない。2026-09-23）
+    walkOperatorCandidates(data, (node) => {
+      if (facts.organization) return;
+      const type = typeNamesOf(node["@type"]).find((t) => ORGANIZATION_TYPES.has(t));
+      if (!type) return;
+      facts.organization = {
+        type,
+        telephone: typeof node.telephone === "string" ? normalizePhone(node.telephone) : null,
+        hasAddress: hasValue(node.address),
+        sameAs: Array.isArray(node.sameAs) ? node.sameAs.length : typeof node.sameAs === "string" && node.sameAs ? 1 : 0,
+      };
     });
   });
   return facts;
 }
-
 
 function hasValue(v: unknown): boolean {
   if (typeof v === "string") return v.trim().length > 0;

@@ -160,6 +160,37 @@ describe("checkStructuredData", () => {
     expect(byId["jsonld-breadcrumb"].status).toBe("warn");
     expect(byId["jsonld-breadcrumb"].weight).toBe(1);
   });
+
+  // 2026-09-23: 運営者の型をサイト診断の信頼（audit/extras.ts）とそろえた
+  it("業種の型（Dentist）+ sameAs も運営者の構造化データとして数える", () => {
+    const html = `<script type="application/ld+json">{"@type":"Dentist","name":"さくら歯科","sameAs":["https://x.com/sakura"]}</script>`;
+    const byId = run(html);
+    expect(byId["jsonld-organization"].status).toBe("pass");
+    expect(byId["jsonld-sameas"].status).toBe("pass");
+  });
+
+  // 記事の著者は「このサイトの運営者」ではない
+  it("BlogPosting の author の Person（sameAs つき）を運営者に数えない", () => {
+    const html = `<script type="application/ld+json">{"@type":"BlogPosting","headline":"x","author":{"@type":"Person","name":"山田","sameAs":["https://x.com/yamada"]}}</script>`;
+    const byId = run(html, "https://example.com/blog/1");
+    expect(byId["jsonld-organization"].status).toBe("warn");
+    expect(byId["jsonld-sameas"].status).toBe("fail");
+  });
+
+  it("publisher と @graph の運営者、最上位の Person（個人サイト）は数える", () => {
+    const publisher = `<script type="application/ld+json">{"@type":"BlogPosting","publisher":{"@type":"Organization","name":"X","sameAs":"https://x.com/x"}}</script>`;
+    expect(run(publisher)["jsonld-organization"].status).toBe("pass");
+    expect(run(publisher)["jsonld-sameas"].status).toBe("pass");
+    const graph = `<script type="application/ld+json">{"@graph":[{"@type":"WebSite"},{"@type":"schema:HairSalon","name":"Y"}]}</script>`;
+    expect(run(graph)["jsonld-organization"].status).toBe("pass");
+    const person = `<script type="application/ld+json">{"@type":"Person","name":"山田"}</script>`;
+    expect(run(person)["jsonld-organization"].status).toBe("pass");
+  });
+
+  it("商品のブランドの Organization は運営者に数えない", () => {
+    const html = `<script type="application/ld+json">{"@type":"Product","name":"p","brand":{"@type":"Organization","name":"メーカー"}}</script>`;
+    expect(run(html, "https://example.com/item/1")["jsonld-organization"].status).toBe("warn");
+  });
 });
 
 describe("checkCrawlers の noindex", () => {
