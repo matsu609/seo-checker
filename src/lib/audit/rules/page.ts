@@ -5,6 +5,7 @@
  * DOM もネットワークもここには出てこないので、HTML の断片から作った
  * AuditPage を渡すだけでテストできる。閾値は config.ts の 1 箇所にある。
  */
+import { hasNoindexDirective } from "@/lib/analyzer/meta-tags";
 import { notForSearch } from "@/lib/analyzer/page-kind";
 import { AUDIT_THRESHOLDS } from "../config";
 import { fullWidthCount } from "../parse";
@@ -259,9 +260,11 @@ export const ruleRedirect: PageRule = (page, context) => {
 };
 
 export const ruleNoindex: PageRule = (page) => {
-  const noindex = page.metaRobots.includes("noindex") || page.xRobotsTag.includes("noindex");
+  // `none` と googlebot: noindex も noindex として読む（meta-tags.ts）
+  const fromMeta = hasNoindexDirective(page.metaRobots);
+  const noindex = fromMeta || hasNoindexDirective(page.xRobotsTag);
   if (!noindex) return [];
-  const source = page.metaRobots.includes("noindex") ? `meta robots="${page.metaRobots}"` : `X-Robots-Tag: ${page.xRobotsTag}`;
+  const source = fromMeta ? `meta robots="${page.metaRobots}"` : `X-Robots-Tag: ${page.xRobotsTag}`;
   // サイト内検索の結果・買い物かご・ログイン後の画面などは、検索に載せない方が正しい。
   // 事実として残すが警告にはしない（判定は page-kind.ts）
   const intentional = notForSearch(page.url);

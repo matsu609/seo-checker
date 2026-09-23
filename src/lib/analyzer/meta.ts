@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { check } from "./check";
+import { metaContentByName } from "./meta-tags";
 import type { CheckResult } from "./types";
 
 export interface MetaInfo {
@@ -19,7 +20,8 @@ export function extractMeta($: cheerio.CheerioAPI): MetaInfo {
   };
   return {
     title: text($("head title").first().text() || $("title").first().text()),
-    description: text($('meta[name="description"]').attr("content")),
+    // name は大文字小文字を区別しない（<meta name="Description"> も読む。meta-tags.ts）
+    description: metaContentByName($, "description"),
     ogTitle: text($('meta[property="og:title"]').attr("content")),
     ogDescription: text($('meta[property="og:description"]').attr("content")),
     ogImage: text($('meta[property="og:image"]').attr("content")),

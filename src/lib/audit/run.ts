@@ -10,6 +10,7 @@
 import robotsParser from "robots-parser";
 import { assertHtmlPage } from "@/lib/analyzer";
 import { FetchError, assertPublicHost, fetchText, normalizeUrl, type FetchedText } from "@/lib/analyzer/fetch";
+import { hasNoindexDirective } from "@/lib/analyzer/meta-tags";
 import {
   blockedAmong,
   fetchSiteFiles,
@@ -275,7 +276,7 @@ export function buildResult(input: BuildResultInput): AuditResult {
     inContentInlinks: structureByUrl.get(page.url)?.inContentInlinks ?? 0,
     importance: structureByUrl.get(page.url)?.importance ?? 0,
     canonical: resolveCanonical(page),
-    noindex: page.metaRobots.includes("noindex") || page.xRobotsTag.includes("noindex"),
+    noindex: hasNoindexDirective(page.metaRobots) || hasNoindexDirective(page.xRobotsTag),
     issues: perPage.get(page.url) ?? 0,
   }));
 

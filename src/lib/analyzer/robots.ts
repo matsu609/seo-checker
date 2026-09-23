@@ -2,6 +2,7 @@ import robotsParser from "robots-parser";
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
 import { FetchError, fetchText, looksLikeHtml, type FetchedText } from "./fetch";
+import { hasNoindexDirective, readMetaRobots } from "./meta-tags";
 import { notForSearch, type NotForSearchPage } from "./page-kind";
 import { countBySeverity, lintRobotsTxt } from "./robots-syntax";
 import type { CheckResult, CheckStatus, PageExclusion } from "./types";
@@ -217,14 +218,17 @@ export function extractSitemaps(robotsTxt: string | null): string[] {
   return [...new Set(urls)];
 }
 
-/** meta robots / X-Robots-Tag の noindex を読む（小文字に揃えて返す） */
+/**
+ * meta robots / X-Robots-Tag の noindex を読む（小文字に揃えて返す）。
+ * meta は robots と googlebot をすべて読み、`none` も noindex とみなす（meta-tags.ts）。
+ */
 export function readNoindex(
   $: cheerio.CheerioAPI,
   pageHeaders: Headers,
 ): { noindex: boolean; metaRobots: string; xRobots: string } {
-  const metaRobots = ($('meta[name="robots"]').attr("content") ?? "").toLowerCase();
+  const metaRobots = readMetaRobots($);
   const xRobots = (pageHeaders.get("x-robots-tag") ?? "").toLowerCase();
-  return { noindex: metaRobots.includes("noindex") || xRobots.includes("noindex"), metaRobots, xRobots };
+  return { noindex: hasNoindexDirective(metaRobots) || hasNoindexDirective(xRobots), metaRobots, xRobots };
 }
 
 /** この URL で robots.txt に拒否されている検索用クローラ */

@@ -11,6 +11,7 @@ import { extractContent } from "@/lib/analyzer/content";
 import { extractHeadings, findLevelSkips } from "@/lib/analyzer/headings";
 import { extractJsonLd } from "@/lib/analyzer/jsonld";
 import { extractMeta } from "@/lib/analyzer/meta";
+import { hasMetaName, readMetaRobots } from "@/lib/analyzer/meta-tags";
 import { canonicalizeUrl, extractLinks } from "@/lib/crawl/url";
 import { DEPRECATED_TAGS } from "./config";
 import { extractExtras } from "./extras";
@@ -149,9 +150,10 @@ export function parseAuditPage(fetched: FetchedText, options: ParseOptions = {})
     canonicalCount: $('link[rel="canonical"]').length,
     ogUrl: $('meta[property="og:url"]').attr("content")?.trim() || null,
 
-    metaRobots: ($('meta[name="robots"]').attr("content") ?? "").toLowerCase(),
+    // robots と googlebot をすべて読む（name は大文字小文字を区別しない。meta-tags.ts）
+    metaRobots: readMetaRobots($),
     xRobotsTag: (fetched.headers.get("x-robots-tag") ?? "").toLowerCase(),
-    hasViewport: $('meta[name="viewport"]').length > 0,
+    hasViewport: hasMetaName($, "viewport"),
     hasFaviconLink: $('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').length > 0,
     metaRefresh: $('meta[http-equiv]')
       .filter((_, el) => ($(el).attr("http-equiv") ?? "").toLowerCase() === "refresh")

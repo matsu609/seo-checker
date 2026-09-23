@@ -11,6 +11,7 @@ import { splitTextSentences } from "@/lib/analyzer/sentences";
 import type { FetchedText } from "@/lib/analyzer/fetch";
 import { extractHeadings, findLevelSkips } from "@/lib/analyzer/headings";
 import { extractMeta } from "@/lib/analyzer/meta";
+import { hasNoindexDirective, readMetaRobots } from "@/lib/analyzer/meta-tags";
 import type { HeadingNode, JsonLdNode, PageMeasurements } from "./types";
 
 /** 意味のある要素（div だらけになっていないかを見る） */
@@ -297,11 +298,12 @@ export function measurePage(fetched: FetchedText): PageMeasurements {
     imagesWithDescriptiveAlt,
     altCoverage: images.length > 0 ? imagesWithAlt / images.length : 1,
 
-    metaRobots: ($('meta[name="robots"]').attr("content") ?? "").toLowerCase(),
+    // robots と googlebot をすべて読み、none も noindex とみなす（meta-tags.ts。2026-09-23）
+    metaRobots: readMetaRobots($),
     xRobotsTag: (fetched.headers.get("x-robots-tag") ?? "").toLowerCase(),
     noindex:
-      ($('meta[name="robots"]').attr("content") ?? "").toLowerCase().includes("noindex") ||
-      (fetched.headers.get("x-robots-tag") ?? "").toLowerCase().includes("noindex"),
+      hasNoindexDirective(readMetaRobots($)) ||
+      hasNoindexDirective(fetched.headers.get("x-robots-tag") ?? ""),
   };
 }
 
