@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
-import { Badge, Button, Callout, Card, DataTable, EmptyState, Field, Select, StatCard, type BadgeTone, type Column } from "@/components/ui";
+import { Badge, Button, Callout, Card, CopyButton, DataTable, EmptyState, Field, Select, StatCard, type BadgeTone, type Column } from "@/components/ui";
 import { csvFileName, downloadCsv } from "@/lib/export/csv";
 import { napHistoryStore, pushNapHistory, removeNapHistory, type NapHistoryItem } from "@/lib/nap/store";
 import {
@@ -86,27 +86,6 @@ const ISSUE_CSV = [
   { header: "直し方", value: (i: NapIssue) => i.action },
   { header: "URL", value: (i: NapIssue) => i.url ?? "" },
 ];
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <Button
-      size="sm"
-      variant="ghost"
-      onClick={() => {
-        navigator.clipboard
-          .writeText(text)
-          .then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          })
-          .catch(() => {});
-      }}
-    >
-      {copied ? "コピーしました" : "コピー"}
-    </Button>
-  );
-}
 
 function SourceCell({ source }: { source: NapSource }) {
   return (
@@ -229,7 +208,7 @@ function Result({ data }: { data: NapCheckResult }) {
         <Card
           title="サイトに貼る構造化データ（JSON-LD）"
           description="自社サイトに構造化データが無いか、正と違う値が入っています。この内容をトップページの <head> に貼ると、検索エンジンと生成 AI が正の NAP を読めるようになります。営業時間・説明文まで入れたものは「掲載」タブの「掲載先に登録する」で作れます。"
-          actions={<CopyButton text={data.jsonLdSuggestion} />}
+          actions={<CopyButton text={data.jsonLdSuggestion} variant="ghost" resetMs={1500} />}
         >
           <pre className="max-h-80 overflow-auto rounded-md border border-line bg-panel p-3 font-mono text-[12px] leading-relaxed text-ink">{data.jsonLdSuggestion}</pre>
         </Card>

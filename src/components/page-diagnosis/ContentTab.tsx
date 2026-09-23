@@ -1,9 +1,8 @@
 "use client";
 
-import { Card, EmptyState } from "@/components/ui";
+import { Card, CopyButton, EmptyState } from "@/components/ui";
 import type { StoredDiagnosis } from "@/lib/page-diagnosis/store";
 import { ChatPanel } from "./ChatPanel";
-import { CopyButton } from "./CopyButton";
 
 /** コンテンツ分析タブ: 追加を推奨する箇所 / 概要 / 理由の 3 点セット + AI チャット */
 export function ContentTab({ diagnosis, chatEnabled }: { diagnosis: StoredDiagnosis; chatEnabled: boolean }) {

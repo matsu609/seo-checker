@@ -14,9 +14,8 @@
  *     （構造化データだけに書くと Google のガイドライン違反になる）
  */
 import { useMemo, useState } from "react";
-import { CopyButton } from "@/components/page-diagnosis/CopyButton";
 import { PageTargetField, SiteTargetNotice, useRegisteredSite } from "@/components/site/RegisteredSite";
-import { Badge, Button, Callout, Card, EmptyState, Field, Input } from "@/components/ui";
+import { Badge, Button, Callout, Card, CopyButton, EmptyState, Field, Input } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui/Badge";
 import type { FaqFinding } from "@/lib/faq/audit";
 import type { FaqProposalResult } from "@/lib/faq/propose";

@@ -2,6 +2,7 @@ export { Badge, FeatureIdChips, type BadgeProps, type BadgeTone } from "./Badge"
 export { Button, ButtonLink, buttonClass, type ButtonProps, type ButtonLinkProps, type ButtonSize, type ButtonVariant } from "./Button";
 export { Callout, type CalloutProps } from "./Callout";
 export { Card, type CardProps } from "./Card";
+export { CopyButton, type CopyButtonProps } from "./CopyButton";
 export { DataTable, type Column, type DataTableProps, type SortState, type SortValue } from "./DataTable";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { InlineDiff, type InlineDiffProps } from "./InlineDiff";

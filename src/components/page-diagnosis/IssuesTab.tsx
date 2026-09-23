@@ -1,8 +1,7 @@
 "use client";
 
-import { Card, EmptyState } from "@/components/ui";
+import { Card, CopyButton, EmptyState } from "@/components/ui";
 import type { StoredDiagnosis } from "@/lib/page-diagnosis/store";
-import { CopyButton } from "./CopyButton";
 
 /** 全角換算の文字数（title / description の長さの目安） */
 function fullWidth(text: string): number {
