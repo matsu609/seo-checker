@@ -9,6 +9,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { GoogleLinkError } from "../errors";
+import { AnalysisRecordSchema, type AnalysisRecord } from "./analysis";
 
 /** privateMetadata の中でこのアプリが使うキー */
 export const METADATA_KEY = "googleLink";
@@ -16,17 +17,25 @@ export const METADATA_KEY = "googleLink";
 /** "https://example.com/" または "sc-domain:example.com" */
 export const SiteUrlSchema = z.string().min(1).max(500);
 
-const SettingsSchema = z.object({
-  searchConsoleSiteUrl: SiteUrlSchema.optional(),
-});
+export interface SearchConsoleSettings {
+  searchConsoleSiteUrl?: string;
+  /** 最後に作った AI の分析（月 1 回の判定にも使う） */
+  lastAnalysis?: AnalysisRecord;
+}
 
-export type SearchConsoleSettings = z.infer<typeof SettingsSchema>;
-
-/** 任意の値を設定にする。壊れていれば空（純関数・テスト用に公開）。関係の無いキーは捨てる */
+/**
+ * 任意の値を設定にする（純関数・テスト用に公開）。キーごとに検証し、壊れているキーだけ捨てる
+ * （分析結果が壊れていてもサイトの選択は生かす）。関係の無いキー（旧 GA4 の設定など）は捨てる
+ */
 export function parseSearchConsoleSettings(value: unknown): SearchConsoleSettings {
-  const parsed = SettingsSchema.safeParse(value);
-  if (!parsed.success) return {};
-  return parsed.data.searchConsoleSiteUrl ? { searchConsoleSiteUrl: parsed.data.searchConsoleSiteUrl } : {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const raw = value as Record<string, unknown>;
+  const out: SearchConsoleSettings = {};
+  const site = SiteUrlSchema.safeParse(raw.searchConsoleSiteUrl);
+  if (site.success) out.searchConsoleSiteUrl = site.data;
+  const analysis = AnalysisRecordSchema.safeParse(raw.lastAnalysis);
+  if (analysis.success) out.lastAnalysis = analysis.data;
+  return out;
 }
 
 async function requireUserId(): Promise<string> {
@@ -58,6 +67,15 @@ export async function setSearchConsoleSite(siteUrl: string | null): Promise<Sear
     privateMetadata: { [METADATA_KEY]: { searchConsoleSiteUrl: siteUrl } },
   });
   return parseSearchConsoleSettings((user.privateMetadata as Record<string, unknown>)?.[METADATA_KEY]);
+}
+
+/** AI の分析結果を保存する（前回分は上書き） */
+export async function setLastAnalysis(record: AnalysisRecord): Promise<void> {
+  const userId = await requireUserId();
+  const client = await clerkClient();
+  await client.users.updateUserMetadata(userId, {
+    privateMetadata: { [METADATA_KEY]: { lastAnalysis: record } },
+  });
 }
 
 /** 選択済みのサイト。未選択なら例外 */

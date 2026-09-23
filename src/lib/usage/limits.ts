@@ -20,7 +20,7 @@
  */
 import type { PlanId } from "@/lib/plans/catalog";
 
-export const USAGE_FEATURES = ["faq", "page-diagnosis", "improvement", "prompt-expansion", "rank-measure", "citations", "search-estimate", "nap", "maps-search"] as const;
+export const USAGE_FEATURES = ["faq", "page-diagnosis", "improvement", "prompt-expansion", "rank-measure", "citations", "search-estimate", "nap", "maps-search", "gsc-analysis"] as const;
 export type UsageFeature = (typeof USAGE_FEATURES)[number];
 
 export interface UsageLimitMeta {
@@ -120,6 +120,16 @@ export const USAGE_LIMITS: Record<UsageFeature, UsageLimitMeta> = {
     counts: "店名で探す 1 回（同じ語の取り直しはキャッシュに当たれば数えない）",
     limits: { light: 100, standard: 100, premium: 300 },
     costs: "Places Text Search 1 回",
+  },
+  "gsc-analysis": {
+    key: "gsc-analysis",
+    featureId: "search-console",
+    label: "サーチコンソールの AI 分析",
+    unit: "回",
+    counts: "分析 1 回（毎月 1 日に 1 回分が付き、翌月に持ち越さない。失敗したときは数えない）",
+    // 利用者の指示 2026-09-24「月に 1 回。たまらない」。判定は /api/search-console/analysis が Clerk 側の前回の日時で行う
+    limits: { light: 1, standard: 1, premium: 1 },
+    costs: "Claude Opus 1 回（入力は上位 25 件のキーワードとページ）",
   },
 };
 

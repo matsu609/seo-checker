@@ -518,12 +518,14 @@ const MEASURE: readonly Feature[] = [
       "期間 7 / 28 / 90 / 180 / 365 日の合計と前期比、日別のクリック数の推移",
       "クリックの多い検索キーワード・ページの上位 100 件（並べ替え可）",
       "使えるサイトが無いときは、Search Console への登録・権限の付け方を案内",
+      "AI の現状分析とネクストアクション（どのページ・キーワードから直すか。400 文字程度）。月に 1 回、翌月に持ち越さない",
     ],
     featureIds: [],
     icon: "traffic",
     status: "beta",
-    // 鍵は無い。お客様の Google アカウント（OAuth・webmasters.readonly）で読む
+    // 鍵は無い。お客様の Google アカウント（OAuth・webmasters.readonly）で読む。AI の分析だけ Anthropic
     requires: [],
+    optional: ["anthropic"],
     group: "measure",
     category: "seo",
     plan: "light",

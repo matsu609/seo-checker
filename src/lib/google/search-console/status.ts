@@ -2,7 +2,10 @@
  * 「Google サーチコンソール連携」画面の状態（接続・権限・選べるサイト・選択中のサイト）。サーバー専用。
  * 判定の純関数と型は setup.ts（クライアントからも読むため、サーバー専用の import を持たせない）。
  */
+import { isAdmin } from "@/lib/admin/guard";
+import { isAnthropicEnabled } from "@/lib/llm/anthropic";
 import { GoogleLinkError } from "../errors";
+import { nextAvailableOn, usedThisMonth } from "./analysis";
 import { canUse } from "../scopes";
 import { getGoogleConnection } from "../token";
 import { createSearchConsoleClient } from "./client";
@@ -12,7 +15,10 @@ import { apiScopes, type SearchConsoleStatus } from "./setup";
 export type { SearchConsoleStatus };
 
 export async function loadSearchConsoleStatus(): Promise<SearchConsoleStatus> {
-  const [connection, settings] = await Promise.all([getGoogleConnection(), getSearchConsoleSettings()]);
+  const [connection, settings, staff] = await Promise.all([getGoogleConnection(), getSearchConsoleSettings(), isAdmin()]);
+  const now = new Date();
+  const last = settings.lastAnalysis ?? null;
+  const available = staff || !usedThisMonth(last, now);
   const status: SearchConsoleStatus = {
     connected: connection.connected,
     hasScope: connection.connected && canUse(connection.scopes, "search-console"),
@@ -20,6 +26,7 @@ export async function loadSearchConsoleStatus(): Promise<SearchConsoleStatus> {
     grantedScopes: apiScopes(connection.scopes),
     sites: [],
     siteUrl: settings.searchConsoleSiteUrl ?? null,
+    analysis: { enabled: isAnthropicEnabled(), last, available, nextAvailableOn: available ? null : nextAvailableOn(now) },
   };
   if (!status.hasScope) return status;
   try {

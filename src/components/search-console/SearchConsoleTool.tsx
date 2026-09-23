@@ -22,6 +22,7 @@ import { isUnverifiedSite } from "@/lib/google/search-console/parse";
 import { SEARCH_CONSOLE_PERIODS } from "@/lib/google/search-console/period";
 import { needsSearchConsoleSetup, usableSites, type SearchConsoleStatus } from "@/lib/google/search-console/setup";
 import type { SearchAnalyticsRow, SearchPerformanceResponse } from "@/lib/google/search-console/types";
+import { ANALYSIS_TARGET_CHARS, analysisChars, createdDateJst, formatJpDate, pathOf, type AnalysisRecord } from "@/lib/google/search-console/analysis";
 import { ConnectSearchConsoleButton } from "./ConnectSearchConsoleButton";
 import { changeRate, dayLabel, formatCtr, formatInt, formatPosition, sampleDailyClicks, shortenUrl } from "./format";
 
@@ -32,7 +33,7 @@ export function SearchConsoleTool({ status }: { status: SearchConsoleStatus }) {
   return (
     <div className="space-y-6">
       <ConnectionCard status={status} />
-      {status.hasScope && status.siteUrl ? <PerformanceSection key={status.siteUrl} siteUrl={status.siteUrl} /> : <SamplePreview />}
+      {status.hasScope && status.siteUrl ? <PerformanceSection key={status.siteUrl} siteUrl={status.siteUrl} analysis={status.analysis} /> : <SamplePreview />}
     </div>
   );
 }
@@ -174,7 +175,7 @@ function SetupGuide({ onRefresh, refreshing }: { onRefresh: () => void; refreshi
 }
 
 /** ③検索パフォーマンス（実測） */
-function PerformanceSection({ siteUrl }: { siteUrl: string }) {
+function PerformanceSection({ siteUrl, analysis }: { siteUrl: string; analysis: SearchConsoleStatus["analysis"] }) {
   const [days, setDays] = useState<number>(28);
   const [data, setData] = useState<SearchPerformanceResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -248,6 +249,8 @@ function PerformanceSection({ siteUrl }: { siteUrl: string }) {
         </Callout>
       )}
 
+      <AnalysisCard initial={analysis} days={days} siteUrl={siteUrl} />
+
       {data && <Summary data={data} />}
       {data && (
         <Card title="上位の内訳" description="クリックの多い順に最大 100 件。列の見出しで並べ替えられます。">
@@ -285,6 +288,120 @@ function PerformanceSection({ siteUrl }: { siteUrl: string }) {
         </Card>
       )}
     </div>
+  );
+}
+
+/**
+ * AI の分析（月 1 回）。前回の結果はいつでも見られる。
+ * 1 回しか使えないので、押したら 1 段確かめてから走らせる（押し間違いで今月の分を失わないように）
+ */
+function AnalysisCard({ initial, days, siteUrl }: { initial: SearchConsoleStatus["analysis"]; days: number; siteUrl: string }) {
+  const [last, setLast] = useState<AnalysisRecord | null>(initial.last);
+  const [available, setAvailable] = useState(initial.available);
+  const [nextOn, setNextOn] = useState<string | null>(initial.nextAvailableOn);
+  const [confirming, setConfirming] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run() {
+    setConfirming(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/search-console/analysis", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ days }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (body.code === "usage_limit") {
+          setAvailable(false);
+          setNextOn(body.resetsOn ?? null);
+        }
+        throw new Error(body.error ?? `分析できませんでした（HTTP ${res.status}）`);
+      }
+      setLast(body.analysis as AnalysisRecord);
+      // 運用者は nextAvailableOn が null（回数を数えない）
+      setAvailable(body.nextAvailableOn === null);
+      setNextOn(body.nextAvailableOn ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "分析できませんでした");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const otherSite = last && last.siteUrl !== siteUrl;
+
+  return (
+    <Card
+      title="AI の現状分析とネクストアクション"
+      description={`Search Console の数字（直近 ${days} 日）を AI に読ませ、どのページ・キーワードから手を付けるべきかを ${ANALYSIS_TARGET_CHARS} 文字程度でまとめます。月に 1 回使えます（毎月 1 日に 1 回分が付き、翌月には持ち越しません）。`}
+      actions={
+        initial.enabled && available && !confirming ? (
+          <Button size="sm" loading={loading} onClick={() => setConfirming(true)}>
+            AI で分析する（今月あと 1 回）
+          </Button>
+        ) : null
+      }
+    >
+      {!initial.enabled && <p className="text-[13px] text-muted">AI の分析には、サーバーに ANTHROPIC_API_KEY の設定が必要です。</p>}
+
+      {confirming && (
+        <Callout tone="info" title={`直近 ${days} 日の数字で分析します。今月の 1 回を使います。よろしいですか？`} className="mb-4">
+          <p>期間を変えたいときは、先に上の期間ボタンで選び直してください。失敗したときは回数を消費しません。</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => void run()}>
+              分析する
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
+              やめる
+            </Button>
+          </div>
+        </Callout>
+      )}
+
+      {loading && <p className="text-[13px] text-muted">AI が数字を読んでいます（30 秒〜1 分ほど）…</p>}
+
+      {error && (
+        <Callout tone="warn" className="mb-4">
+          {error}
+        </Callout>
+      )}
+
+      {initial.enabled && !available && nextOn && (
+        <p className="mb-3 text-[12px] text-muted">今月の分析は使用済みです。次は {formatJpDate(nextOn)}から使えます。</p>
+      )}
+
+      {last ? (
+        <div className="space-y-4 text-[13px] leading-relaxed">
+          <p className="text-[11px] text-muted">
+            {formatJpDate(createdDateJst(last.createdAt))}に作成 ・ 対象 {last.range.startDate} 〜 {last.range.endDate} ・ {analysisChars(last)} 文字
+            {otherSite && `（別のサイト ${last.siteUrl} の分析です）`}
+          </p>
+          <div>
+            <h3 className="mb-1.5 text-sm font-bold text-ink">現状分析</h3>
+            <p className="text-ink">{last.summary}</p>
+          </div>
+          <div>
+            <h3 className="mb-1.5 text-sm font-bold text-ink">ネクストアクション</h3>
+            <ol className="space-y-2">
+              {last.actions.map((a, i) => (
+                <li key={i} className="border-l-2 border-accent pl-3 text-ink">
+                  <span className="mr-1 font-bold tabular-nums">{i + 1}.</span>
+                  <span className="break-all font-bold">{a.target.startsWith("http") ? pathOf(a.target) : a.target}</span>
+                  <span className="block">{a.action}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <p className="text-[11px] text-muted">AI は Search Console の数字だけを読んで書いています。ページの中身は見ていないので、直す前に該当ページを開いて確かめてください。</p>
+        </div>
+      ) : (
+        !confirming && !loading && initial.enabled && <p className="text-[13px] text-muted">まだ分析していません。「AI で分析する」を押すと、ここに現状分析とネクストアクション 3 件が出ます。</p>
+      )}
+    </Card>
   );
 }
 

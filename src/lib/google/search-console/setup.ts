@@ -8,6 +8,7 @@
  * 1 や 2 のときに「まだ登録がありません」と出すと、原因の違う相手に的外れな作業をさせてしまう。
  */
 import { isUnverifiedSite } from "./parse";
+import type { AnalysisRecord } from "./analysis";
 import type { SearchConsoleSite } from "./types";
 
 export interface SearchConsoleStatus {
@@ -25,6 +26,16 @@ export interface SearchConsoleStatus {
   siteUrl: string | null;
   /** 一覧の取得に失敗した理由 */
   error?: string;
+  /** AI の分析（月 1 回）。前回の結果と、今月まだ使えるか */
+  analysis: {
+    /** ANTHROPIC_API_KEY があるか */
+    enabled: boolean;
+    last: AnalysisRecord | null;
+    /** 今月まだ使えるか（運用者は常に true） */
+    available: boolean;
+    /** 次に使える日（YYYY-MM-DD）。使える間は null */
+    nextAvailableOn: string | null;
+  };
 }
 
 /** 実際に選べるサイト。所有権が未確認のものは選んでも 403 になるので外す */
