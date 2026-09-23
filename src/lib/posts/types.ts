@@ -8,11 +8,17 @@ export const POST_TOPICS = ["STANDARD", "EVENT", "OFFER"] as const;
 export type PostTopic = (typeof POST_TOPICS)[number];
 export const POST_TOPIC_LABELS: Record<PostTopic, string> = { STANDARD: "最新情報", EVENT: "イベント", OFFER: "クーポン・特典" };
 
-export const POST_STATUSES = ["draft", "scheduled", "published", "failed", "cancelled"] as const;
+/**
+ * publishing（送信中）は 2026-09-23 に追加。Google に送る前に「送る権利」を取った印で、
+ * 同じ投稿を定期処理と「今すぐ投稿」が同時に送る（二重投稿）のを防ぐ（store.ts の claimPost）。
+ * gbp_posts.status は text で CHECK 制約が無いので、テーブルの変更は要らない。
+ */
+export const POST_STATUSES = ["draft", "scheduled", "publishing", "published", "failed", "cancelled"] as const;
 export type PostStatus = (typeof POST_STATUSES)[number];
 export const POST_STATUS_LABELS: Record<PostStatus, string> = {
   draft: "下書き",
   scheduled: "予約済み",
+  publishing: "送信中",
   published: "投稿済み",
   failed: "失敗",
   cancelled: "取り消し",

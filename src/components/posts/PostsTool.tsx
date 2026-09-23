@@ -29,7 +29,7 @@ import { formatDateTime } from "@/lib/report/format";
 import { WEEKDAY_LABELS_JA } from "@/lib/time/jst";
 import { CadenceCard } from "./CadenceCard";
 
-const STATUS_TONE: Record<GbpPost["status"], "pass" | "info" | "warn" | "fail" | "neutral"> = { draft: "neutral", scheduled: "info", published: "pass", failed: "fail", cancelled: "neutral" };
+const STATUS_TONE: Record<GbpPost["status"], "pass" | "info" | "warn" | "fail" | "neutral"> = { draft: "neutral", scheduled: "info", publishing: "info", published: "pass", failed: "fail", cancelled: "neutral" };
 
 async function readError(res: Response): Promise<string> {
   try {
@@ -218,7 +218,8 @@ function PostRow({ post, googleReady, onChanged }: { post: GbpPost; googleReady:
   });
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const editable = post.status !== "published";
+  // 送信中（2026-09-23 追加）は中身を変えられない。取り消しだけ出す
+  const editable = post.status !== "published" && post.status !== "publishing";
   const errors = validatePost(form);
 
   async function patch(action?: "schedule" | "draft" | "cancel") {
@@ -324,6 +325,13 @@ function PostRow({ post, googleReady, onChanged }: { post: GbpPost; googleReady:
           </div>
           {editable && errors.length > 0 && <p className="text-[12px] text-warn">{errors.join("。")}</p>}
           {message && <p className="text-[12px] text-ink">{message}</p>}
+          {post.status === "publishing" && (
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="ghost" onClick={() => void patch("cancel")} loading={busy === "cancel"} disabled={busy !== null}>
+                取り消し
+              </Button>
+            </div>
+          )}
           {editable && (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => void patch()} loading={busy === "save"} disabled={busy !== null}>
