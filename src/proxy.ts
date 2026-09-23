@@ -1,9 +1,10 @@
 /**
  * ログインの入口（Next.js 16 の proxy。旧 middleware.ts から改名された）。
  *
- * src/lib/auth/routes.ts の判定で保護対象のパスだけ Clerk に通す。
- * 無料診断（/ と /api/analyze・/api/site・/api/faq）は見込み顧客の入口なので
- * 未ログインでも通す。
+ * src/lib/auth/routes.ts の判定で保護対象のパスだけログインを求める。
+ * 無料診断の画面（/ と /meo）は見込み顧客の入口なので未ログインでも開けるが、画面側（src/lib/free/gate.ts）が
+ * 登録フォームへ送る。その裏側の API（/api/analyze・/api/site・/api/faq・/api/meo/*）は 2026-09-18 から
+ * ログイン必須（登録したメールアドレスごとに回数制限。src/lib/free/quota.ts）。
  *
  * Clerk のキーが未設定なら素通りさせる。開発と E2E ではキーを置かないため、
  * ここで落とすとダミーサイトでのスモークが動かなくなる。未設定のまま本番に

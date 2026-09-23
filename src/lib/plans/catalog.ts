@@ -24,6 +24,15 @@
  * 「高いので下げてほしい」にはクーポンではなくライトを案内する。同じ商品を値引きすると定価が崩れる。
  */
 
+/**
+ * 基本情報掲載（NAP 一括登録）の掲載先の数。料金表・registry・クイック診断の導線の文言に使う。
+ *
+ * 正本は src/lib/listings/media.ts の LISTING_MEDIA。ここで数だけを持つのは、このファイル（と registry）が
+ * サイドバーなどブラウザの全ページに入るので、媒体の一覧（説明文つきで大きい）まで一緒に配らないため。
+ * 一覧と数がずれたら src/lib/features/__tests__/copy-facts.test.ts が落ちる（2026-09-23。「26 媒体」が残っていた）。
+ */
+export const LISTING_MEDIA_COUNT = 30;
+
 export const PLAN_IDS = ["free", "light", "standard", "premium"] as const;
 export type PlanId = (typeof PLAN_IDS)[number];
 
@@ -94,7 +103,7 @@ export const PLANS: readonly Plan[] = [
     summary: "ライトのすべて（精密診断を含む診断と計測）に加えて、AI が改修案・FAQ・返信文まで作ります。「どう直すか」の方針で終わらず、そのまま貼れるものが出てくる段階です。",
     highlights: [
       "ライトのすべて（SEO・AIO・MEO の診断と計測）",
-      "AIO の土台: 30 媒体への基本情報の一括掲載（NAP）と llms.txt 生成。AI 検索モニタリング（ChatGPT / Gemini / Claude / Perplexity / Google AI Overviews / AI モード で自社が引用・参照される割合を毎週計測し、競合と比較）",
+      `AIO の土台: ${LISTING_MEDIA_COUNT} 媒体への基本情報の一括掲載（NAP）と llms.txt 生成。AI 検索モニタリング（ChatGPT / Gemini / Claude / Perplexity / Google AI Overviews / AI モード で自社が引用・参照される割合を毎週計測し、競合と比較）`,
       "SEO: ページ改善（直すべき箇所を before → after の形で AI が作成）と FAQ 提案（AI 検索に引用されやすい想定問答を作り、貼れる HTML と構造化データにする）。ホームページへの反映はお客様・運用者が行います（このサービスは書き換えません）",
       "MEO: 口コミ支援（店内 QR のアンケート）と、口コミへの AI 返信案。MEO だけは反映まで行います（Google ビジネス プロフィールを接続すると、返信と投稿をこの画面から送れます）",
       "ライトとの差は月 12,000 円。AI が作るツールがすべて開きます",

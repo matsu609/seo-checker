@@ -16,15 +16,19 @@ import { LineChart, StackedBar } from "@/components/charts";
 import { Badge, Callout, Card, StatCard } from "@/components/ui";
 import { assumptions, COST_SERIES, costSteps, DEFAULT_COST_INPUT, estimateMonthlyCost, seriesTotals, type CostInput } from "@/lib/cost/model";
 import { INTEGRATIONS, PRICING_CHECKED_AT } from "@/lib/features/integrations";
+import { PLAN_BY_ID } from "@/lib/plans/catalog";
 import { palette } from "@/lib/ui/palette";
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString("ja-JP")}`;
 
+/** 選択肢に出す「スタンダード（50,000 円）」。金額は catalog.ts から（2026-09-23 まで直書きだった） */
+const planWithPrice = (id: "light" | "standard") => `${PLAN_BY_ID[id].label}（${PLAN_BY_ID[id].priceYen.toLocaleString("ja-JP")} 円）`;
+
 /** スタンダードの割合の選択肢 */
 const RATIO_OPTIONS = [
-  { value: 1, label: "全店スタンダード（50,000 円）" },
-  { value: 0.5, label: "半々（ライト / スタンダード）" },
-  { value: 0, label: "全店ライト（38,000 円）" },
+  { value: 1, label: `全店${planWithPrice("standard")}` },
+  { value: 0.5, label: `半々（${PLAN_BY_ID.light.label} / ${PLAN_BY_ID.standard.label}）` },
+  { value: 0, label: `全店${planWithPrice("light")}` },
 ] as const;
 
 export function CostForecastCard() {

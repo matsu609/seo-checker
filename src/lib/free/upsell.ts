@@ -1,8 +1,8 @@
 /**
  * クイック診断から本サービス（精密診断）への導線に出す文言。純粋なデータだけを置く。
  *
- * クイック診断（`/` と `/meo`）は本サービスから切り離した集客の入口で、ログイン無しで
- * 誰にでも渡せる URL にしてある（利用者の決定 2026-09-13）。無料で完結させないために、
+ * クイック診断（`/` と `/meo`）は本サービスから切り離した集客の入口で、誰にでも渡せる URL にしてある
+ * （利用者の決定 2026-09-13。2026-09-18 から診断にはアカウント登録が要り、メールアドレスごとに回数制限がある）。無料で完結させないために、
  * 結果の直後に「クイック診断で分かるのはここまで」「精密診断で分かること」を必ず出す。
  *
  * 呼び名は「浅い / 深い」で分ける。値段（無料 / 有料）を名前にすると比べる軸が値段になり、
@@ -12,7 +12,10 @@
  * ずらさないため。機能の一覧そのものは registry.ts、価格は catalog.ts が持つ。
  */
 
-/** クイック診断の URL（ログイン不要。src/lib/auth/routes.ts の PUBLIC_PAGES と一致させる） */
+import { requireFeature } from "@/lib/features/registry";
+import { LISTING_MEDIA_COUNT } from "@/lib/plans/catalog";
+
+/** クイック診断の URL（ページはログイン前でも開ける。診断にはアカウント登録が要る。src/lib/auth/routes.ts の PUBLIC_PAGES と一致させる） */
 export const FREE_PATHS = { site: "/", meo: "/meo" } as const;
 export type FreeKind = keyof typeof FREE_PATHS;
 
@@ -38,7 +41,8 @@ export const UPSELL: Record<FreeKind, UpsellCopy> = {
     limit: "クイック診断は、公開されている HTML だけを見たルールベースの採点です。実際に何で検索されて何位なのか、AI 検索に引用されているのか、どこを直せば上がるのかまでは分かりません。",
     points: [
       "狙うキーワードの順位を毎週自動で記録し、上下の理由まで追える",
-      "ChatGPT などの生成 AI に自社が引用されているかを継続監視（LLMO モニタリング）",
+      // 機能の名前は registry から（2026-09-23 まで r92 で引退した旧称「LLMO モニタリング」のままだった）
+      `ChatGPT などの生成 AI に自社が引用されているかを継続監視（${requireFeature("geo").shortLabel}）`,
       "AI が改修案を before → after の形で作成。FAQ もそのまま貼れる形で出力",
     ],
     cta: "精密診断をはじめる",
@@ -50,7 +54,8 @@ export const UPSELL: Record<FreeKind, UpsellCopy> = {
       "採点は 21 項目から 28 項目へ（属性・オーナー写真・写真の解像度・口コミのキーワード・Google の警告）",
       "競合 5 店舗との比較表と、AI による総評",
       "毎週月曜に自動で取り直して推移を記録。直した効果が数字で残る",
-      "口コミ支援（店内 QR のアンケートと AI の返信下書き）と、26 媒体への基本情報の一括掲載",
+      // 媒体数は catalog.ts の LISTING_MEDIA_COUNT（掲載先の一覧と同じ数。2026-09-23 まで「26 媒体」のままだった）
+      `口コミ支援（店内 QR のアンケートと AI の返信下書き）と、${LISTING_MEDIA_COUNT} 媒体への基本情報の一括掲載`,
     ],
     cta: "精密診断をはじめる",
   },
