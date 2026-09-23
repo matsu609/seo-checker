@@ -12,6 +12,7 @@
  *   - お客様の ID / パスワードは預からない。API は本人が接続したアカウントの権限で送る
  *   - 送れなかった媒体を「送った」と書かない。理由をそのまま画面に出す
  */
+import { csvCell as safeCsvCell } from "@/lib/export/csv";
 import { LISTING_MEDIA, mediaById, type ListingMedia, type MediaIntegration } from "./media";
 import { parseHoursText, stateOf, type ListingProfile, type ListingStates } from "./profile";
 
@@ -87,10 +88,14 @@ export function statesAfterPublish(states: ListingStates, results: readonly Publ
 
 /* ───────────── CSV ───────────── */
 
-/** カンマ・引用符・改行を含む値を CSV の 1 セルにする */
+/**
+ * 値を CSV の 1 セルにする（改行は空白にして 1 行に収める。カンマ・引用符を含めば引用符で囲む）。
+ *
+ * 2026-09-23: 先頭が = + - @ の値を無効化していなかった（入稿シートを Excel で開くと数式として動く
+ * = CSV インジェクション）。無効化とエスケープは共通の src/lib/export/csv.ts に任せる。
+ */
 export function csvCell(value: string): string {
-  const v = value.replace(/\r?\n/g, " ").trim();
-  return /[",]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  return safeCsvCell(value.replace(/\r?\n/g, " ").trim());
 }
 
 export function csvLines(rows: readonly (readonly string[])[]): string {

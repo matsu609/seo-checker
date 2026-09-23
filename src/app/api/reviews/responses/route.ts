@@ -9,25 +9,17 @@ import { badRequest, isUuid, NO_STORE, ownedForm, requireReviewsUser } from "@/l
 import { responsesToCsv } from "@/lib/reviews/csv";
 import { listChannels, type ReviewChannel } from "@/lib/reviews/forms";
 import { computeMetrics, type ReviewMetrics } from "@/lib/reviews/metrics";
+import { jstDayStartIso } from "@/lib/reviews/range";
 import { listResponses, RESPONSE_STATUSES, RESPONSES_LIMIT, type ListFilter, type ResponseStatus, type ReviewResponse } from "@/lib/reviews/responses";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
-
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface ReviewsResponsesResponse {
   responses: ReviewResponse[];
   channels: ReviewChannel[];
   metrics: ReviewMetrics;
   limit: number;
-}
-
-/** 日付（JST の 0:00）→ ISO。to は翌日 0:00 */
-function jstStart(date: string, addDays = 0): string {
-  const d = new Date(`${date}T00:00:00+09:00`);
-  d.setUTCDate(d.getUTCDate() + addDays);
-  return d.toISOString();
 }
 
 export async function GET(request: Request) {
@@ -51,13 +43,17 @@ export async function GET(request: Request) {
   }
   const from = params.get("from");
   const to = params.get("to");
+  // 日付は JST の 0:00（to は翌日 0:00 未満）。存在しない日付（2026-13-01 など）は 400
+  // （2026-09-23 まで 13 月は検証の外で RangeError になり 500 を返していた）
   if (from) {
-    if (!DATE.test(from)) return badRequest("開始日の形式が正しくありません");
-    filter.from = jstStart(from);
+    const iso = jstDayStartIso(from);
+    if (!iso) return badRequest("開始日の形式が正しくありません");
+    filter.from = iso;
   }
   if (to) {
-    if (!DATE.test(to)) return badRequest("終了日の形式が正しくありません");
-    filter.to = jstStart(to, 1);
+    const iso = jstDayStartIso(to, 1);
+    if (!iso) return badRequest("終了日の形式が正しくありません");
+    filter.to = iso;
   }
 
   try {

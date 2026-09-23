@@ -9,7 +9,7 @@
  *   - 予約済み（scheduled）… `scheduledAt`。まだ起きていないので破線で描く
  * 下書き・取り消し・失敗は数えない（Google マップに出ていないため）。
  */
-import { jstWeekStart } from "@/lib/time/jst";
+import { addDays, jstDate, jstDateKey, jstWeekStart } from "@/lib/time/jst";
 import type { GbpPost } from "./types";
 
 export interface CadenceWeek {
@@ -28,12 +28,10 @@ export const IDEAL_PER_WEEK = 1;
 export const WEEKS_BACK = 8;
 export const WEEKS_AHEAD = 4;
 
-/** 月曜（YYYY-MM-DD）に週数を足す */
+/** 月曜（YYYY-MM-DD、JST）に週数を足す（手書きの日付計算を time/jst.ts に寄せた。2026-09-23） */
 function shiftWeek(weekStart: string, weeks: number): string {
   const [y, m, d] = weekStart.split("-").map(Number);
-  const date = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + weeks * 7));
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${date.getUTCFullYear()}-${p(date.getUTCMonth() + 1)}-${p(date.getUTCDate())}`;
+  return jstDateKey(addDays(jstDate(y ?? 1970, m ?? 1, d ?? 1), weeks * 7));
 }
 
 /**

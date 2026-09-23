@@ -65,6 +65,17 @@ describe("csv", () => {
     expect(csvCell(" a ")).toBe("a");
   });
 
+  it("先頭が = + - @ の値は数式として動かないよう無効化する（CSV インジェクション。2026-09-23）", () => {
+    expect(csvCell('=HYPERLINK("https://evil.example","x")')).toBe(`"'=HYPERLINK(""https://evil.example"",""x"")"`);
+    expect(csvCell("@SUM(A1)")).toBe("'@SUM(A1)");
+    expect(csvCell("-1+2")).toBe("'-1+2");
+    // 前後の空白を落としてから見る（空白で隠した = も無効化する）
+    expect(csvCell("  =1+1")).toBe("'=1+1");
+    const csv = yahooPlaceCsv({ ...profile, longDescription: "=cmd|' /C calc'!A0" });
+    expect(csv).toContain(`'=cmd|' /C calc'!A0`);
+    expect(csv).not.toMatch(/,=cmd/);
+  });
+
   it("営業時間を 1 行にまとめる（定休日は落とす）", () => {
     expect(hoursOneLine(profile)).toBe("月 10:00-19:00");
   });
