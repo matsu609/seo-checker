@@ -126,6 +126,20 @@ describe("publishPost", () => {
     expect(bodyOf(last.init)).toMatchObject({ status: "published", google_name: "accounts/1/locations/2/localPosts/9" });
   });
 
+  it("ビジネスを探す呼び出しと投稿の呼び出しで、トークンは 1 回だけ取る", async () => {
+    fakeDb({ claimRows: [{ ...ROW, status: "publishing", location_name: null }] });
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("/accounts?")) return Response.json({ accounts: [{ name: "accounts/1" }] });
+      if (url.includes("/locations?")) return Response.json({ locations: [{ name: "locations/2", title: "本店", metadata: { placeId: ROW.place_id } }] });
+      return Response.json({ name: "accounts/1/locations/2/localPosts/9" });
+    }) as unknown as typeof fetch;
+    const getToken = vi.fn(async () => "tok");
+    const outcome = await publishPost("user_1", { ...POST, locationName: null }, { fetchImpl, getToken, now: NOW });
+    expect(outcome.ok).toBe(true);
+    expect(outcome.post.locationName).toBe("accounts/1/locations/2");
+    expect(getToken).toHaveBeenCalledTimes(1);
+  });
+
   it("Google には送れたが記録の保存に失敗しても「失敗」に戻さない（戻すと次の押下で 2 回目が出る）", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     fakeDb({ patch: () => new Response("", { status: 500 }) });

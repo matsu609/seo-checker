@@ -11,6 +11,7 @@
  *   3. 送る権利を取ったあとは例外を投げない（定期処理が 1 件の失敗でほかの利用者の投稿まで止めないように）
  */
 import { createLocalPost, findLocationByPlaceId, type BusinessProfileOptions } from "@/lib/google/business-profile";
+import { withResolvedToken } from "@/lib/google/call";
 import { GoogleLinkError } from "@/lib/google/errors";
 import { validatePost } from "./schedule";
 import { claimPost, updatePost } from "./store";
@@ -47,6 +48,8 @@ export async function publishPost(userId: string, post: GbpPost, options: Publis
 
   // 送る内容は権利を取った時点のもの（読んでから取るまでの間に編集されていても、その内容で送る）
   const target = claimed;
+  // ビジネスを探す呼び出しと投稿の呼び出しで、トークンは 1 回だけ取る
+  const google = withResolvedToken(options, "business-profile");
   const fail = async (message: string): Promise<PublishOutcome> => {
     let failed: GbpPost | null = null;
     try {
@@ -67,7 +70,7 @@ export async function publishPost(userId: string, post: GbpPost, options: Publis
     if (!locationName) {
       locationName = options.locations?.get(target.placeId) ?? null;
       if (!locationName) {
-        const found = await findLocationByPlaceId(target.placeId, options);
+        const found = await findLocationByPlaceId(target.placeId, google);
         locationName = found?.name ?? null;
         if (found && options.locations) options.locations.set(target.placeId, found.name);
       }
@@ -75,7 +78,7 @@ export async function publishPost(userId: string, post: GbpPost, options: Publis
         return fail("接続した Google アカウントの中に、この店舗のビジネス プロフィールが見つかりませんでした。その店舗の管理者アカウントで接続し直してください。");
       }
     }
-    result = await createLocalPost(locationName, target, options);
+    result = await createLocalPost(locationName, target, google);
   } catch (err) {
     if (!(err instanceof GoogleLinkError)) console.error("[posts] 投稿に失敗", err);
     return fail(err instanceof GoogleLinkError ? err.message : "Google への投稿に失敗しました。時間をおいて再度お試しください。");
