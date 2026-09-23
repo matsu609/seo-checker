@@ -183,7 +183,7 @@ npm run dev                  # http://localhost:3000
 上から順に見て、最初に決まったものを使います。
 
 1. **ログインが未設定** … すべて `premium` 扱い（開発・E2E で全機能を開けたままにするため）
-2. **Stripe の契約状態**（`publicMetadata.stripe`。Webhook が書く。`STRIPE_TRIAL_DAYS` を付けたときの `trialing` も契約中として扱う）… 有効・トライアル・支払い遅延なら、契約状態に保存した `plan`（Webhook が Price ID から引く）。保存が無い古い契約はスタンダード扱い。Clerk Billing の `has({ plan })` も残っていますが使っていません
+2. **Stripe の契約状態**（`publicMetadata.stripe`。Webhook が書く。`STRIPE_TRIAL_DAYS` を付けたときの `trialing` も契約中として扱う）… 有効・トライアル・支払い遅延なら、契約状態に保存した `plan`（Webhook が Price ID から引く）。保存が無い古い契約はスタンダード扱い（Clerk Billing の `has({ plan })` を見る段は、使っていないので 2026-09-23 に外しました）
 3. **Clerk の `publicMetadata.plan`** … 決済を入れる前に、運用者がダッシュボードで `"free"` / `"light"` / `"standard"` / `"premium"` を割り当てます
 4. **`DEFAULT_PLAN` 環境変数** … 全員へ一律で開放したいとき
 5. どれも無ければ `free`
@@ -201,7 +201,7 @@ npm run dev                  # http://localhost:3000
 
 鍵・スタンダードの Price・Webhook がそろうと `/plans` の料金表に各プランの「申し込む」（契約前）が出て、契約後は「お支払い方法の変更・請求書・解約」が出ます（`src/components/plans/PlanCheckoutButton.tsx` と `src/components/plans/StripeBillingCard.tsx`）。`STRIPE_PRICE_LIGHT` が未設定ならライトの「申し込む」だけが出ません。テストキー（`sk_test_`）のときは画面に「テストモード」と出ます。未設定なら案内文が「プラン変更は運用者までご連絡ください」に変わり、上の 3（`publicMetadata.plan`）を手で割り当てる運用になります。割引コード（`PROMO_CODES`）が設定してあれば、料金表の上に「割引コードをお持ちの方」の入力欄が出ます（`src/components/plans/PromoCodeField.tsx`、`src/lib/billing/promo.ts`）。
 
-`NEXT_PUBLIC_CLERK_BILLING_ENABLED=1` の Clerk Billing の料金表（`BillingTable.tsx`）は残してありますが、Stripe が設定されているときは出しません。
+Clerk Billing（ドルのみ）の料金表と `NEXT_PUBLIC_CLERK_BILLING_ENABLED` は、使っていなかったので 2026-09-23 に外しました。
 
 ### バージョン（マージ回数）
 
@@ -242,9 +242,9 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 
 | 見えるもの | 出どころ |
 |---|---|
-| 契約状況（契約中 / 無料トライアル / 支払い遅延 / 解約手続き済み / 契約なし） | Clerk Billing |
-| 月額（割引後）と割引前の額 | Clerk Billing の次回請求 |
-| クーポン（名称・コード・割引率または割引額・残り回数） | Clerk Billing の割引 |
+| 契約状況（契約中 / 無料トライアル中 / 支払い遅延 / 未払い / 一時停止 / 解約済み / 契約なし。解約の予約は「（期間末で解約予定）」） | Stripe の契約状態（`publicMetadata.stripe`。Webhook が書く）。呼び名はお客様の料金画面と同じ表 |
+| 月額（割引後）と割引前の額 | 同上 |
+| クーポン（名称・コード・割引率または割引額・残り回数） | 同上 |
 | 次回請求日・登録日・最終利用日 | Clerk |
 | **機能の個別開放（チェックボックス）** | Clerk の `publicMetadata.featureOverrides` |
 | **割引（スタンダード専用の 10 パターン）** | Clerk の `publicMetadata.promo` |
@@ -401,7 +401,6 @@ Google Cloud・Clerk・アプリの分担は [docs/dev/services.md](docs/dev/ser
 | `STRIPE_PRICE_PREMIUM` | 任意。プレミアム（伴走）の Price ID。料金画面には出ないが、支払いリンク・請求書で立てた契約をプレミアムとして記録するために使う |
 | `PROMO_CODES` | 割引コードの一覧。`CODE=pattern` をカンマまたは改行で区切る。pattern は `off10` `off20` `off30` `off40` `off50`（月額 1〜5 万円引き・永続。`off50` = ずっと無料）／`free`（30 日無料）／`free-off10` `free-off20` `free-off30` `free-off40`（30 日無料 + 月額の値引き）。スタンダード専用。未設定なら入力欄が出ない。コードは推測されにくい長さ（8 文字以上）にする |
 | `STRIPE_TRIAL_DAYS` | 全員に付ける無料期間の日数（既定 `0` = トライアルなし。無料期間は割引コードの `free` 系で相手ごとに渡す）。正の数にすると特商法ページと料金画面の文面もその日数に従う |
-| `NEXT_PUBLIC_CLERK_BILLING_ENABLED` | `1` のとき `/plans` に Clerk Billing（ドルのみ）の料金表を出す。Stripe が設定されていれば出さない |
 | `ADMIN_EMAILS` | マスター画面（`/admin`）を開けるメールアドレス。未設定なら誰も入れない |
 | `SITE_MAX_PAGES` | クロール上限（既定 300、最大 1000） |
 | `NEXT_PUBLIC_SERVICE_GUIDE_URL` | サービス資料の配布ファイル。未設定ならアプリが資料を組み立てて PDF にする |

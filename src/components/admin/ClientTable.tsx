@@ -196,23 +196,7 @@ export function ClientTable({
                   <dd className="mt-1 text-sm text-ink">
                     {planLabel(row.plan)}
                     <span className="ml-1 text-[11px] text-muted">（{planSourceLabel(row.planSource)}）</span>
-                    {/*
-                      Clerk 側のプラン名は、アプリのプラン名と食い違うときだけ出す。
-                      同じときに並べても読みにくいだけで、ずれているときが問題なので。
-                    */}
-                    {row.billing.planName && row.billing.planName !== planLabel(row.plan) && (
-                      <span
-                        className={`ml-1 text-[11px] ${row.billing.plan === null ? "text-warn" : "text-muted"}`}
-                        title={
-                          row.billing.plan === null
-                            ? "Clerk 側のプランのスラッグが light / standard / premium のいずれでもありません。このままだと決済は通っても機能が開きません。"
-                            : undefined
-                        }
-                      >
-                        Clerk: {row.billing.planName}
-                        {row.billing.plan === null && " ⚠"}
-                      </span>
-                    )}
+                    {/* 2026-09-23: Clerk Billing のプラン名（「Clerk: …」）の表示は、Clerk Billing を使っていないので外した */}
                   </dd>
                 </div>
                 <div>

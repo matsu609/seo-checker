@@ -42,14 +42,6 @@ export interface Plan {
   priceFrom?: boolean;
   summary: string;
   highlights: readonly string[];
-  /**
-   * Clerk Billing（決済の実体は Stripe）のプラン識別子。
-   *
-   * 形式は `user:<スラッグ>`。Clerk ダッシュボードの「請求する」で作るプランの
-   * スラッグを、この id と同じ文字列にしておくこと。
-   * ずれると購入しても機能が開かない。plans.test.ts で形式を固定している。
-   */
-  clerkPlan: string;
   /** 料金表（/plans と紹介サイト）に出すか。false は内部の段階 */
   listed: boolean;
   /** 申し込みの方法 */
@@ -74,7 +66,6 @@ export const PLANS: readonly Plan[] = [
       "ツールはご利用いただけません（料金プランの画面からお申し込みできます）",
       "いつでも解約できます。割引コードをお持ちの方は、料金プランの画面の「割引コードをお持ちの方」で入力してください",
     ],
-    clerkPlan: "user:free",
     listed: false,
     checkout: "none",
     shortLabel: "無料",
@@ -92,7 +83,6 @@ export const PLANS: readonly Plan[] = [
       "Google サーチコンソールの連携は任意です（接続すると実測のクリック数と検索キーワードも見られます。接続しなくても検索の状況はドメインから推定します）。Google アナリティクスは使いません",
       "いつでも解約できます。割引コードをお持ちの方は、料金プランの画面の「割引コードをお持ちの方」で入力してください",
     ],
-    clerkPlan: "user:light",
     listed: true,
     checkout: "stripe",
     shortLabel: "有料",
@@ -110,7 +100,6 @@ export const PLANS: readonly Plan[] = [
       "ライトとの差は月 12,000 円。AI が作るツールがすべて開きます",
       "いつでも解約できます。割引コードをお持ちの方は、料金プランの画面の「割引コードをお持ちの方」で入力してください",
     ],
-    clerkPlan: "user:standard",
     listed: true,
     checkout: "stripe",
     recommended: true,
@@ -131,7 +120,6 @@ export const PLANS: readonly Plan[] = [
       "料金は 150,000 円からで、ご依頼の範囲によって変わります。まずはご相談ください",
       "運営者が手を動かす枠のため、月 3 社までとさせていただきます",
     ],
-    clerkPlan: "user:premium",
     listed: true,
     checkout: "contact",
     limitNote: "月 3 社まで・お見積り",

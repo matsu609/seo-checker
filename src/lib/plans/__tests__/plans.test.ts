@@ -213,27 +213,6 @@ describe("売るのは 3 段階（ライト / スタンダード / プレミア�
   });
 });
 
-describe("Clerk Billing（Stripe）のプラン識別子", () => {
-  // Clerk ダッシュボードで作るプランのスラッグと、この表の id がずれると
-  // 「決済は通ったのに機能が開かない」という最悪の壊れ方をする。
-  it("すべて user:<プラン id> の形", () => {
-    for (const plan of PLANS) {
-      expect(plan.clerkPlan, `${plan.id} の clerkPlan`).toBe(`user:${plan.id}`);
-    }
-  });
-
-  it("clerkPlan を戻すと元のプラン id になる", () => {
-    for (const plan of PLANS) {
-      expect(toPlanId(plan.clerkPlan)).toBe(plan.id);
-    }
-  });
-
-  it("プラン id と clerkPlan は一対一", () => {
-    const slugs = PLANS.map((p) => p.clerkPlan);
-    expect(new Set(slugs).size).toBe(PLANS.length);
-  });
-});
-
 /**
  * 運用者と管理アカウントの扱い。
  *

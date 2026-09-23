@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { summarizeStripeState } from "@/lib/admin/billing";
-import { hasStripeSubscription, planFromStripeState, shouldApplyEvent, stateFromSubscription, STRIPE_STATE_KEY, stripeStateFromMetadata } from "../state";
+import { hasStripeSubscription, planFromStripeState, shouldApplyEvent, stateFromSubscription, STRIPE_STATE_KEY, stripeStateFromMetadata, stripeStatusLabel } from "../state";
 
 const SUB = {
   id: "sub_1",
@@ -61,5 +61,13 @@ describe("Stripe の契約状態", () => {
     expect(canceling.status).toBe("canceled");
     expect(canceling.nextPaymentAt).toBeNull();
     expect(summarizeStripeState(stateFromSubscription({ ...SUB, status: "canceled" }, 1))).toMatchObject({ status: "ended", plan: null, planName: "Stripe: 契約なし" });
+  });
+
+  it("契約状況の呼び名（お客様向けは支払い遅延にカードの確認を添える。解約予約は契約中の間だけ）", () => {
+    const base = stateFromSubscription(SUB, 1, { plan: "standard" });
+    expect(stripeStatusLabel({ ...base, status: "past_due" })).toBe("支払い遅延（カードをご確認ください）");
+    expect(stripeStatusLabel({ ...base, status: "past_due" }, "operator")).toBe("支払い遅延");
+    expect(stripeStatusLabel({ ...base, cancelAtPeriodEnd: true })).toBe("契約中（期間末で解約予定）");
+    expect(stripeStatusLabel({ ...base, status: "canceled", cancelAtPeriodEnd: true })).toBe("解約済み");
   });
 });

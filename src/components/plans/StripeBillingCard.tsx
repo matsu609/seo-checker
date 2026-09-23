@@ -11,7 +11,8 @@ import { useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
-import { hasStripeSubscription, planFromStripeState, STRIPE_STATUS_LABELS, type StripeState } from "@/lib/billing/state";
+import { moneyFromMinor } from "@/lib/billing/money";
+import { hasStripeSubscription, planFromStripeState, stripeStatusLabel, type StripeState } from "@/lib/billing/state";
 import { planLabel } from "@/lib/plans/catalog";
 import { formatDateTime } from "@/lib/report/format";
 
@@ -36,10 +37,10 @@ async function open(path: string): Promise<string> {
   return body.url;
 }
 
+/** 月額の表示（通貨の桁は billing/money.ts。顧客管理と同じ関数） */
 function formatAmount(state: StripeState): string | null {
   if (state.amount === null || !state.currency) return null;
-  const zeroDecimal = ["JPY", "KRW", "VND"].includes(state.currency);
-  return new Intl.NumberFormat("ja-JP", { style: "currency", currency: state.currency, minimumFractionDigits: zeroDecimal ? 0 : 2 }).format(zeroDecimal ? state.amount : state.amount / 100);
+  return moneyFromMinor(state.amount, state.currency)?.label ?? null;
 }
 
 export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, trialDays, firstToolPath }: StripeBillingCardProps) {
@@ -99,8 +100,7 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, tr
           <div>
             <dt className="text-muted">契約状況</dt>
             <dd className="font-bold text-ink">
-              {STRIPE_STATUS_LABELS[state.status]}
-              {state.cancelAtPeriodEnd && subscribed ? "（期間末で解約予定）" : ""}
+              {stripeStatusLabel(state, "customer")}
             </dd>
           </div>
           {formatAmount(state) && (

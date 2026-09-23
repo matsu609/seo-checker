@@ -6,7 +6,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { isAdminEmail, parseAdminEmails } from "../config";
-import { summarizeSubscription, toContractStatus, toMoney } from "../billing";
+import { stateFromSubscription } from "@/lib/billing/state";
+import { contractStatusOf, NO_CONTRACT, summarizeBilling, summarizeStripeState, toMoney } from "../billing";
 
 describe("管理者メールの読み取り", () => {
   it("カンマ・空白・改行で区切れる", () => {
@@ -84,142 +85,43 @@ describe("金額の表示", () => {
   });
 });
 
-describe("契約状況", () => {
-  it("Clerk の値を日本語の区分に直す", () => {
-    expect(toContractStatus("active", false)).toBe("active");
-    expect(toContractStatus("past_due", false)).toBe("past_due");
-    expect(toContractStatus("canceled", false)).toBe("canceled");
-    expect(toContractStatus("ended", false)).toBe("ended");
-  });
-
-  // トライアル中は status が active のままなので、item 側を見ないと分からない
-  it("無料トライアルが最優先", () => {
-    expect(toContractStatus("active", true)).toBe("trial");
-  });
-
-  it("知らない値は unknown", () => {
-    expect(toContractStatus("something", false)).toBe("unknown");
-    expect(toContractStatus(null, false)).toBe("unknown");
-  });
-});
-
-describe("契約情報のまとめ", () => {
-  const subscription = {
+describe("契約状況（Stripe の契約状態から）", () => {
+  const SUB = {
+    id: "sub_1",
     status: "active",
-    subscriptionItems: [
-      {
-        status: "active",
-        isFreeTrial: false,
-        periodEnd: 1_700_000_000_000,
-        amount: { amount: 5000, currency: "JPY" },
-        plan: { name: "スタンダード", slug: "standard" },
-      },
-    ],
-    nextPayment: {
-      date: 1_700_000_000_000,
-      amount: { amount: 4000, currency: "JPY" },
-      totals: {
-        subtotal: { amount: 5000, currency: "JPY" },
-        grandTotal: { amount: 4000, currency: "JPY" },
-        discounts: {
-          discount: {
-            name: "初回割引",
-            effect: "percentage",
-            percentOff: 20,
-            promoCode: "HAJIME20",
-            amount: { amount: 1000, currency: "JPY" },
-            cyclesRemaining: 3,
-          },
-        },
-      },
-    },
+    cancel_at_period_end: false,
+    items: { data: [{ price: { id: "price_standard", unit_amount: 50_000, currency: "jpy" }, current_period_end: 1_760_000_000 }] },
   };
+  const state = (status: string, cancelAtPeriodEnd = false) =>
+    stateFromSubscription({ ...SUB, status, cancel_at_period_end: cancelAtPeriodEnd }, 1, { plan: "standard" });
 
-  it("プラン・金額・次回請求を取り出す", () => {
-    const s = summarizeSubscription(subscription);
-    expect(s.status).toBe("active");
-    expect(s.plan).toBe("standard");
-    expect(s.planName).toBe("スタンダード");
-    expect(s.monthly?.value).toBe(4000);
-    expect(s.nextPaymentAt).toBe(1_700_000_000_000);
+  it("色分けの区分", () => {
+    expect(contractStatusOf(state("active"))).toBe("active");
+    expect(contractStatusOf(state("trialing"))).toBe("trial");
+    expect(contractStatusOf(state("past_due"))).toBe("past_due");
+    expect(contractStatusOf(state("active", true))).toBe("canceled");
+    expect(contractStatusOf(state("canceled"))).toBe("ended");
+    expect(contractStatusOf(state("incomplete_expired"))).toBe("ended");
+    expect(contractStatusOf(state("incomplete"))).toBe("upcoming");
   });
 
-  // 請求されるのは割引後。ここを間違えると売上の見立てがずれる
-  it("月額は割引後の金額", () => {
-    const s = summarizeSubscription(subscription);
-    expect(s.monthly?.value).toBe(4000);
-    expect(s.subtotal?.value).toBe(5000);
+  // 2026-09-23 まで未払いは「終了」、一時停止は「不明」と出ていた。どちらも Stripe 上は契約が残っていて対応が要る
+  it("未払い・一時停止は終了扱いにせず、お客様の画面と同じ呼び名で出す", () => {
+    expect(contractStatusOf(state("unpaid"))).toBe("past_due");
+    expect(summarizeStripeState(state("unpaid")).statusLabel).toBe("未払い（停止中）");
+    expect(contractStatusOf(state("paused"))).toBe("canceled");
+    expect(summarizeStripeState(state("paused")).statusLabel).toBe("一時停止");
   });
 
-  it("クーポンの内容を取り出す", () => {
-    const s = summarizeSubscription(subscription);
-    expect(s.coupon?.name).toBe("初回割引");
-    expect(s.coupon?.promoCode).toBe("HAJIME20");
-    expect(s.coupon?.effectLabel).toBe("20% 割引");
-    expect(s.coupon?.amount?.value).toBe(1000);
-    expect(s.coupon?.cyclesRemaining).toBe(3);
+  it("呼び名はお客様の画面と同じ表から引く（運用者向けにはカードの確認の一言を付けない）", () => {
+    expect(summarizeStripeState(state("past_due")).statusLabel).toBe("支払い遅延");
+    expect(summarizeStripeState(state("active", true)).statusLabel).toBe("契約中（期間末で解約予定）");
   });
 
-  it("金額での割引も読める", () => {
-    const s = summarizeSubscription({
-      status: "active",
-      subscriptionItems: [{ status: "active" }],
-      nextPayment: {
-        totals: {
-          grandTotal: { amount: 4000, currency: "JPY" },
-          discounts: {
-            discount: { name: "紹介", effect: "fixed_amount", amountOff: { amount: 1000, currency: "JPY" } },
-          },
-        },
-      },
-    });
-    expect(s.coupon?.effectLabel).toContain("1,000");
-    expect(s.coupon?.promoCode).toBeNull();
-  });
-
-  it("クーポンが無ければ null", () => {
-    const s = summarizeSubscription({
-      status: "active",
-      subscriptionItems: [{ status: "active", plan: { name: "プロ", slug: "pro" } }],
-      nextPayment: { date: 1, amount: { amount: 10000, currency: "JPY" }, totals: null },
-    });
-    expect(s.coupon).toBeNull();
-    expect(s.monthly?.value).toBe(10000);
-  });
-
-  // 契約が無いユーザーは 404 になるので null が渡ってくる
   it("契約が無ければ「契約なし」", () => {
-    const s = summarizeSubscription(null);
-    expect(s.status).toBe("none");
-    expect(s.statusLabel).toBe("契約なし");
-    expect(s.monthly).toBeNull();
-    expect(s.plan).toBeNull();
-  });
-
-  // 公開ベータの API なので、形が変わっても画面ごと落とさない
-  it("壊れた値でも落ちない", () => {
-    expect(() => summarizeSubscription({ subscriptionItems: "x", nextPayment: 3 })).not.toThrow();
-    expect(summarizeSubscription({ subscriptionItems: [null, 1] }).status).toBe("unknown");
-  });
-
-  it("終わった item は無視して今の契約を見る", () => {
-    const s = summarizeSubscription({
-      status: "active",
-      subscriptionItems: [
-        { status: "ended", plan: { name: "旧", slug: "free" } },
-        { status: "active", plan: { name: "スタンダード", slug: "standard" } },
-      ],
-    });
-    expect(s.plan).toBe("standard");
-  });
-
-  // Clerk 側のスラッグを打ち間違えると「決済は通ったのに機能が開かない」
-  it("知らないスラッグは null にして、名前だけ残す", () => {
-    const s = summarizeSubscription({
-      status: "active",
-      subscriptionItems: [{ status: "active", plan: { name: "特別プラン", slug: "tokubetsu" } }],
-    });
-    expect(s.plan).toBeNull();
-    expect(s.planName).toBe("特別プラン");
+    expect(summarizeBilling(null)).toEqual(NO_CONTRACT);
+    expect(NO_CONTRACT.statusLabel).toBe("契約なし");
+    expect(NO_CONTRACT.plan).toBeNull();
+    expect(summarizeBilling(state("active")).plan).toBe("standard");
   });
 });

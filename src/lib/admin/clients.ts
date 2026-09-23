@@ -1,20 +1,20 @@
 /**
  * 顧客管理（/clients）に出す顧客一覧。サーバー専用。
  *
- * Clerk のユーザー一覧に、Billing の契約情報と機能の個別開放を重ねる。
+ * Clerk のユーザー一覧に、Stripe の契約情報（publicMetadata.stripe）と機能の個別開放を重ねる。
  * ここでもデータベースは持たない。
  *
- * 契約情報はユーザー 1 人につき 1 回 API を呼ぶ。顧客数が数百のうちは
- * これで足りるが、増えたら一覧と明細を分ける必要がある（PAGE_SIZE で上限を切る）。
- * 1 人分が失敗しても一覧全体は出す（Promise.allSettled）。
+ * 契約情報はユーザー一覧に載っている publicMetadata から読むので、人数ぶんの API 呼び出しは無い。
+ * 2026-09-23 まで Clerk Billing の契約を 1 人ずつ引いていた（getUserBillingSubscription）が、
+ * Clerk Billing は使っていない（ドルのみ）ので全員「契約なし」で返っていただけだった。外した。
  */
 import { clerkClient } from "@clerk/nextjs/server";
-import { planFromStripeState, stripeStateFromMetadata } from "@/lib/billing/state";
+import { stripeStateFromMetadata } from "@/lib/billing/state";
 import { defaultPlanFromEnv } from "@/lib/plans/current";
 import { overridesFromMetadata, toggleOverride, OVERRIDES_KEY } from "@/lib/plans/overrides";
-import { resolveUserPlan, type PlanSource } from "@/lib/plans/resolve";
+import { resolvePlanFromMetadata, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
-import { summarizeStripeState, summarizeSubscription, type BillingSummary } from "./billing";
+import { summarizeBilling, type BillingSummary } from "./billing";
 import { adminEmails, isAdminEmail } from "./config";
 import { isAgencyMetadata } from "./roles";
 
@@ -69,8 +69,6 @@ export interface ClientRow {
   freeRuns: number;
   /** 設定済みの割引（パターン名。スタンダードの申し込みに付く）。無ければ null */
   promo: string | null;
-  /** 契約情報の取得に失敗した理由（画面に出して、金額を空欄と取り違えないようにする） */
-  billingError?: string;
 }
 
 export interface ClientList {
@@ -125,30 +123,14 @@ export async function listUsers(max = MAX_SCAN): Promise<{ users: ClerkUserLike[
 }
 
 /**
- * ユーザーの一覧に契約情報を重ねて行にする。人数ぶんの API 呼び出しになるので、
- * 呼ぶ前に必ず絞り込んでおくこと。
+ * ユーザーの一覧に契約情報を重ねて行にする（純粋。Clerk には問い合わせない）。
+ * プランの決め方はログイン中の本人・定期処理と同じ resolvePlanFromMetadata（plans/resolve.ts）。
  */
-export async function buildClientRows(users: ClerkUserLike[]): Promise<ClientRow[]> {
-  const client = await clerkClient();
-  const envDefault = defaultPlanFromEnv();
-
-  const settled = await Promise.allSettled(
-    users.map((u) => client.billing.getUserBillingSubscription(u.id)),
-  );
-
-  return users.map((user, i) => {
-    const result = settled[i];
-    // 契約が無いユーザーは 404 で落ちる。これは異常ではないので「契約なし」として扱う
-    const subscription = result.status === "fulfilled" ? result.value : null;
-    // Stripe 直結の契約があればそれが正（Clerk Billing はドルのみのため使っていない）
-    const stripe = stripeStateFromMetadata(user.publicMetadata);
-    const billing = stripe ? summarizeStripeState(stripe) : summarizeSubscription(subscription);
+export function buildClientRows(users: ClerkUserLike[], envDefault: PlanId | null = defaultPlanFromEnv()): ClientRow[] {
+  return users.map((user) => {
+    const billing = summarizeBilling(stripeStateFromMetadata(user.publicMetadata));
     const overrides = overridesFromMetadata(user.publicMetadata);
-    const { plan, source } = resolveUserPlan({
-      billingPlan: stripe ? planFromStripeState(stripe) : billing.plan,
-      metadataPlan: (user.publicMetadata as Record<string, unknown> | null)?.plan,
-      envDefault,
-    });
+    const { plan, source } = resolvePlanFromMetadata(user.publicMetadata, envDefault);
     return {
       userId: user.id,
       email: primaryEmail(user),
@@ -182,7 +164,7 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
       !isAgencyMetadata(u.publicMetadata) &&
       !u.emailAddresses.some((e) => isAdminEmail(e.emailAddress, admins)),
   );
-  const rows = await buildClientRows(customers);
+  const rows = buildClientRows(customers);
   // 総数からも外す。全体をなめていない（limit で切っている）ので、外した分だけ引く
   const total = Math.max(0, totalCount - (all.length - customers.length));
 

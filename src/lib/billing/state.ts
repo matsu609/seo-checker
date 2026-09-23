@@ -108,13 +108,29 @@ export function stateFromSubscription(sub: SubscriptionLike, eventCreated: numbe
   };
 }
 
+/**
+ * 契約状況の呼び名。お客様の画面（StripeBillingCard）と顧客管理（admin/billing.ts）の両方がここを使う。
+ * 2026-09-23 まで顧客管理は別の対応表を持っていて、未払い（unpaid）を「終了」、一時停止（paused）を
+ * 「不明」と出していた（どちらも Stripe 上は契約が残っている状態）。
+ */
 export const STRIPE_STATUS_LABELS: Record<StripeStatus, string> = {
   trialing: "無料トライアル中",
   active: "契約中",
-  past_due: "支払い遅延（カードをご確認ください）",
+  past_due: "支払い遅延",
   canceled: "解約済み",
   unpaid: "未払い（停止中）",
   incomplete: "お支払い未完了",
   incomplete_expired: "お支払い期限切れ",
   paused: "一時停止",
 };
+
+/**
+ * 契約状況の表示。customer はお客様の画面用で、支払い遅延にカードの確認を促す一言を添える。
+ * 解約の予約が入っていて、まだ契約が生きているときは「（期間末で解約予定）」を付ける。
+ */
+export function stripeStatusLabel(state: StripeState, audience: "customer" | "operator" = "customer"): string {
+  const base = STRIPE_STATUS_LABELS[state.status];
+  const hint = audience === "customer" && state.status === "past_due" ? "（カードをご確認ください）" : "";
+  const canceling = state.cancelAtPeriodEnd && hasStripeSubscription(state) ? "（期間末で解約予定）" : "";
+  return `${base}${hint}${canceling}`;
+}
