@@ -68,8 +68,13 @@ export async function scanSite(input: string, options: ScanOptions = {}): Promis
   const entryPage = await fetchText(entry.toString());
   assertHtmlPage(entryPage);
 
-  const origin = new URL(entryPage.finalUrl).origin;
-  const entryUrl = canonicalizeUrl(entry.toString()) ?? entry.toString();
+  // オリジンと入力ページの URL は、どちらもリダイレクト後の URL から取る（analyzer/site.ts と同じ）。
+  // 2026-09-23: 入力ページだけ転送前の URL だと、裸のドメイン → www や http → https の
+  // サイトで crawlSite が入力ページを別オリジンとして捨て、サイトマップが無いと候補が 0 件になっていた
+  const finalEntry = new URL(entryPage.finalUrl);
+  if (finalEntry.origin !== entry.origin) await assertPublicHost(finalEntry);
+  const origin = finalEntry.origin;
+  const entryUrl = canonicalizeUrl(finalEntry.toString()) ?? finalEntry.toString();
   const siteFiles = await fetchSiteFiles(origin);
 
   const include = parsePatterns(options.includePaths ?? "");
