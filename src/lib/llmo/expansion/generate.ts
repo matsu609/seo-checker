@@ -106,7 +106,7 @@ export const llmPromptGenerator: PromptGenerator = async ({ seedPrompts, site, c
     model: "default",
     system: SYSTEM,
     maxTokens: 8_000,
-    temperature: 1,
+    // temperature は渡さない（claude-opus-5 は sampling の指定を 400 で拒否する。既定の 1 と同じ。2026-09-23）
     prompt,
     ...(signal ? { signal } : {}),
   });

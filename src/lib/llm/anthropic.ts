@@ -16,6 +16,21 @@ export const MODELS = {
 
 export type ModelKind = keyof typeof MODELS;
 
+/**
+ * そのモデルに temperature / top_p / top_k を渡してよいか（2026-09-23）。
+ *
+ * Claude Opus 4.7 以降（Opus 4.8 / Opus 5 / Sonnet 5 / Fable / Mythos）は sampling の指定を
+ * **HTTP 400 で拒否する**。既定の claude-opus-5 に temperature を渡していた生成は毎回失敗していた。
+ * 受け付けると分かっている世代（4.6 以前と 3 系）だけを許し、知らないモデルは渡さない側に倒す
+ * （渡さなくてもモデル既定の値で動くだけで、400 よりずっとまし）。環境変数で
+ * LLM_MODEL / LLM_FAST_MODEL を差し替えても壊れないようにするための関門。
+ */
+export function acceptsSamplingParams(model: string): boolean {
+  // Bedrock などの接頭辞（anthropic.）と日付の接尾辞は見ない
+  const id = model.trim().toLowerCase().replace(/^anthropic\./, "");
+  return /^claude-(haiku|sonnet|opus)-4-[0-6](?![0-9])/.test(id) || /^claude-(haiku|sonnet|opus)-4(?![-0-9])/.test(id) || /^claude-(3|instant)/.test(id);
+}
+
 export function isAnthropicEnabled(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
 }

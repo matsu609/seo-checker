@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { extractCitations, extractSearchQueries, extractSearchResults, extractText, WEB_SEARCH_TOOL } from "../anthropic";
+import { acceptsSamplingParams, extractCitations, extractSearchQueries, extractSearchResults, extractText, WEB_SEARCH_TOOL } from "../anthropic";
+
+describe("temperature を渡してよいモデル（2026-09-23）", () => {
+  it("Opus 4.7 以降・Opus 5・Sonnet 5・Fable には渡さない（400 で拒否されるため）", () => {
+    for (const id of ["claude-opus-5", "claude-opus-5-5", "claude-opus-4-7", "claude-opus-4-8", "claude-sonnet-5", "claude-fable-5-1", "claude-mythos-5-1", "anthropic.claude-opus-5"]) {
+      expect(acceptsSamplingParams(id)).toBe(false);
+    }
+  });
+
+  it("Haiku 4.5・Sonnet / Opus 4.6 以前・3 系には渡してよい", () => {
+    for (const id of ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-6", "claude-sonnet-4-5-20250929", "claude-opus-4", "claude-3-5-haiku-latest"]) {
+      expect(acceptsSamplingParams(id)).toBe(true);
+    }
+  });
+
+  it("知らないモデルには渡さない（渡さなくても動く。400 よりまし）", () => {
+    expect(acceptsSamplingParams("claude-haiku-5")).toBe(false);
+    expect(acceptsSamplingParams("something-else")).toBe(false);
+  });
+});
 
 /** Web 検索を使った回答の形（SDK の型に合わせた手書きの例） */
 const message = {
