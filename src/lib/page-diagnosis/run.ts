@@ -42,9 +42,23 @@ export interface RunDiagnosisInput {
   now?: Date;
 }
 
-/** 同じページを 2 度取らないための正規化キー */
-function urlKey(url: string): string {
-  return url.trim().replace(/[#?].*$/, "").replace(/\/$/, "").toLowerCase();
+/**
+ * 同じページを 2 度取らないための正規化キー。スキーム・www の有無・末尾のスラッシュ・
+ * クエリとフラグメント・大文字小文字の違いを無視する。
+ * 2026-09-23: 以前は文字列の末尾を削るだけだったため、入力が `example.com/service` で
+ * 検索結果が `https://www.example.com/service/` のとき別のページとみなし、
+ * お客様のページを Top10 の平均（比較相手）に混ぜていた。
+ */
+export function urlKey(url: string): string {
+  const raw = url.trim();
+  try {
+    const parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
+    const path = parsed.pathname.replace(/\/+$/, "");
+    return `${host}${path}`.toLowerCase();
+  } catch {
+    return raw.replace(/[#?].*$/, "").replace(/\/$/, "").toLowerCase();
+  }
 }
 
 export async function runDiagnosis(input: RunDiagnosisInput): Promise<DiagnosisResult> {
