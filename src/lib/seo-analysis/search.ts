@@ -11,9 +11,18 @@ import type { SheetKeywordResult, SheetSearch } from "./sheet/types";
 
 const MAX_KEYWORDS = 5;
 
+/**
+ * URL からホスト名（先頭の www. を落として小文字）を取る。
+ * スキームの無い `example.com` も受け付ける（2026-09-23）。プロジェクトの競合は
+ * `normalizeDomain` を通した裸のホスト名で保存されるため、以前は "" になって
+ * 競合の順位が常に空だった。
+ */
 export function hostOf(url: string): string {
+  const raw = url.trim();
+  if (!raw) return "";
   try {
-    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+    return new URL(withScheme).hostname.replace(/^www\./, "").toLowerCase();
   } catch {
     return "";
   }

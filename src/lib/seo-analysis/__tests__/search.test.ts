@@ -58,6 +58,25 @@ describe("検索での見え方", () => {
     expect(queries.map((q) => q.q)).toEqual(["kw1", "site:example.test", "サンプル工房"]);
   });
 
+  it("スキームの無い競合（プロジェクトに保存された裸のホスト名）でも順位を引く", async () => {
+    // 2026-09-23 まで hostOf が "" を返し、競合の順位が常に空だった
+    expect(hostOf("rival.jp")).toBe("rival.jp");
+    expect(hostOf("www.Rival.jp/path")).toBe("rival.jp");
+    expect(hostOf("")).toBe("");
+    const provider: SerpProvider = {
+      name: "test",
+      async search(q) {
+        return result(q.q, ["https://www.rival.jp/a", "https://example.test/service", "https://other.jp/"]);
+      },
+    };
+    const { search } = await collectSearch({ origin: "https://example.test", keywords: ["kw"], competitors: ["rival.jp", "other.jp", "none.jp"], brand: "x", homeTitle: null, provider });
+    expect(search.keywords[0].competitors).toEqual([
+      { host: "rival.jp", rank: 1 },
+      { host: "other.jp", rank: 3 },
+      { host: "none.jp", rank: null },
+    ]);
+  });
+
   it("プロバイダが無ければ何もせず注記だけ", async () => {
     const { search, enabled } = await collectSearch({ origin: "https://example.test", keywords: ["a"], competitors: [], brand: "", homeTitle: null, provider: null });
     expect(enabled).toBe(false);
