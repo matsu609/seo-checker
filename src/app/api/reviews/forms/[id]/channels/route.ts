@@ -8,6 +8,7 @@
  * DELETE … ?channel=<id>
  */
 import { z } from "zod";
+import { httpsUrlSchema } from "@/lib/api/url";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { listStores } from "@/lib/maps/stores";
 import { badRequest, isUuid, NO_STORE, ownedForm, readJson, requireReviewsUser } from "@/lib/reviews/api";
@@ -27,7 +28,8 @@ const BodySchema = z.union([
       label: z.string().trim().max(CHANNEL_LABEL_MAX).optional(),
       storeName: z.string().trim().max(STORE_NAME_MAX).optional(),
       placeId: z.string().regex(PLACE_ID, "Place ID が正しくありません").optional(),
-      writeReviewUrl: z.string().url("投稿 URL の形式が正しくありません").max(500).optional(),
+      // https:// だけ（z.string().url() は javascript: も通す。来店客の画面で開くリンクなので。2026-09-23）
+      writeReviewUrl: httpsUrlSchema("投稿 URL は https:// から入力してください").optional(),
     })
     .refine((b) => (b.label && b.label.length > 0) || (b.storeName && b.storeName.length > 0), {
       message: "ラベルか店名を入力してください",

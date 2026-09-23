@@ -6,6 +6,7 @@
  * DELETE … 消す（回答と QR も外部キーの cascade で消える）
  */
 import { z } from "zod";
+import { httpsUrlSchema } from "@/lib/api/url";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { badRequest, NO_STORE, ownedForm, readJson, requireReviewsUser } from "@/lib/reviews/api";
 import { deleteForm, listChannels, updateForm, writeReviewUrlFor, type FormPatch, type ReviewChannel, type ReviewForm } from "@/lib/reviews/forms";
@@ -20,7 +21,8 @@ const BodySchema = z.object({
   title: z.string().trim().min(1, "アンケートの名前を入力してください").max(TITLE_MAX).optional(),
   storeName: z.string().trim().min(1, "店名を入力してください").max(STORE_NAME_MAX).optional(),
   placeId: z.string().regex(PLACE_ID, "Place ID が正しくありません").nullable().optional(),
-  writeReviewUrl: z.string().url("投稿 URL の形式が正しくありません").max(500).nullable().optional(),
+  // https:// だけ（z.string().url() は javascript: も通す。来店客の画面で開くリンクなので。2026-09-23）
+  writeReviewUrl: httpsUrlSchema("投稿 URL は https:// から入力してください").nullable().optional(),
   questions: QuestionsSchema.optional(),
   settings: ReviewFormSettingsSchema.optional(),
   active: z.boolean().optional(),

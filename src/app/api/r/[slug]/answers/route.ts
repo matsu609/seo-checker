@@ -30,6 +30,7 @@ import { isLowRating, RawAnswersSchema, validateAnswers } from "@/lib/reviews/qu
 import { insertResponse, newEditToken, type DraftSource } from "@/lib/reviews/responses";
 import { notifyUser } from "@/lib/notifications/notify";
 import { NO_STORE } from "@/lib/api/headers";
+import { safeHttpsUrl } from "@/lib/api/url";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -128,7 +129,8 @@ export async function POST(request: Request, context: Ctx) {
       isLow,
       draft,
       draftSource: source,
-      writeReviewUrl: store.writeReviewUrl,
+      // 最後の確認。2026-09-23 より前に保存された javascript: などが残っていても来店客の画面には渡さない
+      writeReviewUrl: safeHttpsUrl(store.writeReviewUrl),
     };
     return Response.json(body, { status: 201, headers: NO_STORE });
   } catch (err) {

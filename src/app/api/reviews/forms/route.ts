@@ -6,6 +6,7 @@
  *        QR の発行単位「店舗（共通）」を 1 つ付けて返す。店舗ごとの QR は /api/reviews/forms/[id]/channels で足す
  */
 import { z } from "zod";
+import { httpsUrlSchema } from "@/lib/api/url";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { listStores } from "@/lib/maps/stores";
 import { badRequest, NO_STORE, readJson, requireReviewsUser } from "@/lib/reviews/api";
@@ -23,7 +24,8 @@ const BodySchema = z.object({
   storeName: z.string().trim().min(1, "店名を入力してください").max(STORE_NAME_MAX),
   industry: z.enum(INDUSTRIES).default("other"),
   placeId: z.string().regex(PLACE_ID, "Place ID が正しくありません").nullable().optional(),
-  writeReviewUrl: z.string().url().max(500).nullable().optional(),
+  // https:// だけ（z.string().url() は javascript: も通す。来店客の画面で開くリンクなので。2026-09-23）
+  writeReviewUrl: httpsUrlSchema("投稿 URL は https:// から入力してください").nullable().optional(),
 });
 
 export interface ReviewsStoreOption {
