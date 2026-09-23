@@ -396,10 +396,19 @@ describe("weeklySeries", () => {
 
 describe("sampleSeries（実測ではない見本）", () => {
   it("横軸は過去ではなく「これからの週」（もう測った数字に見せない）", () => {
-    // NOW = 2026-09-16（水）。その週の月曜は 09-14
-    expect(comingWeekStarts(SAMPLE_WEEKS, NOW)).toEqual(["2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05"]);
+    // NOW = 2026-09-16（水）。今週の月曜（09-14）はもう過去なので、次の月曜から（2026-09-23 に修正。
+    // 以前は今週の月曜から始まり、火〜日曜に開くと 1 本目が過去の日付になっていた）
+    expect(comingWeekStarts(SAMPLE_WEEKS, NOW)).toEqual(["2026-09-21", "2026-09-28", "2026-10-05", "2026-10-12"]);
+    for (const w of comingWeekStarts(SAMPLE_WEEKS, NOW)) expect(w > "2026-09-16").toBe(true);
     // recentWeekStarts（実測用）は逆に過去へ伸びる
     expect(recentWeekStarts(SAMPLE_WEEKS, NOW)[0] < comingWeekStarts(SAMPLE_WEEKS, NOW)[0]).toBe(true);
+  });
+
+  it("月曜は 5:00 の定期実行の前なら今週から、過ぎていれば来週から", () => {
+    // 2026-09-14（月）4:00 JST
+    expect(comingWeekStarts(2, new Date("2026-09-13T19:00:00Z"))).toEqual(["2026-09-14", "2026-09-21"]);
+    // 2026-09-14（月）12:00 JST
+    expect(comingWeekStarts(2, new Date("2026-09-14T03:00:00Z"))).toEqual(["2026-09-21", "2026-09-28"]);
   });
 
   it("利用者が登録した言葉を使う。無ければ一般的な例に置き換える", () => {

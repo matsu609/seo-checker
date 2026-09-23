@@ -9,30 +9,29 @@
  * （AI 検索モニタリング r149・順位計測 r158 で同じ判断をしている）。
  *
  * 日付はすべて日本時間で数える。Vercel のサーバーは UTC なので、
- * `new Date().getDate()` のようなローカル時刻の計算は日本の日付と 9 時間ずれる。
+ * `new Date().getDate()` のようなローカル時刻の計算は日本の日付と 9 時間ずれる
+ * （サーバーの描画とブラウザの描画で日付が食い違い、hydration のずれにもなる）。
+ *
+ * 見本の横軸は**すべてここを通す**（2026-09-23 に AI 検索モニタリング・順位計測の独自実装をまとめた）。
  */
-import { jstParts } from "@/lib/time/jst";
+import { CRON_HOUR_JST } from "@/lib/jobs/schedule";
+import { addDays, jstDateKey, jstParts, nextWeekdayAtJst } from "@/lib/time/jst";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** YYYY-MM-DD（日本時間の日付） */
-function key(year: number, month: number, day: number): string {
-  // month / day は 0 や 13 のような値でもよい（Date が繰り上げる）
-  const d = new Date(Date.UTC(year, month - 1, day));
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
-}
-
 /**
- * これから来る `weekday`（0 = 日曜）の日付を、古い順に `count` 個返す。
- * 今日がその曜日なら今日から数える。
+ * これから来る `weekday`（0 = 日曜）の計測日を、古い順に `count` 個返す。
+ *
+ * 計測は定期実行（日本時間の `hour` 時。既定は 5:00）で入るので、**今日がその曜日でも、
+ * 定期実行の時刻を過ぎていれば今日は「これから」ではない**（もう測った日）→ 次の週から数える。
+ * 時刻より前なら今日から数える（2026-09-23。以前は時刻を見ず、測り終えた今日を未来として描いていた）。
  *
  * 例: 毎週月曜 5:00 の一斉更新なら `weekday = 1`。
  */
-export function comingWeekdays(count: number, weekday: number, now = new Date()): string[] {
-  const p = jstParts(now);
-  const ahead = (((weekday - p.weekday) % 7) + 7) % 7;
+export function comingWeekdays(count: number, weekday: number, now = new Date(), hour = CRON_HOUR_JST): string[] {
+  const first = nextWeekdayAtJst(now, weekday, hour);
   const out: string[] = [];
-  for (let i = 0; i < count; i += 1) out.push(key(p.year, p.month, p.day + ahead + i * 7));
+  for (let i = 0; i < count; i += 1) out.push(jstDateKey(addDays(first, i * 7)));
   return out;
 }
 

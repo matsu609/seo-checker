@@ -135,6 +135,16 @@ describe("クレジット（§6）", () => {
     expect(needsReset(nextResetAt(new Date("2026-09-16T00:00:00Z")), new Date("2026-09-16T00:00:00Z"))).toBe(false);
     expect(needsReset("2026-09-01T00:00:00Z", new Date("2026-09-16T00:00:00Z"))).toBe(true);
   });
+
+  it("次のリセットは日本時間の翌月 1 日 0:00（UTC では月末の 15:00）", () => {
+    expect(nextResetAt(new Date("2026-09-16T00:00:00Z"))).toBe("2026-09-30T15:00:00.000Z");
+    // 9/30 23:00 JST（= 14:00 UTC）はまだ 9 月
+    expect(nextResetAt(new Date("2026-09-30T14:00:00Z"))).toBe("2026-09-30T15:00:00.000Z");
+    // 10/1 0:30 JST（= 9/30 15:30 UTC）はもう 10 月
+    expect(nextResetAt(new Date("2026-09-30T15:30:00Z"))).toBe("2026-10-31T15:00:00.000Z");
+    // 年をまたぐ
+    expect(nextResetAt(new Date("2026-12-15T00:00:00Z"))).toBe("2026-12-31T15:00:00.000Z");
+  });
 });
 
 describe("反復の日次分散（§2.3 / §2.4）", () => {

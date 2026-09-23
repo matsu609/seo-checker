@@ -15,25 +15,33 @@ import {
   sampleYMax,
 } from "../sample";
 
-describe("これから計測する日", () => {
+describe("これから計測する日（日本時間。2026-09-23 にローカル時刻をやめた）", () => {
   it("次の火曜から 1 週間ごとに並ぶ", () => {
-    // 2026-09-22 は火曜。その日のうちは当日から数える
-    expect(comingMeasureDates(4, new Date(2026, 8, 22))).toEqual(["2026-09-22", "2026-09-29", "2026-10-06", "2026-10-13"]);
+    // 2026-09-22（火）4:00 JST。5:00 の自動計測の前なので当日から数える
+    expect(comingMeasureDates(4, new Date("2026-09-21T19:00:00Z"))).toEqual(["2026-09-22", "2026-09-29", "2026-10-06", "2026-10-13"]);
+    // 同じ火曜でも 5:00 を過ぎたらもう測った日。次の火曜から
+    expect(comingMeasureDates(2, new Date("2026-09-22T03:00:00Z"))).toEqual(["2026-09-29", "2026-10-06"]);
     // 水曜なら次の火曜から
-    expect(comingMeasureDates(2, new Date(2026, 8, 23))).toEqual(["2026-09-29", "2026-10-06"]);
+    expect(comingMeasureDates(2, new Date("2026-09-23T03:00:00Z"))).toEqual(["2026-09-29", "2026-10-06"]);
     // 月曜なら翌日
-    expect(comingMeasureDates(1, new Date(2026, 8, 21))).toEqual(["2026-09-22"]);
+    expect(comingMeasureDates(1, new Date("2026-09-21T03:00:00Z"))).toEqual(["2026-09-22"]);
   });
 
-  it("必ず今日以降になる（見本を過去に描かない）", () => {
-    const now = new Date(2026, 8, 23);
+  it("サーバー（UTC）の日付ではなく日本の日付で数える（hydration のずれを起こさない）", () => {
+    // UTC では 9/21（月）23:00 だが、日本では 9/22（火）8:00 = 自動計測のあと
+    expect(comingMeasureDates(1, new Date("2026-09-21T23:00:00Z"))).toEqual(["2026-09-29"]);
+  });
+
+  it("必ず今日より後の計測日になる（見本を過去に描かない）", () => {
+    const now = new Date("2026-09-23T03:00:00Z");
     for (const d of comingMeasureDates(SAMPLE_POINTS, now)) {
-      expect(d >= "2026-09-23").toBe(true);
+      expect(d > "2026-09-23").toBe(true);
     }
   });
 
   it("月をまたいでも正しく進む", () => {
-    expect(comingMeasureDates(3, new Date(2026, 11, 29))).toEqual(["2026-12-29", "2027-01-05", "2027-01-12"]);
+    // 2026-12-29（火）4:00 JST
+    expect(comingMeasureDates(3, new Date("2026-12-28T19:00:00Z"))).toEqual(["2026-12-29", "2027-01-05", "2027-01-12"]);
   });
 });
 

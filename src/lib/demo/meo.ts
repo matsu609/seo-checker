@@ -18,15 +18,13 @@
  */
 import { CATEGORY_LABELS, CATEGORY_ORDER } from "@/lib/maps/score";
 import { comingMonths, comingWeekdays } from "./dates";
+import { SAMPLE_POINTS, SAMPLE_SERIES_MAX } from "./sample";
 
 /** 一斉更新の曜日（月曜 5:00）。見本の横軸はこの曜日に合わせる */
 export const REFRESH_WEEKDAY = 1;
 
-/** 見本に描く点の数（＝これからの計測回数） */
-export const SAMPLE_POINTS = 4;
-
-/** 見本に描く線の本数の上限（多いと図が読めない） */
-export const SAMPLE_SERIES_MAX = 3;
+/** 点の数・線の本数の上限は見本の共通の値（./sample） */
+export { SAMPLE_POINTS, SAMPLE_SERIES_MAX };
 
 export interface DemoSeries {
   id: string;

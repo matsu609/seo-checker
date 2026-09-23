@@ -6,6 +6,7 @@
  * 上限に達してもソフトキャップ: **定期実行は止めず、オンデマンド（Live）だけ止める**。
  * 超過課金は初期は行わない。
  */
+import { jstMonthKey, monthRangeJst } from "@/lib/time/jst";
 import { isLiveOnlyModel } from "./types";
 import type { CreditAction, GeoModel, MeasurementKind, RunMode } from "./types";
 
@@ -85,12 +86,9 @@ export function resetMonthly(granted = MONTHLY_CREDITS): CreditState {
   return { balance: granted, granted };
 }
 
-/** 次のリセット日時（JST の月初 0:00）を ISO で */
+/** 次のリセット日時（JST の翌月初 0:00）を ISO で。今月の範囲の終わり（src/lib/time/jst.ts） */
 export function nextResetAt(now = new Date()): string {
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const y = jst.getUTCFullYear();
-  const m = jst.getUTCMonth();
-  return new Date(Date.UTC(y, m + 1, 1, -9, 0, 0)).toISOString();
+  return monthRangeJst(jstMonthKey(now)).end;
 }
 
 /** リセット時刻を過ぎているか */

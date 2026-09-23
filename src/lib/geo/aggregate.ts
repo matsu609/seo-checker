@@ -7,6 +7,8 @@
  * 指名プロンプトと非指名プロンプトで**主指標が違う**のが肝。
  * 指名は参照率が 95〜100% に張り付くので、主指標にしない（§3.2）。
  */
+import { comingWeekdays } from "@/lib/demo/dates";
+import { SAMPLE_POINTS, SAMPLE_SERIES_MAX } from "@/lib/demo/sample";
 import { weekStart } from "./schedule";
 import { toBand, wilsonInterval, type Band } from "./stats";
 import type { DomainClass, GeoAggregate, GeoModel, MeasurementKind } from "./types";
@@ -581,25 +583,24 @@ export function keywordOutcomes(inputs: readonly KeywordOutcomeInput[], keywords
  * 開くたびに変わったり、テストで揺れたりしない。
  */
 
-/** 見本に使う週数（利用者の指定は 4 週） */
-export const SAMPLE_WEEKS = 4;
+/** 見本に使う週数（利用者の指定は 4 週）。見本の共通の点の数と同じ */
+export const SAMPLE_WEEKS = SAMPLE_POINTS;
 
-/** 見本に描く線の本数の上限（多いと図が読めない） */
-export const SAMPLE_SERIES_MAX = 3;
+/** 見本に描く線の本数の上限（多いと図が読めない。見本の共通の値） */
+export { SAMPLE_SERIES_MAX };
 
 /** 登録がまだ無いときに使う、例としての言葉 */
 export const SAMPLE_FALLBACK_LABELS = ["例: 地域名 + 業種", "例: サービス名", "例: 〇〇 おすすめ"] as const;
 
 /**
- * これから計測する週の始まり（月曜）を古い順に返す。
+ * これから計測する週の始まり（月曜）を古い順に返す（日本時間）。
  * **過去ではなく先の週**を使う: 見本を過去の日付で描くと「もう測った数字」に見えてしまうため。
+ *
+ * 以前は 1 本目が「今週の月曜」で、火〜日曜に開くと過去の日付になっていた（2026-09-23）。
+ * 月曜の 5:00 の定期実行より前なら今週の月曜、過ぎていれば次の月曜から数える。
  */
 export function comingWeekStarts(weeks: number, now = new Date()): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < weeks; i += 1) {
-    out.push(weekStart(new Date(now.getTime() + i * 7 * 24 * 60 * 60 * 1000)));
-  }
-  return out;
+  return comingWeekdays(weeks, 1, now);
 }
 
 /**
