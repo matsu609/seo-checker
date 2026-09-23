@@ -96,6 +96,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
         competitors: input.competitors,
         brand: input.brand,
         homeTitle: homeRow?.title ?? null,
+        pageTitles: audit.pages.filter((p) => p !== homeRow).flatMap((p) => (p.title ? [p.title] : [])),
         region: input.region,
         signal: options.signal,
       });

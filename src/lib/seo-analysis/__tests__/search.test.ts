@@ -28,9 +28,14 @@ describe("検索での見え方", () => {
     expect(hostOf("https://www.Example.test/")).toBe("example.test");
   });
 
-  it("ブランド名は入力 → title のサイト名の順", () => {
+  it("ブランド名は入力 → title のサイト名の順（llms.txt のサイト名と同じルール）", () => {
     expect(guessBrand("入力名", "x | y")).toBe("入力名");
-    expect(guessBrand("", "ウェブ制作の料金 | サンプル工房")).toBe("サンプル工房");
+    // 下層ページの title に共通する要素がサイト名（キーワードが前でも後ろでも当たる）
+    expect(guessBrand("", "ウェブ制作の料金 | サンプル工房", ["会社概要 | サンプル工房", "ブログ | サンプル工房"])).toBe("サンプル工房");
+    expect(guessBrand("", "サンプル工房｜中小企業のウェブ制作", ["会社概要｜サンプル工房"])).toBe("サンプル工房");
+    // 下層の手がかりが無ければ会社名らしい要素 → 最初の要素
+    expect(guessBrand("", "ウェブ制作の料金 | 株式会社サンプル")).toBe("株式会社サンプル");
+    expect(guessBrand("", "サンプル工房 - 制作と運用")).toBe("サンプル工房");
     expect(guessBrand("", "サンプル工房")).toBe("サンプル工房");
     expect(guessBrand("", null)).toBe("");
   });
@@ -49,7 +54,7 @@ describe("検索での見え方", () => {
         });
       },
     };
-    const { search, enabled } = await collectSearch({ origin: "https://example.test", keywords: ["kw1", "", "kw1"], competitors: ["https://rival.jp/"], brand: "", homeTitle: "トップ | サンプル工房", provider });
+    const { search, enabled } = await collectSearch({ origin: "https://example.test", keywords: ["kw1", "", "kw1"], competitors: ["https://rival.jp/"], brand: "", homeTitle: "トップ | サンプル工房", pageTitles: ["会社概要 | サンプル工房"], provider });
     expect(enabled).toBe(true);
     expect(search.keywords).toHaveLength(1);
     expect(search.keywords[0]).toMatchObject({ keyword: "kw1", rank: 2, aiOverview: true, ownCited: false, competitors: [{ host: "rival.jp", rank: 1 }] });

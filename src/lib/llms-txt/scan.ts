@@ -9,6 +9,7 @@ import * as cheerio from "cheerio";
 import { assertHtmlPage } from "@/lib/analyzer";
 import { assertPublicHost, fetchText, normalizeUrl } from "@/lib/analyzer/fetch";
 import { extractMeta } from "@/lib/analyzer/meta";
+import { guessSiteName } from "@/lib/analyzer/site-name";
 import { fetchSiteFiles } from "@/lib/analyzer/robots";
 import { crawlSite, resolveMaxPages } from "@/lib/crawl/crawler";
 import { canonicalizeUrl, pathDepth } from "@/lib/crawl/url";
@@ -126,7 +127,11 @@ export async function scanSite(input: string, options: ScanOptions = {}): Promis
 
   return {
     origin,
-    siteName: siteNameFrom(entryTitle?.title ?? "", origin),
+    siteName: siteNameFrom(
+      entryTitle?.title ?? "",
+      origin,
+      candidates.filter((c) => c !== entryTitle).map((c) => c.title),
+    ),
     siteSummary: entryTitle?.description ?? "",
     candidates: candidates.slice(0, MAX_CANDIDATES),
     sitemaps: siteFiles.sitemaps,
@@ -144,17 +149,13 @@ function h1Of($: cheerio.CheerioAPI): string | null {
 /**
  * トップページの title からサイト名を推測する。
  *
- * 下層ページは「ページ名｜サイト名」だが、**トップページ**は
- * 「サイト名｜キャッチコピー」の形が圧倒的に多い。ここに渡すのは
- * 入力 URL（＝トップページ）の title なので、区切り文字の前を採る。
- * 長すぎて名前らしくないときは推測せずホスト名にする（画面で直せる）。
+ * ルールは精密診断のブランド名と共通（analyzer/site-name.ts）: 下層ページの title に共通する要素 →
+ * 会社名らしい要素 → 最初の要素（トップページは「サイト名｜キャッチコピー」が多い）。
+ * 名前らしいものが無いときは推測せずホスト名にする（画面で直せる）。
  */
-export function siteNameFrom(title: string, origin: string): string {
-  const first = title
-    .split(/[|｜\-–—]/)
-    .map((p) => p.trim())
-    .find((p) => p.length > 0);
-  if (first && first.length <= 30) return first;
+export function siteNameFrom(title: string, origin: string, otherTitles: readonly string[] = []): string {
+  const guessed = guessSiteName(title, otherTitles);
+  if (guessed) return guessed;
   try {
     return new URL(origin).hostname.replace(/^www\./, "");
   } catch {

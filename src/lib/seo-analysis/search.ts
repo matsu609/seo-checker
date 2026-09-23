@@ -6,6 +6,7 @@
  * SERPAPI_KEY が無ければ何もせず notes に書く（ダミーは返さない）。
  * 1 回の分析でキーワード数 + 2 回の検索（実費は 1 回数円）。
  */
+import { guessSiteName } from "@/lib/analyzer/site-name";
 import { getSerpProvider, type SerpProvider, type SerpResult } from "@/lib/serp";
 import type { SheetKeywordResult, SheetSearch } from "./sheet/types";
 
@@ -49,17 +50,14 @@ export function topDomains(result: SerpResult, count = 3): string[] {
 }
 
 /**
- * ブランド名の推定。入力があればそれ、無ければトップページの title の
- * 「｜」「|」「-」区切りの最後の要素（サイト名が来ることが多い）。
+ * ブランド名の推定。入力があればそれ、無ければトップページの title から
+ * llms.txt のサイト名と同じルールで推測する（analyzer/site-name.ts。下層ページの title に
+ * 共通する要素 → 会社名らしい要素 → 最初の要素）。2026-09-23 まではここだけ最後の要素を採っていた。
  */
-export function guessBrand(input: string, homeTitle: string | null): string {
+export function guessBrand(input: string, homeTitle: string | null, otherTitles: readonly string[] = []): string {
   const given = input.trim();
   if (given) return given;
-  if (!homeTitle) return "";
-  const parts = homeTitle.split(/\s*[|｜\-–—:：]\s*/).map((s) => s.trim()).filter(Boolean);
-  if (parts.length === 0) return "";
-  const last = parts[parts.length - 1];
-  return last.length <= 30 ? last : "";
+  return guessSiteName(homeTitle, otherTitles);
 }
 
 export interface CollectSearchArgs {
@@ -68,6 +66,8 @@ export interface CollectSearchArgs {
   competitors: string[];
   brand: string;
   homeTitle: string | null;
+  /** 下層ページの title（ブランド名の推測に使う。サイト名はページをまたいで共通になる） */
+  pageTitles?: readonly string[];
   region?: string;
   provider?: SerpProvider | null;
   signal?: AbortSignal;
@@ -114,7 +114,7 @@ export async function collectSearch(args: CollectSearchArgs): Promise<{ search: 
   }
 
   let brand: SheetSearch["brand"] = null;
-  const brandName = guessBrand(args.brand, args.homeTitle);
+  const brandName = guessBrand(args.brand, args.homeTitle, args.pageTitles);
   if (brandName) {
     try {
       const result = await provider.search({ q: brandName, num: 20 });
