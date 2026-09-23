@@ -9,8 +9,8 @@
  * アクセストークンはログイン中のユーザーのもの（token.ts、スコープ business.manage）。
  * エンドポイントは固定（ユーザー入力の URL ではない）。応答は落ちない純関数（parse*）で読む。
  */
-import { GoogleLinkError, mapGoogleHttpError } from "./errors";
-import { getGoogleTokenFor } from "./token";
+import { callGoogleApi, httpErrorMapper, withResolvedToken, type GoogleApiSpec, type GoogleCallOptions } from "./call";
+import { GoogleLinkError } from "./errors";
 
 export const ACCOUNT_ENDPOINT = "https://mybusinessaccountmanagement.googleapis.com/v1";
 export const INFORMATION_ENDPOINT = "https://mybusinessbusinessinformation.googleapis.com/v1";
@@ -60,14 +60,10 @@ export interface BpReviewsPage {
   totalReviewCount: number | null;
 }
 
-export interface BusinessProfileOptions {
+export interface BusinessProfileOptions extends GoogleCallOptions {
   accountEndpoint?: string;
   informationEndpoint?: string;
   reviewsEndpoint?: string;
-  timeoutMs?: number;
-  fetchImpl?: typeof fetch;
-  /** テスト用。省略時は Clerk からユーザーのトークンを取る */
-  getToken?: () => Promise<string>;
 }
 
 const LOCATION_NAME = /^accounts\/[A-Za-z0-9_-]+\/locations\/[A-Za-z0-9_-]+$/;
@@ -159,43 +155,19 @@ export function parseReviews(payload: unknown): BpReviewsPage {
   return { reviews, nextPageToken: strOrNull(root.nextPageToken), averageRating: avg, totalReviewCount: total };
 }
 
-/** 403 は「権限」だけでなく「API 未有効 / 利用申請が未承認」のことが多いので、案内を変える */
-function mapError(status: number): GoogleLinkError {
-  if (status === 403) {
-    return new GoogleLinkError(
-      `${LABEL}にアクセスできませんでした。Business Profile API の利用申請が承認され、Google Cloud で 3 つの API（Account Management / Business Information / My Business v4）が有効になっているか、接続した Google アカウントがそのビジネスの管理者かをご確認ください。`,
-      "forbidden",
-    );
-  }
-  if (status === 404) {
-    return new GoogleLinkError(`${LABEL}に該当するビジネスや口コミが見つかりませんでした。`, "forbidden");
-  }
-  return mapGoogleHttpError(status, LABEL);
-}
+const API: GoogleApiSpec = {
+  label: LABEL,
+  service: "business-profile",
+  timeoutMs: TIMEOUT_MS,
+  // 403 は「権限」だけでなく「API 未有効 / 利用申請が未承認」のことが多いので、案内を変える
+  mapError: httpErrorMapper(LABEL, {
+    forbidden: `${LABEL}にアクセスできませんでした。Business Profile API の利用申請が承認され、Google Cloud で 3 つの API（Account Management / Business Information / My Business v4）が有効になっているか、接続した Google アカウントがそのビジネスの管理者かをご確認ください。`,
+    notFound: `${LABEL}に該当するビジネスや口コミが見つかりませんでした。`,
+  }),
+};
 
-async function callApi(url: string, init: RequestInit, options: BusinessProfileOptions): Promise<unknown> {
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const getToken = options.getToken ?? (() => getGoogleTokenFor("business-profile"));
-  const token = await getToken();
-  let res: Response;
-  try {
-    res = await fetchImpl(url, {
-      ...init,
-      headers: { ...init.headers, authorization: `Bearer ${token}`, accept: "application/json" },
-      signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
-      cache: "no-store",
-    });
-  } catch (err) {
-    const timedOut = err instanceof Error && err.name === "TimeoutError";
-    throw new GoogleLinkError(timedOut ? `${LABEL}の応答がありませんでした（タイムアウト）` : `${LABEL}に接続できませんでした`, "network");
-  }
-  if (!res.ok) throw mapError(res.status);
-  if (res.status === 204) return {};
-  try {
-    return await res.json();
-  } catch {
-    throw new GoogleLinkError(`${LABEL}の応答を解釈できませんでした`, "network");
-  }
+function callApi(url: string, init: RequestInit, options: BusinessProfileOptions): Promise<unknown> {
+  return callGoogleApi(url, init, API, options);
 }
 
 export async function listAccounts(options: BusinessProfileOptions = {}): Promise<BpAccount[]> {
@@ -210,12 +182,24 @@ export async function listLocations(accountName: string, options: BusinessProfil
   return parseLocations(payload, accountName);
 }
 
-/** 管理しているすべてのアカウントのビジネスを 1 つの一覧に（アカウントは最大 20） */
+/**
+ * 管理しているすべてのアカウントのビジネスを 1 つの一覧に（アカウントは最大 20）。
+ * トークンは最初に 1 回だけ取る（2026-09-23。以前はアカウント数 + 1 回、Clerk に取りに行っていた）。
+ */
 export async function listAllLocations(options: BusinessProfileOptions = {}): Promise<BpLocation[]> {
-  const accounts = await listAccounts(options);
+  const opts = withResolvedToken(options, "business-profile");
+  const accounts = await listAccounts(opts);
   const all: BpLocation[] = [];
-  for (const a of accounts) all.push(...(await listLocations(a.name, options)));
+  for (const a of accounts) all.push(...(await listLocations(a.name, opts)));
   return all;
+}
+
+/**
+ * Place ID（MEO の登録店舗）→ 接続した Google アカウントが管理しているビジネス。無ければ null。
+ * インサイト・投稿・基本情報の送信の 3 か所に同じ探し方があったのをまとめた（2026-09-23）。
+ */
+export async function findLocationByPlaceId(placeId: string, options: BusinessProfileOptions = {}): Promise<BpLocation | null> {
+  return (await listAllLocations(options)).find((l) => l.placeId === placeId) ?? null;
 }
 
 export async function listReviews(locationName: string, pageToken: string | null = null, options: BusinessProfileOptions = {}): Promise<BpReviewsPage> {

@@ -49,8 +49,6 @@ export function needsSearchConsoleSetup(status: Pick<SearchConsoleStatus, "conne
   return usableSites(status.sites).length === 0;
 }
 
-/** Google API 呼び出し用のスコープだけを残す（openid / email / profile はログイン側が付ける） */
-export function apiScopes(scopes: readonly string[]): string[] {
-  return scopes.filter((s) => s.startsWith("https://www.googleapis.com/auth/"));
-}
+/** Google API 呼び出し用のスコープだけを残す（scopes.ts に移した。口コミ返信の接続でも使うため） */
+export { apiScopes } from "../scopes";
 

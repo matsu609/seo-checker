@@ -213,7 +213,7 @@ export function RepliesTool() {
                 手順は運用メモの残タスク #5 / #53 にあります。
               </p>
             </Callout>
-            <ConnectBusinessButton label={status.connected ? "Google に口コミ返信の権限を追加する" : "Google アカウントを接続する"} />
+            <ConnectBusinessButton grantedScopes={status.grantedScopes} label={status.connected ? "Google に口コミ返信の権限を追加する" : "Google アカウントを接続する"} />
           </div>
         )}
         {status && status.hasScope && (

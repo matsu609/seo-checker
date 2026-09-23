@@ -15,7 +15,7 @@
 import { z } from "zod";
 import { dbErrorResponse } from "@/lib/db/supabase";
 import { GoogleLinkError } from "@/lib/google/errors";
-import { listAllLocations, updateLocationNap } from "@/lib/google/business-profile";
+import { findLocationByPlaceId, updateLocationNap } from "@/lib/google/business-profile";
 import { badRequest, NO_STORE, PLACE_ID, readJson, requireListingsUser } from "@/lib/listings/api";
 import { mediaById } from "@/lib/listings/media";
 import { parseHoursText } from "@/lib/listings/profile";
@@ -51,7 +51,7 @@ async function sendToGoogle(placeId: string, record: ListingRecord): Promise<Pub
   const media = mediaById("GOOGLE_MAPS")!;
   const base = { mediaId: media.id, mediaName: media.name, integration: media.integration, url: media.url } as const;
   try {
-    const location = (await listAllLocations()).find((l) => l.placeId === placeId) ?? null;
+    const location = await findLocationByPlaceId(placeId);
     if (!location) {
       return {
         ...base,
