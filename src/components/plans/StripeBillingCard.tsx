@@ -43,6 +43,12 @@ function formatAmount(state: StripeState): string | null {
   return moneyFromMinor(state.amount, state.currency)?.label ?? null;
 }
 
+/** 割引前の額（割引で額が下がっているときだけ。取り消し線で並べる） */
+function formatListAmount(state: StripeState): string | null {
+  if (state.listAmount === null || state.amount === null || state.listAmount === state.amount || !state.currency) return null;
+  return moneyFromMinor(state.listAmount, state.currency)?.label ?? null;
+}
+
 export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, trialDays, firstToolPath }: StripeBillingCardProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +68,7 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, tr
   }
 
   return (
-    <Card title="お申し込み・お支払い" description="お支払いはクレジットカード（Stripe）です。カードの変更・請求書の確認・解約は Stripe の画面で行えます。" className="mt-6">
+    <Card id="billing" title="お申し込み・お支払い" description="お支払いはクレジットカード（Stripe）です。カードの変更・請求書の確認・解約は Stripe の画面で行えます。" className="mt-6 scroll-mt-6">
       {checkoutResult === "success" && (
         <Callout tone="pass" title="お申し込みありがとうございます" className="mb-4">
           <p>
@@ -106,7 +112,12 @@ export function StripeBillingCard({ state, hasCustomer, live, checkoutResult, tr
           {formatAmount(state) && (
             <div>
               <dt className="text-muted">月額</dt>
-              <dd className="text-ink">{formatAmount(state)}</dd>
+              <dd className="text-ink">
+                {formatAmount(state)}
+                {/* 割引の付いた契約（2026-09-23 まで定価が出ていた） */}
+                {formatListAmount(state) && <span className="ml-1.5 text-[12px] text-muted line-through">{formatListAmount(state)}</span>}
+                {state.discountLabel && <span className="ml-1.5 text-[12px] text-muted">（{state.discountLabel}）</span>}
+              </dd>
             </div>
           )}
           {state.currentPeriodEnd && (

@@ -6,9 +6,13 @@
  *   customer.subscription.created/updated/deleted … 契約の変化（更新・支払い遅延・解約）→ 保存
  * 他は 200 で無視する。保存に失敗したら 500 を返して Stripe に再送させる。
  * ユーザーの特定は subscription.metadata.userId（Checkout 作成時に入れている）。
+ *
+ * 受け取りに要るのは鍵と署名シークレットだけ（isStripeWebhookConfigured）。Price の環境変数を外しても
+ * 既存の契約の変化は受け取り続ける（503 を返し続けると Stripe がエンドポイントを止めてしまう）。
+ * 別の契約が生きているのに届いた契約のイベントは保存しない（二重の申し込み。src/lib/billing/sync.ts）。
  */
 import { isAuthEnabled } from "@/lib/auth/config";
-import { checkoutIds, constructWebhookEvent, isStripeConfigured, retrieveSubscription } from "@/lib/billing/stripe";
+import { checkoutIds, constructWebhookEvent, isStripeWebhookConfigured, retrieveSubscription } from "@/lib/billing/stripe";
 import { applySubscription, linkStripeCustomer } from "@/lib/billing/sync";
 import type Stripe from "stripe";
 
@@ -20,7 +24,7 @@ function customerIdOf(sub: Stripe.Subscription): string | null {
 }
 
 export async function POST(request: Request) {
-  if (!isStripeConfigured() || !isAuthEnabled()) return Response.json({ error: "決済が設定されていません" }, { status: 503 });
+  if (!isStripeWebhookConfigured() || !isAuthEnabled()) return Response.json({ error: "決済が設定されていません" }, { status: 503 });
   const signature = request.headers.get("stripe-signature");
   if (!signature) return Response.json({ error: "署名がありません" }, { status: 400 });
   let event: Stripe.Event;

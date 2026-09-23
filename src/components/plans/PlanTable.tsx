@@ -26,16 +26,27 @@ export interface PlanTableProps {
   current: PlanId;
   /** 画面から申し込めるプラン（Stripe の設定がそろっているもの）。空なら申し込みボタンを出さない */
   purchasable?: readonly PlanId[];
+  /**
+   * すでに Stripe の契約がある（hasStripeSubscription）。このときは「申し込む」を出さず、
+   * プランの変更は Stripe の画面（下の「お申し込み・お支払い」のボタン）へ案内する（2026-09-23）。
+   * 「申し込む」から入ると 2 本目のサブスクリプションができて二重に請求されるため。
+   */
+  subscribed?: boolean;
+  /** 案内のリンク先（お支払いの管理のカードの id） */
+  manageHref?: string;
 }
 
-export function PlanTable({ current, purchasable = [] }: PlanTableProps) {
+export function PlanTable({ current, purchasable = [], subscribed = false, manageHref = "#billing" }: PlanTableProps) {
   return (
     <div className="grid gap-4 @3xl:grid-cols-3">
       {LISTED_PLANS.map((plan) => {
         const included = planAllows(current, plan.id);
         const isCurrent = current === plan.id;
         const tools = toolsFor(plan.id);
-        const canBuy = plan.checkout === "stripe" && purchasable.includes(plan.id) && !isCurrent;
+        const buyable = plan.checkout === "stripe" && purchasable.includes(plan.id) && !isCurrent;
+        const canBuy = buyable && !subscribed;
+        // 契約中の人には、ほかの段への切り替えを Stripe の画面で行うよう案内する（二重の申し込みを作らない）
+        const changeInPortal = buyable && subscribed;
         return (
           <Card
             key={plan.id}
@@ -87,6 +98,15 @@ export function PlanTable({ current, purchasable = [] }: PlanTableProps) {
                   label={`${plan.label}を申し込む`}
                   variant={plan.recommended ? "primary" : "secondary"}
                 />
+              )}
+              {changeInPortal && (
+                <p className="text-[12px] leading-relaxed text-muted">
+                  プランの変更（ライト ⇄ スタンダード）は、
+                  <a href={manageHref} className="text-accent underline">
+                    下の「お支払い方法の変更・プランの変更・請求書・解約」
+                  </a>
+                  から開く Stripe の画面で行えます。
+                </p>
               )}
               {plan.checkout === "contact" && OPERATOR.email && (
                 <ButtonLink

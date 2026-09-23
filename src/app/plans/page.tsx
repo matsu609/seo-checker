@@ -72,7 +72,7 @@ export default async function Page({ searchParams }: Props) {
       {/* 割引コード（スタンダード専用）。コードが設定してあり、割引が付いておらず、まだ契約していない人にだけ出す */}
       {stripe && !hasStripeSubscription(stripeState) && !assignedPromo && hasPromoCodes() && <PromoCodeField className="mb-4" />}
 
-      <PlanTable current={plan} purchasable={stripe ? purchasablePlanIds() : []} />
+      <PlanTable current={plan} purchasable={stripe ? purchasablePlanIds() : []} subscribed={hasStripeSubscription(stripeState)} manageHref="#billing" />
 
       {/* Stripe 直結（円建て）。申し込み・お支払い方法の変更・解約 */}
       {stripe && (

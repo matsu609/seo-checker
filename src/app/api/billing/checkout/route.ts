@@ -5,6 +5,10 @@
  *
  * プランは必ずここで検証する。買えないプラン（プレミアム = 問い合わせ枠）や Price 未設定のプランを
  * 受け付けると、Checkout が落ちるか、払っていない段階が開いてしまう。
+ *
+ * すでに契約がある人（有効・トライアル・支払い遅延・未払い・一時停止）には申し込み画面を作らず 409 を返す
+ * （2026-09-23）。作ると 2 本目のサブスクリプションができて二重に請求される。プランの変更・解約は
+ * カスタマーポータル（/api/billing/portal）で行う。
  */
 import { currentUser } from "@clerk/nextjs/server";
 import Stripe from "stripe";
@@ -14,6 +18,7 @@ import { isAuthEnabled } from "@/lib/auth/config";
 import { requireAuth } from "@/lib/auth/guard";
 import { currentUserId } from "@/lib/auth/user";
 import { PROMO_PLAN, assignedPatternFromMetadata, normalizeCode, resolvePromoCode } from "@/lib/billing/promo";
+import { hasStripeSubscription, stripeStateFromMetadata } from "@/lib/billing/state";
 import { promoLimitResponse, takePromoAttempt } from "@/lib/billing/promo-limit";
 import { createCheckoutSession, isStripeConfigured, purchasablePlanIds } from "@/lib/billing/stripe";
 import { stripeCustomerIdOf } from "@/lib/billing/sync";
@@ -31,6 +36,10 @@ const BodySchema = z.object({
   plan: z.string().max(40).optional(),
   code: z.string().max(200).optional(),
 });
+
+/** 契約済みの人への案内。料金画面の「お申し込み・お支払い」の文言（StripeBillingCard）にそろえる */
+const ALREADY_SUBSCRIBED_MESSAGE =
+  "すでにご契約中です。プランの変更（ライト ⇄ スタンダード）と解約は、料金プランの画面の「お支払い方法の変更・プランの変更・請求書・解約」から開く Stripe の画面で行えます。";
 
 export async function POST(request: Request) {
   const denied = await requireAuth();
@@ -51,6 +60,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "このプランは画面からお申し込みいただけません", code: "not_purchasable" }, { status: 400, headers: NO_STORE });
   }
   const user = await currentUser();
+  // すでに契約がある人に 2 本目を作らない（二重請求になる）。変更はポータルで
+  if (hasStripeSubscription(stripeStateFromMetadata(user?.publicMetadata))) {
+    return Response.json({ error: ALREADY_SUBSCRIBED_MESSAGE, code: "already_subscribed" }, { status: 409, headers: NO_STORE });
+  }
   // 割引: 運用者・代理店が設定したもの（publicMetadata）が最優先。無ければ割引コード（PROMO_CODES）。
   // どちらもスタンダード専用。設定済みの割引はライトの申し込みには黙って付けない（ライトは定価）
   const assigned = assignedPatternFromMetadata(user?.publicMetadata);

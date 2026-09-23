@@ -86,10 +86,28 @@ export function toMoney(value: unknown): Money | null {
   return moneyFromMinor(v.amount, v.currency);
 }
 
-/** Stripe 直結の契約状態（publicMetadata.stripe）→ 顧客管理用。金額は Stripe の Price から */
+/**
+ * 割引（Webhook が契約状態に書いた discountLabel / listAmount）→ 顧客管理のクーポン欄。
+ * 2026-09-23 まで常に null で、割引のお客様にも「クーポンの適用はありません」と定価が出ていた。
+ * 割引コードのクーポンは永続（duration: forever）なので残り回数は null（無期限）。
+ */
+export function couponOf(state: StripeState): Coupon | null {
+  if (!state.discountLabel) return null;
+  const off = state.listAmount !== null && state.amount !== null && state.listAmount > state.amount ? state.listAmount - state.amount : null;
+  return {
+    name: "割引",
+    promoCode: null,
+    effectLabel: state.discountLabel,
+    amount: off !== null ? moneyFromMinor(off, state.currency) : null,
+    cyclesRemaining: null,
+  };
+}
+
+/** Stripe 直結の契約状態（publicMetadata.stripe）→ 顧客管理用。金額は Stripe の Price と割引から */
 export function summarizeStripeState(state: StripeState): BillingSummary {
   const status = contractStatusOf(state);
   const monthly = state.amount !== null && state.currency ? moneyFromMinor(state.amount, state.currency) : null;
+  const list = state.listAmount !== null && state.currency ? moneyFromMinor(state.listAmount, state.currency) : null;
   const periodEnd = state.currentPeriodEnd ? Date.parse(state.currentPeriodEnd) : null;
   const plan = planFromStripeState(state);
   return {
@@ -98,10 +116,10 @@ export function summarizeStripeState(state: StripeState): BillingSummary {
     plan,
     planName: `Stripe: ${plan ? planLabel(plan) : "契約なし"}`,
     monthly,
-    subtotal: monthly,
+    subtotal: list ?? monthly,
     nextPaymentAt: state.cancelAtPeriodEnd ? null : periodEnd,
     periodEndAt: periodEnd,
-    coupon: null,
+    coupon: couponOf(state),
   };
 }
 
