@@ -1035,7 +1035,7 @@ alter table monthly_reports enable row level security;
 | # | サービス・画面 | URL | やること |
 |---|---|---|---|
 | 1 | Google Cloud → API ライブラリ（Google Search Console API） | https://console.cloud.google.com/apis/library/searchconsole.googleapis.com?project=seo-checker-508104 | 「有効」になっていること（09-11 に有効化済み。「有効にする」が出ていたら押す） |
-| 2 | Google Auth Platform → データアクセス | https://console.cloud.google.com/auth/scopes?project=seo-checker-508104 | スコープに `https://www.googleapis.com/auth/webmasters.readonly` があること（無ければ「スコープを追加または削除」で足して保存） |
+| 2 | Google Auth Platform → データアクセス | https://console.cloud.google.com/auth/scopes?project=seo-checker-508104 | スコープに `https://www.googleapis.com/auth/webmasters.readonly` があること。**09-24 確認: API は有効だったが、スコープは `business.manage` だけで GSC は外れていた。**一覧（39 件・4 ページ）の 1 ページ目には出てこないので、「スコープを追加または削除」→ 右のパネル下の**「スコープの手動追加」**に URL を貼る →「テーブルに追加」→「更新」→ 画面下の「保存」 |
 | 3 | Google Auth Platform → 対象（テストユーザー） | https://console.cloud.google.com/auth/audience?project=seo-checker-508104 | 試すアカウント（`matsumatsu452@gmail.com` など）がテストユーザーにいること。**テスト状態のままだとトークンが 7 日で切れる**（切れたら画面の「接続する」を押し直せば戻る） |
 | 4 | Search Console → 設定 → ユーザーと権限 | https://search.google.com/search-console/users | 見たいサイト（例 `seo-checker.tokyo`）で、試すアカウントに権限があること（無ければ「ユーザーを追加」→ 制限付き） |
 | 5 | アプリ → SEO → Google サーチコンソール連携 | https://app.seo-checker.tokyo/tools/search-console | ①「Google アカウントを接続する」（または「Search Console の読み取りを許可する」）→ Google の画面で許可 ②戻ったら「対象サイト」を選ぶ ③「直近 28 日を取得する」でクリック数・表示回数・CTR・平均掲載順位・折れ線・キーワード / ページの表が出ること ④**口コミ返信が引き続き動くこと**（権限を足すときに既存の権限も一緒に要求しているが、念のため確認） |
@@ -5598,4 +5598,10 @@ FAQ を作る入口は 2 つあり、**片方に上限が無かった**。
 - **旧 URL**: `/tools/search-performance` は `/tools/search-console` へ転送に変更。
 - **検証**: lint / tsc / test 1,951 件 / build 通過。**本番の Google 側の設定（#135）がまだ確かめられていないので、画面で接続できるかは未確認**。
 - **次にやること**: 利用者が #135 の 1〜5 を実施 → 動いたら、精密診断への取り込み（GSC の実測を事実シートに入れる）をするか相談。
+
+### 2026-09-24（#135 の途中: 利用者「API は有効。データアクセスに選ぶものが無い」→ 手順を案内、コード変更なし）
+
+- Search Console API は有効だった（手順 1 済み）。データアクセスのスコープは `business.manage` だけで、`webmasters.readonly` は外れていた（r89 のとき外したと思われる）。
+- スコープ追加のパネルは API 名の順で 39 件・1 ページ 10 件なので、Search Console の行は 1 ページ目に出ない。**「スコープの手動追加」に `https://www.googleapis.com/auth/webmasters.readonly` を貼る**よう案内した（フィルタに `webmasters` と入れても出る）。
+- `webmasters.readonly` は Google の区分で「機密性の高いスコープ」側に入る見込み。テスト状態のうちは審査なしで使える（テストユーザーのみ・トークン 7 日）。本番公開審査（#13）の申請文に加える。
 
