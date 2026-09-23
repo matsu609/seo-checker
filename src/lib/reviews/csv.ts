@@ -1,19 +1,15 @@
 /**
  * 回答の CSV（純粋関数）。Excel で開いたときの式インジェクション対策として、
- * 先頭が = + - @ のセルには ' を付ける。第三者（来店客）が書いた文字列が入るため。
+ * 先頭が = + - @（とタブ・CR）のセルには ' を付ける。第三者（来店客）が書いた文字列が入るため。
+ * セルのエスケープは lib/export/csv.ts の csvCell を共用する。
  */
+import { csvCell } from "@/lib/export/csv";
 import { resolveStore, type ReviewChannel, type ReviewForm } from "./forms";
 import { LOCALE_LABELS_JA } from "./i18n";
 import { answerLines, type ReviewQuestion } from "./questions";
 import { RESPONSE_STATUS_LABELS, type ReviewResponse } from "./responses";
 
-export function csvCell(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return "";
-  let s = String(value);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  if (/[",\n\r]/.test(s)) s = `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
+export { csvCell };
 
 export function responsesToCsv(
   responses: readonly ReviewResponse[],

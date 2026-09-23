@@ -12,12 +12,15 @@ export interface CsvColumn<Row> {
   value: (row: Row) => string | number | boolean | null | undefined;
 }
 
-/** 1 セル分をエスケープする（引用符・改行・カンマ・先頭の = を含む値に対応） */
+/**
+ * 1 セル分をエスケープする（引用符・改行・カンマ・先頭の = を含む値に対応）。
+ * CSV を作るところはすべてこれを通す（口コミの回答 CSV も共用。lib/reviews/csv.ts）。
+ */
 export function csvCell(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) return "";
   const s = String(value);
-  // 先頭が = + - @ の値は表計算ソフトが数式として解釈するので無効化する
-  const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+  // 先頭が = + - @（とタブ・CR）の値は表計算ソフトが数式として解釈するので ' を付けて無効化する（CSV インジェクション対策）
+  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 

@@ -19,6 +19,9 @@ describe("csvCell", () => {
     expect(csvCell("-5")).toBe("'-5");
     expect(csvCell("+81")).toBe("'+81");
     expect(csvCell("@x")).toBe("'@x");
+    // タブ・CR で始まる値も（口コミの回答 CSV と同じ扱い）
+    expect(csvCell("\t=1")).toBe("'\t=1");
+    expect(csvCell("\r=1")).toBe("\"'\r=1\"");
   });
 });
 
