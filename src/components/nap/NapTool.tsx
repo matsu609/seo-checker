@@ -28,17 +28,12 @@ import {
 import { BasicInfoNotice, missingFields } from "@/components/site/BasicInfoNotice";
 import { StorePicker, useStoreProfileForm } from "@/components/site/useStoreProfileForm";
 import { useStore } from "@/lib/store/hooks";
+import { formatNumericDateTime } from "@/lib/ui/date";
 import { useToolRun } from "@/lib/tools/run";
 
 const STATUS_TONE: Record<FieldStatus, BadgeTone> = { match: "pass", mismatch: "fail", missing: "warn", skipped: "neutral" };
 const SEVERITY_LABEL: Record<NapIssue["severity"], string> = { fail: "不一致", warn: "要確認" };
 const SEVERITY_TONE: Record<NapIssue["severity"], BadgeTone> = { fail: "fail", warn: "warn" };
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-}
 
 function fieldOf(source: NapSource, field: NapField): FieldCheck | null {
   return source.fields.find((f) => f.field === field) ?? null;
@@ -169,7 +164,7 @@ function Result({ data }: { data: NapCheckResult }) {
         )}
       </Card>
 
-      <Card title="サマリー" description={`確認日時: ${formatDate(data.checkedAt)}。正: ${data.input.name} / ${data.input.address || "住所なし"} / ${data.input.phone || "電話なし"} / ${data.input.website || "サイトなし"}`}>
+      <Card title="サマリー" description={`確認日時: ${formatNumericDateTime(data.checkedAt)}。正: ${data.input.name} / ${data.input.address || "住所なし"} / ${data.input.phone || "電話なし"} / ${data.input.website || "サイトなし"}`}>
         <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-4">
           <StatCard label="確認できた媒体" value={data.summary.sources} unit="件" hint="ページを開いて値を読めたもの（自社サイトはページごとに 1 件）" />
           <StatCard label="一致" value={data.summary.match} unit="項目" hint="全角 / 半角・空白・ハイフン・法人格の略記の違いは一致とみなす" />
@@ -259,7 +254,7 @@ export function NapTool() {
       )}
 
       {view.kind === "history" && shown && (
-        <Callout tone="info" title={`履歴の結果を表示しています（${formatDate(shown.checkedAt)}）`}>
+        <Callout tone="info" title={`履歴の結果を表示しています（${formatNumericDateTime(shown.checkedAt)}）`}>
           <Button size="sm" variant="ghost" onClick={() => setView({ kind: "run" })}>
             最新の結果に戻る
           </Button>
@@ -273,7 +268,7 @@ export function NapTool() {
           <ul className="divide-y divide-line border-y border-line">
             {history.map((h: NapHistoryItem) => (
               <li key={h.id} className="flex flex-wrap items-center gap-2 py-2 text-[13px]">
-                <span className="w-36 shrink-0 font-mono text-[12px] text-muted">{formatDate(h.result.checkedAt)}</span>
+                <span className="w-36 shrink-0 font-mono text-[12px] text-muted">{formatNumericDateTime(h.result.checkedAt)}</span>
                 <span className="min-w-0 flex-1 truncate text-ink">{h.result.input.name}</span>
                 <Badge tone={h.result.summary.mismatch > 0 ? "fail" : "pass"} icon={false}>
                   不一致 {h.result.summary.mismatch}

@@ -11,16 +11,16 @@ import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FEEDBACK_KIND_LABELS, FEEDBACK_STATUS_LABELS, type FeedbackRecord, type FeedbackStatus } from "@/lib/feedback/types";
+import { formatNumericDateTime } from "@/lib/ui/date";
 
 /** 各所から直接飛ぶためのカード id（/settings#feedback） */
 export const FEEDBACK_ANCHOR = "feedback";
 
 const STATUS_TONE: Record<FeedbackStatus, "warn" | "info" | "pass"> = { open: "warn", in_progress: "info", done: "pass" };
 
+/** 「2026/09/06 14:05」。読めない値は「—」（運営者の画面 admin/FeedbackCard も使う） */
 export function formatFeedbackDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return formatNumericDateTime(iso, "—");
 }
 
 type State = { status: "loading" } | { status: "ready"; items: FeedbackRecord[] } | { status: "error"; message: string } | { status: "unavailable" };
