@@ -1,9 +1,10 @@
 /**
  * Google 連携で必要な OAuth スコープ。純粋関数だけを置く（テスト可能にするため）。
  *
- * 2026-09-17 の利用者の決定で Search Console / GA4 を使わなくなったため、
- * 残るのは口コミ返信の Google ビジネス プロフィールだけ。接続は口コミ返信の画面から要求する
- * （ConnectBusinessButton の additionalScopes）。Clerk のダッシュボードで足す必要はない。
+ * 使うのは口コミ返信の Google ビジネス プロフィールと、SEO の「Google サーチコンソール連携」
+ * （2026-09-23 に利用者の指示で再開。GA4 は使わないまま）。スコープはそれぞれの画面から
+ * その場で要求する（ConnectBusinessButton / ConnectSearchConsoleButton の additionalScopes）。
+ * Clerk のダッシュボードで足す必要はない。
  */
 
 /**
@@ -12,17 +13,28 @@
  */
 export const BUSINESS_PROFILE_SCOPE = "https://www.googleapis.com/auth/business.manage";
 
+/** Search Console の読み取り専用（検索パフォーマンスとサイト一覧） */
+export const SEARCH_CONSOLE_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+
 /** 接続時に必ず要求するスコープ。無い（サービスごとに画面から要求する） */
 export const REQUIRED_SCOPES: readonly string[] = [];
 
-export type GoogleService = "business-profile";
+export type GoogleService = "business-profile" | "search-console";
 
 export const SCOPE_BY_SERVICE: Record<GoogleService, string> = {
   "business-profile": BUSINESS_PROFILE_SCOPE,
+  "search-console": SEARCH_CONSOLE_SCOPE,
 };
 
 export const SERVICE_LABELS: Record<GoogleService, string> = {
   "business-profile": "Google ビジネス プロフィール",
+  "search-console": "Google サーチコンソール",
+};
+
+/** 権限が足りないときに、どこから足してもらうか（エラー文に使う） */
+export const GRANT_HINTS: Record<GoogleService, string> = {
+  "business-profile": "口コミの画面の「Google に口コミ返信の権限を追加する」から接続し直し、権限の確認画面で許可してください。",
+  "search-console": "SEO の「Google サーチコンソール連携」の画面から接続し直し、権限の確認画面で許可してください。",
 };
 
 /** 付与されたスコープの一覧が、求めるスコープを満たしているか */

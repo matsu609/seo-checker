@@ -126,6 +126,7 @@ npm run dev                  # http://localhost:3000
 | [月次レポートとお知らせ](src/lib/reports) | — | 毎月 1 日 5:00 に前月の数字（順位・MEO・AI 検索・精密診断・掲載・口コミ・投稿）を「前月の最後の値」と比べて 1 枚に。数字から「来月やること」を優先順に組み立てる。PDF。設定で ON ならメール（Resend）。順位の急落・サイトの事故・掲載の消失・低評価・投稿の結果・自動再診断の「お知らせ」もここ（r127） | Supabase（メールは Resend 任意） |
 | [AI 検索モニタリング](src/lib/geo) | — | ChatGPT / Gemini / Claude / Perplexity / Google AI Overviews / AI モード で、自社ブランドが**引用**（ソース欄に自社ドメイン）・**参照**（本文に名前）される割合を毎週はかり、競合と並べる。反復は週内の別の日に分散（通常 週 3 回 / 高精度 週 10 回）し、見出しは 4 週ローリング + 95% 信頼区間のバンドで出す（1 週間の上下では判断しない）。指名検索は自社引用率・引用元構成比・競合同時言及率を主指標にする。同じプロンプトの結果は 24 時間すべての利用者で共有して原価を下げる。クレジット制（月 2,000。使い切っても定期計測は止まらない）。**業界の地図**（LLM Mentions API）では、トピックを 1 つ入れるとその話題の AI 回答で引用が多いサイトの順位表が引ける（自分が登録していない競合やメディアも出る。押したときだけ・1 回 5 クレジット）。仕様は [geo-monitoring-spec.md](docs/dev/geo-monitoring-spec.md) | DataForSEO + Supabase（Anthropic は任意） |
 | [プロンプト拡張](src/lib/llmo)（サイドバーには出さず、AI 検索モニタリングの設定からリンク） | B7 | 参考プロンプトと対象サイトから、関連プロンプトをカテゴリ付きで 50 本程度生成 | Anthropic |
+| [Google サーチコンソール連携](src/lib/google/search-console) | — | お客様の Google アカウントを接続し、選んだサイトの Search Console の実測（クリック・表示回数・CTR・平均掲載順位、日別、検索キーワード別・ページ別の上位 100 件、前期比）を出す。接続・サイト選択・表示を 1 画面で完結（2026-09-23 再開） | 利用者の Google（OAuth・`webmasters.readonly`） |
 | [検索パフォーマンス（推定）](src/lib/search-estimate) | — | Search Console を使わずに、ドメインを入れるだけで、順位を持っているキーワードを DataForSEO Labs から集め、順位別 CTR を掛けて表示回数・クリック数・平均順位を推定。契約初日から数字が出る（実測ではないことを画面で明示） | DataForSEO |
 | [Google マップ・店舗情報（MEO）](src/lib/maps) | — | 店名・地域で検索して自社 1 件と競合を最大 5 件選ぶ。自社のビジネス プロフィールを基本情報 / 投稿 / 写真 / レビューの 4 カテゴリ・21 項目で採点した診断報告書（総合評価 A〜E、総評、口コミ情報、PDF 出力）を作成。総評は `ANTHROPIC_API_KEY` があれば AI が執筆。オーナー権限が要る項目は「未取得」として採点から外し、Business Profile 連携後に埋まる。自社の店舗と競合を登録すると、登録直後に 1 回、その後は毎週月曜 5:00 に一斉更新して履歴に保存（手動の取り直しは不可）。最新診断結果と前回との差分、競合との比較表 | Places API (New) + Supabase（総評は Anthropic 任意。一斉更新は `CRON_SECRET`）。**Google での見られ方**（表示回数・マップ / 検索表示・電話・サイト・ルート検索・流入キーワードの当月 / 前月 / 18 か月の推移。[src/lib/google/performance.ts](src/lib/google/performance.ts)）は、店舗のオーナーか管理者の Google アカウントを接続したときだけ（Business Profile Performance API、要承認） | — | Places API。インサイトは Google 連携（任意） |
 | [口コミ支援（アンケート QR）](src/lib/reviews) | — | 店内の QR コード（1 つのアンケートを複数店舗で共有し、店舗ごと・テーブル別・スタッフ別に発行。店舗を紐づけた QR は来店客の画面と Google の投稿先がその店舗になる。MEO の登録店舗にまとめて発行も可）から来店客がログイン不要のアンケート（`/r/<slug>`）に答える。回答をもとに AI が口コミの下書きを作り（トーンと含めたい語は店舗が設定）、来店客が自由に編集して「Google マップに投稿する」から自分の意思で投稿する。投稿ボタンは評価に関係なく全員に同じ。低評価のときは「お店に直接伝える」を並べて出す（隠さない）。回答・下書き・投稿時の本文は店舗がすべて閲覧でき、低評価と直接連絡は先頭に並ぶ。対応状態とメモ、経路別・週別の集計、投稿ボタンの押下率（Google 側の実投稿数は取れないため近似）、CSV。来店客の画面は端末の言語（日本語・英語・中国語 簡体 / 繁体・韓国語）に合わせて自動で切り替わり、右上で変更もできる（テンプレートの質問は用意した訳、店舗が書き換えた質問は AI が訳して保存。AI 下書きもその言語。回答の言語は店舗側に表示） | Supabase（下書きと質問の訳は Anthropic 任意。無ければ回答をそのまま並べ、訳は日本語のまま） |
@@ -350,14 +351,15 @@ node scripts/add-release.mjs "入れた内容の 1 行説明"
 
 ---
 
-## Google 連携（ビジネス プロフィールのみ）
+## Google 連携（ビジネス プロフィール・Search Console）
 
-**Google Search Console と Google アナリティクス（GA4）は使いません**（利用者の決定 2026-09-17）。
-お客様側の登録・所有確認・権限付与という導入負担をなくすため、検索の状況は「検索パフォーマンス（推定）」（DataForSEO）で出します。
-サイト内の行動（訪問者・CV）は外部からは取れず、自前の計測タグも「お客様がタグを貼る」作業が要るので提供しません（同日の決定）。
-以前の `/tools/search-performance` `/tools/site-report` `/tools/ai-traffic` `/tools/llmo` は代替の画面へ転送します（転送だけ残し、API と実装は 2026-09-17 に削除済み）。
+**Google アナリティクス（GA4）は使いません**（利用者の決定 2026-09-17）。サイト内の行動（訪問者・CV）は外部からは取れず、自前の計測タグも「お客様がタグを貼る」作業が要るので提供しません（同日の決定）。
 
-Google アカウントの連携を求めるのは **口コミへの返信**（`business.manage`）だけで、口コミ返信の画面から個別に権限を追加します。
+**Search Console は 2026-09-23 に、SEO の「Google サーチコンソール連携」（`/tools/search-console`、ライト）として再開しました**（利用者の指示）。2026-09-17 にいったん提供を終え、コードも削除していたものを作り直したものです。連携は任意で、連携していないお客様には従来どおり「検索パフォーマンス（推定）」（DataForSEO）で数字を出します。
+画面 1 枚で、Google アカウントの接続（`webmasters.readonly` を追加。既存の権限も一緒に要求して落とさない）→ 所有権が確認済みのサイトの選択（Clerk の privateMetadata `googleLink.searchConsoleSiteUrl`）→ 期間 7〜365 日のクリック・表示回数・CTR・平均掲載順位、日別の推移、検索キーワード別・ページ別の上位 100 件までを出します（`/api/search-console/site`・`/api/search-console/performance`）。旧 `/tools/search-performance` はここへ転送します。精密診断にはまだ取り込んでいません。
+以前の `/tools/site-report` `/tools/ai-traffic` `/tools/llmo` は代替の画面へ転送します。
+
+Google アカウントの連携を求めるのは **口コミへの返信**（`business.manage`）と **サーチコンソール連携**（`webmasters.readonly`）で、それぞれの画面から個別に権限を追加します。
 アクセストークンは Clerk が保持・更新し（`getUserOauthAccessToken`）、アプリはトークンを保存しません。
 Google Cloud・Clerk・アプリの分担は [docs/dev/services.md](docs/dev/services.md)、審査は [docs/dev/google-oauth-verification.md](docs/dev/google-oauth-verification.md)。
 

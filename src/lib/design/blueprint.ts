@@ -146,7 +146,7 @@ export const SERVICE_BLUEPRINTS: Record<IntegrationKey, ServiceBlueprint> = {
     costKind: "variable",
     payer: "運用者",
     configuredAt: "DataForSEO → API ダッシュボード（前払い）",
-    note: "Search Console / GA4 は使わない（利用者の決定 2026-09-17）。その代わりがこの推定。",
+    note: "GA4 は使わない（利用者の決定 2026-09-17）。Search Console は 2026-09-23 に任意の連携として再開したが、連携していないお客様にはこの推定で数字を出す。",
   },
   pagespeed: {
     key: "pagespeed",
@@ -261,7 +261,7 @@ export interface RetiredItem {
 }
 
 export const RETIRED: readonly RetiredItem[] = [
-  { label: "Google Search Console / GA4 の連携", when: "2026-09-17（r89）", why: "お客様側の作業（所有確認・タグ設置）が要り、ツールで完結しない", replacedBy: "検索パフォーマンス（推定）（DataForSEO）。行動・CV は外部から取れないので出さない" },
+  { label: "Google アナリティクス（GA4）の連携（Search Console は 2026-09-23 に「Google サーチコンソール連携」として再開）", when: "2026-09-17（r89）", why: "お客様側の作業（所有確認・タグ設置）が要り、ツールで完結しない", replacedBy: "検索パフォーマンス（推定）（DataForSEO）。行動・CV は外部から取れないので出さない" },
   { label: "自前の計測タグ（アクセス解析）", when: "2026-09-17（r90）", why: "お客様のサイトに手を入れる必要があり面倒", replacedBy: "なし（推定へ転送）" },
   { label: "LLMO モニタリング・セカンドオピニオン（OpenAI / Gemini / Perplexity の直接連携）", when: "2026-09-17（r92）", why: "AI 検索モニタリングに一本化。Google の AI 検索には API が無く、各社直結だと計測が揃わない", replacedBy: "AI 検索モニタリング（DataForSEO 経由で 6 モデル）" },
   { label: "Clerk Billing", when: "2026-09-13", why: "ドル建てのみ", replacedBy: "Stripe 直結（Checkout + Webhook → Clerk の publicMetadata）" },

@@ -7,7 +7,7 @@
  * 「どのキーワードで何位にいて、どれくらい見られているか」の推定を出す。
  *
  * **実測ではない**ので、そのことを画面の先頭と表の見出しで必ず伝える。
- * Search Console は使わない（利用者の決定 2026-09-17）ので、実測値への誘導は書かない。
+ * 実測は「Google サーチコンソール連携」（2026-09-23 に再開。任意の連携）にある。
  */
 import { useState } from "react";
 import { useRegisteredSite } from "@/components/site/RegisteredSite";
@@ -83,7 +83,7 @@ export function SearchEstimateTool() {
         </p>
         <p className="mt-2">
           対象は Google の通常の検索結果（SEO）です。生成 AI や AI Overviews での引用は「LLMO モニタリング」「AI 検索モニタリング」で見ます。
-          本サービスは Search Console を使わないため、実際に検索された語そのもの・実際のクリック数は出ません。
+          実際に検索された語そのもの・実際のクリック数は、SEO の「Google サーチコンソール連携」で Google アカウントを接続すると見られます。
         </p>
       </Callout>
 

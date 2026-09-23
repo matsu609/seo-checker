@@ -10,7 +10,8 @@ export const metadata: Metadata = { title: feature.label, description: feature.d
  * Google 連携（Search Console / GA4）のカードは 2026-09-17 に外した（利用者の決定:
  * Google の無料ツールは使わず、検索は「検索パフォーマンス（推定）」で出す）。
  * 口コミ返信に要る Google ビジネス プロフィールの権限は、
- * 口コミ返信の画面から個別に追加する。
+ * 口コミ返信の画面から個別に追加する。Search Console の読み取り権限（2026-09-23 に再開）も、
+ * SEO の「Google サーチコンソール連携」の画面から個別に追加する。
  */
 export default function Page() {
   return <SettingsView />;

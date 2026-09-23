@@ -122,7 +122,7 @@ export interface Feature {
   category?: FeatureCategoryId;
   /**
    * サイドバーに出さない（ページと API は残す）。
-   * 別の機能に統合した旧機能に付ける。お客様側の作業が要る機能はそもそも置かない（利用者の決定 2026-09-17）。プランのゲートは残るので、API が素通りにならない。
+   * 別の機能に統合した旧機能に付ける。お客様側の作業が要る機能はそもそも置かない（利用者の決定 2026-09-17。例外: Google サーチコンソール連携は 2026-09-23 の利用者の指示で任意の連携として置く）。プランのゲートは残るので、API が素通りにならない。
    */
   hidden?: boolean;
   /**
@@ -507,6 +507,28 @@ const MEASURE: readonly Feature[] = [
     plan: "light",
   },
   {
+    id: "search-console",
+    path: "/tools/search-console",
+    label: "Google サーチコンソール連携",
+    shortLabel: "サーチコンソール連携",
+    description:
+      "Google アカウントを接続すると、Google サーチコンソールの実測値（クリック数・表示回数・CTR・平均掲載順位）を、実際に検索されたキーワードとページごとにこの画面で見られます。読み取り専用で、サイトの設定は変えません。",
+    details: [
+      "Google アカウントの接続と、見るサイトの選択（所有権が確認済みのサイトだけ）をこの画面で完結",
+      "期間 7 / 28 / 90 / 180 / 365 日の合計と前期比、日別のクリック数の推移",
+      "クリックの多い検索キーワード・ページの上位 100 件（並べ替え可）",
+      "使えるサイトが無いときは、Search Console への登録・権限の付け方を案内",
+    ],
+    featureIds: [],
+    icon: "traffic",
+    status: "beta",
+    // 鍵は無い。お客様の Google アカウント（OAuth・webmasters.readonly）で読む
+    requires: [],
+    group: "measure",
+    category: "seo",
+    plan: "light",
+  },
+  {
     id: "search-estimate",
     path: "/tools/search-estimate",
     label: "検索パフォーマンス（推定）",
@@ -516,7 +538,7 @@ const MEASURE: readonly Feature[] = [
     details: [
       "そのドメインが順位を持っているキーワードを自動で集めます（登録作業は不要）",
       "順位ごとのクリック率から、推定の表示回数・クリック数・CTR・平均順位を出します",
-      "実際に検索された語そのものは Search Console にしかありません。本サービスは Search Console を使わないため、ここに出るのはすべて推定値です",
+      "ここに出るのはすべて推定値です。実際に検索された語と実測のクリック数は「Google サーチコンソール連携」で見られます（お客様の Google アカウントの接続が必要）",
     ],
     featureIds: [],
     icon: "traffic",

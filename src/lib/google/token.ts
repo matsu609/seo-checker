@@ -5,12 +5,12 @@
  * 持たない。ここで取れるのは短命のアクセストークンだけで、リフレッシュトークンは
  * 触らない（ブラウザにも渡さない）。
  *
- * スコープは接続時に GoogleLinkPanel が要求する。Clerk のダッシュボードで足す
+ * スコープは各画面の接続ボタン（ConnectBusinessButton / ConnectSearchConsoleButton）が要求する。Clerk のダッシュボードで足す
  * 必要はないが、Google 連携を「独自のクレデンシャル」にしてあることが前提。
  */
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { GoogleLinkError } from "./errors";
-import { canUse, missingScopes, SERVICE_LABELS, type GoogleService } from "./scopes";
+import { canUse, GRANT_HINTS, missingScopes, SERVICE_LABELS, type GoogleService } from "./scopes";
 
 export interface GoogleToken {
   token: string;
@@ -68,7 +68,7 @@ export async function getGoogleTokenFor(service: GoogleService): Promise<string>
   const { token, scopes } = await getGoogleToken();
   if (!canUse(scopes, service)) {
     throw new GoogleLinkError(
-      `${SERVICE_LABELS[service]} の権限が許可されていません。口コミ返信の画面の「Google に口コミ返信の権限を追加する」から接続し直し、権限の確認画面で許可してください。`,
+      `${SERVICE_LABELS[service]} の権限が許可されていません。${GRANT_HINTS[service]}`,
       "insufficient_scope",
     );
   }
@@ -118,7 +118,7 @@ export async function getGoogleTokenForUser(userId: string, service: GoogleServi
   const first = tokens.data[0];
   if (!first?.token) throw new GoogleLinkError("Google アカウントが接続されていません。設定画面から接続してください。", "not_connected");
   if (!canUse(first.scopes ?? [], service)) {
-    throw new GoogleLinkError(`${SERVICE_LABELS[service]} の権限が許可されていません。口コミの画面の「Google に口コミ返信の権限を追加する」から接続し直してください。`, "insufficient_scope");
+    throw new GoogleLinkError(`${SERVICE_LABELS[service]} の権限が許可されていません。${GRANT_HINTS[service]}`, "insufficient_scope");
   }
   return first.token;
 }

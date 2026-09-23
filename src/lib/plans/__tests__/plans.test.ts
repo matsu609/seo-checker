@@ -105,8 +105,9 @@ describe("機能とプランの対応", () => {
     const light = features.filter((f) => f.plan === "light").map((f) => f.id);
     expect(light).toContain("site-audit");
     expect(light).toContain("rank");
-    // Search Console / GA4 は使わない（利用者の決定 2026-09-17）。ライトには連携の要らない代替を置く
+    // 連携の要らない推定（2026-09-17）と、任意で接続する Search Console の実測（2026-09-23 に再開）
     expect(light).toContain("search-estimate");
+    expect(light).toContain("search-console");
     // サイテーション（ウェブ上の掲載・言及チェック）は読む・測る系なのでライト（2026-09-17）
     expect(light).toContain("citations");
     // NAP チェック（表記ゆれの検出）も読む・測る系（2026-09-20）
@@ -117,8 +118,9 @@ describe("機能とプランの対応", () => {
 
   /**
    * プレミアムは人の作業を足す段。ツールのゲートには使わない（利用者の決定 2026-09-17）。
-   * 以前プレミアムに置いていた Search Console / GA4 の 3 ツールは提供を終了した
-   * （Google の無料ツールは使わない）。registry から消えていることをここで固定する。
+   * 以前プレミアムに置いていた Search Console / GA4 の 3 ツールは提供を終了した。
+   * Search Console は 2026-09-23 に「Google サーチコンソール連携」（ライト）として作り直した。
+   * 旧 ID と GA4 のツールが registry から消えていることをここで固定する。
    */
   it("プレミアム限定のツールは無い（Search Console / GA4 のツールは提供終了）", () => {
     expect(features.filter((f) => f.plan === "premium")).toEqual([]);

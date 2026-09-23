@@ -22,6 +22,7 @@
 | 診断 | `/tools/page-diagnosis` | （2026-09-19「ページ改善」に統合。転送のみ。API `/api/page-diagnosis` は現役） | A4 | SERP or Anthropic web 検索 |
 | 診断 | `/tools/aio-topics` | （サイドバーから外した 2026-09-17。AI 検索モニタリングへ転送のみ。`hidden: true`。API は残る） | A5 | — |
 | 計測 | `/tools/rank` | 順位計測・AI Overviews 引用 | B1, B2, B3 | SERP |
+| 計測 | `/tools/search-console` | Google サーチコンソール連携（お客様の Google アカウントで Search Console の実測を読む。2026-09-23 再開） | − | Google OAuth（webmasters.readonly） |
 | 計測 | `/tools/geo` | AI 検索モニタリング（引用・参照の定点観測） | — | DataForSEO + Supabase（Anthropic は任意） |
 | 計測 | `/tools/reports` | 月次レポートとお知らせ（毎月 1 日に前月の数字をまとめる。順位の急落・サイトの事故などの知らせもここ。r127） | — | Supabase（メールは Resend 任意） |
 | 計測 | `/tools/monitor` | サイトの事故監視（毎週水曜に主要ページを確認。noindex・エラー・転送・SSL・リンク切れ。r127） | — | Supabase |

@@ -35,7 +35,7 @@ describe("AIO 対策（親）の中の 3 本の柱", () => {
     expect(tree.umbrella.map((f) => f.id)).toEqual(["geo", "reports"]);
     // 並びは「診断 → やること → 成果」（利用者の決定 2026-09-19）
     expect(tree.pillars.map((p) => [p.category.id, p.features.map((f) => f.id)])).toEqual([
-      ["seo", ["seo-analysis", "page-improve", "faq", "rank", "monitor"]],
+      ["seo", ["seo-analysis", "page-improve", "faq", "rank", "search-console", "monitor"]],
       ["meo", ["maps", "reviews", "posts"]],
       // r131: NAP チェック（表記ゆれの検出）を柱の先頭に（利用者の決定 2026-09-20「ずれていないかを主機能に」）
       ["citation", ["nap", "citations"]],

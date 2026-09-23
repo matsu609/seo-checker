@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
 /**
- * Search Console の実測（検索パフォーマンス）は提供を終了した（利用者の決定 2026-09-17:
- * Google Search Console / GA4 は使わない）。代わりに、連携の要らない
- * 「順位計測」（検索の推定タブ）へ転送する。古いリンクとブックマークのためだけに残す。
+ * 旧「検索パフォーマンス」（Search Console の実測）の URL。2026-09-23 に SEO の
+ * 「Google サーチコンソール連携」として作り直したので、そちらへ転送する。
+ * 古いリンクとブックマークのためだけに残す。
  */
 export default function Page() {
-  redirect("/tools/rank");
+  redirect("/tools/search-console");
 }
