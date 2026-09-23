@@ -13,11 +13,14 @@ import { listStores } from "./stores";
 import type { PlaceDetail } from "./types";
 
 export interface EnrichOptions {
-  /** 使い回す前回の報告書（同じキーワードは検索しない） */
+  /**
+   * 使い回す報告書（同じキーワードは検索しない）。置き換える報告書そのもの（オーナー情報の保存で
+   * 最新の報告書を採点し直すとき）を渡す。周辺を取り直さないときは、これの周辺を引き継ぐ
+   */
   reuse?: MeoReport | null;
-  /** 前回の報告書（順位の前回値と、周辺を取り直さないときの値に使う） */
+  /** 1 つ前の報告書（順位の前回値に使う。reuse が無ければ、周辺を取り直さないときの値にも使う） */
   previous?: MeoReport | null;
-  /** 周辺の同業を取り直すか（false なら previous の値を引き継ぐ） */
+  /** 周辺の同業を取り直すか（false なら reuse、無ければ previous の値を引き継ぐ） */
   refreshArea: boolean;
   now?: () => Date;
 }
@@ -53,7 +56,9 @@ export async function enrichOwnReport(userId: string, detail: PlaceDetail, keywo
     });
   }
 
-  let area: AreaResult | null = options.previous?.area ?? null;
+  // 2026-09-23: 以前は previous の周辺を引き継いでいた。オーナー情報の保存は previous に最新の報告書を
+  // 渡していたので結果は同じだったが、前回の順位に「1 つ前」の報告書を渡すようにしたため、周辺は置き換える報告書から取る
+  let area: AreaResult | null = (options.reuse ?? options.previous)?.area ?? null;
   if (options.refreshArea) {
     try {
       const nearby = await searchNearbyCached(detail.id, center, detail.primaryType ?? null, AREA_RADIUS_M, AREA_LIMIT);

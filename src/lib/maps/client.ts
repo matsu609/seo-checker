@@ -2,7 +2,7 @@
  * Places API (New) のクライアント。サーバー専用（API キーを使う）。
  *
  * 呼ぶのは 3 本。
- *   - POST /v1/places:searchText   … 店名・地域で候補を探す（Enterprise 区分）／検索順位の計測（Pro 区分）
+ *   - POST /v1/places:searchText   … 店名・地域で候補を探す（Enterprise 区分。id・名前・住所だけなら Pro 区分）／検索順位の計測（Pro 区分）
  *   - POST /v1/places:searchNearby … 周辺の同業（Enterprise 区分）
  *   - GET  /v1/places/{id}         … 比較・採点に使う詳細（Enterprise + Atmosphere 区分）
  *
@@ -23,6 +23,7 @@ const RANK_FIELDS = ["places.id", "places.displayName"].join(",");
 /** 周辺の同業は評価と件数が要る（Nearby Search Enterprise 区分。月 1,000 回まで無料） */
 const NEARBY_FIELDS = ["places.id", "places.displayName", "places.rating", "places.userRatingCount"].join(",");
 
+/** 候補の一覧（評価・件数が入るので Text Search Enterprise 区分） */
 const SEARCH_FIELDS = [
   "places.id",
   "places.displayName",
@@ -32,6 +33,20 @@ const SEARCH_FIELDS = [
   "places.primaryTypeDisplayName",
   "places.businessStatus",
 ].join(",");
+
+/**
+ * 候補の id・名前・住所だけ（Text Search Pro 区分。月 5,000 回まで無料）。
+ * 評価・件数（Enterprise 区分）が要らない呼び出し用（NAP チェックの店舗探し。2026-09-23）。
+ */
+const SEARCH_FIELDS_BASIC = ["places.id", "places.displayName", "places.formattedAddress"].join(",");
+
+export interface SearchPlacesOptions {
+  /**
+   * 取る項目。"full"（既定）= 評価・件数・カテゴリ・営業状態まで（Enterprise 区分）、
+   * "basic" = id・名前・住所だけ（Pro 区分。rating / ratingCount / category / status は null になる）
+   */
+  fields?: "full" | "basic";
+}
 
 /** r27 までの詳細（reviews と editorialSummary が入るので最も高い区分 Enterprise + Atmosphere） */
 const DETAIL_FIELDS_BASE = [
@@ -157,7 +172,7 @@ async function call(path: string, init: RequestInit, fieldMask: string): Promise
 }
 
 /** 店名・地域などの文字列で候補を探す（日本語・日本を優先） */
-export async function searchPlaces(query: string, limit = SEARCH_LIMIT): Promise<PlaceSummary[]> {
+export async function searchPlaces(query: string, limit = SEARCH_LIMIT, options: SearchPlacesOptions = {}): Promise<PlaceSummary[]> {
   const body = await call(
     "/places:searchText",
     {
@@ -169,7 +184,7 @@ export async function searchPlaces(query: string, limit = SEARCH_LIMIT): Promise
         pageSize: Math.min(Math.max(limit, 1), 20),
       }),
     },
-    SEARCH_FIELDS,
+    options.fields === "basic" ? SEARCH_FIELDS_BASIC : SEARCH_FIELDS,
   );
   return parseSearchResponse(body);
 }
