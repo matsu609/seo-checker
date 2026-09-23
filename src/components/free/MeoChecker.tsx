@@ -14,13 +14,13 @@ import type { FreeMeoSearchResponse } from "@/app/api/meo/search/route";
 import { MeoReportView } from "@/components/maps/report/MeoReportView";
 import { formatCount, formatRating, statusLabel } from "@/components/maps/format";
 import { Button, Callout, DataTable, Field, Input, type Column } from "@/components/ui";
+import { usePdfDownload } from "@/components/ui/usePdfDownload";
 import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
 import { FREE_SUITE_LABEL } from "@/lib/features/registry";
 import { isExhausted, type FreeQuota } from "@/lib/free/quota-rules";
 import { SIGN_UP_PATH } from "@/lib/free/upsell";
 import { meoReportFileName } from "@/lib/maps/report";
 import type { PlaceSummary } from "@/lib/maps/types";
-import { downloadPdf } from "@/lib/pdf/download";
 import { Download } from "./Icons";
 import { FreeQuotaNotice } from "./FreeQuotaNotice";
 import { FreeTargetSwitch } from "./FreeTargetSwitch";
@@ -48,8 +48,8 @@ export function MeoChecker({ enabled, quota: initialQuota }: MeoCheckerProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [search, setSearch] = useState<Search>({ phase: "idle" });
   const [report, setReport] = useState<Report>({ phase: "idle" });
-  const [pdf, setPdf] = useState<"idle" | "working" | "failed">("idle");
   const reportRef = useRef<HTMLDivElement>(null);
+  const { state: pdf, download: downloadReportPdf, reset: resetPdf } = usePdfDownload(reportRef);
 
   async function onSearch(e: FormEvent) {
     e.preventDefault();
@@ -76,7 +76,7 @@ export function MeoChecker({ enabled, quota: initialQuota }: MeoCheckerProps) {
 
   async function onDiagnose(place: PlaceSummary) {
     if (exhausted) return;
-    setPdf("idle");
+    resetPdf();
     setReport({ phase: "loading", placeId: place.id });
     try {
       const res = await fetch("/api/meo/report", {
@@ -96,15 +96,8 @@ export function MeoChecker({ enabled, quota: initialQuota }: MeoCheckerProps) {
   }
 
   async function onDownloadPdf() {
-    const element = reportRef.current;
-    if (!element || report.phase !== "done") return;
-    setPdf("working");
-    try {
-      await downloadPdf({ element, fileName: meoReportFileName(report.data.report) });
-      setPdf("idle");
-    } catch {
-      setPdf("failed");
-    }
+    if (report.phase !== "done") return;
+    await downloadReportPdf(meoReportFileName(report.data.report));
   }
 
   const columns: Column<PlaceSummary>[] = [

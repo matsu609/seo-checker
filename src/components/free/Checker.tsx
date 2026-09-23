@@ -9,11 +9,11 @@
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Button, Callout } from "@/components/ui";
+import { usePdfDownload } from "@/components/ui/usePdfDownload";
 import type { AnalysisResult, SiteAnalysisResult, SiteProgress } from "@/lib/analyzer/types";
 import { requestSiteAnalysis, SiteRequestError } from "@/lib/crawl/client";
 import { freeSiteMaxPages, truncationNote } from "@/lib/free/limits";
 import { isExhausted, type FreeQuota } from "@/lib/free/quota-rules";
-import { downloadPdf } from "@/lib/pdf/download";
 import { reportFileName } from "@/lib/report";
 import { DiagnosisForm, type Mode } from "./DiagnosisForm";
 import { FreeQuotaNotice } from "./FreeQuotaNotice";
@@ -68,9 +68,9 @@ export function Checker({ quota: initialQuota }: CheckerProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [faqEnabled, setFaqEnabled] = useState(false);
-  const [pdf, setPdf] = useState<"idle" | "working" | "failed">("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
   const reportRef = useRef<HTMLDivElement>(null);
+  const { state: pdf, download: onDownloadPdf, reset: resetPdf } = usePdfDownload(reportRef);
   const abortRef = useRef<AbortController | null>(null);
   const startedAtRef = useRef(0);
 
@@ -117,7 +117,7 @@ export function Checker({ quota: initialQuota }: CheckerProps) {
     }
     setFormError(null);
     setNotice(null);
-    setPdf("idle");
+    resetPdf();
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -169,18 +169,6 @@ export function Checker({ quota: initialQuota }: CheckerProps) {
       if (abortRef.current === controller) abortRef.current = null;
       // 1 回消費したので残り回数を取り直す（失敗した診断は消費されていないこともある）
       void refreshQuota();
-    }
-  }
-
-  async function onDownloadPdf(fileName: string) {
-    const element = reportRef.current;
-    if (!element) return;
-    setPdf("working");
-    try {
-      await downloadPdf({ element, fileName });
-      setPdf("idle");
-    } catch {
-      setPdf("failed");
     }
   }
 

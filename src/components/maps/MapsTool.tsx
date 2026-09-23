@@ -27,13 +27,13 @@ import { Card } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select } from "@/components/ui/Field";
+import { usePdfDownload } from "@/components/ui/usePdfDownload";
 import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
 import { toCommentaryInput } from "@/lib/maps/commentary-input";
 import type { MeoHistoryItem, SavedMeoReport } from "@/lib/maps/history";
 import { meoReportFileName } from "@/lib/maps/report";
 import { MAX_COMPETITORS_PER_STORE, type MeoStore } from "@/lib/maps/stores";
 import type { PlaceSummary } from "@/lib/maps/types";
-import { downloadPdf } from "@/lib/pdf/download";
 import { formatDateTime } from "@/lib/report/format";
 import { useStore } from "@/lib/store/hooks";
 import { mapsViewStore } from "@/lib/store/maps";
@@ -45,8 +45,6 @@ import { RankTrendCard } from "./RankTrendCard";
 import { OwnerInputCard } from "./OwnerInputCard";
 import { PerformanceCard } from "./PerformanceCard";
 import { MeoReportView } from "./report/MeoReportView";
-
-type PdfState = "idle" | "working" | "failed";
 
 interface StoresState {
   stores: MeoStore[];
@@ -82,7 +80,6 @@ export function MapsTool() {
   const search = useToolRun<MapsSearchResponse>();
   const commentary = useToolRun<MapsCommentaryResponse>();
   const [aiEnabled, setAiEnabled] = useState(false);
-  const [pdf, setPdf] = useState<PdfState>("idle");
   const [stores, setStores] = useState<StoresState>({ stores: [], nextRefreshAt: null, loading: true, error: null });
   const [history, setHistory] = useState<HistoryState>({ items: [], loading: false, error: null });
   const [shown, setShown] = useState<Shown | null>(null);
@@ -97,6 +94,7 @@ export function MapsTool() {
   const [notice, setNotice] = useState<{ tone: "info" | "warn" | "fail"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+  const { state: pdf, download: downloadReportPdf, reset: resetPdf } = usePdfDownload(reportRef);
 
   const owns = useMemo(() => stores.stores.filter((s) => s.role === "own"), [stores.stores]);
   const own = useMemo(
@@ -182,7 +180,7 @@ export function MapsTool() {
 
   useEffect(() => {
     commentary.reset();
-    setPdf("idle");
+    resetPdf();
     if (!ownId) {
       setShown(null);
       setInsights(null);
@@ -195,7 +193,7 @@ export function MapsTool() {
     void loadCompare(ownId, ac.signal);
     void loadInsights(ownId, ac.signal);
     return () => ac.abort();
-    // commentary.reset は安定した関数
+    // commentary.reset と resetPdf は安定した関数
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownId, loadHistory, loadCompare, loadInsights]);
 
@@ -274,15 +272,8 @@ export function MapsTool() {
   }
 
   async function onDownloadPdf() {
-    const element = reportRef.current;
-    if (!element || !shown) return;
-    setPdf("working");
-    try {
-      await downloadPdf({ element, fileName: meoReportFileName(shown.report) });
-      setPdf("idle");
-    } catch {
-      setPdf("failed");
-    }
+    if (!shown) return;
+    await downloadReportPdf(meoReportFileName(shown.report));
   }
 
   async function onOpenHistory(item: MeoHistoryItem) {
@@ -292,7 +283,7 @@ export function MapsTool() {
       const latestId = history.items[0]?.id ?? null;
       setShown({ id: entry.item.id, report: entry.report, fromHistory: entry.item.id !== latestId });
       commentary.reset();
-      setPdf("idle");
+      resetPdf();
       reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (err) {
       setHistory((prev) => ({ ...prev, error: err instanceof Error ? err.message : "報告書を開けませんでした" }));
