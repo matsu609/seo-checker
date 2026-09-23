@@ -1,11 +1,14 @@
 /**
- * POST /api/meo/report（ログイン不要）
+ * POST /api/meo/report（アカウント登録が要る。2026-09-18 から。無料診断の回数はメールアドレスごと）
  * 無料 MEO 診断の報告書。自社 1 店舗ぶんの公開情報を採点して返す。
  *
  * 有料版（/api/maps/stores）との違い: 保存しない・競合なし・AI 総評なし・取り直し不可。
  * 詳細取得は有料版と同じ 6 時間キャッシュ（fetch.ts）を共有し、
  * キャッシュに当たった分は上限を消費しない（Google に費用が出ないため）。
  * クライアント（IP）ごと 10 回 / 時、全体 500 回 / 日（FREE_MEO_DAILY_LIMIT）。
+ *
+ * 順番: 本人の残り回数を確かめる（消費しない）→ IP ごとの枠 → 全体の枠 → 本人の回数を消費 → Google。
+ * 2026-09-23 まで本人の回数を最後に見ていたので、使い切った人が押すたびに全体の枠だけが減っていた。
  */
 import { z } from "zod";
 import {
@@ -18,7 +21,7 @@ import {
   takeClientToken,
   takeDailyToken,
 } from "@/lib/free/ratelimit";
-import { consumeFreeRun, requireFreeUser } from "@/lib/free/quota";
+import { checkFreeRun, consumeFreeRun, requireFreeUser } from "@/lib/free/quota";
 import { isPlacesConfigured, placesErrorResponse } from "@/lib/maps/client";
 import { getPlaceCached, peekPlaceCached } from "@/lib/maps/fetch";
 import { buildMeoReport, type MeoReport } from "@/lib/maps/report";
@@ -65,6 +68,9 @@ export async function POST(request: Request) {
     const body: FreeMeoReportResponse = { report: buildMeoReport(hit, new Date(), null, FREE_SCORE), cached: true };
     return Response.json(body, { headers: NO_STORE });
   }
+  // 使い切った人に、全員で分け合う枠（IP ごと・1 日の全体）を減らさせない。ここでは消費しない
+  const quota = await checkFreeRun();
+  if (quota instanceof Response) return quota;
   if (!takeClientToken("meo-report", clientKeyOf(request), FREE_MEO_REPORT_PER_HOUR)) {
     return Response.json({ error: CLIENT_LIMIT_MESSAGE, code: "rate_limited" }, { status: 429, headers: NO_STORE });
   }
@@ -72,8 +78,8 @@ export async function POST(request: Request) {
     return Response.json({ error: FREE_LIMIT_MESSAGE, code: "daily_limit" }, { status: 429, headers: NO_STORE });
   }
 
-  // キャッシュに無い = Google に問い合わせるときだけ 1 回ぶん消費する
-  const exhausted = await consumeFreeRun();
+  // キャッシュに無い = Google に問い合わせるときだけ 1 回ぶん消費する（上で確かめた回数を使う）
+  const exhausted = await consumeFreeRun(quota);
   if (exhausted) return exhausted;
   try {
     const { detail, cached } = await getPlaceCached(placeId);
