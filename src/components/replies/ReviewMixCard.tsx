@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/Card";
 import { StatStrip } from "@/components/ui/StatCard";
 import { SAMPLE_REPLY_MIX } from "@/lib/demo/meo";
 import { palette } from "@/lib/ui/palette";
+import { ratingBands } from "@/lib/ui/rating-bands";
 import type { ReviewRow } from "./RepliesTool";
 
 export interface ReviewMixCardProps {
@@ -49,15 +50,6 @@ export function summarizeReviews(rows: readonly ReviewRow[]): ReviewMix {
     if (r.rating !== null && r.rating >= 1 && r.rating <= 5) distribution[r.rating - 1] += 1;
   }
   return { replied, pending: rows.length - replied, distribution, low: distribution[0] + distribution[1] };
-}
-
-/** 1〜5 の件数 → 棒グラフの区分（★5 が左）。低評価だけ色を変える */
-export function ratingBands(distribution: readonly number[]) {
-  return [5, 4, 3, 2, 1].map((n) => ({
-    label: `★${n}`,
-    count: distribution[n - 1] ?? 0,
-    color: n <= 2 ? palette.chart[3] : palette.chart[0],
-  }));
 }
 
 function ReplyBar({ replied, pending }: { replied: number; pending: number }) {

@@ -15,7 +15,7 @@ import { StatStrip } from "@/components/ui/StatCard";
 import { dayLabel } from "@/lib/demo/dates";
 import { SAMPLE_RATING_DISTRIBUTION, sampleSurveyWeeks } from "@/lib/demo/meo";
 import type { ChannelStat, ReviewMetrics, WeekStat } from "@/lib/reviews/metrics";
-import { palette } from "@/lib/ui/palette";
+import { ratingBands } from "@/lib/ui/rating-bands";
 
 export interface MetricsCardProps {
   number: number;
@@ -49,16 +49,6 @@ const WEEK_COLUMNS: readonly Column<WeekStat>[] = [
   { key: "low", header: "低評価", accessor: (r) => r.low, align: "right" },
   { key: "clicks", header: "投稿ボタン押下", accessor: (r) => r.reviewClicks, render: (r) => `${r.reviewClicks}（${rate(r.reviewClicks, r.total)}）`, align: "right" },
 ];
-
-/** 1〜5 の件数 → 棒グラフの区分（星の多い順に左から。表の並びと同じ） */
-export function ratingBands(distribution: readonly number[]) {
-  return [5, 4, 3, 2, 1].map((n) => ({
-    label: `★${n}`,
-    count: distribution[n - 1] ?? 0,
-    // 低評価（1〜2）だけ色を変える。ここが対応すべき回答
-    color: n <= 2 ? palette.chart[3] : palette.chart[0],
-  }));
-}
 
 export function MetricsCard({ number, metrics, limit, filtered }: MetricsCardProps) {
   // 回答が 1 件も無いときは、空の表ではなく「これから何が出るか」を見せる
