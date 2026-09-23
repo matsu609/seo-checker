@@ -16,7 +16,30 @@ describe("ジョブの振り分け", () => {
 
   it("1 日: 月次レポート。2 日: 掲載の再チェック（2026-10-01 は木曜）", () => {
     expect(dueJobs(new Date("2026-09-30T20:00:00Z"))).toEqual(["gbp-posts", "monthly-report", "seo-reanalysis"]);
-    expect(dueJobs(new Date("2026-10-01T20:00:00Z"))).toEqual(["gbp-posts", "listings-recheck", "seo-reanalysis"]);
+    // 2 日は掲載の再チェックの予定日。月次レポートは取り返しの日（済んでいれば runner が飛ばす。2026-09-23）
+    expect(dueJobs(new Date("2026-10-01T20:00:00Z"))).toEqual(["gbp-posts", "monthly-report", "listings-recheck", "seo-reanalysis"]);
+  });
+
+  it("月次のジョブは予定日から 2 日だけ取り返す（1 日なら 3 日まで、2 日なら 4 日まで）", () => {
+    // 10/3（土）: レポートの最終日・再チェックの取り返し
+    expect(dueJobs(new Date("2026-10-02T20:00:00Z"))).toEqual(["gbp-posts", "monthly-report", "listings-recheck", "seo-reanalysis"]);
+    // 10/4（日）: 再チェックの最終日
+    expect(dueJobs(new Date("2026-10-03T20:00:00Z"))).toEqual(["gbp-posts", "listings-recheck", "seo-reanalysis"]);
+    // 10/5（月）: どちらも無い
+    expect(dueJobs(new Date("2026-10-04T20:00:00Z"))).toEqual(["gbp-posts", "maps-refresh", "seo-reanalysis"]);
+  });
+
+  it("月次のジョブは曜日の重いジョブより前（1 日が火曜でも月次レポートを先に。2026-12-01）", () => {
+    expect(dueJobs(new Date("2026-11-30T20:00:00Z"))).toEqual(["gbp-posts", "monthly-report", "rank-weekly", "seo-reanalysis"]);
+    // 使ってよい時間に上限があり、後ろの順位計測（最低 60 秒）の時間が残る
+    expect(scheduleOf("monthly-report").maxBudgetMs).toBeLessThanOrEqual(250_000 - 20_000 - scheduleOf("rank-weekly").minBudgetMs);
+  });
+
+  it("取り返しの窓は今月の予定日の 0:00（日本時間）から", () => {
+    // 12/3 10:00 JST
+    expect(scheduleOf("monthly-report").catchUpSince?.(new Date("2026-12-03T01:00:00Z")).toISOString()).toBe("2026-11-30T15:00:00.000Z");
+    expect(scheduleOf("listings-recheck").catchUpSince?.(new Date("2026-12-03T01:00:00Z")).toISOString()).toBe("2026-12-01T15:00:00.000Z");
+    expect(scheduleOf("rank-weekly").catchUpSince).toBeUndefined();
   });
 
   it("毎日のジョブの次回: 5:00 前なら きょう、過ぎていれば あす（1 週間後ではない）", () => {

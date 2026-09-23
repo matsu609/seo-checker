@@ -41,6 +41,24 @@ export async function listReportMonths(userId: string): Promise<string[]> {
   return parsed.success ? parsed.data.map((r) => r.month) : [];
 }
 
+/** 月次レポートのお知らせのリンク（お知らせの突き合わせにも使うので 1 か所で決める） */
+export function reportLink(month: string): string {
+  return `/tools/reports?month=${month}`;
+}
+
+/**
+ * その月の月次レポートを、もう知らせたか（2026-09-23）。
+ *
+ * お知らせ（notifications）は送信の成否にかかわらず必ず残るので、ここを「知らせた」の印にする。
+ * 表を増やさずに「同じ月を 2 回送らない」を守るため（「今すぐ実行」・Cron の再送・取り返しの日）。
+ */
+export async function hasMonthlyReportNotice(userId: string, month: string): Promise<boolean> {
+  const rows = await supabaseRest<unknown>(
+    `notifications?select=id&user_id=${eq(userId)}&kind=eq.monthly_report&link=${eq(reportLink(month))}&limit=1`,
+  );
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 export async function markReportEmailed(userId: string, month: string, at = new Date()): Promise<void> {
   await supabaseRest<unknown>(`${TABLE}?user_id=${eq(userId)}&month=${eq(month)}`, { method: "PATCH", body: { emailed_at: at.toISOString() }, prefer: "return=minimal" });
 }
