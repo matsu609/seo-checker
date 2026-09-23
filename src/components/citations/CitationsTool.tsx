@@ -13,13 +13,11 @@
  * サービスの使い始めでも、こう集計されると直感的に分かるように」。
  * 調べる前は空っぽの画面だったので、**何が出るのかを見本の帯で先に見せる**。
  */
-import { useEffect, useMemo, useState } from "react";
-import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
-import { useRegisteredSite } from "@/components/site/RegisteredSite";
+import { useMemo } from "react";
 import { BasicInfoNotice, missingFields } from "@/components/site/BasicInfoNotice";
+import { StorePicker, useStoreProfileForm } from "@/components/site/useStoreProfileForm";
 import { SampleChart, SegmentBar } from "@/components/charts";
 import { SAMPLE_COVERAGE } from "@/lib/demo/site";
-import { useSharedSettings } from "@/lib/settings/client";
 import { palette } from "@/lib/ui/palette";
 import {
   Badge,
@@ -28,8 +26,6 @@ import {
   Card,
   DataTable,
   EmptyState,
-  Field,
-  Select,
   StatCard,
   type BadgeTone,
   type Column,
@@ -79,64 +75,13 @@ const COLUMNS: readonly Column<CitationHit>[] = FIELDS.map((f) => {
 
 const CSV_COLUMNS = FIELDS.map((f) => ({ header: f.header, value: (row: CitationHit) => f.text(row) }));
 
-interface Form {
-  name: string;
-  phone: string;
-  address: string;
-  website: string;
-}
-
-function formFromStore(item: ListingsStoreItem, fallbackWebsite: string): Form {
-  const p = item.record?.profile;
-  const g = item.google;
-  return {
-    name: p?.name || g?.name || item.name,
-    phone: p?.phone || g?.phone || "",
-    address: p?.address || g?.address || "",
-    website: p?.website || g?.website || fallbackWebsite,
-  };
-}
-
 export function CitationsTool() {
-  const site = useRegisteredSite();
-  // 店名・電話・住所は設定の「会社・店舗の基本情報」（登録時のデータ）が初期値。触ったら edits を使う
-  const shared = useSharedSettings();
-  const [edits, setEdits] = useState<Form | null>(null);
-  const form: Form = edits ?? {
-    name: shared.lead?.company ?? "",
-    phone: shared.lead?.phone ?? "",
-    address: shared.lead?.address ?? "",
-    website: "",
-  };
-  const setForm = (next: Form) => setEdits(next);
-  const [websiteTouched, setWebsiteTouched] = useState(false);
-  const [stores, setStores] = useState<ListingsStoreItem[]>([]);
-  const [storeId, setStoreId] = useState("");
+  // 店名・電話・住所は設定の「会社・店舗の基本情報」（登録時のデータ）が初期値。触ったらこの回だけ上書き
+  const { form, website, overridden, stores, storeId, applyStore, edit, reset } = useStoreProfileForm();
   const { state, run } = useToolRun<CitationReport & { cached?: boolean }>();
   const running = state.phase === "running";
 
-  // MEO の登録店舗（基本情報掲載の保存内容・Google マップの公開情報）。取れなくても画面は動く
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/listings/stores", { cache: "no-store" })
-      .then(async (res) => (res.ok ? ((await res.json()) as ListingsStoresResponse) : null))
-      .then((d) => alive && d && setStores(d.stores))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const website = websiteTouched || form.website.trim() ? form.website : site.siteUrl;
   const canRun = missingFields({ name: form.name, phone: form.phone, address: form.address, website }).length === 0 && !running;
-
-  function applyStore(placeId: string) {
-    setStoreId(placeId);
-    const item = stores.find((s) => s.placeId === placeId);
-    if (!item) return;
-    setForm(formFromStore(item, site.siteUrl));
-    setWebsiteTouched(true);
-  }
 
   async function submit() {
     if (!canRun) return;
@@ -158,16 +103,9 @@ export function CitationsTool() {
 
       <BasicInfoNotice
         value={{ name: form.name, phone: form.phone, address: form.address, website }}
-        overridden={edits !== null}
-        onChange={(next) => {
-          setWebsiteTouched(true);
-          setForm(next);
-        }}
-        onReset={() => {
-          setEdits(null);
-          setWebsiteTouched(false);
-          setStoreId("");
-        }}
+        overridden={overridden}
+        onChange={edit}
+        onReset={reset}
         action={
           <>
             <Button onClick={() => void submit()} disabled={!canRun}>
@@ -176,20 +114,7 @@ export function CitationsTool() {
             <span className="text-[11px] text-muted">Google の検索を最大 3 回使います（数円）。同じ条件は 24 時間、前回の結果を返します。</span>
           </>
         }
-        storePicker={
-          stores.length > 0 ? (
-            <Field label="別の店舗で調べる" className="min-w-[14rem]">
-              <Select value={storeId} onChange={(e) => applyStore(e.target.value)} disabled={running}>
-                <option value="">設定の基本情報</option>
-                {stores.map((st) => (
-                  <option key={st.placeId} value={st.placeId}>
-                    {st.record?.profile.name || st.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : undefined
-        }
+        storePicker={<StorePicker stores={stores} storeId={storeId} onSelect={applyStore} disabled={running} />}
       />
 
       {state.phase === "error" && (

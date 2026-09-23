@@ -9,10 +9,8 @@
  *
  * 一致か不一致かをそのまま出す。「記載なし」は「載っていない」ではなく「自動では読めなかった」も含むので、文言で必ず添える。
  */
-import { useEffect, useMemo, useState } from "react";
-import type { ListingsStoreItem, ListingsStoresResponse } from "@/app/api/listings/stores/route";
-import { useRegisteredSite } from "@/components/site/RegisteredSite";
-import { Badge, Button, Callout, Card, CopyButton, DataTable, EmptyState, Field, Select, StatCard, type BadgeTone, type Column } from "@/components/ui";
+import { useMemo, useState } from "react";
+import { Badge, Button, Callout, Card, CopyButton, DataTable, EmptyState, StatCard, type BadgeTone, type Column } from "@/components/ui";
 import { csvFileName, downloadCsv } from "@/lib/export/csv";
 import { napHistoryStore, pushNapHistory, removeNapHistory, type NapHistoryItem } from "@/lib/nap/store";
 import {
@@ -27,38 +25,14 @@ import {
   type NapIssue,
   type NapSource,
 } from "@/lib/nap/types";
-import { useSharedSettings } from "@/lib/settings/client";
 import { BasicInfoNotice, missingFields } from "@/components/site/BasicInfoNotice";
+import { StorePicker, useStoreProfileForm } from "@/components/site/useStoreProfileForm";
 import { useStore } from "@/lib/store/hooks";
 import { useToolRun } from "@/lib/tools/run";
 
 const STATUS_TONE: Record<FieldStatus, BadgeTone> = { match: "pass", mismatch: "fail", missing: "warn", skipped: "neutral" };
 const SEVERITY_LABEL: Record<NapIssue["severity"], string> = { fail: "不一致", warn: "要確認" };
 const SEVERITY_TONE: Record<NapIssue["severity"], BadgeTone> = { fail: "fail", warn: "warn" };
-
-interface Form {
-  name: string;
-  address: string;
-  phone: string;
-  website: string;
-}
-
-function formFromStore(item: ListingsStoreItem, fallbackWebsite: string): Form {
-  const p = item.record?.profile;
-  const g = item.google;
-  return {
-    name: p?.name || g?.name || item.name,
-    address: p?.address || g?.address || "",
-    phone: p?.phone || g?.phone || "",
-    website: p?.website || g?.website || fallbackWebsite,
-  };
-}
-
-function fetchStores(): Promise<ListingsStoresResponse | null> {
-  return fetch("/api/listings/stores", { cache: "no-store" })
-    .then(async (res) => (res.ok ? ((await res.json()) as ListingsStoresResponse) : null))
-    .catch(() => null);
-}
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -227,40 +201,15 @@ function Result({ data }: { data: NapCheckResult }) {
 }
 
 export function NapTool() {
-  const site = useRegisteredSite();
-  const shared = useSharedSettings();
-  const [edits, setEdits] = useState<Form | null>(null);
-  const form: Form = edits ?? { name: shared.lead?.company ?? "", address: shared.lead?.address ?? "", phone: shared.lead?.phone ?? "", website: "" };
-  const setForm = (next: Form) => setEdits(next);
-  const [websiteTouched, setWebsiteTouched] = useState(false);
-  const [stores, setStores] = useState<ListingsStoreItem[]>([]);
-  const [storeId, setStoreId] = useState("");
+  const { form, website, overridden, stores, storeId, applyStore, edit, reset } = useStoreProfileForm();
   const [history] = useStore(napHistoryStore);
   const [view, setView] = useState<{ kind: "run" } | { kind: "history"; id: string }>({ kind: "run" });
   const { state, run } = useToolRun<NapCheckResult>();
   const running = state.phase === "running";
 
-  // MEO の登録店舗（基本情報掲載の保存内容・Google マップの公開情報）。取れなくても画面は動く
-  useEffect(() => {
-    let alive = true;
-    fetchStores().then((d) => alive && d && setStores(d.stores));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const website = websiteTouched || form.website.trim() ? form.website : site.siteUrl;
   // 店名は必須。加えて突き合わせる先が 1 つは要る（サイト・住所・電話のどれか）
   const hasTarget = Boolean(website.trim() || form.address.trim() || form.phone.trim());
   const canRun = missingFields({ name: form.name, phone: form.phone, address: form.address, website }).length === 0 && hasTarget && !running;
-
-  function applyStore(placeId: string) {
-    setStoreId(placeId);
-    const item = stores.find((s) => s.placeId === placeId);
-    if (!item) return;
-    setForm(formFromStore(item, site.siteUrl));
-    setWebsiteTouched(true);
-  }
 
   async function submit() {
     if (!canRun) return;
@@ -289,16 +238,9 @@ export function NapTool() {
 
       <BasicInfoNotice
         value={{ name: form.name, phone: form.phone, address: form.address, website }}
-        overridden={edits !== null}
-        onChange={(next) => {
-          setWebsiteTouched(true);
-          setForm(next);
-        }}
-        onReset={() => {
-          setEdits(null);
-          setWebsiteTouched(false);
-          setStoreId("");
-        }}
+        overridden={overridden}
+        onChange={edit}
+        onReset={reset}
         action={
           <>
             <Button onClick={() => void submit()} disabled={!canRun}>
@@ -307,20 +249,7 @@ export function NapTool() {
             <span className="text-[11px] text-muted">外部のページを最大 15 ほど開きます。Google マップの詳細 1 回と Google の検索 2 回を使います（数円）。1 分に 1 回まで。</span>
           </>
         }
-        storePicker={
-          stores.length > 0 ? (
-            <Field label="別の店舗で調べる" className="min-w-[14rem]">
-              <Select value={storeId} onChange={(e) => applyStore(e.target.value)} disabled={running}>
-                <option value="">設定の基本情報</option>
-                {stores.map((st) => (
-                  <option key={st.placeId} value={st.placeId}>
-                    {st.record?.profile.name || st.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : undefined
-        }
+        storePicker={<StorePicker stores={stores} storeId={storeId} onSelect={applyStore} disabled={running} />}
       />
 
       {state.phase === "error" && (
