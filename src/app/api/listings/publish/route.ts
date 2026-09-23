@@ -18,7 +18,7 @@ import { GoogleLinkError } from "@/lib/google/errors";
 import { listAllLocations, updateLocationNap } from "@/lib/google/business-profile";
 import { badRequest, NO_STORE, PLACE_ID, readJson, requireListingsUser } from "@/lib/listings/api";
 import { mediaById } from "@/lib/listings/media";
-import { parseHoursLine } from "@/lib/listings/profile";
+import { parseHoursText } from "@/lib/listings/profile";
 import {
   buildFiles,
   missingRequired,
@@ -59,11 +59,10 @@ async function sendToGoogle(placeId: string, record: ListingRecord): Promise<Pub
         message: "接続した Google アカウントの中に、この店舗のビジネス プロフィールが見つかりませんでした。その店舗の管理者アカウントで接続し直してください。",
       };
     }
-    const hours = record.profile.hours
-      .split(/\r?\n/)
-      .map(parseHoursLine)
-      .filter((x) => x !== null)
-      .map((h) => ({ dayOfWeek: h.dayOfWeek, opens: h.opens, closes: h.closes }));
+    // 読めない行が 1 つでもあれば営業時間は送らない（丸ごと置き換えなので、読めなかった曜日が「休業」になる）
+    const parsedHours = parseHoursText(record.profile.hours);
+    const hoursReadable = parsedHours.unreadable.length === 0;
+    const hours = hoursReadable ? parsedHours.specs.map((h) => ({ dayOfWeek: h.dayOfWeek, opens: h.opens, closes: h.closes })) : [];
     const sent = await updateLocationNap(location.name, {
       title: record.profile.name,
       phone: record.profile.phone,
@@ -75,7 +74,9 @@ async function sendToGoogle(placeId: string, record: ListingRecord): Promise<Pub
     return {
       ...base,
       outcome: "sent",
-      message: "店名・電話・サイト・説明文・営業時間を送りました。住所は送っていません（書き換えると再審査になるため、ビジネス プロフィールで直してください）。反映まで数分〜数日かかります。",
+      message: hoursReadable
+        ? "店名・電話・サイト・説明文・営業時間を送りました。住所は送っていません（書き換えると再審査になるため、ビジネス プロフィールで直してください）。反映まで数分〜数日かかります。"
+        : `店名・電話・サイト・説明文を送りました。営業時間は読み取れない行（「${parsedHours.unreadable[0]}」）があったため送っていません（一部の曜日が休業になるのを防ぐため）。住所も送っていません。反映まで数分〜数日かかります。`,
     };
   } catch (err) {
     if (err instanceof GoogleLinkError) return { ...base, outcome: "failed", message: err.message };

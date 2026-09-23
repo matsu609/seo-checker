@@ -15,6 +15,7 @@ import {
   starToNumber,
   toInformationName,
   toLocationPatch,
+  toTimePeriod,
   toTimeOfDay,
   updateLocationNap,
 } from "../business-profile";
@@ -170,6 +171,12 @@ describe("toLocationPatch", () => {
     const { updateMask } = toLocationPatch({ ...nap, hours: [{ dayOfWeek: "Funday", opens: "10:00", closes: "19:00" }] });
     expect(updateMask).not.toContain("regularHours");
   });
+
+  it("読めない時間帯が 1 つでも混ざれば営業時間は送らない（丸ごと置き換えで曜日が消えるため）", () => {
+    const { updateMask } = toLocationPatch({ ...nap, hours: [{ dayOfWeek: "Monday", opens: "10:00", closes: "19:00" }, { dayOfWeek: "Funday", opens: "10:00", closes: "19:00" }] });
+    expect(updateMask).not.toContain("regularHours");
+    expect(updateMask).toContain("title");
+  });
 });
 
 describe("toInformationName", () => {
@@ -210,5 +217,29 @@ describe("updateLocationNap", () => {
     await expect(
       updateLocationNap("locations/2", { title: "a", phone: "", website: "", description: "", hours: [] }, { getToken: async () => "t" }),
     ).rejects.toThrow(GoogleLinkError);
+  });
+});
+
+describe("toTimePeriod", () => {
+  it("同じ日のうちに閉まる時間帯", () => {
+    expect(toTimePeriod({ dayOfWeek: "Monday", opens: "10:00", closes: "19:00" })).toEqual({
+      openDay: "MONDAY", openTime: { hours: 10, minutes: 0 }, closeDay: "MONDAY", closeTime: { hours: 19, minutes: 0 },
+    });
+  });
+
+  it("深夜をまたぐ時間帯は閉店日を翌日にする（日曜の翌日は月曜）", () => {
+    expect(toTimePeriod({ dayOfWeek: "Friday", opens: "18:00", closes: "02:00" })).toMatchObject({ openDay: "FRIDAY", closeDay: "SATURDAY", closeTime: { hours: 2, minutes: 0 } });
+    expect(toTimePeriod({ dayOfWeek: "Sunday", opens: "20:00", closes: "01:30" })).toMatchObject({ openDay: "SUNDAY", closeDay: "MONDAY" });
+  });
+
+  it("0:00 閉店はその日の 24:00、24 時間営業は 0:00〜24:00", () => {
+    expect(toTimePeriod({ dayOfWeek: "Monday", opens: "17:00", closes: "00:00" })).toMatchObject({ closeDay: "MONDAY", closeTime: { hours: 24, minutes: 0 } });
+    expect(toTimePeriod({ dayOfWeek: "Monday", opens: "00:00", closes: "24:00" })).toMatchObject({ openDay: "MONDAY", closeDay: "MONDAY", closeTime: { hours: 24, minutes: 0 } });
+  });
+
+  it("開店と閉店が同じ・読めない値は null", () => {
+    expect(toTimePeriod({ dayOfWeek: "Monday", opens: "10:00", closes: "10:00" })).toBeNull();
+    expect(toTimePeriod({ dayOfWeek: "Monday", opens: "24:00", closes: "02:00" })).toBeNull();
+    expect(toTimePeriod({ dayOfWeek: "Monday", opens: "x", closes: "19:00" })).toBeNull();
   });
 });

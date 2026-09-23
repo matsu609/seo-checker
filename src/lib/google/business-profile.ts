@@ -278,6 +278,34 @@ export function toTimeOfDay(value: string): { hours: number; minutes: number } |
   return { hours, minutes };
 }
 
+const DAY_ORDER = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
+
+interface TimePeriod {
+  openDay: string;
+  openTime: { hours: number; minutes: number };
+  closeDay: string;
+  closeTime: { hours: number; minutes: number };
+}
+
+/**
+ * 1 つの時間帯 → Business Information API の TimePeriod。読めなければ null。
+ * - 閉店が開店より前（18:00〜2:00）は深夜をまたぐので閉店日を翌日にする
+ *   （同じ曜日のままだと「閉店が開店より前」で Google が 400 を返し、店名・電話を含む更新全体が落ちる）
+ * - 0:00 閉店は「その日の 24:00」と書く（API の約束。24:00 はその日の終わり）
+ */
+export function toTimePeriod(h: { dayOfWeek: string; opens: string; closes: string }): TimePeriod | null {
+  const openDay = DAY_ENUM[h.dayOfWeek];
+  const openTime = toTimeOfDay(h.opens);
+  let closeTime = toTimeOfDay(h.closes);
+  if (!openDay || !openTime || !closeTime || openTime.hours >= 24) return null;
+  const open = openTime.hours * 60 + openTime.minutes;
+  if (closeTime.hours === 0 && closeTime.minutes === 0 && open > 0) closeTime = { hours: 24, minutes: 0 };
+  const close = closeTime.hours * 60 + closeTime.minutes;
+  if (close === open) return null;
+  const closeDay = close > open ? openDay : DAY_ORDER[(DAY_ORDER.indexOf(openDay as (typeof DAY_ORDER)[number]) + 1) % 7]!;
+  return { openDay, openTime, closeDay, closeTime };
+}
+
 /**
  * 送る本文と updateMask を組み立てる（純粋関数）。
  * 空の項目はマスクに入れない = 消さない（Google 側にある値を空で上書きしないため）。
@@ -301,15 +329,10 @@ export function toLocationPatch(nap: NapUpdate): { body: Record<string, unknown>
     body.profile = { description: nap.description.trim() };
     mask.push("profile");
   }
-  const periods = nap.hours
-    .map((h) => {
-      const day = DAY_ENUM[h.dayOfWeek];
-      const openTime = toTimeOfDay(h.opens);
-      const closeTime = toTimeOfDay(h.closes);
-      return day && openTime && closeTime ? { openDay: day, openTime, closeDay: day, closeTime } : null;
-    })
-    .filter((x): x is { openDay: string; openTime: { hours: number; minutes: number }; closeDay: string; closeTime: { hours: number; minutes: number } } => x !== null);
-  if (periods.length > 0) {
+  const periods = nap.hours.map(toTimePeriod);
+  // 1 つでも読めない時間帯があれば営業時間は送らない（regularHours は丸ごと置き換えなので、
+  // 欠けた曜日・時間帯が Google 側で「休業」になる）
+  if (periods.length > 0 && periods.every((p) => p !== null)) {
     body.regularHours = { periods };
     mask.push("regularHours");
   }

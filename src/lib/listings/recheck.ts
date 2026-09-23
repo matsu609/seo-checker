@@ -6,12 +6,20 @@
  * 取得できなければ「確認できず」（消えたとは言わない）。
  */
 import * as cheerio from "cheerio";
+import { addDays, nextMonthDayAtJst } from "@/lib/time/jst";
 import { normalizeForCompare, type ListingProfile, type ListingState, type ListingStates } from "./profile";
-
-/** 次の確認までの日数 */
-export const RECHECK_INTERVAL_DAYS = 30;
-
 import { RECHECK_LABELS, type RecheckLine, type RecheckOutcome, type RecheckResult } from "./recheck-labels";
+
+/** 定期の再チェックが動く日（毎月この日の 5:00 JST。jobs/schedule.ts の listings-recheck と同じ） */
+export const RECHECK_DAY_OF_MONTH = 2;
+export const RECHECK_HOUR_JST = 5;
+/** 確認してから、次の定期実行まで最低これだけ空ける（手動で確かめた直後の定期実行は飛ばす） */
+export const RECHECK_MIN_GAP_DAYS = 20;
+/**
+ * 期限がこの日数以内に迫っていれば今回の定期実行で確かめる。
+ * 以前の「30 日後」で保存された期限（2 日の実行 → 翌月 3〜4 日）を、翌月 2 日に拾うため。
+ */
+export const RECHECK_GRACE_DAYS = 5;
 
 export { RECHECK_LABELS, type RecheckLine, type RecheckOutcome, type RecheckResult };
 
@@ -56,8 +64,14 @@ export function checkFailed(reason: string): RecheckOutcome {
   return { result: "error", detail: reason, found: { name: false, phone: false, address: false } };
 }
 
+/**
+ * 次の確認日時 = 20 日以上先の、最初の定期実行（毎月 2 日 5:00 JST）。
+ *
+ * 以前は「30 日後」だったが、定期実行は毎月 2 日なので、2 月の実行の 30 日後（3 月 3〜4 日）は
+ * 3 月 2 日の実行で期限前になり丸 1 か月飛んでいた。30 日の月も Cron の起動が数秒ずれるだけで飛んだ。
+ */
 export function nextCheckAt(now: Date): string {
-  return new Date(now.getTime() + RECHECK_INTERVAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  return nextMonthDayAtJst(addDays(now, RECHECK_MIN_GAP_DAYS), RECHECK_DAY_OF_MONTH, RECHECK_HOUR_JST).toISOString();
 }
 
 /** 確認結果を状況に書き込む（状況そのもの status は変えない。判断は利用者がする） */
@@ -68,7 +82,7 @@ export function applyCheck(state: ListingState, outcome: RecheckOutcome, now: Da
 /** 今回確認する媒体（掲載済み・URL あり・期限が来ている）。force なら期限を無視 */
 export function mediaToCheck(states: ListingStates, now: Date, force = false): string[] {
   return Object.entries(states)
-    .filter(([, s]) => s.status === "live" && s.url.trim().length > 0 && (force || !s.nextCheckAt || s.nextCheckAt <= now.toISOString()))
+    .filter(([, s]) => s.status === "live" && s.url.trim().length > 0 && (force || !s.nextCheckAt || s.nextCheckAt <= addDays(now, RECHECK_GRACE_DAYS).toISOString()))
     .map(([id]) => id);
 }
 

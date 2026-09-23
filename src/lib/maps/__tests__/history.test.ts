@@ -140,18 +140,24 @@ describe("問い合わせ", () => {
     await expect(deleteMeoReport("user_2", ROW.id)).resolves.toBe(false);
   });
 
-  it("店舗ごとの最新 1 件だけ拾う（複数店舗を 1 回の問い合わせで）", async () => {
-    const older = { ...ROW, id: "0b2f0b8e-0000-4000-8000-000000000001", generated_at: "2026-09-01T00:00:00.000Z", report: { generatedAt: "old" } };
+  it("店舗ごとに最新 1 件だけ拾う（店舗ごとに limit=1。無い店舗は含まない）", async () => {
     const newer = { ...ROW, report: { generatedAt: "new" } };
     const other = { ...ROW, id: "0b2f0b8e-0000-4000-8000-000000000002", place_id: "ChIJother", report: { generatedAt: "other" } };
-    fetchMock.mockResolvedValueOnce(Response.json([newer, older, other]));
-    const map = await latestReports("user_1", ["ChIJsample", "ChIJother", "ChIJnone"]);
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("place_id=eq.ChIJsample")) return Response.json([newer]);
+      if (url.includes("place_id=eq.ChIJother")) return Response.json([other]);
+      return Response.json([]);
+    });
+    const map = await latestReports("user_1", ["ChIJsample", "ChIJother", "ChIJnone", "ChIJsample"]);
     expect(map.size).toBe(2);
     expect(map.get("ChIJsample")?.report).toEqual({ generatedAt: "new" });
     expect(map.get("ChIJother")?.report).toEqual({ generatedAt: "other" });
-    expect(calledUrl()).toContain("user_id=eq.user_1");
-    expect(calledUrl()).toContain("place_id=in.(");
-    expect(calledUrl()).toContain("order=place_id.asc,generated_at.desc");
+    // 重複を除いた 3 店舗 = 3 回。どれも本人の行だけ・新しい順の 1 件
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const [url] of fetchMock.mock.calls as unknown as [string][]) {
+      expect(url).toContain("user_id=eq.user_1");
+      expect(url).toContain("order=generated_at.desc&limit=1");
+    }
   });
 
   it("店舗が無ければ問い合わせない", async () => {

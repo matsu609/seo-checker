@@ -128,20 +128,29 @@ export async function getMeoReport(userId: string, id: string): Promise<MeoHisto
   return { item: fromRow(row), report: row.report as SavedMeoReport };
 }
 
-/** 店舗ごとの最新 1 件（本文つき）。競合比較に使う。無い店舗は含まない */
+/**
+ * 店舗ごとの最新 1 件（本文つき）。競合比較に使う。無い店舗は含まない。
+ *
+ * 店舗ごとに `limit=1` で並列に引く。以前は `place_id=in.(…)` の 1 回の問い合わせに
+ * `limit=店舗数×3` を付けていたが、報告書は店舗ごとに毎週 1 件増えるので、並びが先頭の
+ * 店舗の履歴だけで枠が埋まり、残りの店舗が「報告書が無い」扱いになっていた（2026-09-23 に修正）。
+ */
 export async function latestReports(userId: string, placeIds: string[]): Promise<Map<string, MeoHistoryEntry>> {
   const result = new Map<string, MeoHistoryEntry>();
   const ids = [...new Set(placeIds)].filter((id) => id.length > 0);
   if (ids.length === 0) return result;
-  // 店舗ごとに新しい順で並ぶので、最初に出てきた行だけ拾う
-  const list = `in.(${ids.map((id) => `"${encodeURIComponent(id)}"`).join(",")})`;
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=*&user_id=${eq(userId)}&place_id=${list}&order=place_id.asc,generated_at.desc&limit=${ids.length * 3}`,
+  const rows = await Promise.all(
+    ids.map(async (placeId) => {
+      const raw = await supabaseRest<unknown>(
+        `${TABLE}?select=*&user_id=${eq(userId)}&place_id=${eq(placeId)}&order=generated_at.desc&limit=1`,
+      );
+      const parsed = z.array(FullRowSchema).safeParse(raw);
+      if (!parsed.success) throw new Error("履歴の応答を読めませんでした");
+      return parsed.data[0] ?? null;
+    }),
   );
-  const parsed = z.array(FullRowSchema).safeParse(rows);
-  if (!parsed.success) throw new Error("履歴の応答を読めませんでした");
-  for (const row of parsed.data) {
-    if (result.has(row.place_id)) continue;
+  for (const row of rows) {
+    if (!row || result.has(row.place_id)) continue;
     result.set(row.place_id, { item: fromRow(row), report: row.report as SavedMeoReport });
   }
   return result;

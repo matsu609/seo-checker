@@ -13,7 +13,7 @@
  *   - 送れなかった媒体を「送った」と書かない。理由をそのまま画面に出す
  */
 import { LISTING_MEDIA, mediaById, type ListingMedia, type MediaIntegration } from "./media";
-import { parseHoursLine, stateOf, type ListingProfile, type ListingStates } from "./profile";
+import { parseHoursText, stateOf, type ListingProfile, type ListingStates } from "./profile";
 
 /** 一括登録に最低限そろっていないといけない項目 */
 export const REQUIRED_FIELDS: readonly { key: "name" | "address" | "phone"; label: string }[] = [
@@ -100,7 +100,7 @@ export function csvLines(rows: readonly (readonly string[])[]): string {
 
 /** 「月曜日: 10:00〜19:00」の並び → 1 行の営業時間（入稿シート用） */
 export function hoursOneLine(profile: ListingProfile): string {
-  const specs = profile.hours.split(/\r?\n/).map(parseHoursLine).filter((x) => x !== null);
+  const specs = parseHoursText(profile.hours).specs;
   const DAY_JA: Record<string, string> = { Monday: "月", Tuesday: "火", Wednesday: "水", Thursday: "木", Friday: "金", Saturday: "土", Sunday: "日" };
   return specs.map((s) => `${DAY_JA[s.dayOfWeek] ?? s.dayOfWeek} ${s.opens}-${s.closes}`).join(" / ");
 }

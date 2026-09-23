@@ -2,7 +2,7 @@
  * 基本情報: 取り込み・表記ゆれの比較・貼り付け用の文・営業時間の解釈・構造化データ・掲載状況の集計。
  */
 import { describe, expect, it } from "vitest";
-import { compareNap, emptyProfile, jsonLdScript, ListingProfileSchema, normalizeForCompare, parseHoursLine, prefillFromGoogle, profileToText, summarizeStates, toJsonLd } from "../profile";
+import { compareNap, emptyProfile, jsonLdScript, ListingProfileSchema, normalizeForCompare, parseHoursLine, parseHoursText, prefillFromGoogle, profileToText, summarizeStates, toJsonLd } from "../profile";
 
 const GOOGLE = { name: "テスト食堂 駅前店", address: "日本、〒160-0021 東京都新宿区歌舞伎町1-1-1", phone: "03-1234-5678", website: "https://example.com/", hours: ["月曜日: 10時00分～19時00分", "火曜日: 定休日"], category: "食堂" };
 
@@ -33,11 +33,38 @@ describe("取り込みと比較", () => {
 
 describe("営業時間と構造化データ", () => {
   it("日本語・英語・定休日", () => {
-    expect(parseHoursLine("月曜日: 10時00分～19時00分")).toEqual({ "@type": "OpeningHoursSpecification", dayOfWeek: "Monday", opens: "10:00", closes: "19:00" });
-    expect(parseHoursLine("土: 11:30〜23:00")).toMatchObject({ dayOfWeek: "Saturday", opens: "11:30", closes: "23:00" });
-    expect(parseHoursLine("Sun: 9 AM – 5 PM")).toMatchObject({ dayOfWeek: "Sunday", opens: "09:00", closes: "17:00" });
-    expect(parseHoursLine("火曜日: 定休日")).toBeNull();
-    expect(parseHoursLine("祝日は要問い合わせ")).toBeNull();
+    expect(parseHoursLine("月曜日: 10時00分～19時00分")).toEqual([{ "@type": "OpeningHoursSpecification", dayOfWeek: "Monday", opens: "10:00", closes: "19:00" }]);
+    expect(parseHoursLine("土: 11:30〜23:00")).toMatchObject([{ dayOfWeek: "Saturday", opens: "11:30", closes: "23:00" }]);
+    expect(parseHoursLine("Sun: 9 AM – 5 PM")).toMatchObject([{ dayOfWeek: "Sunday", opens: "09:00", closes: "17:00" }]);
+    expect(parseHoursLine("火曜日: 定休日")).toEqual([]);
+    expect(parseHoursLine("祝日は要問い合わせ")).toEqual([]);
+  });
+
+  it("1 行に時間帯が 2 つ（昼・夜）なら両方読む（Google の weekdayDescriptions の形）", () => {
+    expect(parseHoursLine("月曜日: 11時30分～14時00分、17時00分～22時00分")).toMatchObject([
+      { dayOfWeek: "Monday", opens: "11:30", closes: "14:00" },
+      { dayOfWeek: "Monday", opens: "17:00", closes: "22:00" },
+    ]);
+  });
+
+  it("曜日のまとめ書き（月〜金・土日・土・日）は曜日ごとに展開する", () => {
+    expect(parseHoursLine("月〜金: 10:00-19:00").map((x) => x.dayOfWeek)).toEqual(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+    expect(parseHoursLine("土日 11:00〜17:00").map((x) => x.dayOfWeek)).toEqual(["Saturday", "Sunday"]);
+    expect(parseHoursLine("土・日: 11:00〜17:00").map((x) => x.dayOfWeek)).toEqual(["Saturday", "Sunday"]);
+    expect(parseHoursLine("Mon - Fri: 9 AM - 5 PM").map((x) => x.dayOfWeek)).toEqual(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+    expect(parseHoursLine("金〜月: 18:00〜2:00").map((x) => x.dayOfWeek)).toEqual(["Friday", "Saturday", "Sunday", "Monday"]);
+  });
+
+  it("24 時間営業は 00:00〜24:00（JSON-LD では 23:59）", () => {
+    expect(parseHoursLine("火曜日: 24 時間営業")).toMatchObject([{ dayOfWeek: "Tuesday", opens: "00:00", closes: "24:00" }]);
+    const ld = toJsonLd({ ...emptyProfile(), hours: "火曜日: 24 時間営業" }) as { openingHoursSpecification: { closes: string }[] };
+    expect(ld.openingHoursSpecification[0]!.closes).toBe("23:59");
+  });
+
+  it("欄全体: 曜日か時間帯を含むのに読めない行は unreadable、注記は読み飛ばす", () => {
+    const r = parseHoursText(["月曜日: 10:00〜19:00", "火曜日: 定休日", "※ ラストオーダーは閉店の 30 分前", "平日 10:00-19:00", "水曜日: 要予約", ""].join("\n"));
+    expect(r.specs.map((x) => x.dayOfWeek)).toEqual(["Monday"]);
+    expect(r.unreadable).toEqual(["平日 10:00-19:00", "水曜日: 要予約"]);
   });
 
   it("LocalBusiness の JSON-LD（</script> は閉じられない）", () => {

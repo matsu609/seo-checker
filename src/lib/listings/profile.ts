@@ -220,25 +220,121 @@ export interface OpeningHoursSpec {
   closes: string;
 }
 
+const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+const DAY_TOKEN_RE = /^(?:([月火水木金土日])(?:曜日?)?|(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b)/i;
+const DAY_RANGE_SEP_RE = /^\s*(?:[~〜～\-–—]|to\b)\s*/i;
+const DAY_LIST_SEP_RE = /^\s*(?:[・,、/&]|and\b)?\s*/i;
+const CLOSED_RE = /定休|休業|休み|closed/i;
+const ALL_DAY_RE = /24\s*時間|open 24 hours/i;
+const RANGE_RE = /(\d{1,2})(?:[:時](\d{2})?分?)?\s*(am|pm)?\s*[~〜～\-–—]\s*(\d{1,2})(?:[:時](\d{2})?分?)?\s*(am|pm)?/gi;
+
+function dayCode(m: RegExpExecArray): string | undefined {
+  return DAY_CODES[(m[1] ?? m[2] ?? "").toLowerCase()];
+}
+
+/** 月曜から順に a〜b（金〜月 のように週をまたいでもよい） */
+function dayRange(a: string, b: string): string[] {
+  const i = WEEK.indexOf(a as (typeof WEEK)[number]);
+  const j = WEEK.indexOf(b as (typeof WEEK)[number]);
+  const out: string[] = [];
+  for (let k = 0; k <= (j - i + 7) % 7; k++) out.push(WEEK[(i + k) % 7]!);
+  return out;
+}
+
+/**
+ * 行頭の曜日（「月曜日」「月〜金」「土日」「土・日」「Mon - Fri」）→ 曜日の並びと残りの文字列。
+ * 曜日で始まらなければ null。
+ */
+function readDays(t: string): { days: string[]; rest: string } | null {
+  const first = DAY_TOKEN_RE.exec(t);
+  if (!first) return null;
+  const firstDay = dayCode(first);
+  if (!firstDay) return null;
+  const days = [firstDay];
+  let rest = t.slice(first[0].length);
+  for (;;) {
+    const range = DAY_RANGE_SEP_RE.exec(rest);
+    const afterRange = range ? DAY_TOKEN_RE.exec(rest.slice(range[0].length)) : null;
+    if (range && afterRange) {
+      const to = dayCode(afterRange);
+      if (!to) break;
+      days.push(...dayRange(days[days.length - 1]!, to).slice(1));
+      rest = rest.slice(range[0].length + afterRange[0].length);
+      continue;
+    }
+    const list = DAY_LIST_SEP_RE.exec(rest);
+    const afterList = DAY_TOKEN_RE.exec(rest.slice(list?.[0].length ?? 0));
+    if (afterList) {
+      const next = dayCode(afterList);
+      if (!next) break;
+      days.push(next);
+      rest = rest.slice((list?.[0].length ?? 0) + afterList[0].length);
+      continue;
+    }
+    break;
+  }
+  return { days: [...new Set(days)], rest };
+}
+
+/**
+ * 1 行の読み取り結果。
+ * - closed = 定休日と読めた行
+ * - unreadable = 曜日か時間帯を含むのに読み切れなかった行（Google に送ると曜日が「休業」になるので止める）
+ * - none = 曜日も時間帯も無い行（注記。読み飛ばしてよい）
+ */
+type HoursLineResult = { kind: "open"; specs: OpeningHoursSpec[] } | { kind: "closed" } | { kind: "unreadable" } | { kind: "none" };
+
+function readHoursLine(line: string): HoursLineResult {
+  const t = line.normalize("NFKC").trim();
+  if (!t) return { kind: "none" };
+  const head = readDays(t);
+  if (!head) return new RegExp(RANGE_RE.source, "i").test(t) ? { kind: "unreadable" } : { kind: "none" };
+  const { days, rest } = head;
+  if (CLOSED_RE.test(rest)) return { kind: "closed" };
+  const ranges: { opens: string; closes: string }[] = [];
+  if (ALL_DAY_RE.test(rest)) {
+    ranges.push({ opens: "00:00", closes: "24:00" });
+  } else {
+    for (const mm of rest.matchAll(RANGE_RE)) {
+      const opens = toHHMM(mm[1]!, mm[2], mm[3]);
+      const closes = toHHMM(mm[4]!, mm[5], mm[6]);
+      if (!opens || !closes) return { kind: "unreadable" };
+      ranges.push({ opens, closes });
+    }
+  }
+  if (ranges.length === 0) return { kind: "unreadable" };
+  return {
+    kind: "open",
+    specs: days.flatMap((dayOfWeek) => ranges.map((r) => ({ "@type": "OpeningHoursSpecification" as const, dayOfWeek, ...r }))),
+  };
+}
+
 /**
  * 「月曜日: 10時00分～19時00分」「Mon: 10:00 – 19:00」のような 1 行 → schema.org の形。
- * 定休日・読めない行は飛ばす（純粋関数）。
+ * **1 行に時間帯が複数あれば全部返す**（Google の「11時30分～14時00分、17時00分～22時00分」。
+ * 以前は最初の 1 つだけを読み、夜の営業時間を落としていた）。
+ * 「月〜金」「土日」のような曜日のまとめ書きは曜日ごとに展開する（以前は先頭の曜日だけだった）。
+ * 「24 時間営業」は 00:00〜24:00。定休日・読めない行は空配列（純粋関数）。
  */
-export function parseHoursLine(line: string): OpeningHoursSpec | null {
-  const t = line.normalize("NFKC").trim();
-  const dayMatch = /^([月火水木金土日])曜?日?|^(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b/i.exec(t);
-  if (!dayMatch) return null;
-  const day = DAY_CODES[(dayMatch[1] ?? dayMatch[2] ?? "").toLowerCase()];
-  if (!day) return null;
-  const rest = t.slice(dayMatch[0].length);
-  if (/定休|休業|休み|closed/i.test(rest)) return null;
-  const re = /(\d{1,2})(?:[:時](\d{2})?分?)?\s*(am|pm)?\s*[~〜～\-–—]\s*(\d{1,2})(?:[:時](\d{2})?分?)?\s*(am|pm)?/i;
-  const mm = re.exec(rest);
-  if (!mm) return null;
-  const opens = toHHMM(mm[1]!, mm[2], mm[3]);
-  const closes = toHHMM(mm[4]!, mm[5], mm[6]);
-  if (!opens || !closes) return null;
-  return { "@type": "OpeningHoursSpecification", dayOfWeek: day, opens, closes };
+export function parseHoursLine(line: string): OpeningHoursSpec[] {
+  const r = readHoursLine(line);
+  return r.kind === "open" ? r.specs : [];
+}
+
+/**
+ * 営業時間の欄（改行区切り）全体 → schema.org の形と、読めなかった行。
+ * Google への送信は「読めない行が 1 つでもあれば送らない」に使う
+ * （regularHours は丸ごと置き換えなので、読めなかった曜日が「休業」になってしまう）。
+ */
+export function parseHoursText(text: string): { specs: OpeningHoursSpec[]; unreadable: string[] } {
+  const specs: OpeningHoursSpec[] = [];
+  const unreadable: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const r = readHoursLine(line);
+    if (r.kind === "open") specs.push(...r.specs);
+    else if (r.kind === "unreadable") unreadable.push(line.trim());
+  }
+  return { specs, unreadable };
 }
 
 /** サイトに貼る構造化データ（schema.org LocalBusiness。生成 AI と検索エンジンが基本情報を読む） */
@@ -255,10 +351,8 @@ export function toJsonLd(profile: ListingProfile): Record<string, unknown> {
     if (profile.address) addr.streetAddress = profile.address;
     out.address = addr;
   }
-  const specs = profile.hours
-    .split(/\r?\n/)
-    .map(parseHoursLine)
-    .filter((x): x is OpeningHoursSpec => x !== null);
+  // schema.org では 24 時間営業を 00:00〜23:59 と書く（24:00 は Google の書き方）
+  const specs = parseHoursText(profile.hours).specs.map((x) => (x.closes === "24:00" ? { ...x, closes: "23:59" } : x));
   if (specs.length > 0) out.openingHoursSpecification = specs;
   return out;
 }
