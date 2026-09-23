@@ -1,8 +1,9 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { FreeShell } from "@/components/free/FreeShell";
+import { useFocusTrap } from "@/components/ui/useFocusTrap";
 import { useAccess } from "@/lib/store/usePlan";
 import { findFeatureByPath } from "@/lib/features/registry";
 import { StoreSync } from "@/lib/store/StoreSync";
@@ -18,8 +19,6 @@ export interface AppShellProps {
   /** Clerk のキーが設定されているか（layout.tsx がサーバー側で判定して渡す） */
   authEnabled: boolean;
 }
-
-const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
  * 全ページ共通のシェル。md 以上は左に固定サイドバー（15rem）、md 未満はドロワー。
@@ -75,44 +74,20 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
     if (open) setOpen(false);
   }
 
-  // 開いている間: Escape で閉じる・body のスクロールを止める・フォーカスをドロワーへ
+  // 開いている間: Escape で閉じる・body のスクロールを止める・フォーカスをドロワーへ・Tab でドロワーの外に出ない
+  const trapFocus = useFocusTrap(drawerRef, { active: open, onClose: close, initialFocus: closeButtonRef });
+
+  // 閉じたらメニューボタンへフォーカスを戻す
   useEffect(() => {
-    if (!open) {
-      if (wasOpen.current) {
-        wasOpen.current = false;
-        menuButtonRef.current?.focus();
-      }
+    if (open) {
+      wasOpen.current = true;
       return;
     }
-    wasOpen.current = true;
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open, close]);
-
-  // Tab でドロワーの外に出ない
-  function trapFocus(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== "Tab" || !drawerRef.current) return;
-    const nodes = Array.from(drawerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-    if (nodes.length === 0) return;
-    const first = nodes[0];
-    const last = nodes[nodes.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      menuButtonRef.current?.focus();
     }
-  }
+  }, [open]);
 
   /*
     代理ログイン中の帯は、どのシェルでも必ず出す。代理中はサイドバーの「マスター画面」が

@@ -10,13 +10,12 @@
  * ClerkProvider に依存しない（fetch だけ）。未ログインなら API が 401 を返すので、その旨を出す。
  */
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Field, Select, Textarea } from "@/components/ui/Field";
+import { useFocusTrap } from "@/components/ui/useFocusTrap";
 import { FEEDBACK_BODY_MAX, FEEDBACK_KIND_LABELS, FEEDBACK_KINDS, type FeedbackKind, type FeedbackRecord } from "@/lib/feedback/types";
-
-const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 export function FeedbackDialog() {
   const pathname = usePathname() ?? "/";
@@ -76,36 +75,8 @@ function FeedbackForm({ path, onClose }: FormProps) {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<FeedbackRecord | null>(null);
 
-  // 開いている間: Escape で閉じる・body のスクロールを止める・最初の入力欄へフォーカス
-  useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    panelRef.current?.querySelector<HTMLElement>("select, textarea")?.focus();
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [onClose]);
-
-  // Tab でモーダルの外に出ない（AppShell のドロワーと同じ）
-  function trapFocus(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== "Tab" || !panelRef.current) return;
-    const nodes = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-    if (nodes.length === 0) return;
-    const first = nodes[0];
-    const last = nodes[nodes.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
+  // 開いている間: Escape で閉じる・body のスクロールを止める・最初の入力欄へフォーカス・Tab でモーダルの外に出ない
+  const trapFocus = useFocusTrap(panelRef, { active: true, onClose, initialFocus: "select, textarea" });
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
