@@ -7,6 +7,7 @@
  */
 import type { FetchedText } from "@/lib/analyzer/fetch";
 import { notForSearch } from "@/lib/analyzer/page-kind";
+import { safeOrigin } from "@/lib/analyzer/text";
 import type { SiteFiles } from "@/lib/analyzer/robots";
 import type { PsiResult } from "@/lib/psi/types";
 import { PAGE_REPORT_THRESHOLDS, SECTION_LABELS, type SectionId } from "./config";
@@ -621,10 +622,3 @@ function buildPriorities(sections: readonly ReportSection[]): PageReport["priori
     });
 }
 
-function safeOrigin(url: string): string {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return "";
-  }
-}

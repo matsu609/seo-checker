@@ -12,6 +12,8 @@ import type { FetchedText } from "@/lib/analyzer/fetch";
 import { extractHeadings, findLevelSkips } from "@/lib/analyzer/headings";
 import { extractMeta } from "@/lib/analyzer/meta";
 import { hasNoindexDirective, readMetaRobots } from "@/lib/analyzer/meta-tags";
+import { walkJsonLd, typeNamesOf } from "@/lib/analyzer/jsonld-walk";
+import { fullWidthCount, safeOrigin } from "@/lib/analyzer/text";
 import type { HeadingNode, JsonLdNode, PageMeasurements } from "./types";
 
 /** 意味のある要素（div だらけになっていないかを見る） */
@@ -65,19 +67,8 @@ export const KEY_TYPES = [
   "Product",
 ];
 
-/** 全角を 2 幅として数える（analyzer/meta と同じ数え方） */
-export function displayWidth(text: string): number {
-  let width = 0;
-  for (const ch of text) {
-    const code = ch.codePointAt(0) ?? 0;
-    width += code > 0x2e7f ? 2 : 1;
-  }
-  return width;
-}
-
-export function fullWidthCount(text: string): number {
-  return Math.ceil(displayWidth(text) / 2);
-}
+/** 表示幅と全角換算の文字数は analyzer/text.ts の 1 つだけを使う */
+export { displayWidth, fullWidthCount } from "@/lib/analyzer/text";
 
 /**
  * 文に割る（日本語と英語の両方）。
@@ -106,25 +97,6 @@ export function bigramOverlap(a: string, b: string): number {
   return shared / Math.min(setA.size, setB.size);
 }
 
-type JsonObject = Record<string, unknown>;
-
-function walk(node: unknown, visit: (obj: JsonObject) => void): void {
-  if (Array.isArray(node)) {
-    for (const item of node) walk(item, visit);
-    return;
-  }
-  if (node && typeof node === "object") {
-    const obj = node as JsonObject;
-    visit(obj);
-    for (const value of Object.values(obj)) {
-      if (value && typeof value === "object") walk(value, visit);
-    }
-  }
-}
-
-function stripPrefix(name: string): string {
-  return name.split(/[/#:]/).pop() || name;
-}
 
 /**
  * JSON-LD のノードを @type ごとに集め、必須プロパティの過不足を見る。
@@ -152,13 +124,8 @@ export function extractJsonLdNodes($: cheerio.CheerioAPI): {
       parseErrors += 1;
       return;
     }
-    walk(data, (obj) => {
-      const rawType = obj["@type"];
-      const names = (Array.isArray(rawType) ? rawType : rawType ? [rawType] : []).filter(
-        (n): n is string => typeof n === "string",
-      );
-      for (const name of names) {
-        const type = stripPrefix(name);
+    walkJsonLd(data, (obj) => {
+      for (const type of typeNamesOf(obj["@type"])) {
         const properties = Object.keys(obj).filter((k) => !k.startsWith("@"));
         const required = REQUIRED_PROPERTIES[type] ?? [];
         const missing = required.filter((prop) => {
@@ -307,13 +274,6 @@ export function measurePage(fetched: FetchedText): PageMeasurements {
   };
 }
 
-function safeOrigin(url: string): string {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return "";
-  }
-}
 
 /** 公開日 / 更新日を meta と JSON-LD から探す */
 function findDate($: cheerio.CheerioAPI, nodes: JsonLdNode[], kind: "published" | "modified"): string | null {

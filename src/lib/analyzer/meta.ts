@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import { check } from "./check";
 import { metaContentByName } from "./meta-tags";
+import { displayWidth } from "./text";
 import type { CheckResult } from "./types";
 
 export interface MetaInfo {
@@ -30,15 +31,6 @@ export function extractMeta($: cheerio.CheerioAPI): MetaInfo {
   };
 }
 
-/** 日本語は 1 文字あたりの情報量が多いので、全角文字を 2 幅として数える */
-function displayWidth(s: string): number {
-  let w = 0;
-  for (const ch of s) {
-    const code = ch.codePointAt(0) ?? 0;
-    w += code > 0x2e7f ? 2 : 1;
-  }
-  return w;
-}
 
 export function checkMeta($: cheerio.CheerioAPI): CheckResult[] {
   const meta = extractMeta($);

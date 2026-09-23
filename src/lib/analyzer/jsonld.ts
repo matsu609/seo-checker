@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
+import { typeNamesOf, walkJsonLd } from "./jsonld-walk";
 import { isHomePage } from "./page-kind";
 import type { CheckResult } from "./types";
 
@@ -58,18 +59,14 @@ export function extractJsonLd($: cheerio.CheerioAPI): JsonLdInfo {
       info.parseErrors += 1;
       return;
     }
-    walk(data, (node) => {
-      const t = node["@type"];
-      const nodeTypes = Array.isArray(t) ? t : t ? [t] : [];
-      for (const name of nodeTypes) {
-        if (typeof name === "string") types.add(stripPrefix(name));
-      }
-      const localTypes = nodeTypes.map((n) => (typeof n === "string" ? stripPrefix(n) : ""));
+    walkJsonLd(data, (node) => {
+      const localTypes = typeNamesOf(node["@type"]);
+      for (const name of localTypes) types.add(name);
       if (localTypes.some((n) => ORG_TYPES.has(n)) && hasNonEmpty(node["sameAs"])) {
         info.hasSameAs = true;
       }
       if (localTypes.includes("WebSite") && node["potentialAction"]) {
-        walk(node["potentialAction"], (action) => {
+        walkJsonLd(node["potentialAction"], (action) => {
           const at = action["@type"];
           if (at === "SearchAction" || (Array.isArray(at) && at.includes("SearchAction"))) {
             info.hasSearchAction = true;
@@ -83,32 +80,12 @@ export function extractJsonLd($: cheerio.CheerioAPI): JsonLdInfo {
   return info;
 }
 
-/** schema:Organization のような接頭辞や URL 形式の @type を素の名前にする */
-function stripPrefix(name: string): string {
-  const last = name.split(/[/#:]/).pop();
-  return last || name;
-}
 
 function hasNonEmpty(v: unknown): boolean {
   if (Array.isArray(v)) return v.length > 0;
   return typeof v === "string" && v.length > 0;
 }
 
-type JsonObject = Record<string, unknown>;
-
-function walk(node: unknown, visit: (obj: JsonObject) => void): void {
-  if (Array.isArray(node)) {
-    for (const item of node) walk(item, visit);
-    return;
-  }
-  if (node && typeof node === "object") {
-    const obj = node as JsonObject;
-    visit(obj);
-    for (const value of Object.values(obj)) {
-      if (value && typeof value === "object") walk(value, visit);
-    }
-  }
-}
 
 /* ─────────────────────────────────────────────────────────────
    構造化データは「その画面に実在する内容」を記述するもの。

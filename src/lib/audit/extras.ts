@@ -8,6 +8,7 @@
 import type * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { MetaInfo } from "@/lib/analyzer/meta";
+import { typeNamesOf, walkJsonLd } from "@/lib/analyzer/jsonld-walk";
 import { canonicalizeUrl } from "@/lib/crawl/url";
 import type { AuditLink, OrganizationSchema } from "./types";
 
@@ -222,8 +223,6 @@ interface JsonLdFacts {
   organization: OrganizationSchema | null;
 }
 
-type JsonObject = Record<string, unknown>;
-
 function readJsonLd($: cheerio.CheerioAPI): JsonLdFacts {
   const facts: JsonLdFacts = { datePublished: null, dateModified: null, hasAuthor: false, organization: null };
   $('script[type="application/ld+json"]').each((_, el) => {
@@ -235,12 +234,12 @@ function readJsonLd($: cheerio.CheerioAPI): JsonLdFacts {
     } catch {
       return;
     }
-    walk(data, (node) => {
+    walkJsonLd(data, (node) => {
       if (!facts.datePublished && typeof node.datePublished === "string") facts.datePublished = node.datePublished;
       if (!facts.dateModified && typeof node.dateModified === "string") facts.dateModified = node.dateModified;
       if (node.author) facts.hasAuthor = true;
       if (!facts.organization) {
-        const type = typeNames(node["@type"]).find((t) => ORG_TYPE_RE.test(t));
+        const type = typeNamesOf(node["@type"]).find((t) => ORG_TYPE_RE.test(t));
         if (type) {
           facts.organization = {
             type,
@@ -255,10 +254,6 @@ function readJsonLd($: cheerio.CheerioAPI): JsonLdFacts {
   return facts;
 }
 
-function typeNames(t: unknown): string[] {
-  const list = Array.isArray(t) ? t : t ? [t] : [];
-  return list.filter((v): v is string => typeof v === "string").map((v) => v.split(/[/#:]/).pop() || v);
-}
 
 function hasValue(v: unknown): boolean {
   if (typeof v === "string") return v.trim().length > 0;
@@ -266,16 +261,3 @@ function hasValue(v: unknown): boolean {
   return Boolean(v && typeof v === "object" && Object.keys(v as object).length > 0);
 }
 
-function walk(node: unknown, visit: (obj: JsonObject) => void): void {
-  if (Array.isArray(node)) {
-    for (const item of node) walk(item, visit);
-    return;
-  }
-  if (node && typeof node === "object") {
-    const obj = node as JsonObject;
-    visit(obj);
-    for (const value of Object.values(obj)) {
-      if (value && typeof value === "object") walk(value, visit);
-    }
-  }
-}
