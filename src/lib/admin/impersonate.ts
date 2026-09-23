@@ -17,6 +17,7 @@
  */
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { adminEmails, isAdminEmail } from "./config";
+import { primaryEmail, verifiedEmails } from "./identity";
 import { isUserId } from "./roles";
 
 /** チケットの有効期限（秒）。押してから開くまでの時間だけあればよい */
@@ -72,9 +73,7 @@ export async function createImpersonationUrl(
 
   const client = await clerkClient();
   const target = await client.users.getUser(targetUserId);
-  const verified = target.emailAddresses
-    .filter((e) => e.verification?.status === "verified")
-    .map((e) => e.emailAddress);
+  const verified = verifiedEmails(target);
 
   const allowed = canImpersonate({
     masterUserId,
@@ -93,10 +92,7 @@ export async function createImpersonationUrl(
 
   if (!ticket.url) throw new Error("代理ログインの URL を取得できませんでした。");
 
-  const email =
-    target.emailAddresses.find((e) => e.id === target.primaryEmailAddressId)?.emailAddress ??
-    target.emailAddresses[0]?.emailAddress ??
-    targetUserId;
+  const email = primaryEmail(target) ?? targetUserId;
 
   // お客様のデータが見える操作なので、いつ・誰が・誰に対して行ったかを必ず残す
   console.info(

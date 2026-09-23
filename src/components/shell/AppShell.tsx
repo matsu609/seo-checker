@@ -52,9 +52,11 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
    * 案内を出す（利用者の指示 2026-09-21）。サイドバーからは消してあるので、URL を直接開いた・
    * 古いブックマークから来た場合の受け皿。運用者（マスター）は自分で確かめるのでそのまま出す。
    * 判定が取れるまで（access が null）は何も差し替えない。
+   * 2026-09-23 からは API 側（plans/access.ts）でも管理アカウントのツール利用を断る。ここは画面の案内だけ。
+   * お客様カルテ（/karte）もお客様の画面なので同じ扱い（2026-09-23 に追加）。
    */
   const access = useAccess();
-  const forCustomersOnly = pathname.startsWith("/tools") || pathname === "/settings" || pathname === "/plans";
+  const forCustomersOnly = pathname.startsWith("/tools") || pathname === "/settings" || pathname === "/plans" || pathname === "/karte";
   const managerBlocked = access?.agency === true && access.admin !== true && forCustomersOnly;
   const body = managerBlocked ? <ManagerNotice /> : children;
   const drawerId = useId();

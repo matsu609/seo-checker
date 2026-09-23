@@ -19,6 +19,21 @@ export async function PlanGate({
   const denial = await checkPlanForFeature(featureId);
   if (!denial) return <>{children}</>;
 
+  // 管理アカウント（2026-09-23 からサーバーでも止める）。ふだんは AppShell が ManagerNotice に差し替えるので、
+  // ここに来るのは判定が取れる前の一瞬か、差し替えの外にある画面だけ。プランの案内は出さない（買えば使える話ではない）
+  if (denial.reason === "manager") {
+    return (
+      <Callout tone="info" title="この画面は管理アカウントでは使いません">
+        <p>{denial.message}</p>
+        <p className="mt-2">
+          <Link href="/clients" className="text-accent underline">
+            顧客管理へ
+          </Link>
+        </p>
+      </Callout>
+    );
+  }
+
   return (
     <Callout tone="info" title={`「${upgradeTarget(denial.required).label}」プランの機能です`}>
       <p>

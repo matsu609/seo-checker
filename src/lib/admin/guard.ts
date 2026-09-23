@@ -16,7 +16,8 @@
  */
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { isAuthEnabled } from "@/lib/auth/config";
-import { adminEmails, isAdminEmail } from "./config";
+import { adminEmails } from "./config";
+import { isOperatorUser } from "./identity";
 import { isAgencyMetadata, isManageableClient } from "./roles";
 
 export async function isAdmin(): Promise<boolean> {
@@ -30,9 +31,8 @@ export async function isAdmin(): Promise<boolean> {
   try {
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
-    return user.emailAddresses.some(
-      (e) => e.verification?.status === "verified" && isAdminEmail(e.emailAddress, allowed),
-    );
+    // 確認済みのメールだけを見る（admin/identity.ts。定期処理・顧客一覧と同じ関数）
+    return isOperatorUser(user, allowed);
   } catch {
     // 取れなければ管理者でない扱い（開ける方向には倒さない）
     return false;

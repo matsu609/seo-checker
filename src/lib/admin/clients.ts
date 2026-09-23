@@ -15,7 +15,8 @@ import { overridesFromMetadata, toggleOverride, OVERRIDES_KEY } from "@/lib/plan
 import { resolvePlanFromMetadata, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
 import { summarizeBilling, type BillingSummary } from "./billing";
-import { adminEmails, isAdminEmail } from "./config";
+import { adminEmails } from "./config";
+import { displayName, isOperatorUser, primaryEmail } from "./identity";
 import { isAgencyMetadata } from "./roles";
 
 import { assignedPromoFromMetadata, patternById, withAssignedPromo } from "@/lib/billing/promo";
@@ -42,7 +43,8 @@ export interface ClerkUserLike {
   lastName: string | null;
   username: string | null;
   primaryEmailAddressId: string | null;
-  emailAddresses: { id: string; emailAddress: string }[];
+  /** verification は確認済みかどうかの判定（運用者を一覧から外す）に使う */
+  emailAddresses: { id: string; emailAddress: string; verification?: { status?: string | null } | null }[];
   publicMetadata: unknown;
   /** 登録フォームが載せた登録情報（lead）。古い行には無い */
   unsafeMetadata?: unknown;
@@ -78,23 +80,6 @@ export interface ClientList {
   totalCount: number;
   /** 表示しきれていない人数 */
   truncated: number;
-}
-
-function displayName(user: {
-  firstName: string | null;
-  lastName: string | null;
-  username: string | null;
-}): string {
-  const full = [user.lastName, user.firstName].filter(Boolean).join(" ").trim();
-  return full || user.username || "";
-}
-
-function primaryEmail(user: {
-  primaryEmailAddressId: string | null;
-  emailAddresses: { id: string; emailAddress: string }[];
-}): string {
-  const primary = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId);
-  return primary?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
 }
 
 /**
@@ -133,7 +118,7 @@ export function buildClientRows(users: ClerkUserLike[], envDefault: PlanId | nul
     const { plan, source } = resolvePlanFromMetadata(user.publicMetadata, envDefault);
     return {
       userId: user.id,
-      email: primaryEmail(user),
+      email: primaryEmail(user) ?? "",
       name: displayName(user) || leadFromMetadata(user.publicMetadata, user.unsafeMetadata ?? null)?.contactName || "",
       createdAt: user.createdAt,
       lastActiveAt: user.lastActiveAt ?? null,
@@ -156,14 +141,12 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
   });
 
   // 運用者（マスター）と管理アカウントは顧客ではない（お金を払って使う人ではなく、対応する側）。
-  // 一覧に混ぜると契約状況が空の行が並んで紛らわしいので外す（利用者の指示 2026-09-21）
+  // 一覧に混ぜると契約状況が空の行が並んで紛らわしいので外す（利用者の指示 2026-09-21）。
+  // 運用者の判定は確認済みのメールだけ（2026-09-23 まで未確認のメールも数えていたので、
+  // 運用者のアドレスを未確認のまま足したお客様が一覧から消えていた）
   const all = users as ClerkUserLike[];
   const admins = adminEmails();
-  const customers = all.filter(
-    (u) =>
-      !isAgencyMetadata(u.publicMetadata) &&
-      !u.emailAddresses.some((e) => isAdminEmail(e.emailAddress, admins)),
-  );
+  const customers = all.filter((u) => !isAgencyMetadata(u.publicMetadata) && !isOperatorUser(u, admins));
   const rows = buildClientRows(customers);
   // 総数からも外す。全体をなめていない（limit で切っている）ので、外した分だけ引く
   const total = Math.max(0, totalCount - (all.length - customers.length));
