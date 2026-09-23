@@ -153,3 +153,39 @@ export function websiteInLinks(expected: string, links: readonly string[]): Fiel
 export function skipped(field: NapField, expected: string): FieldCheck {
   return { field, status: "skipped", expected, found: null };
 }
+
+/* ───────────── 2 つの値の突き合わせ（どちらが「正」とも決めない） ─────────────
+ *
+ * 2026-09-23: NAP の比較が 3 か所にあり、ここ以外の 2 つ（maps/nap.ts のサイト ⇔ Google、
+ * listings/profile.ts の基本情報 ⇔ Google）は全角 / 半角・空白・ハイフンしか吸収していなかった。
+ * そのため「神南1-2-3」と Google の「日本、〒150-0041 東京都渋谷区神南１丁目２−３」、
+ * 「+81-3-1234-5678」と「03-1234-5678」、「0312345678」と「03-1234-5678」を「ずれ」と出していた。
+ * 判定はここに寄せ、2 か所はこれを呼ぶ。
+ */
+
+/** 住所が同じ場所か。片方が都道府県・市区町村を省いていてもよい（両方向で compareAddress を見る） */
+export function sameAddress(a: string, b: string): boolean {
+  const ab = compareAddress(a, [b]).status;
+  const ba = compareAddress(b, [a]).status;
+  if (ab === "match" || ba === "match") return true;
+  // 番地が短すぎて比べられない住所は、正規化した全体で比べる
+  if (ab === "skipped" && ba === "skipped") return normalizeAddress(a) === normalizeAddress(b);
+  return false;
+}
+
+/** 電話番号が同じか（数字だけで比べる。+81 は 0 に読み替える） */
+export function samePhone(a: string, b: string): boolean {
+  const x = phoneDigits(a);
+  return x.length > 0 && x === phoneDigits(b);
+}
+
+/** 店名が同じか（法人格の略記・空白・全角 / 半角の違いは同じとみなす。支店名の有無は違う扱い） */
+export function sameName(a: string, b: string): boolean {
+  const x = normalizeName(a);
+  return x.length > 0 && x === normalizeName(b);
+}
+
+/** サイトが同じか（ホストが同じなら同じ。スキーム・www・末尾のスラッシュ・大文字は無視） */
+export function sameWebsite(a: string, b: string): boolean {
+  return compareWebsite(a, [b]).status === "match";
+}

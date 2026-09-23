@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { addressBuilding, compareAddress, compareName, comparePhone, compareWebsite, formatPhone, nameInText, normalizeName, normalizeUrl, stripCorporate, websiteInLinks } from "../compare";
+import { addressBuilding, compareAddress, compareName, comparePhone, compareWebsite, formatPhone, nameInText, normalizeName, normalizeUrl, sameAddress, sameName, samePhone, sameWebsite, stripCorporate, websiteInLinks } from "../compare";
+
+describe("2 つの値の突き合わせ（サイト ⇔ Google・基本情報 ⇔ Google が使う。2026-09-23）", () => {
+  const GOOGLE_ADDRESS = "日本、〒150-0041 東京都渋谷区神南１丁目２−３";
+
+  it("住所: 丁目 / 番地の書き方・「日本、〒」・都道府県や市区町村の省略は同じ。どちらを先に渡しても同じ答え", () => {
+    for (const other of ["東京都渋谷区神南1-2-3", "渋谷区神南1丁目2番3号", "神南1-2-3", "〒150-0041 東京都渋谷区神南1丁目2-3"]) {
+      expect(sameAddress(other, GOOGLE_ADDRESS)).toBe(true);
+      expect(sameAddress(GOOGLE_ADDRESS, other)).toBe(true);
+    }
+    expect(sameAddress("東京都渋谷区神南1-2-4", GOOGLE_ADDRESS)).toBe(false);
+    expect(sameAddress("東京都渋谷区神南1-2-3 Aビル", "東京都渋谷区神南1-2-3 Bビル")).toBe(false);
+  });
+
+  it("電話: +81・区切りなし・全角は同じ", () => {
+    expect(samePhone("+81-3-1234-5678", "03-1234-5678")).toBe(true);
+    expect(samePhone("0312345678", "03-1234-5678")).toBe(true);
+    expect(samePhone("０３（１２３４）５６７８", "03-1234-5678")).toBe(true);
+    expect(samePhone("03-1234-5679", "03-1234-5678")).toBe(false);
+    expect(samePhone("", "")).toBe(false);
+  });
+
+  it("店名・サイト", () => {
+    expect(sameName("(株)ウルフ 情報", "株式会社ウルフ情報")).toBe(true);
+    expect(sameName("ウルフ情報 渋谷店", "ウルフ情報")).toBe(false);
+    expect(sameWebsite("http://www.example.com", "https://example.com/?utm_source=gbp")).toBe(true);
+    expect(sameWebsite("https://example.com/", "https://other.example.jp/")).toBe(false);
+  });
+});
 
 describe("店名の正規化と照合", () => {
   it("全角 / 半角・空白・中黒・法人格の略記をそろえる", () => {

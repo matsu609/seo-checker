@@ -12,16 +12,23 @@ import { currentUserId } from "@/lib/auth/user";
 import { globalCache } from "@/lib/cache";
 import { dbErrorResponse, isSupabaseConfigured } from "@/lib/db/supabase";
 import { allReportsForPlace } from "@/lib/maps/history";
-import { compareSiteNap, extractSiteNap, type NapResult } from "@/lib/maps/nap";
+import { checkSiteNap, extractSiteNap, type NapResult, type SiteNapSnapshot } from "@/lib/maps/nap";
 import { analyzeReviews, collectReviews, type ReviewInsights } from "@/lib/maps/review-insights";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const PLACE_ID = /^[A-Za-z0-9_-]{10,300}$/;
-/** サイトの取得は 6 時間キャッシュ（同じ店舗を何度も開いても相手サイトを叩かない） */
-const napCache = globalCache<NapResult>("maps-nap", 6 * 60 * 60 * 1000, 100);
+/**
+ * サイトの読み取りは 6 時間キャッシュ（同じ店舗を何度も開いても相手サイトを叩かない）。
+ * キャッシュするのは読み取った NAP だけで、店舗の値との比較は毎回する（2026-09-23。以前は比較の結果を
+ * URL だけのキーで持ち、同じサイトの別店舗・別の利用者に違う店舗の比較が出ていた）。
+ */
+const siteCache = globalCache<SiteNapSnapshot>("maps-nap-site", 6 * 60 * 60 * 1000, 100);
 const SITE_TIMEOUT_MS = 8_000;
+
+/** 登録サイトを取得できなかった（画面に出す理由を持つ） */
+class SiteUnavailableError extends Error {}
 
 export interface MapsInsightsResponse {
   enabled: boolean;
@@ -63,21 +70,23 @@ export async function GET(request: Request) {
     if (!detail.website) {
       napNote = "ビジネス プロフィールにウェブサイトが登録されていないため、表記ゆれは調べられません。";
     } else {
-      const cached = napCache.get(detail.website);
-      if (cached) {
-        nap = cached;
-      } else {
-        try {
-          const res = await fetchText(detail.website, { timeoutMs: SITE_TIMEOUT_MS });
-          if (res.ok && res.body) {
-            nap = compareSiteNap(extractSiteNap(res.body), detail, res.finalUrl);
-            napCache.set(detail.website, nap);
-          } else {
-            napNote = `登録サイトを取得できませんでした（HTTP ${res.status || "接続不可"}）。`;
-          }
-        } catch (err) {
-          napNote = err instanceof FetchError ? `登録サイトを取得できませんでした（${err.message}）。` : "登録サイトを取得できませんでした。";
-        }
+      try {
+        nap = await checkSiteNap(
+          { ...detail, website: detail.website },
+          async (url) => {
+            const res = await fetchText(url, { timeoutMs: SITE_TIMEOUT_MS });
+            if (!res.ok || !res.body) throw new SiteUnavailableError(`登録サイトを取得できませんでした（HTTP ${res.status || "接続不可"}）。`);
+            return { site: extractSiteNap(res.body), url: res.finalUrl, fetchedAt: new Date().toISOString() };
+          },
+          siteCache,
+        );
+      } catch (err) {
+        napNote =
+          err instanceof SiteUnavailableError
+            ? err.message
+            : err instanceof FetchError
+              ? `登録サイトを取得できませんでした（${err.message}）。`
+              : "登録サイトを取得できませんでした。";
       }
     }
 

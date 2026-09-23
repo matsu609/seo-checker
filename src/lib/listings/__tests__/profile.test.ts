@@ -25,6 +25,16 @@ describe("取り込みと比較", () => {
     expect(compareNap(emptyProfile(), GOOGLE)).toEqual([]);
   });
 
+  it("NAP チェックと同じ判定: 丁目 / 番地の書き方・+81・区切りなしの電話・法人格の略記は同じ（2026-09-23）", () => {
+    const google = { name: "株式会社テスト 神南店", address: "日本、〒150-0041 東京都渋谷区神南１丁目２−３ テストビル 2F", phone: "03-1234-5678", website: "https://example.com/?utm_source=gbp" };
+    const profile = { ...emptyProfile(), name: "(株)テスト 神南店", address: "東京都渋谷区神南1-2-3 テストビル 2F", phone: "0312345678", website: "https://example.com/" };
+    expect(compareNap(profile, google)).toEqual([]);
+    expect(compareNap({ ...profile, phone: "+81-3-1234-5678", address: "神南1-2-3 テストビル 2F" }, google)).toEqual([]);
+    // 本当に違うものは今までどおり出す
+    const diff = compareNap({ ...profile, address: "東京都渋谷区神南1-2-4", phone: "03-1234-5679", website: "https://other.example.jp/" }, google);
+    expect(diff.map((d) => d.field)).toEqual(["address", "phone", "website"]);
+  });
+
   it("貼り付け用の文は入力した項目だけ", () => {
     const t = profileToText({ ...emptyProfile(), name: "A", phone: "1", longDescription: "説明" });
     expect(t).toBe("店名: A\n電話番号: 1\n説明文:\n説明");

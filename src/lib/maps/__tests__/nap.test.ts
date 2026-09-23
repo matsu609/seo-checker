@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { compareSiteNap, extractSiteNap } from "../nap";
+import { describe, expect, it, vi } from "vitest";
+import { checkSiteNap, compareSiteNap, extractSiteNap, type SiteNapSnapshot } from "../nap";
 
 const GOOGLE = {
   name: "サンプル美容室 渋谷店",
@@ -69,6 +69,44 @@ describe("Google との突き合わせ", () => {
     const result = compareSiteNap(site, GOOGLE, "https://example.com/", NOW);
     expect(result.mismatches).toBe(2);
     expect(result.findings.filter((f) => f.status === "mismatch").map((f) => f.field).sort()).toEqual(["address", "phone"]);
+  });
+
+  it("丁目 / 番地の書き方と +81 の電話は一致とみなす（2026-09-23 まで食い違いと出していた）", () => {
+    const google = { name: "カフェ神南", address: "日本、〒150-0041 東京都渋谷区神南１丁目２−３", phone: "03-1234-5678" };
+    const site = {
+      name: { value: "カフェ神南", source: "json-ld" as const },
+      address: { value: "東京都渋谷区神南1-2-3", source: "本文" as const },
+      phone: { value: "+81-3-1234-5678", source: "json-ld" as const },
+    };
+    const result = compareSiteNap(site, google, "https://example.com/", NOW);
+    expect(result.findings.map((f) => [f.field, f.status])).toEqual([
+      ["name", "match"],
+      ["address", "match"],
+      ["phone", "match"],
+    ]);
+    // 市区町村を省いた書き方（「神南1-2-3」）も同じ場所
+    const short = compareSiteNap({ ...site, address: { value: "神南1-2-3", source: "本文" } }, google, "https://example.com/", NOW);
+    expect(short.mismatches).toBe(0);
+    // 番地が違えば食い違い
+    const wrong = compareSiteNap({ ...site, address: { value: "東京都渋谷区神南1-2-4", source: "本文" } }, google, "https://example.com/", NOW);
+    expect(wrong.findings.find((f) => f.field === "address")?.status).toBe("mismatch");
+  });
+
+  it("同じサイトを登録した別の店舗には、その店舗の値で比べた結果を返す（サイトの読み取りだけを使い回す。2026-09-23）", async () => {
+    const store = new Map<string, SiteNapSnapshot>();
+    const cache = { get: (k: string) => store.get(k), set: (k: string, v: SiteNapSnapshot) => void store.set(k, v) };
+    const load = vi.fn(async (url: string): Promise<SiteNapSnapshot> => ({
+      site: { name: { value: "チェーン", source: "json-ld" }, address: null, phone: { value: "03-1111-1111", source: "json-ld" } },
+      url,
+      fetchedAt: "2026-09-13T00:00:00.000Z",
+    }));
+    const a = await checkSiteNap({ name: "チェーン 渋谷店", address: null, phone: "03-1111-1111", website: "https://chain.example/" }, load, cache);
+    const b = await checkSiteNap({ name: "チェーン 新宿店", address: null, phone: "03-2222-2222", website: "https://chain.example/" }, load, cache);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(a.findings.find((f) => f.field === "phone")).toMatchObject({ status: "match", google: "03-1111-1111" });
+    expect(b.findings.find((f) => f.field === "phone")).toMatchObject({ status: "mismatch", google: "03-2222-2222" });
+    // 調べた日時はサイトを読んだ日時
+    expect(b.checkedAt).toBe("2026-09-13T00:00:00.000Z");
   });
 
   it("サイトに書かれていない項目は「見つからない」として出す", () => {

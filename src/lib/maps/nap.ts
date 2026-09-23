@@ -8,10 +8,12 @@
  * 取り方は 2 段構え:
  *   1. JSON-LD（LocalBusiness / Organization など）の name / telephone / address
  *   2. 見つからなければ本文から拾う（電話番号は日本の表記、住所は都道府県から始まる行）
- * 比較は基本情報掲載と同じ正規化（src/lib/listings/profile.ts の normalizeForCompare）。
+ * 比較は NAP チェックと同じ判定（src/lib/nap/compare.ts の sameAddress / samePhone / normalizeName）。
+ * 2026-09-23 までは全角 / 半角・空白・ハイフンだけをそろえていたため、「1丁目2番3号」と「1-2-3」や
+ * 「+81-3-…」と「03-…」を食い違いと出していた。
  */
 import * as cheerio from "cheerio";
-import { normalizeForCompare } from "@/lib/listings/profile";
+import { normalizeName, sameAddress, samePhone } from "@/lib/nap/compare";
 import type { PlaceDetail } from "./types";
 
 export type NapField = "name" | "address" | "phone";
@@ -130,15 +132,18 @@ export function extractSiteNap(html: string): SiteNap {
 
 const LABELS: Record<NapField, string> = { name: "店名", address: "住所", phone: "電話番号" };
 
-/** 住所は Google 側が「日本、〒…」を付けるので、どちらかがもう片方を含めば一致とみなす */
+/**
+ * 住所は番地まで（丁目 / 番地 / 号の書き方・「日本、〒…」の有無・都道府県の省略は同じとみなす）、
+ * 電話は数字だけ（+81 は 0）で比べる。
+ */
 function same(field: NapField, a: string, b: string): boolean {
-  const x = normalizeForCompare(a);
-  const y = normalizeForCompare(b);
-  if (x === y) return true;
-  if (field === "address") return x.includes(y) || y.includes(x);
-  if (field === "phone") return x.replace(/-/g, "") === y.replace(/-/g, "");
+  if (field === "address") return sameAddress(a, b);
+  if (field === "phone") return samePhone(a, b);
   // 店名はサイト側に支店名や装飾が付くことがあるので、含んでいれば一致とみなす
-  return x.includes(y) || y.includes(x);
+  const x = normalizeName(a);
+  const y = normalizeName(b);
+  if (!x || !y) return x === y;
+  return x === y || x.includes(y) || y.includes(x);
 }
 
 export function compareSiteNap(
@@ -169,4 +174,38 @@ export function compareSiteNap(
     findings,
     mismatches: findings.filter((f) => f.status === "mismatch").length,
   };
+}
+
+/** 登録サイトを 1 回読んだ結果（どの店舗の比較にも使える。店舗ごとの値は入れない） */
+export interface SiteNapSnapshot {
+  site: SiteNap;
+  /** 実際に読んだ URL（転送後） */
+  url: string;
+  /** 読んだ日時（ISO） */
+  fetchedAt: string;
+}
+
+export interface SiteNapCache {
+  get(key: string): SiteNapSnapshot | undefined;
+  set(key: string, value: SiteNapSnapshot): void;
+}
+
+/**
+ * 登録サイトとビジネス プロフィールの突き合わせ。キャッシュするのは**サイトの読み取りだけ**で、
+ * 比べるのは毎回その店舗の値。
+ *
+ * 2026-09-23: 以前は比較の結果そのものをサイトの URL だけをキーに 6 時間キャッシュしていたため、
+ * 同じサイトを登録した別の店舗（チェーンの各店・別の利用者）に、最初に開いた店舗の比較が出ていた。
+ */
+export async function checkSiteNap(
+  detail: Pick<PlaceDetail, "name" | "address" | "phone"> & { website: string },
+  load: (url: string) => Promise<SiteNapSnapshot>,
+  cache: SiteNapCache,
+): Promise<NapResult> {
+  let snapshot = cache.get(detail.website);
+  if (!snapshot) {
+    snapshot = await load(detail.website);
+    cache.set(detail.website, snapshot);
+  }
+  return compareSiteNap(snapshot.site, detail, snapshot.url, new Date(snapshot.fetchedAt));
 }
