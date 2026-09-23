@@ -10,12 +10,12 @@
  * （consumeFreeRun）はここでは消費しない。診断そのもので消費済みで、FAQ を押すたびに
  * 診断の残り回数が減るのは筋が違うため。
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { NO_STORE } from "@/lib/api/headers";
 import { currentUserId } from "@/lib/auth/user";
 import { globalCache } from "@/lib/cache";
-import { generateFaqs, isFaqEnabled, MAX_INPUT_CHARS } from "@/lib/faq/generate";
+import { FaqRequestSchema, generateFaqs, isFaqEnabled, MAX_INPUT_CHARS } from "@/lib/faq/generate";
+import { toApiError } from "@/lib/llm/anthropic";
 import {
   clientKeyOf,
   envInt,
@@ -50,16 +50,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { url?: unknown; title?: unknown; description?: unknown; mainText?: unknown };
+  let raw: { url?: unknown; mainText?: unknown };
   try {
-    body = await request.json();
+    raw = await request.json();
   } catch {
     return Response.json({ error: "リクエスト形式が不正です" }, { status: 400 });
   }
-  const { url, title, description, mainText } = body;
-  if (typeof url !== "string" || typeof mainText !== "string") {
+  if (typeof raw?.url !== "string" || typeof raw?.mainText !== "string") {
     return Response.json({ error: "url と mainText は必須です" }, { status: 400 });
   }
+  const parsed = FaqRequestSchema.safeParse(raw);
+  if (!parsed.success) {
+    return Response.json({ error: "入力が長すぎるか、形式が正しくありません" }, { status: 400 });
+  }
+  const { url, title, description, mainText } = parsed.data;
   if (mainText.trim().length < 100) {
     return Response.json(
       { error: "本文が短すぎるため FAQ を生成できません（100文字以上必要です）" },
@@ -85,28 +89,20 @@ export async function POST(request: NextRequest) {
   try {
     const faqs = await generateFaqs({
       url,
-      title: typeof title === "string" ? title : null,
-      description: typeof description === "string" ? description : null,
+      title: title ?? null,
+      description: description ?? null,
       mainText,
     });
     cache.set(key, faqs);
     return Response.json({ faqs, cached: false, maxItems: MAX_FAQ_ITEMS });
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError) {
-      return Response.json({ error: "ANTHROPIC_API_KEY が無効です" }, { status: 503 });
+    // SDK の例外・打ち切り（StructuredOutputError）は共通の対応表で返す（文言は以前と同じ）
+    const info = toApiError(err);
+    if (info.status === 500) {
+      // 想定外の例外（toApiError がログに残す）
+      return Response.json({ error: "FAQ 生成中にエラーが発生しました" }, { status: 500 });
     }
-    if (err instanceof Anthropic.RateLimitError) {
-      return Response.json(
-        { error: "AI の利用上限に達しました。しばらく待って再試行してください" },
-        { status: 429 },
-      );
-    }
-    if (err instanceof Anthropic.APIError) {
-      console.error("[faq] api error", err.status, err.message);
-      return Response.json({ error: "AI との通信に失敗しました" }, { status: 502 });
-    }
-    console.error("[faq] unexpected error", err);
-    return Response.json({ error: "FAQ 生成中にエラーが発生しました" }, { status: 500 });
+    return Response.json({ error: info.message }, { status: info.status });
   }
 }
 

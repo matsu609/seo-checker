@@ -11,6 +11,7 @@
  */
 import { z } from "zod";
 import { MODELS } from "@/lib/llm/anthropic";
+import { UNTRUSTED_BEGIN, UNTRUSTED_END, stripUntrustedMarkers, untrustedLines } from "@/lib/llm/prompt-safety";
 import { generateStructured } from "@/lib/llm/structured";
 import { STAT_METRICS, formatStat } from "./stats";
 import type {
@@ -29,29 +30,11 @@ export const MAX_SELF_TEXT = 12_000;
 /** 1 ページあたりに渡す見出しの上限 */
 export const MAX_HEADINGS_PER_PAGE = 20;
 
-/** 信用できない第三者テキストの区切り（プロンプト内で一意になる文字列） */
-export const UNTRUSTED_BEGIN = "<<<UNTRUSTED_WEB_CONTENT_BEGIN>>>";
-export const UNTRUSTED_END = "<<<UNTRUSTED_WEB_CONTENT_END>>>";
-
 /**
- * 第三者テキストに紛れ込んだ区切り文字を潰す。
- *
- * 区切り文字は公開された固定文字列なので、競合ページや SERP スニペットが
- * `<<<UNTRUSTED_WEB_CONTENT_END>>>` をそのまま含んでいると、ブロックが途中で
- * 閉じたように見え、その後ろが「信用できる指示」として読まれてしまう
- * （プロンプトインジェクション）。囲む前に必ずここを通す。
+ * 信用できない第三者テキストの区切りと囲み方。実装は src/lib/llm/prompt-safety.ts が正本
+ * （2026-09-23 に移した）。ここから import している既存のコードのために再エクスポートする。
  */
-export function stripUntrustedMarkers(text: string): string {
-  return text.split(UNTRUSTED_BEGIN).join("[除去]").split(UNTRUSTED_END).join("[除去]");
-}
-
-/**
- * 信用できない行を区切りブロックに入れる。
- * 第三者由来のテキストを囲むときは必ずこの関数を使う（直接 push しない）。
- */
-export function untrustedLines(lines: readonly string[]): string[] {
-  return [UNTRUSTED_BEGIN, ...lines.map(stripUntrustedMarkers), UNTRUSTED_END];
-}
+export { UNTRUSTED_BEGIN, UNTRUSTED_END, stripUntrustedMarkers, untrustedLines };
 
 export const DiagnosisAnalysisSchema = z.object({
   summary: z.string().describe("改善対象ページの現状と方向性を 3〜5 文で"),

@@ -63,9 +63,10 @@ export function buildFaqPrompt(input: FaqPromptInput): string {
 
   lines.push("");
   lines.push("■ いまの FAQ の状態（このアプリが機械的に調べた事実）");
-  for (const f of audit.findings) {
-    lines.push(`- [${f.status}] ${f.label}: ${f.detail}`);
-  }
+  // 事実の文には、ページの見出しや構造化データの質問文（第三者が書いた文字列）が混ざるので、
+  // 一覧ごと区切りブロックに入れる（2026-09-23）
+  lines.push("（事実の文にはページから引用した見出し・質問文が含まれるため、区切りの中に入れています）");
+  lines.push(...untrustedBlock(audit.findings.map((f) => `- [${f.status}] ${f.label}: ${f.detail}`).join("\n"), 3_000));
 
   const existing = audit.existingQuestions.slice(0, MAX_EXISTING_QUESTIONS);
   lines.push("");
