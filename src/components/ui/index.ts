@@ -14,4 +14,3 @@ export { SetupNotice, type MissingIntegration, type SetupNoticeProps } from "./S
 export { StatCard, StatStrip, type StatCardProps, type StatDelta, type StatStripItem } from "./StatCard";
 export { Tabs, type TabItem, type TabsProps } from "./Tabs";
 export { TabPanels, type TabPanelsProps } from "./TabPanels";
-export { ToolPlaceholder } from "./ToolPlaceholder";
