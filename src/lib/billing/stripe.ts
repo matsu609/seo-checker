@@ -170,12 +170,27 @@ export function constructWebhookEvent(payload: string, signature: string): Strip
   return getStripe().webhooks.constructEvent(payload, signature, secret);
 }
 
+/** 割引のクーポンまで展開する指定（割引後の額を state.ts が計算できるようにする） */
+export const SUBSCRIPTION_EXPAND = ["discounts.source.coupon"] as const;
+
 /**
- * サブスクリプションを取る。割引のクーポンまで展開して、割引後の額を state.ts が計算できるようにする
- * （呼び出しの回数は増えない。展開は同じ 1 回の取得に含まれる）。
+ * サブスクリプションを取る。割引のクーポンまで展開する（呼び出しの回数は増えない。展開は同じ 1 回の取得に含まれる）。
+ *
+ * 展開の指定を Stripe が受け付けなかった（API の版が変わったなど）ときは、展開なしで取り直す。
+ * ここが落ちると Webhook が 500 を返し続けて契約状態が書けなくなるので、割引の額より契約の記録を優先する
+ * （展開が無くても、割引コードのパターンから額を求められる。state.ts の discountOf）。
  */
 export async function retrieveSubscription(id: string): Promise<Stripe.Subscription> {
-  return getStripe().subscriptions.retrieve(id, { expand: ["discounts.source.coupon"] });
+  const stripe = getStripe();
+  try {
+    return await stripe.subscriptions.retrieve(id, { expand: [...SUBSCRIPTION_EXPAND] });
+  } catch (err) {
+    if (err instanceof Stripe.errors.StripeInvalidRequestError && (err.param ?? "").startsWith("expand")) {
+      console.warn("[billing] サブスクリプションの展開の指定が受け付けられなかったため、展開なしで取り直します", err.message);
+      return stripe.subscriptions.retrieve(id);
+    }
+    throw err;
+  }
 }
 
 /** Checkout 完了イベントから、ユーザー ID・顧客 ID・サブスクリプション ID を取り出す */
