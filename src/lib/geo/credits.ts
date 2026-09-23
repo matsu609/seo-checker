@@ -6,6 +6,7 @@
  * 上限に達してもソフトキャップ: **定期実行は止めず、オンデマンド（Live）だけ止める**。
  * 超過課金は初期は行わない。
  */
+import { jstMonthKey, monthRangeJst } from "@/lib/time/jst";
 import { isLiveOnlyModel } from "./types";
 import type { CreditAction, GeoModel, MeasurementKind, RunMode } from "./types";
 
@@ -85,18 +86,32 @@ export function resetMonthly(granted = MONTHLY_CREDITS): CreditState {
   return { balance: granted, granted };
 }
 
-/** 次のリセット日時（JST の月初 0:00）を ISO で */
+/** 次のリセット日時（JST の翌月初 0:00）を ISO で。今月の範囲の終わり（src/lib/time/jst.ts） */
 export function nextResetAt(now = new Date()): string {
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const y = jst.getUTCFullYear();
-  const m = jst.getUTCMonth();
-  return new Date(Date.UTC(y, m + 1, 1, -9, 0, 0)).toISOString();
+  return monthRangeJst(jstMonthKey(now)).end;
 }
 
 /** リセット時刻を過ぎているか */
 export function needsReset(resetAt: string, now = new Date()): boolean {
   const t = Date.parse(resetAt);
   return Number.isFinite(t) ? now.getTime() >= t : true;
+}
+
+/**
+ * 月次リセットを当てた後の残高（純関数。2026-09-23）。
+ *
+ * 以前は定期バッチがリセットで 2,000 を保存したあと、最後に**リセット前の残高**から
+ * 使った分を引いて上書きしていたため、月初の最初の実行でリセットが消えていた。
+ * リセット後の残高はここで 1 回だけ決め、以降はこの値から引く。
+ */
+export function balanceAfterReset(account: { creditBalance: number; creditResetAt: string }, now = new Date()): { balance: number; reset: boolean } {
+  if (!needsReset(account.creditResetAt, now)) return { balance: account.creditBalance, reset: false };
+  return { balance: resetMonthly().balance, reset: true };
+}
+
+/** 残高から使った分を引く（小数 2 桁。マイナスは許す = 定期実行は止めない。§6.1） */
+export function deductCredits(balance: number, credits: number): number {
+  return round(balance - credits);
 }
 
 function round(v: number): number {

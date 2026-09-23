@@ -12,43 +12,30 @@
  * - 線は破線（`dashed`）。実線 = 実測、破線 = 実測ではない、の区別を崩さない
  * - 登録済みのキーワードがあれば、その言葉で描く（自分の語だと「これが自分の画面になる」と伝わる）
  */
+import { comingWeekdays } from "@/lib/demo/dates";
+import { SAMPLE_POINTS, SAMPLE_SERIES_MAX } from "@/lib/demo/sample";
 
-/** 見本に描く点の数（＝これからの計測回数） */
-export const SAMPLE_POINTS = 4;
-
-/** 見本に描く線の本数の上限（多いと図が読めない） */
-export const SAMPLE_SERIES_MAX = 3;
+/** 点の数・線の本数の上限は見本の共通の値（src/lib/demo/sample.ts） */
+export { SAMPLE_POINTS, SAMPLE_SERIES_MAX };
 
 /** キーワードの登録がまだ無いときに使う、例としての言葉 */
 export const SAMPLE_FALLBACK_LABELS = ["例: 地域名 + 業種", "例: サービス名 + 料金", "例: 〇〇 おすすめ"] as const;
 
 /**
- * 自動計測が走る曜日（火曜）。`src/lib/rank/limits.ts` の定期処理と同じ。
+ * 自動計測が走る曜日（火曜）。`src/lib/jobs/schedule.ts` の定期処理（rank-weekly）と同じ。
  * 見本の横軸は「これから数字が入る日」なので、この曜日に合わせる。
  */
 const MEASURE_WEEKDAY = 2; // 0 = 日曜
 
-/** YYYY-MM-DD（日本時間の日付。時刻は持たない） */
-function isoDate(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
 /**
- * これから計測する日（火曜）を古い順に返す。
- * 今日が火曜なら今日から、そうでなければ次の火曜から数える。
+ * これから計測する日（火曜）を古い順に返す（日本時間）。
+ * 火曜の 5:00 の自動計測より前なら今日から、過ぎていれば次の火曜から数える。
+ *
+ * 以前はローカル時刻で数えていたため、UTC で動くサーバーの描画と日本のブラウザの描画で
+ * 0〜9 時の間だけ日付が食い違っていた（hydration のずれ）。共通の `comingWeekdays` に寄せた（2026-09-23）。
  */
 export function comingMeasureDates(count = SAMPLE_POINTS, now = new Date()): string[] {
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const ahead = (MEASURE_WEEKDAY - start.getDay() + 7) % 7;
-  start.setDate(start.getDate() + ahead);
-  const out: string[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i * 7);
-    out.push(isoDate(d));
-  }
-  return out;
+  return comingWeekdays(count, MEASURE_WEEKDAY, now);
 }
 
 /**

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseSerpApiResponse } from "@/lib/serp/parse";
 import type { SerpResult } from "@/lib/serp/types";
 import { classifyAio } from "../classify";
-import { findRank, hostOf, matchesDomain, measureAioOverview, measureFromSerp, runPool, toReferences } from "../measure";
+import { findRank, hostOf, matchesDomain, measureAioOverview, measureFromSerp, toReferences } from "../measure";
 
 function fixture(name: string, query: string, device: "desktop" | "mobile" = "desktop"): SerpResult {
   const raw = JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8")) as unknown;
@@ -132,26 +132,5 @@ describe("measureAioOverview", () => {
     expect(aio.unavailable).toBe(true);
     // 5 区分には含めない（null = 未取得。集計の分母から外れる）
     expect(classifyAio(aio)).toBeNull();
-  });
-});
-
-describe("runPool", () => {
-  it("同時実行数を守り、入力順で結果を返す", async () => {
-    let running = 0;
-    let peak = 0;
-    const items = Array.from({ length: 7 }, (_, i) => i);
-    const out = await runPool(items, 2, async (n) => {
-      running += 1;
-      peak = Math.max(peak, running);
-      await new Promise((r) => setTimeout(r, 1));
-      running -= 1;
-      return n * 2;
-    });
-    expect(out).toEqual([0, 2, 4, 6, 8, 10, 12]);
-    expect(peak).toBeLessThanOrEqual(2);
-  });
-
-  it("空配列でも待ち続けない", async () => {
-    await expect(runPool([], 3, async () => 1)).resolves.toEqual([]);
   });
 });

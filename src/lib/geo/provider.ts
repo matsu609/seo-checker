@@ -5,7 +5,7 @@
  * DataForSEO の実装は dataforseo.ts。未設定なら `getGeoProvider()` が null を返し、
  * 画面は「要設定」を出す（ダミーデータは返さない）。
  */
-import type { GeoCitation, GeoModel, MeasurementKind, RunMode } from "./types";
+import type { GeoCitation, GeoModel, MeasurementKind, OrganicHit, RunMode } from "./types";
 
 export interface ProviderRequest {
   kind: MeasurementKind;
@@ -23,6 +23,11 @@ export interface ProviderResult {
   citations: GeoCitation[];
   /** 順位計測のときだけ。圏外は null */
   rank: number | null;
+  /**
+   * 自然検索の上位（検索結果を取ったときだけ）。共有の計測に残し、
+   * 利用者ごとの順位は集計のときに引く（2026-09-23）
+   */
+  organic?: OrganicHit[] | null;
   /** 取得できた範囲のモデルバージョン（§5.3） */
   modelVersion: string | null;
   /** プロバイダが返した実費（取れなければ null。単価表から推定する） */

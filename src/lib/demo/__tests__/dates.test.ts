@@ -15,13 +15,20 @@ describe("これから来る曜日", () => {
     expect(comingWeekdays(4, 1, TUE)).toEqual(["2026-09-28", "2026-10-05", "2026-10-12", "2026-10-19"]);
   });
 
-  it("今日がその曜日なら今日から数える", () => {
-    expect(comingWeekdays(2, 2, TUE)).toEqual(["2026-09-22", "2026-09-29"]);
+  it("今日がその曜日でも、5:00 の定期実行を過ぎていればもう測った日なので次の週から（2026-09-23 に修正）", () => {
+    expect(comingWeekdays(2, 2, TUE)).toEqual(["2026-09-29", "2026-10-06"]);
   });
 
-  it("必ず今日以降になる（見本を過去に描かない）", () => {
+  it("今日がその曜日で、5:00 の定期実行より前なら今日から数える", () => {
+    // 2026-09-22（火）4:59 JST
+    expect(comingWeekdays(2, 2, new Date("2026-09-21T19:59:00Z"))).toEqual(["2026-09-22", "2026-09-29"]);
+    // ちょうど 5:00 は「もう走った」側
+    expect(comingWeekdays(1, 2, new Date("2026-09-21T20:00:00Z"))).toEqual(["2026-09-29"]);
+  });
+
+  it("必ず今日より後の計測日になる（見本を過去に描かない）", () => {
     for (const weekday of [0, 1, 2, 3, 4, 5, 6]) {
-      for (const d of comingWeekdays(4, weekday, TUE)) expect(d >= "2026-09-22").toBe(true);
+      for (const d of comingWeekdays(4, weekday, TUE)) expect(d > "2026-09-22").toBe(true);
     }
   });
 
@@ -31,8 +38,10 @@ describe("これから来る曜日", () => {
   });
 
   it("日本時間で数える（UTC では前日でも日本の日付で並ぶ）", () => {
-    // UTC 2026-09-22 23:00 = JST 2026-09-23（水）08:00
-    expect(comingWeekdays(1, 3, new Date("2026-09-22T23:00:00Z"))).toEqual(["2026-09-23"]);
+    // UTC 2026-09-22 18:00 = JST 2026-09-23（水）03:00（定期実行の前）
+    expect(comingWeekdays(1, 3, new Date("2026-09-22T18:00:00Z"))).toEqual(["2026-09-23"]);
+    // UTC 2026-09-22 23:00 = JST 2026-09-23（水）08:00（定期実行のあと）
+    expect(comingWeekdays(1, 3, new Date("2026-09-22T23:00:00Z"))).toEqual(["2026-09-30"]);
   });
 });
 

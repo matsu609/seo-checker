@@ -6,7 +6,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { z } from "zod";
-import { getAnthropicClient, MODELS, StructuredOutputError, type ModelKind } from "./anthropic";
+import { acceptsSamplingParams, getAnthropicClient, MODELS, StructuredOutputError, type ModelKind } from "./anthropic";
 
 export interface StructuredOptions<S extends z.ZodType> {
   schema: S;
@@ -54,11 +54,13 @@ export async function generateStructured<S extends z.ZodType>(
   const messages: Anthropic.Messages.MessageParam[] =
     typeof options.prompt === "string" ? [{ role: "user", content: options.prompt }] : options.prompt;
 
+  const model = resolveModel(options.model);
   const params = {
-    model: resolveModel(options.model),
+    model,
     max_tokens: options.maxTokens ?? 4096,
     ...(options.system ? { system: options.system } : {}),
-    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    // Opus 4.7 以降は temperature を 400 で拒否するので、受け付けるモデルにだけ渡す（2026-09-23）
+    ...(options.temperature !== undefined && acceptsSamplingParams(model) ? { temperature: options.temperature } : {}),
     ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {}),
     messages,
     output_config: { format: zodOutputFormat(options.schema), ...(options.effort ? { effort: options.effort } : {}) },

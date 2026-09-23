@@ -18,6 +18,7 @@
  * 2026-09-21 に DataForSEO は「Top Pages / Top Domains を Top Mentioned Pages /
  * Top Mentioned Domains に改名」と告知しているので、旧名も候補に残す。
  */
+import { apiFailure } from "@/lib/dataforseo/client";
 import { asArray, asRecord, pathOverride, postDataForSeo, type PostOptions } from "./dataforseo";
 import { normalizeDomain } from "./normalize";
 import type { MentionPlatform } from "./types";
@@ -198,6 +199,18 @@ export async function fetchTopDomains(request: TopDomainsRequest, options: PostO
     return { report: null, failure: "no-key", message: "DataForSEO が未設定です（DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD）" };
   }
   if (!res.ok) return httpFailure(res.status);
+  // HTTP 200 のまま本文で返る失敗（認証・残高など）は「解釈できない」と区別して伝える（2026-09-23）
+  const failed = apiFailure(res.payload);
+  if (failed && failed.kind !== "upstream") {
+    const failure: MentionsFailure = failed.kind === "auth" ? "no-key" : failed.kind === "quota" ? "rate-limit" : "not-found";
+    const message =
+      failed.kind === "auth"
+        ? "DataForSEO の認証に失敗しました（DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD を確認してください）"
+        : failed.kind === "quota"
+          ? `DataForSEO の残高または回数制限に達しました（${failed.message}）`
+          : `DataForSEO にそのエンドポイントがありません（${failed.message}）。パスは GEO_PATH_MENTIONS_TOP_DOMAINS で差し替えられます`;
+    return { report: null, failure, message };
+  }
 
   const report = parseTopDomains(res.payload, request.brands);
   if (!report) {
@@ -224,5 +237,7 @@ function httpFailure(status: number): MentionsOutcome {
     };
   }
   if (status === 429) return { report: null, failure: "rate-limit", message: "DataForSEO の回数制限に達しました" };
+  // 402（残高不足）。以前は読み替えておらず「エラーを返しました」だけだった（2026-09-23）
+  if (status === 402) return { report: null, failure: "rate-limit", message: "DataForSEO の残高が足りません（HTTP 402）" };
   return { report: null, failure: "upstream", message: `DataForSEO がエラーを返しました（HTTP ${status}）` };
 }

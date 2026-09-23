@@ -11,6 +11,8 @@
  * さらに契約ごとの `runDayOffset`（0〜6）で曜日をずらし、全顧客が同じ曜日に
  * 集中しないようにする（§2.4。原価は変わらないが、ブロック率とインフラの山を下げる）。
  */
+import { CRON_HOUR_JST } from "@/lib/jobs/schedule";
+import { addDays, jstDate, jstParts, jstWeekStart } from "@/lib/time/jst";
 
 /** 通常プロンプトの週あたり反復回数（§2.2） */
 export const NORMAL_REPEATS_PER_WEEK = 3;
@@ -33,17 +35,11 @@ export function weekPlan(precisionMode: boolean): WeekPlan {
 export const RANK_PLAN: WeekPlan = [1, 0, 0, 0, 0, 0, 0];
 
 /**
- * 月曜を 0 とした曜日番号。`Date.getUTCDay()` は日曜が 0 なので合わせる。
- * 計測は JST で動かすので、UTC から +9 時間してから曜日を取る。
+ * 月曜を 0 とした曜日番号。`jstParts().weekday` は日曜が 0 なので合わせる。
+ * 計測は JST で動かすので、日本時間の曜日を使う（計算は src/lib/time/jst.ts に寄せた。2026-09-23）。
  */
 export function jstWeekdayIndex(now: Date): number {
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return (jst.getUTCDay() + 6) % 7;
-}
-
-/** JST の日付（YYYY-MM-DD） */
-export function jstDate(now: Date): string {
-  return new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return (jstParts(now).weekday + 6) % 7;
 }
 
 /**
@@ -83,32 +79,29 @@ export function precisionWarning(isBranded: boolean): string | null {
     : null;
 }
 
-/** 週の開始日（月曜）を JST で返す。集計のキーに使う */
+/** 週の開始日（月曜）を JST で返す。集計のキーに使う（src/lib/time/jst.ts の jstWeekStart と同じ） */
 export function weekStart(now: Date): string {
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const weekday = (jst.getUTCDay() + 6) % 7;
-  jst.setUTCDate(jst.getUTCDate() - weekday);
-  return jst.toISOString().slice(0, 10);
+  return jstWeekStart(now);
 }
 
 /* ───────────── 定期実行の予定（画面のバナー。2026-09-22） ───────────── */
 
-/** 定期実行の時刻（JST の 5:00。vercel.json の `0 20 * * *` = 20:00 UTC） */
-export const CRON_HOUR_JST = 5;
+/**
+ * 定期実行の時刻（JST の 5:00。vercel.json の `0 20 * * *` = 20:00 UTC）。
+ * 日次 Cron（src/lib/jobs/schedule.ts）と同じ値なので、そちらを使う（2 か所に書かない。2026-09-23）
+ */
+export { CRON_HOUR_JST };
 
 /**
  * 次に定期実行が走る時刻。いまが 5:00 より前なら今日の 5:00、過ぎていれば明日の 5:00。
  *
- * **`cron_runs` は見ない。**あの表は `/api/cron/daily` のジョブ用で、
- * AI 検索モニタリングの `/api/cron/geo-run` は記録していないため
- * （記録を足すより、固定スケジュールから計算するほうが正確で壊れない）。
+ * **固定スケジュールから計算する**（実行記録 cron_runs には 2026-09-23 から geo-run も残すが、
+ * 記録の有無に左右されないほうが正確で壊れない）。
  */
 export function nextCronRun(now = new Date()): Date {
-  const jstNow = now.getTime() + 9 * 60 * 60 * 1000;
-  const d = new Date(jstNow);
-  const today = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), CRON_HOUR_JST, 0, 0);
-  const next = jstNow < today ? today : today + 24 * 60 * 60 * 1000;
-  return new Date(next - 9 * 60 * 60 * 1000);
+  const p = jstParts(now);
+  const today = jstDate(p.year, p.month, p.day, CRON_HOUR_JST);
+  return now.getTime() < today.getTime() ? today : addDays(today, 1);
 }
 
 /** 「あと N 時間」「N 分後」のような、ざっくりした言い回し */

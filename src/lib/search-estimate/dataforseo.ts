@@ -12,8 +12,21 @@
  *
  * 応答の読み取りは**壊れた値で例外を投げない**方針（google/* と同じ）。
  * 読めない行は捨て、読めた行だけ返す。
+ *
+ * 送信・時間切れ・失敗の種類の読み替えは共通のクライアント（src/lib/dataforseo/client.ts。2026-09-23）。
+ * 以前はここだけ、中断のリスナーを外さず・`cache: "no-store"` が無く・本文を読む前に
+ * 時間切れのタイマーを止めていた。画面に出す文面はここで決める（以前と同じ文面）。
  */
-import { DATAFORSEO_BASE, dataForSeoCredentials, localeParams, defaultLocale } from "@/lib/geo/dataforseo";
+import {
+  apiFailure,
+  asArray,
+  asRecord,
+  dataForSeoCredentials,
+  DataForSeoNetworkError,
+  kindFromHttpStatus,
+  requestDataForSeo,
+} from "@/lib/dataforseo/client";
+import { localeParams, defaultLocale } from "@/lib/geo/dataforseo";
 import type { RankedKeyword } from "./types";
 
 const TIMEOUT_MS = 60_000;
@@ -34,14 +47,6 @@ export class SearchEstimateError extends Error {
 
 export function rankedKeywordsPath(): string {
   return process.env.DATAFORSEO_LABS_RANKED_PATH?.trim() || DEFAULT_PATH;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -107,8 +112,7 @@ export function normalizeTarget(raw: string): string {
 }
 
 export async function fetchRankedKeywords(input: FetchRankedKeywordsInput): Promise<RankedKeyword[]> {
-  const credentials = dataForSeoCredentials();
-  if (!credentials) {
+  if (!dataForSeoCredentials()) {
     throw new SearchEstimateError("DATAFORSEO_LOGIN と DATAFORSEO_PASSWORD が未設定です", "config");
   }
   const target = normalizeTarget(input.domain);
@@ -127,46 +131,29 @@ export async function fetchRankedKeywords(input: FetchRankedKeywordsInput): Prom
     },
   ];
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  input.signal?.addEventListener("abort", () => controller.abort(), { once: true });
-  const doFetch = input.fetchImpl ?? fetch;
-
-  let res: Response;
+  let res;
   try {
-    res = await doFetch(`${DATAFORSEO_BASE}${rankedKeywordsPath()}`, {
-      method: "POST",
-      headers: {
-        authorization: `Basic ${Buffer.from(`${credentials.login}:${credentials.password}`).toString("base64")}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    res = await requestDataForSeo(rankedKeywordsPath(), body, { fetchImpl: input.fetchImpl, signal: input.signal, timeoutMs: TIMEOUT_MS });
   } catch (err) {
-    throw new SearchEstimateError(
-      err instanceof Error && err.name === "AbortError" ? "DataForSEO への接続がタイムアウトしました" : "DataForSEO に接続できませんでした",
-      "network",
-    );
-  } finally {
-    clearTimeout(timer);
+    throw new SearchEstimateError(err instanceof DataForSeoNetworkError ? err.message : "DataForSEO に接続できませんでした", "network");
   }
 
-  if (res.status === 401 || res.status === 403) {
-    throw new SearchEstimateError("DataForSEO の認証に失敗しました（ログインとパスワードを確認してください）", "auth");
-  }
-  if (res.status === 402 || res.status === 429) {
-    throw new SearchEstimateError("DataForSEO の残高または回数制限に達しました", "quota");
-  }
   if (!res.ok) {
+    const kind = kindFromHttpStatus(res.status);
+    if (kind === "auth") throw new SearchEstimateError("DataForSEO の認証に失敗しました（ログインとパスワードを確認してください）", "auth");
+    if (kind === "quota") throw new SearchEstimateError("DataForSEO の残高または回数制限に達しました", "quota");
     throw new SearchEstimateError(`DataForSEO がエラーを返しました（HTTP ${res.status}）`, "upstream");
   }
 
-  const payload: unknown = await res.json().catch(() => null);
+  const payload = res.payload;
   const rows = parseRankedKeywords(payload);
   if (rows.length === 0) {
+    // 認証・残高の失敗が本文で返ったときは種類を付けて返す（2026-09-23。以前は全部 upstream）
+    const failed = apiFailure(payload);
+    if (failed?.kind === "auth") throw new SearchEstimateError("DataForSEO の認証に失敗しました（ログインとパスワードを確認してください）", "auth");
+    if (failed?.kind === "quota") throw new SearchEstimateError("DataForSEO の残高または回数制限に達しました", "quota");
     // 応答は返ったが 1 件も読めない＝パスや項目名が変わった可能性がある。黙って空にしない
-    const statusMessage = stringOrNull(asRecord(asArray(asRecord(payload).tasks)[0]).status_message);
+    const statusMessage = failed?.message ?? stringOrNull(asRecord(asArray(asRecord(payload).tasks)[0]).status_message);
     throw new SearchEstimateError(
       statusMessage
         ? `キーワードを取得できませんでした（${statusMessage}）`

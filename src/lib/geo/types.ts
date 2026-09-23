@@ -161,6 +161,16 @@ export interface GeoCitation {
 }
 
 /**
+ * 自然検索の 1 行（順位計測のときだけ計測に残す。2026-09-23）。
+ * 同じドメインはいちばん上の 1 件だけ残す（順位はそこで決まるため）。
+ */
+export interface OrganicHit {
+  domain: string;
+  /** DataForSEO の rank_absolute（1 始まり） */
+  rank: number;
+}
+
+/**
  * 1 回の計測。**アカウントをまたいで共有する**（§7.1）。
  * 同じ正規化ハッシュ × モデル × ロケールなら 24 時間は使い回す。
  */
@@ -178,8 +188,16 @@ export interface GeoMeasurement {
   /** 回答本文。順位計測のときは空 */
   responseText: string;
   citations: GeoCitation[];
-  /** 順位計測のときだけ入る */
+  /**
+   * 順位計測のときだけ入る。**共有の計測なので誰のドメインでもなく、いまは常に null**。
+   * 利用者ごとの順位は `organic` から集計のときに引く（organic.ts の rankForDomains）
+   */
   rank: number | null;
+  /**
+   * 自然検索の上位（順位計測のときだけ。2026-09-23 から保存）。
+   * null / 未定義 = 保存していない（それより前の計測と、順位計測以外）
+   */
+  organic?: OrganicHit[] | null;
   mode: RunMode;
   costUsd: number;
 }
