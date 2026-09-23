@@ -3,8 +3,8 @@
 /**
  * ⑥ 結果。生成した llms.txt（または robots.txt）のプレビューとコピー・ダウンロード。
  */
-import { useCallback, useMemo, useState } from "react";
-import { Badge, Button, Callout } from "@/components/ui";
+import { useMemo } from "react";
+import { Badge, Button, Callout, CopyButton } from "@/components/ui";
 import { downloadBlob } from "@/lib/export/download";
 import { renderLlmsTxt, renderRobotsBlock } from "@/lib/llms-txt/render";
 import type { LlmsTxtState } from "@/lib/llms-txt/types";
@@ -23,19 +23,6 @@ function Output({
   text: string;
   description: string;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // クリップボードが使えない環境（権限拒否など）では手でコピーしてもらう
-      setCopied(false);
-    }
-  }, [text]);
-
   return (
     <section className="rounded-sm border border-line bg-panel p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -47,9 +34,7 @@ function Output({
           <p className="mt-0.5 text-[12px] text-muted">{description}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => void copy()}>
-            {copied ? "コピーしました" : "コピー"}
-          </Button>
+          <CopyButton text={text} />
           <Button size="sm" onClick={() => downloadText(fileName, text)}>
             ダウンロード
           </Button>
