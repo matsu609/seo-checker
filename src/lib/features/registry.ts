@@ -12,6 +12,14 @@ import { DEFAULT_MONTHLY_LIMIT as SEO_ANALYSIS_MONTHLY_LIMIT } from "@/lib/seo-a
 import type { IntegrationKey } from "./integrations";
 
 /**
+ * サイト診断（精密診断の中で実行するクロール）のルール数。`src/lib/audit/rules/page.ts`・`cross.ts` のルール ID と
+ * `run.ts` の `HTTP_PAGE` を数えた値（docs/dev/scoring-reference.md §2）。ルールの側から import すると
+ * サーバー専用のコードがクライアントに混ざるので数だけを持ち、テスト（__tests__/copy-facts.test.ts）が
+ * ルールのソースを数えて突き合わせる。2026-09-29 まで「48」のままだった（ルールを足した後に直していなかった）。
+ */
+export const AUDIT_RULE_COUNT = 50;
+
+/**
  * 説明文に入れる数字は、定義しているところから引く（2026-09-23。書き写すと片方だけ直ってずれる。
  * 実際に「26 媒体」「3 つの状態」が残っていた）。どれも純粋なデータで、クライアントからも読める。
  *   無料診断の回数 … src/lib/free/quota-rules.ts（環境変数 FREE_DIAGNOSIS_LIMIT で変えたときは既定値のまま）
@@ -230,9 +238,9 @@ const DIAGNOSIS: readonly Feature[] = [
     label: `${PAID_DIAGNOSIS_LABEL}（サイト全体の診断 + 専門家のアドバイス）`,
     shortLabel: PAID_DIAGNOSIS_LABEL,
     description:
-      "設定に登録したホームページをまるごと診断します。サイト全体をクロールして 48 ルールで課題を検出し、主要ページの速度（実ユーザー / 診断）・検索順位・ドメインの情報と合わせて 1 枚にまとめ、その数字だけを根拠に「専門家のアドバイス」（現状と優先順位つきの改善案）を作ります。",
+      `設定に登録したホームページをまるごと診断します。サイト全体をクロールして ${AUDIT_RULE_COUNT} ルールで課題を検出し、主要ページの速度（実ユーザー / 診断）・検索順位・ドメインの情報と合わせて 1 枚にまとめ、その数字だけを根拠に「専門家のアドバイス」（現状と優先順位つきの改善案）を作ります。`,
     details: [
-      "クロール（48 ルール・サイトの構成・信頼。課題一覧・カテゴリ別件数・ページ一覧・CSV は報告書の「詳細」に）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + 外部からの評価（被リンク・インデックス数）+ llms.txt の有無と中身",
+      `クロール（${AUDIT_RULE_COUNT} ルール・サイトの構成・信頼。課題一覧・カテゴリ別件数・ページ一覧・CSV は報告書の「詳細」に）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + 外部からの評価（被リンク・インデックス数）+ llms.txt の有無と中身`,
       "専門家のアドバイス: 事実 ID を引用しながら、現状・強みと弱み・改善案 5〜6 件（優先度 / 手間 / 期待できること / 書き換え案）・「この数字を見たからこそ言えること」（文章は AI が診断結果だけを根拠に書きます）",
       `事実シートの付録、PDF、履歴。月 ${SEO_ANALYSIS_MONTHLY_LIMIT} 回まで`,
     ],
@@ -266,7 +274,7 @@ const DIAGNOSIS: readonly Feature[] = [
     group: "diagnosis",
     category: "seo",
     plan: "light",
-    // 2026-09-15 精密診断に統合（同じクロールと 48 ルールをその中で実行し、詳細も出す）。
+    // 2026-09-15 精密診断に統合（同じクロールと AUDIT_RULE_COUNT のルールをその中で実行し、詳細も出す）。
     // /tools/site-audit は精密診断へ転送。API と履歴の部品は残す
     hidden: true,
   },

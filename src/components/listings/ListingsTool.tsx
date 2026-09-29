@@ -29,6 +29,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
+import { downloadBlob } from "@/lib/export/download";
 import { HINT_MAX } from "@/lib/listings/constants";
 import {
   LISTING_MEDIA,
@@ -107,14 +108,13 @@ const OUTCOME_TONE: Record<PublishOutcome, "pass" | "info" | "neutral" | "warn" 
 };
 const INTEGRATION_TONE: Record<MediaIntegration, "pass" | "info" | "neutral"> = { api: "pass", file: "info", manual: "neutral", monitor: "neutral" };
 
-/** 入稿ファイルを保存する（CSV。Excel で開けるよう BOM 付き） */
+/**
+ * 入稿ファイルを保存する（CSV。Excel で開けるよう BOM 付き。BOM は publish.ts が content に入れている）。
+ * 保存のしかたは他の書き出しと同じ downloadBlob（2026-09-29 まで自前で、リンクを DOM に足さず click 直後に
+ * URL を revoke していたため、ブラウザによってはダウンロードが始まらなかった）。
+ */
 function downloadFile(file: PublishFile) {
-  const url = URL.createObjectURL(new Blob([file.content], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = file.filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(new Blob([file.content], { type: "text/csv;charset=utf-8" }), file.filename);
 }
 
 export function ListingsTool() {

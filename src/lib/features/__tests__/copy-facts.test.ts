@@ -2,13 +2,15 @@
  * お客様に見える文言の「事実」（2026-09-23 に直したもの）がずれ戻らないように固定する。
  * 数字や名前は定義しているところ（catalog.ts・media.ts・quota-rules.ts・seo-analysis/limits.ts）から引いている。
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TOKUSHOHO_ROWS } from "@/components/legal/Tokushoho";
 import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { LISTING_MEDIA } from "@/lib/listings/media";
 import { LISTING_MEDIA_COUNT, PLAN_BY_ID, PLANS } from "@/lib/plans/catalog";
 import { DEFAULT_MONTHLY_LIMIT } from "@/lib/seo-analysis/limits";
-import { requireFeature } from "../registry";
+import { AUDIT_RULE_COUNT, requireFeature } from "../registry";
 
 describe("文言の事実", () => {
   it("料金プランの画面の説明は、いまのプランの数と名前（「プロ」は 2026-09-15 に引退）", () => {
@@ -30,6 +32,18 @@ describe("文言の事実", () => {
     expect(requireFeature("citations").description).toContain(`${LISTING_MEDIA.length} の地図`);
     expect(requireFeature("listings").description).toContain(`${LISTING_MEDIA.length} の地図`);
     expect(PLAN_BY_ID.standard.highlights.join("\n")).toContain(`${LISTING_MEDIA.length} 媒体`);
+  });
+
+  // ルール数はルールの側から import できない（サーバー専用のコードがクライアントに混ざる）ので、
+  // ソースを読んで ID を数える。ルールを足したら AUDIT_RULE_COUNT も直す（2026-09-29 まで「48」のままだった）
+  it("サイト診断のルール数は src/lib/audit のルール ID の数と同じ", () => {
+    const dir = join(process.cwd(), "src/lib/audit");
+    const sources = ["rules/page.ts", "rules/cross.ts", "run.ts"].map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
+    const ids = new Set<string>();
+    for (const m of sources.matchAll(/(?:issue\(\s*|ruleId:\s*)"([A-Z0-9_]+)"/g)) ids.add(m[1]);
+    expect(ids.size).toBe(AUDIT_RULE_COUNT);
+    expect(requireFeature("seo-analysis").description).toContain(`${AUDIT_RULE_COUNT} ルール`);
+    expect(requireFeature("seo-analysis").details.join("\n")).toContain(`${AUDIT_RULE_COUNT} ルール`);
   });
 
   // 2026-09-18 から無料診断にはアカウント登録が要る（特商法の表記が「アカウント不要」のままだった）

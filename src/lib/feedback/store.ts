@@ -7,7 +7,7 @@
  */
 import { z } from "zod";
 import { eq } from "@/lib/db/filters";
-import { supabaseRest } from "@/lib/db/supabase";
+import { supabaseCount, supabaseRest } from "@/lib/db/supabase";
 import {
   FEEDBACK_COLUMNS,
   FeedbackRowSchema,
@@ -89,14 +89,11 @@ export async function listAllFeedback(status?: FeedbackStatus): Promise<Feedback
 /**
  * 未対応（open）の件数。サイドバーの通知バッジに出す（利用者の指示 2026-09-21）。
  *
- * 件数だけ知りたいので `id` だけを引く（本文まで運ばない）。上限は一覧と同じで、
- * それを超えていたら「上限以上」として扱えばよい（バッジは目安なので厳密でなくてよい）。
+ * 件数だけを HEAD + `count=exact` で取る（supabaseCount。行は運ばない）。2026-09-29 まで `select=id` で
+ * 行を上限（ADMIN_FEEDBACK_LIMIT）まで運んで配列の長さを数えていた（/api/plan は画面を開くたびに呼ぶ）。
  */
 export async function countOpenFeedback(): Promise<number> {
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=id&status=${eq("open")}&limit=${ADMIN_FEEDBACK_LIMIT}`,
-  );
-  return Array.isArray(rows) ? rows.length : 0;
+  return supabaseCount(`${TABLE}?select=id&status=${eq("open")}`);
 }
 
 /** 運営者向け: 状態・返答を更新。見つからなければ null */

@@ -1,7 +1,7 @@
 /**
  * ご意見・不具合の報告: 入力の検証、行 → 記録の変換、UA の短縮、並び順。
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   compareFeedback,
   describeUserAgent,
@@ -16,6 +16,7 @@ import {
   type FeedbackRecord,
   type FeedbackRow,
 } from "../types";
+import { countOpenFeedback } from "../store";
 
 const ROW: FeedbackRow = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -102,5 +103,26 @@ describe("並び順", () => {
     const rows = [mk("done", "2026-09-20"), mk("open", "2026-09-18"), mk("in_progress", "2026-09-19"), mk("open", "2026-09-19")];
     const sorted = [...rows].sort(compareFeedback);
     expect(sorted.map((r) => `${r.status}@${r.createdAt}`)).toEqual(["open@2026-09-19", "open@2026-09-18", "in_progress@2026-09-19", "done@2026-09-20"]);
+  });
+});
+
+describe("未対応の件数（サイドバーのバッジ）", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  // 2026-09-29 まで select=id で行を上限まで運んで数えていた。HEAD + count=exact で件数だけを取る
+  it("行を運ばず、HEAD の Content-Range から件数を読む", async () => {
+    vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "sb_secret_abc");
+    const fetchMock = vi.fn(async () => new Response(null, { status: 200, headers: { "content-range": "0-0/1234" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await countOpenFeedback()).toBe(1234);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.method).toBe("HEAD");
+    expect((init.headers as Record<string, string>).prefer).toContain("count=exact");
+    expect(url).toContain("status=eq.open");
+    expect(url).not.toContain("limit=");
   });
 });

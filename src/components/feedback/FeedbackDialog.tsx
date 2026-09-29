@@ -10,7 +10,7 @@
  * ClerkProvider に依存しない（fetch だけ）。未ログインなら API が 401 を返すので、その旨を出す。
  */
 import { usePathname } from "next/navigation";
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Field, Select, Textarea } from "@/components/ui/Field";
@@ -21,6 +21,12 @@ export function FeedbackDialog() {
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const openerRef = useRef<HTMLButtonElement>(null);
+  // 閉じる関数は同じものを渡し続ける。useFocusTrap の effect が onClose を依存に持つので、描画のたびに
+  // 新しい関数を渡すと effect がやり直され、入力中に最初の欄へフォーカスが戻っていた（2026-09-29）
+  const close = useCallback(() => {
+    setOpen(false);
+    openerRef.current?.focus();
+  }, []);
 
   return (
     <>
@@ -38,13 +44,7 @@ export function FeedbackDialog() {
         <span className="sr-only sm:hidden">ご意見・不具合の報告</span>
       </button>
       {open && (
-        <FeedbackForm
-          path={pathname}
-          onClose={() => {
-            setOpen(false);
-            openerRef.current?.focus();
-          }}
-        />
+        <FeedbackForm path={pathname} onClose={close} />
       )}
     </>
   );
