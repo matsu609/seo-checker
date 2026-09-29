@@ -13,6 +13,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Badge } from "@/components/ui/Badge";
+import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { Card } from "@/components/ui/Card";
 import { isAdmin } from "@/lib/admin/guard";
 import {
@@ -73,7 +74,7 @@ export default async function Page() {
         <ul className="mt-3 grid gap-2 text-[12px] leading-relaxed text-ink @xl:grid-cols-3">
           <li className="rounded-sm border border-line bg-surface p-3">
             <div className="text-[11px] font-bold text-muted">入口（見込み客）</div>
-            クイック診断（サイト・店舗）。アカウント登録のあと 2 回まで。デモ枠は月 50 回
+            クイック診断（サイト・店舗）。アカウント登録のあと {FREE_RUN_LIMIT_DEFAULT} 回まで。デモ枠は月 50 回
           </li>
           <li className="rounded-sm border border-line bg-surface p-3">
             <div className="text-[11px] font-bold text-muted">売り物</div>

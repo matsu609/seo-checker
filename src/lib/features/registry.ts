@@ -12,12 +12,11 @@ import { DEFAULT_MONTHLY_LIMIT as SEO_ANALYSIS_MONTHLY_LIMIT } from "@/lib/seo-a
 import type { IntegrationKey } from "./integrations";
 
 /**
- * サイト診断（精密診断の中で実行するクロール）のルール数。`src/lib/audit/rules/page.ts`・`cross.ts` のルール ID と
- * `run.ts` の `HTTP_PAGE` を数えた値（docs/dev/scoring-reference.md §2）。ルールの側から import すると
- * サーバー専用のコードがクライアントに混ざるので数だけを持ち、テスト（__tests__/copy-facts.test.ts）が
- * ルールのソースを数えて突き合わせる。2026-09-29 まで「48」のままだった（ルールを足した後に直していなかった）。
+ * サイト診断のルール数は `src/lib/audit/config.ts` の 1 か所で持つ（テストがルールのソースを数えて突き合わせる）。
+ * 画面の文言はここ経由で読む（2026-09-29 に二重定義を 1 つにした）。
  */
-export const AUDIT_RULE_COUNT = 50;
+import { AUDIT_RULE_COUNT } from "@/lib/audit/config";
+export { AUDIT_RULE_COUNT };
 
 /**
  * 説明文に入れる数字は、定義しているところから引く（2026-09-23。書き写すと片方だけ直ってずれる。
