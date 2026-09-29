@@ -250,30 +250,34 @@ export function checkContent(info: ContentInfo): CheckResult[] {
   // 何を根拠に判定したか。分母が小さいときは比率を使わない（100% でも 1/1 のことがある）
   const basis: SpecificityBasis =
     sentences === 0 ? "none" : sentences >= minSentences ? "ratio" : "count";
+  // 判定できないページ: 文が取り出せない、または文が少なく事実も足りない
+  // （文が少ないページは絶対数で見る。すべての文が事実を含むなら（例: 2 文中 2 文）判定できる）
+  const undeterminable =
+    basis === "none" ||
+    (basis === "count" && !(concrete >= shortConcrete || (concrete > 0 && concrete === sentences)));
+  // 判定できないときは「（参考）」として減点しない。2026-09-29 まで warn（配点の半分）に
+  // していたが、scoring-reference §0 の約束 0・1（参考は点を付けない。測れなかった項目を
+  // 0 点にしない）に合わせた。image-alt や見出しと同じく、配点は残したまま pass にする
+  // （分母をページ間でそろえるため。info にすると report/weights.ts の配点の写しと
+  // ページごとの分母が食い違う）。本文が無い原因が JS 描画なら js-rendering が減点する
   const specificityStatus: CheckStatus =
-    basis === "none"
-      ? "warn"
-      : basis === "count"
-        ? // 文が少ないページは絶対数で見る。すべての文が事実を含むなら（例: 2 文中 2 文）通す
-          concrete >= shortConcrete || (concrete > 0 && concrete === sentences)
+    undeterminable || basis === "count"
+      ? "pass"
+      : concrete === 0
+        ? "fail"
+        : concrete >= minConcrete && concreteRatio >= ratioThreshold
           ? "pass"
-          : "warn"
-        : concrete === 0
-          ? "fail"
-          : concrete >= minConcrete && concreteRatio >= ratioThreshold
-            ? "pass"
-            : "warn";
+          : "warn";
 
-  const specificityLabel =
-    specificityStatus === "pass"
+  const specificityLabel = undeterminable
+    ? basis === "count"
+      ? "本文が短く、具体性を判定できない（参考）"
+      : "本文が読み取れず、具体性を判定できない（参考）"
+    : specificityStatus === "pass"
       ? "AI が引用できる具体的な情報がある"
       : specificityStatus === "fail"
         ? "具体的な情報が見当たらない"
-        : basis === "ratio"
-          ? "具体的な情報がやや少ない"
-          : basis === "count"
-            ? "本文が短く、具体性を判定できない（参考）"
-            : "本文が読み取れず、具体性を判定できない（参考）";
+        : "具体的な情報がやや少ない";
 
   // 判定根拠をレポートに出す: 総文数・比率・使った言語・使った基準。
   // 「1 / 全 1 文」しか出ないと、何を直せば数字が動くのかがサイト側から分からない。

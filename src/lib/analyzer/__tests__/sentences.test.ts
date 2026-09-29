@@ -189,10 +189,13 @@ describe("受け入れ条件", () => {
     expect(check?.evidence).toContain("比率では判定せず");
   });
 
-  it("文が少なく事実も無いページは「判定できない（参考）」に留める（fail にしない）", () => {
+  it("文が少なく事実も無いページは「判定できない（参考）」として減点しない（配点は残す）", () => {
     const { check } = analyze(page("<p>会社案内</p>"));
-    expect(check?.status).toBe("warn");
+    expect(check?.status).toBe("pass");
+    expect(check?.weight).toBe(3);
+    expect(check?.earned).toBe(3);
     expect(check?.label).toContain("判定できない");
+    expect(check?.evidence).toContain("比率では判定せず");
   });
 
   it("比率 100% のページを「やや少ない」と報告しない", () => {

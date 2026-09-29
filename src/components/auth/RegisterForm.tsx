@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
+import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { Callout } from "@/components/ui/Callout";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { COMPANY_MAX, CONTACT_NAME_MAX, LEAD_KEY, LeadProfileSchema, PHONE_MAX, STORE_TYPES } from "@/lib/free/lead";
@@ -175,7 +176,7 @@ export function RegisterForm() {
     <form onSubmit={submit} className="mx-auto w-full max-w-md rounded-sm border border-line bg-panel p-6" noValidate>
       <h1 className="text-[20px] font-bold text-ink">アカウント登録（無料）</h1>
       <p className="mt-1 text-[13px] leading-relaxed text-muted">
-        登録すると、サイトと店舗の無料診断をメールアドレスごとに 2 回までご利用いただけます。カードの登録は不要です。
+        登録すると、サイトと店舗の無料診断をメールアドレスごとに {FREE_RUN_LIMIT_DEFAULT} 回までご利用いただけます。カードの登録は不要です。
       </p>
       {error && (
         <Callout tone="fail" className="mt-4">

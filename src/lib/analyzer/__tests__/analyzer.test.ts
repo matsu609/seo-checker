@@ -449,12 +449,26 @@ describe("content", () => {
     expect(spec?.status).toBe("pass");
   });
 
-  // 一覧・受付など文章がほとんど無いページは fail にしない
-  it("文がほとんど無いページは fail ではなく warn に留める", () => {
+  // 一覧・受付など文章がほとんど無いページは判定できないので、参考として減点しない
+  // （2026-09-29 まで warn = 半分の減点だった。scoring-reference §0 約束 0・1）。
+  // image-alt と同じく配点は残す（分母をページ間でそろえるため。report/weights.ts の写しと一致させる）
+  it("文がほとんど無いページは減点せず、参考（pass・配点は残す）にする", () => {
     const html = page("会社案内");
     const info = extractContent(html, "https://example.com/", cheerio.load(html));
     const spec = checkContent(info).find((r) => r.id === "content-specificity");
-    expect(spec?.status).toBe("warn");
+    expect(spec?.status).toBe("pass");
+    expect(spec?.weight).toBe(3);
+    expect(spec?.earned).toBe(3);
+    expect(spec?.label).toContain("判定できない（参考）");
+  });
+
+  it("本文が取り出せないページも具体性は参考で減点しない。減点は js-rendering が担う", () => {
+    const html = page("", 4);
+    const info = extractContent(html, "https://example.com/", cheerio.load(html));
+    const byId = Object.fromEntries(checkContent(info).map((r) => [r.id, r]));
+    expect(byId["content-specificity"]?.status).toBe("pass");
+    expect(byId["content-specificity"]?.label).toContain("判定できない（参考）");
+    expect(byId["js-rendering"]?.status).toBe("fail");
   });
 
   it("テキストがほぼ無く script が多ければ JS 依存を疑う", () => {
