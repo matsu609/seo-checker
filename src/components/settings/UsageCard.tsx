@@ -54,7 +54,9 @@ export function UsageCard() {
               上限はありません（回数は参考）。
             </p>
           )}
-          <ul className="divide-y divide-line border-y border-line">
+          {/* 使える機能だけが返る（2026-09-23）。未契約などで 1 つも無いときに空の枠を出さない */}
+          {data.items.length === 0 && <p className="text-[13px] text-muted">いまのプランで使える、回数に上限のある機能はありません。</p>}
+          <ul className={`divide-y divide-line border-y border-line ${data.items.length === 0 ? "hidden" : ""}`}>
             {data.items.map((it) => {
               const over = it.limit !== null && it.used >= it.limit;
               const near = it.limit !== null && !over && it.used >= it.limit * 0.8;

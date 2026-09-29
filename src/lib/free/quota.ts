@@ -55,14 +55,36 @@ export async function getFreeQuota(): Promise<FreeQuota | null> {
 }
 
 /**
- * 1 回ぶん消費する。未ログインなら 401、使い切っていれば 402 の Response を返す。通れば null。
- * 呼び出し側は、キャッシュに当たった（費用の出ない）診断では呼ばない。
+ * 消費せずに確かめる。未ログインなら 401、使い切っていれば 402 の Response、残りがあればその回数を返す。
+ *
+ * 全員で分け合う枠（1 日の全体上限など）を取る前に呼ぶ（2026-09-23）。使い切った人が押すたびに
+ * 全体の枠だけが減り、ほかの見込み客が「本日の枠に達しました」で締め出されていた（/api/meo/report）。
  */
-export async function consumeFreeRun(): Promise<Response | null> {
+export async function checkFreeRun(): Promise<FreeQuota | Response> {
   const denied = await requireFreeUser();
   if (denied) return denied;
   const quota = await getFreeQuota();
   if (!quota) return Response.json({ error: "ログインが必要です", code: "sign_in" }, { status: 401, headers: NO_STORE });
+  if (!quota.unlimited && quota.remaining <= 0) {
+    return Response.json({ error: FREE_QUOTA_MESSAGE, code: "quota", quota }, { status: 402, headers: NO_STORE });
+  }
+  return quota;
+}
+
+/**
+ * 1 回ぶん消費する。未ログインなら 401、使い切っていれば 402 の Response を返す。通れば null。
+ * 呼び出し側は、キャッシュに当たった（費用の出ない）診断では呼ばない。
+ * checkFreeRun で確かめた回数を渡せば、Clerk への問い合わせを繰り返さない。
+ */
+export async function consumeFreeRun(checked?: FreeQuota): Promise<Response | null> {
+  let quota: FreeQuota;
+  if (checked) {
+    quota = checked;
+  } else {
+    const result = await checkFreeRun();
+    if (result instanceof Response) return result;
+    quota = result;
+  }
   if (quota.unlimited) return null;
   if (quota.remaining <= 0) {
     return Response.json({ error: FREE_QUOTA_MESSAGE, code: "quota", quota }, { status: 402, headers: NO_STORE });

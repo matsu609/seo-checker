@@ -5,7 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { features } from "@/lib/features/registry";
 import { overridesFromMetadata, parseFeatureOverrides, toggleOverride } from "../overrides";
-import { resolveUserPlan } from "../resolve";
+import { stateFromSubscription, STRIPE_STATE_KEY } from "@/lib/billing/state";
+import { resolvePlanFromMetadata, resolveUserPlan } from "../resolve";
 
 const REAL = features[0].id;
 const OTHER = features[1].id;
@@ -88,5 +89,22 @@ describe("他ユーザーのプラン判定", () => {
     expect(
       resolveUserPlan({ billingPlan: null, metadataPlan: "enterprise", envDefault: null }),
     ).toEqual({ plan: "free", source: "default" });
+  });
+
+  // ログイン中の本人・定期処理・顧客管理の 3 か所がこの関数を通る（2026-09-23 に 1 本化）
+  it("publicMetadata から直接決める（Stripe の契約 → plan → 環境変数 → free）", () => {
+    const sub = {
+      id: "sub_1",
+      status: "active",
+      cancel_at_period_end: false,
+      items: { data: [{ price: { id: "price_l", unit_amount: 38_000, currency: "jpy" }, current_period_end: 1 }] },
+    };
+    const light = stateFromSubscription(sub, 1, { plan: "light" });
+    expect(resolvePlanFromMetadata({ [STRIPE_STATE_KEY]: light, plan: "premium" }, "free")).toEqual({ plan: "light", source: "billing" });
+    // 解約済みの契約は見ず、手で割り当てた値へ落ちる
+    expect(resolvePlanFromMetadata({ [STRIPE_STATE_KEY]: { ...light, status: "canceled" }, plan: "standard" }, null)).toEqual({ plan: "standard", source: "metadata" });
+    expect(resolvePlanFromMetadata({}, "light")).toEqual({ plan: "light", source: "env" });
+    expect(resolvePlanFromMetadata(null, null)).toEqual({ plan: "free", source: "default" });
+    expect(resolvePlanFromMetadata("壊れた値", null)).toEqual({ plan: "free", source: "default" });
   });
 });

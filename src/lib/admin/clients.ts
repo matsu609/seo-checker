@@ -1,24 +1,26 @@
 /**
  * 顧客管理（/clients）に出す顧客一覧。サーバー専用。
  *
- * Clerk のユーザー一覧に、Billing の契約情報と機能の個別開放を重ねる。
+ * Clerk のユーザー一覧に、Stripe の契約情報（publicMetadata.stripe）と機能の個別開放を重ねる。
  * ここでもデータベースは持たない。
  *
- * 契約情報はユーザー 1 人につき 1 回 API を呼ぶ。顧客数が数百のうちは
- * これで足りるが、増えたら一覧と明細を分ける必要がある（PAGE_SIZE で上限を切る）。
- * 1 人分が失敗しても一覧全体は出す（Promise.allSettled）。
+ * 契約情報はユーザー一覧に載っている publicMetadata から読むので、人数ぶんの API 呼び出しは無い。
+ * 2026-09-23 まで Clerk Billing の契約を 1 人ずつ引いていた（getUserBillingSubscription）が、
+ * Clerk Billing は使っていない（ドルのみ）ので全員「契約なし」で返っていただけだった。外した。
  */
 import { clerkClient } from "@clerk/nextjs/server";
-import { planFromStripeState, stripeStateFromMetadata } from "@/lib/billing/state";
+import { stripeStateFromMetadata } from "@/lib/billing/state";
 import { defaultPlanFromEnv } from "@/lib/plans/current";
-import { overridesFromMetadata, toggleOverride, OVERRIDES_KEY } from "@/lib/plans/overrides";
-import { resolveUserPlan, type PlanSource } from "@/lib/plans/resolve";
+import { gateIdsForScreen } from "@/lib/features/registry";
+import { overridesFromMetadata, toggleOverrides, OVERRIDES_KEY } from "@/lib/plans/overrides";
+import { resolvePlanFromMetadata, type PlanSource } from "@/lib/plans/resolve";
 import type { PlanId } from "@/lib/plans/catalog";
-import { summarizeStripeState, summarizeSubscription, type BillingSummary } from "./billing";
-import { adminEmails, isAdminEmail } from "./config";
+import { summarizeBilling, type BillingSummary } from "./billing";
+import { adminEmails } from "./config";
+import { displayName, isOperatorUser, primaryEmail } from "./identity";
 import { isAgencyMetadata } from "./roles";
 
-import { assignedPromoFromMetadata, patternById, withAssignedPromo } from "@/lib/billing/promo";
+import { assignedPromoFromMetadata, assignedPromoPatch, patternById } from "@/lib/billing/promo";
 import { leadFromMetadata, type LeadProfile } from "@/lib/free/lead";
 import { freeRunLimit } from "@/lib/free/quota";
 import { freeRunsFromMetadata } from "@/lib/free/quota-rules";
@@ -42,7 +44,8 @@ export interface ClerkUserLike {
   lastName: string | null;
   username: string | null;
   primaryEmailAddressId: string | null;
-  emailAddresses: { id: string; emailAddress: string }[];
+  /** verification は確認済みかどうかの判定（運用者を一覧から外す）に使う */
+  emailAddresses: { id: string; emailAddress: string; verification?: { status?: string | null } | null }[];
   publicMetadata: unknown;
   /** 登録フォームが載せた登録情報（lead）。古い行には無い */
   unsafeMetadata?: unknown;
@@ -69,8 +72,6 @@ export interface ClientRow {
   freeRuns: number;
   /** 設定済みの割引（パターン名。スタンダードの申し込みに付く）。無ければ null */
   promo: string | null;
-  /** 契約情報の取得に失敗した理由（画面に出して、金額を空欄と取り違えないようにする） */
-  billingError?: string;
 }
 
 export interface ClientList {
@@ -80,23 +81,6 @@ export interface ClientList {
   totalCount: number;
   /** 表示しきれていない人数 */
   truncated: number;
-}
-
-function displayName(user: {
-  firstName: string | null;
-  lastName: string | null;
-  username: string | null;
-}): string {
-  const full = [user.lastName, user.firstName].filter(Boolean).join(" ").trim();
-  return full || user.username || "";
-}
-
-function primaryEmail(user: {
-  primaryEmailAddressId: string | null;
-  emailAddresses: { id: string; emailAddress: string }[];
-}): string {
-  const primary = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId);
-  return primary?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
 }
 
 /**
@@ -125,33 +109,17 @@ export async function listUsers(max = MAX_SCAN): Promise<{ users: ClerkUserLike[
 }
 
 /**
- * ユーザーの一覧に契約情報を重ねて行にする。人数ぶんの API 呼び出しになるので、
- * 呼ぶ前に必ず絞り込んでおくこと。
+ * ユーザーの一覧に契約情報を重ねて行にする（純粋。Clerk には問い合わせない）。
+ * プランの決め方はログイン中の本人・定期処理と同じ resolvePlanFromMetadata（plans/resolve.ts）。
  */
-export async function buildClientRows(users: ClerkUserLike[]): Promise<ClientRow[]> {
-  const client = await clerkClient();
-  const envDefault = defaultPlanFromEnv();
-
-  const settled = await Promise.allSettled(
-    users.map((u) => client.billing.getUserBillingSubscription(u.id)),
-  );
-
-  return users.map((user, i) => {
-    const result = settled[i];
-    // 契約が無いユーザーは 404 で落ちる。これは異常ではないので「契約なし」として扱う
-    const subscription = result.status === "fulfilled" ? result.value : null;
-    // Stripe 直結の契約があればそれが正（Clerk Billing はドルのみのため使っていない）
-    const stripe = stripeStateFromMetadata(user.publicMetadata);
-    const billing = stripe ? summarizeStripeState(stripe) : summarizeSubscription(subscription);
+export function buildClientRows(users: ClerkUserLike[], envDefault: PlanId | null = defaultPlanFromEnv()): ClientRow[] {
+  return users.map((user) => {
+    const billing = summarizeBilling(stripeStateFromMetadata(user.publicMetadata));
     const overrides = overridesFromMetadata(user.publicMetadata);
-    const { plan, source } = resolveUserPlan({
-      billingPlan: stripe ? planFromStripeState(stripe) : billing.plan,
-      metadataPlan: (user.publicMetadata as Record<string, unknown> | null)?.plan,
-      envDefault,
-    });
+    const { plan, source } = resolvePlanFromMetadata(user.publicMetadata, envDefault);
     return {
       userId: user.id,
-      email: primaryEmail(user),
+      email: primaryEmail(user) ?? "",
       name: displayName(user) || leadFromMetadata(user.publicMetadata, user.unsafeMetadata ?? null)?.contactName || "",
       createdAt: user.createdAt,
       lastActiveAt: user.lastActiveAt ?? null,
@@ -174,15 +142,13 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
   });
 
   // 運用者（マスター）と管理アカウントは顧客ではない（お金を払って使う人ではなく、対応する側）。
-  // 一覧に混ぜると契約状況が空の行が並んで紛らわしいので外す（利用者の指示 2026-09-21）
+  // 一覧に混ぜると契約状況が空の行が並んで紛らわしいので外す（利用者の指示 2026-09-21）。
+  // 運用者の判定は確認済みのメールだけ（2026-09-23 まで未確認のメールも数えていたので、
+  // 運用者のアドレスを未確認のまま足したお客様が一覧から消えていた）
   const all = users as ClerkUserLike[];
   const admins = adminEmails();
-  const customers = all.filter(
-    (u) =>
-      !isAgencyMetadata(u.publicMetadata) &&
-      !u.emailAddresses.some((e) => isAdminEmail(e.emailAddress, admins)),
-  );
-  const rows = await buildClientRows(customers);
+  const customers = all.filter((u) => !isAgencyMetadata(u.publicMetadata) && !isOperatorUser(u, admins));
+  const rows = buildClientRows(customers);
   // 総数からも外す。全体をなめていない（limit で切っている）ので、外した分だけ引く
   const total = Math.max(0, totalCount - (all.length - customers.length));
 
@@ -190,10 +156,15 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
 }
 
 /**
- * 機能の個別開放を 1 件切り替えて、保存後の一覧を返す。
- * 呼び出し側で管理者かどうかを必ず確認すること。
+ * 機能の個別開放を 1 画面ぶん切り替えて、保存後の一覧を返す。
+ * 呼び出し側で requireClientAccess を必ず通すこと。
  *
- * publicMetadata は丸ごと置き換わるので、他のキー（plan など）を必ず残す。
+ * 画面が複数の機能 ID でゲートしているとき（ページ改善 = page-improve + page-diagnosis など）は、
+ * 同じプランの ID をまとめて付け外しする（registry.ts の gateIdsForScreen。2026-09-23）。
+ *
+ * Clerk の updateUserMetadata は深いマージなので、変える featureOverrides だけを送る（配列は丸ごと置き換わる）。
+ * 2026-09-23 まで publicMetadata を丸ごと送っていて、読んでから書くまでの間に入った Stripe の Webhook の
+ * 書き込み（契約状態）を古い値で巻き戻すおそれがあった。
  */
 export async function toggleClientFeature(
   userId: string,
@@ -202,27 +173,18 @@ export async function toggleClientFeature(
 ): Promise<string[]> {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  const next = toggleOverride(overridesFromMetadata(metadata), featureId, enabled);
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: { ...metadata, [OVERRIDES_KEY]: next },
-  });
+  const next = toggleOverrides(overridesFromMetadata(user.publicMetadata), gateIdsForScreen(featureId), enabled);
+  await client.users.updateUserMetadata(userId, { publicMetadata: { [OVERRIDES_KEY]: next } });
   return next;
 }
 
 /**
  * 顧客の割引を設定・解除する（null で解除）。保存後のパターン名を返す。
- * 呼び出し側で「運用者」か「その顧客の担当代理店」かを必ず確認すること。
- *
- * publicMetadata は丸ごと置き換わるので、他のキー（plan・overrides など）を必ず残す。
+ * 呼び出し側で requireClientAccess を必ず通すこと。変える promo のキーだけを送る（深いマージ）。
  */
 export async function assignClientPromo(userId: string, patternId: string | null, by: string): Promise<string | null> {
   if (patternId !== null && !patternById(patternId)) throw new Error("その割引はありません。");
   const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: withAssignedPromo(metadata, patternId, by),
-  });
+  await client.users.updateUserMetadata(userId, { publicMetadata: assignedPromoPatch(patternId, by) });
   return patternId ? (patternById(patternId)?.id ?? null) : null;
 }

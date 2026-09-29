@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { currentUser } from "@clerk/nextjs/server";
 import { connection } from "next/server";
-import { BillingTable } from "@/components/plans/BillingTable";
 import { GettingStarted } from "@/components/onboarding/GettingStarted";
 import { PlanTable } from "@/components/plans/PlanTable";
 import { PromoCodeField } from "@/components/plans/PromoCodeField";
@@ -14,7 +13,6 @@ import { assignedPatternFromMetadata, hasPromoCodes, patternLabel, type PromoPat
 import { isStripeConfigured, isStripeLive, purchasablePlanIds, trialDays } from "@/lib/billing/stripe";
 import { FIRST_TOOL_PATH } from "@/lib/auth/landing";
 import { requireFeature } from "@/lib/features/registry";
-import { isBillingEnabled } from "@/lib/plans/billing";
 import { planLabel } from "@/lib/plans/catalog";
 import { getCurrentPlan } from "@/lib/plans/current";
 
@@ -37,7 +35,6 @@ export default async function Page({ searchParams }: Props) {
   // ログイン中のユーザーごとに変わるので、ビルド時に固めない
   await connection();
   const { plan, source } = await getCurrentPlan();
-  const billing = isBillingEnabled();
   // Stripe 直結（円建て）。設定がそろい、ログインしているときだけ出す
   const stripe = isStripeConfigured() && isAuthEnabled();
   let stripeState: StripeState | null = null;
@@ -75,7 +72,7 @@ export default async function Page({ searchParams }: Props) {
       {/* 割引コード（スタンダード専用）。コードが設定してあり、割引が付いておらず、まだ契約していない人にだけ出す */}
       {stripe && !hasStripeSubscription(stripeState) && !assignedPromo && hasPromoCodes() && <PromoCodeField className="mb-4" />}
 
-      <PlanTable current={plan} purchasable={stripe ? purchasablePlanIds() : []} />
+      <PlanTable current={plan} purchasable={stripe ? purchasablePlanIds() : []} subscribed={hasStripeSubscription(stripeState)} manageHref="#billing" />
 
       {/* Stripe 直結（円建て）。申し込み・お支払い方法の変更・解約 */}
       {stripe && (
@@ -92,12 +89,9 @@ export default async function Page({ searchParams }: Props) {
       {/* 契約が済んだ人に、次にやること（Google 連携 → 店舗登録 → ツール）を出す */}
       {hasStripeSubscription(stripeState) && <GettingStarted className="mt-6" />}
 
-      {/* Clerk Billing（ドルのみ）。Stripe 直結を使うので通常は出さない */}
-      {!stripe && billing && <BillingTable />}
-
       <p className="mt-6 text-[12px] leading-relaxed text-muted">
         表示は月額（税込）です。
-        {!billing && !stripe && "プランの変更をご希望の場合は運用者までご連絡ください。"}
+        {!stripe && "プランの変更をご希望の場合は運用者までご連絡ください。"}
       </p>
     </div>
   );

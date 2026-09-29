@@ -9,6 +9,8 @@
  *                            支払いリンクや請求書で契約を立てたときに「プレミアムの契約」として記録するために使う
  *   STRIPE_WEBHOOK_SECRET  … Webhook エンドポイントの署名シークレット（whsec_…）
  * 鍵・スタンダードの Price・Webhook の 3 つがそろって初めて料金画面に「申し込む」が出る（isStripeConfigured）。
+ * Webhook の受け取りに要るのは鍵と Webhook の署名シークレットだけ（isStripeWebhookConfigured。2026-09-23）。
+ * Price の設定を外しても、既存の契約の変化（解約・支払い遅延）は受け取り続ける。
  *   STRIPE_TRIAL_DAYS      … 全員に付ける無料期間の日数（任意。既定 0 = トライアルなし。緊急時の逃げ道）。
  *                            無料期間は割引コード（PROMO_CODES の free 系）で相手ごとに渡す。
  *   PROMO_CODES            … 割引コードの一覧（promo.ts）。
@@ -42,6 +44,17 @@ function env(name: string): string | null {
 /** 決済（申し込み・お支払い方法の変更）を出してよいか。本命のスタンダードが買えることが条件 */
 export function isStripeConfigured(): boolean {
   return env("STRIPE_SECRET_KEY") !== null && priceIdOf("standard") !== null && env("STRIPE_WEBHOOK_SECRET") !== null;
+}
+
+/**
+ * Webhook を受け取れるか。鍵と署名シークレットだけを見る（Price は見ない）。
+ *
+ * 2026-09-23 まで Webhook も isStripeConfigured（スタンダードの Price を含む）で判定していたので、
+ * STRIPE_PRICE_STANDARD を外すと全イベントに 503 を返し、Stripe が送り続けて失敗した末に
+ * エンドポイントを止めてしまう作りだった（解約・支払い遅延が届かなくなる）。
+ */
+export function isStripeWebhookConfigured(): boolean {
+  return env("STRIPE_SECRET_KEY") !== null && env("STRIPE_WEBHOOK_SECRET") !== null;
 }
 
 /** 本番キーか（画面に「テストモード」を出す判断に使う） */
@@ -157,8 +170,27 @@ export function constructWebhookEvent(payload: string, signature: string): Strip
   return getStripe().webhooks.constructEvent(payload, signature, secret);
 }
 
+/** 割引のクーポンまで展開する指定（割引後の額を state.ts が計算できるようにする） */
+export const SUBSCRIPTION_EXPAND = ["discounts.source.coupon"] as const;
+
+/**
+ * サブスクリプションを取る。割引のクーポンまで展開する（呼び出しの回数は増えない。展開は同じ 1 回の取得に含まれる）。
+ *
+ * 展開の指定を Stripe が受け付けなかった（API の版が変わったなど）ときは、展開なしで取り直す。
+ * ここが落ちると Webhook が 500 を返し続けて契約状態が書けなくなるので、割引の額より契約の記録を優先する
+ * （展開が無くても、割引コードのパターンから額を求められる。state.ts の discountOf）。
+ */
 export async function retrieveSubscription(id: string): Promise<Stripe.Subscription> {
-  return getStripe().subscriptions.retrieve(id);
+  const stripe = getStripe();
+  try {
+    return await stripe.subscriptions.retrieve(id, { expand: [...SUBSCRIPTION_EXPAND] });
+  } catch (err) {
+    if (err instanceof Stripe.errors.StripeInvalidRequestError && (err.param ?? "").startsWith("expand")) {
+      console.warn("[billing] サブスクリプションの展開の指定が受け付けられなかったため、展開なしで取り直します", err.message);
+      return stripe.subscriptions.retrieve(id);
+    }
+    throw err;
+  }
 }
 
 /** Checkout 完了イベントから、ユーザー ID・顧客 ID・サブスクリプション ID を取り出す */

@@ -8,7 +8,8 @@
  * サイドバーの鍵表示は「プランで足りる または 個別開放されている」で決まるため。
  */
 import { useEffect, useState } from "react";
-import { PLAN_RANK, toPlanId, type PlanId } from "@/lib/plans/catalog";
+import { featureAllowed } from "@/lib/plans/access";
+import { toPlanId, type PlanId } from "@/lib/plans/catalog";
 
 export interface Access {
   plan: PlanId;
@@ -80,12 +81,12 @@ export function useAccess(): Access | null {
   return access;
 }
 
-/** 機能が使えるか。取得前は「使える」に倒す（鍵を出さない） */
+/**
+ * 機能が使えるか。取得前は「使える」に倒す（鍵を出さない）。
+ * 判定はサーバー（checkPlanForFeature・accessAllows）と同じ plans/access.ts の関数（2026-09-23 に 1 本化）。
+ * 運用者は全ツール、管理アカウントはツールを使わない立場なので開けない。
+ */
 export function canUseFeature(access: Access | null, featureId: string, required: PlanId): boolean {
   if (!access) return true;
-  // 運用者は全ツールを使える（サーバーの checkPlanForFeature と同じ）。
-  // 管理アカウントはツールを使わない立場なので、ここでも開けない（2026-09-21）
-  if (access.admin) return true;
-  if (access.overrides.includes(featureId)) return true;
-  return PLAN_RANK[access.plan] >= PLAN_RANK[required];
+  return featureAllowed(access, { id: featureId, plan: required });
 }

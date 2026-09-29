@@ -3,7 +3,7 @@
 **どのツール（画面）が、どの外部 API に、どのキーでつながっているか**を 1 か所にまとめた図。
 「このキーを入れると何が動くか」「このキーが切れると何が止まるか」をここで引く。
 
-最終更新: 2026-09-16（精密診断の統合、ドメインパワー、数字の診断、料金 3 段階を反映）。
+最終更新: 2026-09-23（GA4・他社 LLM の列と存在しない環境変数を外し、DataForSEO の列と抜けていた画面を足した。サーチコンソール連携の再開、決済まわりを反映）。
 
 - サービス全体の構成（GitHub / Vercel / Cloudflare / Clerk / Supabase / Google Cloud）→ [services.md](./services.md)
 - ルーティングと機能の一覧 → [ARCHITECTURE.md](./ARCHITECTURE.md)
@@ -34,7 +34,7 @@
 ② 利用者ごとの許可（OAuth。鍵は Clerk が預かる）
    お客様が「接続」を押す ──→ Clerk が短命トークンを保管 ──→ アプリが借りて読む
    見えるのは「そのお客様のデータ」。アプリはトークンを保存しない。
-   Google ビジネス プロフィールだけ（Search Console / GA4 は 2026-09-17 に廃止。利用者の決定）
+   Google ビジネス プロフィールと Google サーチコンソール（2026-09-23 に「サーチコンソール連携」として再開。GA4 は 2026-09-17 に廃止したまま）
 
 ③ ブラウザの中のデータ（キー不要）
    localStorage（seo-checker:v1:*）──→ 別のツールがそのまま読む
@@ -45,7 +45,7 @@
 
 ## 2. キー → 外部 API（①のつながり）
 
-環境変数がそのまま「連携」になっている（`INTEGRATION_KEYS`）。GA4 と Supabase だけは**2 つ揃って初めて有効**。
+環境変数がそのまま「連携」になっている（`INTEGRATION_KEYS`）。Supabase と DataForSEO だけは**2 つ揃って初めて有効**。
 RDAP（ドメインの登録日）だけはキーが要らない。
 
 ```mermaid
@@ -58,15 +58,15 @@ flowchart LR
   PSI["PAGESPEED_API_KEY"] --> PS["PageSpeed Insights<br/>googleapis.com/pagespeedonline/v5"]
   PSI --> CRUX["Chrome UX Report<br/>実ユーザーの速度。CRUX_API_KEY でも可"]
   PLACES["GOOGLE_PLACES_API_KEY"] --> PL["Places API (New)<br/>places.googleapis.com/v1"]
-  GA4ID["GA4_PROPERTY_ID"] --> GA["GA4 Data API<br/>analyticsdata.googleapis.com"]
-  SA["GOOGLE_SERVICE_ACCOUNT_JSON"] --> GA
+  DFSL["DATAFORSEO_LOGIN"] --> DFS["DataForSEO<br/>AI の回答・Google 検索・Labs"]
+  DFSP["DATAFORSEO_PASSWORD"] --> DFS
   SUPAURL["SUPABASE_URL"] --> DB["Supabase (PostgreSQL)<br/>REST /rest/v1"]
   SUPAKEY["SUPABASE_SERVICE_ROLE_KEY"] --> DB
 ```
 
 - **キーは 1 本も画面に出さない。**`GET /api/integrations` は `true` / `false` だけを返す（`src/lib/integrations.ts` の冒頭コメント）。
 - `NEXT_PUBLIC_` が付く変数だけがブラウザに届く。ここに秘密は入れない。
-- モデル名は差し替えられる（キーとは別）: `LLM_MODEL` / `LLM_FAST_MODEL` / `FAQ_MODEL` / `REVIEW_DRAFT_MODEL` / `REVIEW_REPLY_MODEL` / `OPENAI_MODEL` / `GEMINI_MODEL` / `PERPLEXITY_MODEL`。
+- モデル名は差し替えられる（キーとは別）: `LLM_MODEL` / `LLM_FAST_MODEL` / `FAQ_MODEL` / `REVIEW_DRAFT_MODEL` / `REVIEW_REPLY_MODEL` / `POST_DRAFT_MODEL`（`OPENAI_MODEL` / `GEMINI_MODEL` / `PERPLEXITY_MODEL` はコードに無い。他社 LLM は 2026-09-17 に廃止）。
 
 ---
 
@@ -74,40 +74,47 @@ flowchart LR
 
 **●** 無いと実行できない ／ **◍** どちらか 1 つあればよい ／ **○** あると機能が増える ／ **−** 不要
 
-| ツール | パス | プラン | ログイン | Anthropic | SerpApi | PSI / CrUX | GA4 | Places | Supabase | 他社 LLM | 利用者の Google |
-|---|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| クイック診断（サイト） | `/` | 無料（登録が要る。メールごとに 2 回） | 必須 ※9 | ○ | − | − | − | − | − | − | − |
-| クイック診断（店舗） | `/meo` | 無料（登録が要る。サイトと合計 2 回） | 必須 ※9 | − | − | − | − | ● | − | − | − |
-| **精密診断** | `/tools/seo-analysis` | standard | 必須 | ● | ○ | ○ | − | − | ● | ○ ※6 | − ※7 |
-| サイト診断 | `/tools/site-audit` | light | 必須 | − | − | − | − | − | − | − | − |
-| ~~ページ最適化レポート~~（サイドバーから外した r94。HP 改修提案へ転送） | `/tools/page-report` | light | 必須 | − | − | ○ | − | − | − | − | − |
-| ページ改善（比較 → 改修案。r157 で 1 本の流れに） | `/tools/page-improve` | light（改修案は standard） | 必須 | ◍ | ◍ | − | − | − | − | − | − |
-| ~~AIO 頻出トピック~~（サイドバーから外した r94。AI 検索モニタリングへ転送） | `/tools/aio-topics` | light | 必須 | ● | ● | − | − | − | − | − | − |
-| HP 改修提案（SEO タブ） | `/tools/improvement` | standard | 必須 | ● | − | − | − | − | − | − | − |
-| 順位計測・AIO 引用 | `/tools/rank` | light | 必須 | − | ● | − | − | − | − | − | − |
-| 検索パフォーマンス（推定） | `/tools/search-estimate` | light | 必須 | − | − | − | − | − | − | − ※8 | − |
-| Google サーチコンソール連携（2026-09-23 再開。AI 分析は月 1 回） | `/tools/search-console` | light | 必須 | ○ | − | − | − | − | − | − | ● GSC（お客様の Google アカウント・`webmasters.readonly`。Search Console API は無料） |
-| Google マップ（MEO） | `/tools/maps` | light | 必須 | ○ ※1 | − | − | − | ● | ● | − | ○ BP ※5（Google での見られ方 = Performance API。接続した店舗だけ） |
-| 口コミ支援（QR） | `/tools/reviews` | standard | 必須 ※2 | ○ | − | − | − | ○ | ● | − | − |
-| プロンプト拡張（サイドバーには出さず、AI 検索モニタリングの設定からリンク） | `/tools/prompt-expansion` | light | 必須 | ● | − | − | − | − | − | − | − |
-| キーワード調査 | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − | − |
-| FAQ 提案 | `/tools/faq` | standard | 必須 | ● | − | − | − | − | − | − | − |
-| 口コミへの返信 | `/tools/replies` | standard | 必須 | ○ | − | − | − | ○ | ○ | − | ◍ BP ※5 |
-| NAP チェック（表記ゆれの検出） | `/tools/nap` | light | 必須 | − | − | − | − | ○ | ○ | − | − |
-| サイテーション（DataForSEO ※8） | `/tools/citations` | light | 必須 | − | − | − | − | − | − | − | − |
-| 基本情報掲載（NAP） | `/tools/listings` | standard | 必須 | ○ | − | − | − | ○ | ● | − | − |
-| llms.txt 生成 | `/tools/llms-txt` | standard | 必須 | − | − | − | − | − | − | − | − |
-| 料金プラン・設定 | `/plans` `/settings` | 無料 | 必須 | − | − | − | − | − | − | − | − |
+| ツール | パス | プラン | ログイン | Anthropic | SerpApi | PSI / CrUX | DataForSEO | Places | Supabase | 利用者の Google |
+|---|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| クイック診断（サイト） | `/` | 無料（登録が要る。メールごとに 2 回） | 必須 ※9 | ○ | − | − | − | − | − | − |
+| クイック診断（店舗） | `/meo` | 無料（登録が要る。サイトと合計 2 回） | 必須 ※9 | − | − | − | − | ● | − | − |
+| **精密診断** | `/tools/seo-analysis` | standard | 必須 | ● | ○ | ○ | − | − | ● | − ※7 |
+| サイト診断（精密診断に統合。転送のみ） | `/tools/site-audit` | light | 必須 | ○ | − | − | − | − | − | − |
+| ~~ページ最適化レポート~~（サイドバーから外した r94。HP 改修提案へ転送） | `/tools/page-report` | light | 必須 | − | − | ○ | − | − | − | − |
+| ページ改善（比較 → 改修案。r157 で 1 本の流れに。ゲートは `page-diagnosis` と `improvement`） | `/tools/page-improve` | light（改修案は standard） | 必須 | ◍ | ◍ | − | − | − | − | − |
+| ~~AIO 頻出トピック~~（サイドバーから外した r94。AI 検索モニタリングへ転送） | `/tools/aio-topics` | light | 必須 | ● | ● | − | − | − | − | − |
+| HP 改修提案（ページ改善の改修案。旧 ID） | `/tools/improvement` | standard | 必須 | ● | − | − | − | − | − | − |
+| 順位計測・AIO 引用 | `/tools/rank` | light | 必須 | − | ● | − | ○ | − | − | − |
+| 検索パフォーマンス（推定。順位計測のタブ） | `/tools/search-estimate` | light | 必須 | − | − | − | ● | − | − | − |
+| キーワード調査（順位計測のタブ） | `/tools/keywords` | light | 必須 | ○ | − | − | − | − | − | − |
+| Google サーチコンソール連携（2026-09-23 再開。AI 分析は月 1 回） | `/tools/search-console` | light | 必須 | ○ | − | − | − | − | − | ● GSC（お客様の Google アカウント・`webmasters.readonly`。Search Console API は無料） |
+| Google マップ（MEO） | `/tools/maps` | light | 必須 | ○ ※1 | − | − | − | ● | ● | ○ BP ※5（Google での見られ方 = Performance API。接続した店舗だけ） |
+| 口コミ支援（QR） | `/tools/reviews` | standard | 必須 ※2 | ○ | − | − | − | ○ | ● | − |
+| 口コミへの返信（口コミ支援のタブ） | `/tools/replies` | standard | 必須 | ○ | − | − | − | ○ | ○ | ◍ BP ※5 |
+| 投稿（Google ビジネス プロフィール） | `/tools/posts` | standard | 必須 | ○ | − | − | − | − | ● | ● BP |
+| プロンプト拡張（サイドバーには出さず、AI 検索モニタリングの設定からリンク） | `/tools/prompt-expansion` | light | 必須 | ● | − | − | − | − | − | − |
+| FAQ 提案 | `/tools/faq` | standard | 必須 | ● | − | − | − | − | − | − |
+| AI 検索モニタリング | `/tools/geo` | standard | 必須 | ○ | − | − | ● | − | ● | − |
+| NAP チェック（表記ゆれの検出） | `/tools/nap` | light | 必須 | − | − | − | ○ | ○ | ○ | − |
+| 掲載（調べる。旧サイテーション） | `/tools/citations` | light | 必須 | − | − | − | ● | − | − | − |
+| 基本情報掲載（掲載の「登録する」タブ） | `/tools/listings` | standard | 必須 | ○ | − | − | − | ○ | ● | − |
+| llms.txt 生成 | `/tools/llms-txt` | standard | 必須 | − | − | − | − | − | − | − |
+| サイト監視 | `/tools/monitor` | light | 必須 | − | − | − | − | − | ● | − |
+| 月次レポート（メールは Resend 任意） | `/tools/reports` | light | 必須 | − | − | − | − | − | ● | − |
+| お客様カルテ | `/karte` | light | 必須 | − | − | − | − | − | ● | − |
+| 料金プラン・設定 | `/plans` `/settings` | 無料 | 必須 | − | − | − | − | − | − | − |
+
+依存の正本は `src/lib/features/registry.ts` の `requires` / `requiresAny` / `optional`（この表はそこから起こした。ずれたら registry が正しい）。
 
 プランは下位互換です（`light` のツールは `standard` / `premium` でも使えます。`PLAN_RANK`: free 0 → light 1 → standard 2 → premium 3）。
 
 - ※1 総評は `ANTHROPIC_API_KEY` があれば AI が執筆し、無ければルール生成の文章になる。registry の `optional` には未記載（[OPERATIONS.md](./OPERATIONS.md) の残タスク #60）。
 - ※2 店舗側の管理画面はログイン必須。来店客が QR から開くアンケート `/r/<slug>` と `POST /api/r/<slug>/*` だけは公開（IP ごとの回数制限つき）。
-- ※3 （廃止 2026-09-17）GA4 の列は空。GA4 を読む実装は削除済み。
-- ※4 サイトレポートの順位はブラウザの `rankSnapshots`（順位計測ツールが作る）から読む。この画面の API 自体は SerpApi を叩かないので、**SerpApi が必要なのは「順位計測で履歴を作るため」**という間接的な依存。
+- ※3 （廃止 2026-09-17）GA4 は使わない（読む実装は削除済み）。空だった GA4 の列は 2026-09-23 に表から外した。
+- ※4 （廃止 2026-09-17）サイトレポートは提供終了（GA4 を読んでいたため）。データの受け渡しの図からも 2026-09-23 に外した。
 - ※5 Google ビジネス プロフィール（`business.manage`）を接続すると口コミの全件取得と投稿がこの画面で完結する。未接続でも Places の公開口コミ（最新 5 件）から返信案を作れる。
-- ※6 （廃止 2026-09-17）セカンドオピニオン（`OPENAI_API_KEY`）は提供終了。Claude だけで報告書は完成する。
-- ※8 検索パフォーマンス（推定）は DataForSEO Labs（`DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`。表に列が無いので注記）。
+- ※6 （廃止 2026-09-17）セカンドオピニオン（`OPENAI_API_KEY`）は提供終了。Claude だけで報告書は完成する。他社 LLM の列は 2026-09-23 に外した（AI の回答は DataForSEO 経由）。
+- ※8 DataForSEO は `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD`（2026-09-23 に列を足した。検索パフォーマンス（推定）は DataForSEO Labs）。
 - ※7 **Google 連携は使わない（2026-09-17）。報告書は URL だけで完成する**（URL だけで動くのがこのツールの前提）。連携すると「数字の診断」が 134 ルールまで増える → [scoring-reference.md](./scoring-reference.md) §7。
 - ページ診断は SerpApi が無いとき **Claude の Web 検索で上位ページを推定**する（実測の順位ではない旨が画面に出る）。
 - サイト診断（`/tools/site-audit`）は**精密診断に統合済み**で、サイドバーには出ない（registry の `hidden: true`）。URL は `/tools/seo-analysis` へ転送する。
@@ -124,10 +131,9 @@ flowchart LR
 | SerpApi | `SERPAPI_KEY` | 7 前後（キーワード 5 + `site:` + ブランド） | 1 回数円 |
 | RDAP | 不要 | 1〜3 | 0 |
 | Ahrefs / Open PageRank | `AHREFS_API_KEY` / `OPENPAGERANK_API_KEY` | 1〜3 | 0 |
-| Search Console | 利用者の連携 | 12（当期・前期 × 6 次元） | 0 |
-| GA4 Data API | 利用者の連携 | 10 | 0 |
 | Anthropic | `ANTHROPIC_API_KEY` | 1〜4（やり直し含む） | 数十〜数百円 |
-| OpenAI | `OPENAI_API_KEY` | 0〜1（任意） | 数十円 |
+
+（2026-09-23: Search Console・GA4 Data API・OpenAI の行を外した。精密診断はどれも呼ばない。※6・※7）
 
 キーが未設定のツールは、**必要な環境変数名を出して実行操作だけを無効化する**。ダミーデータで動いているように見せない（`SetupNotice`）。
 
@@ -135,7 +141,7 @@ flowchart LR
 
 ## 4. 利用者ごとの Google 連携（②のつながり）
 
-Anthropic や SerpApi は「運営者のキー 1 本」で済むが、Search Console / GA4 / ビジネス プロフィールは**お客様のデータ**なので本人の許可が要る。鍵はアプリではなく Clerk が預かる。
+Anthropic や SerpApi は「運営者のキー 1 本」で済むが、Search Console / ビジネス プロフィールは**お客様のデータ**なので本人の許可が要る。鍵はアプリではなく Clerk が預かる。
 
 ```mermaid
 sequenceDiagram
@@ -143,24 +149,25 @@ sequenceDiagram
   participant C as Clerk
   participant G as Google
   participant A as アプリ（Vercel）
-  U->>C: /settings で「接続」（additionalScopes で追加スコープを要求）
+  U->>C: 各画面の「接続」（additionalScopes でその画面のスコープを要求）
   C->>G: Google Cloud のクライアント ID で認可へ
   G-->>U: 同意画面
   U-->>G: 許可
   G->>C: リダイレクト URI（clerk.seo-checker.tokyo）へトークンを返す
   C->>C: アクセストークン / リフレッシュトークンを保管・更新
   A->>C: 必要なたびに借りる（src/lib/google/token.ts）
-  A->>G: GSC / GA4 / Business Profile を読む
+  A->>G: GSC / Business Profile を読む
 ```
 
 | スコープ | 使うツール | いつ要求するか |
 |---|---|---|
-| `webmasters.readonly` | 検索パフォーマンス | 設定画面の接続で必ず（`REQUIRED_SCOPES`） |
-| `analytics.readonly` | 生成 AI 流入分析・サイトレポート | 設定画面の接続で必ず（`REQUIRED_SCOPES`） |
-| `business.manage` | 口コミへの返信（取得・投稿） | 返信画面で「権限を追加」を押したときだけ |
+| `webmasters.readonly` | Google サーチコンソール連携 | その画面で「接続」を押したときだけ（`ConnectSearchConsoleButton`。`REQUIRED_SCOPES` は空） |
+| `business.manage` | 口コミへの返信（取得・投稿）・投稿・Google での見られ方 | 返信画面で「権限を追加」を押したときだけ |
 
-- 対象サイト / プロパティの選択は Clerk の `privateMetadata.googleLink`（`src/lib/google/settings.ts`）。
-- 前提として Clerk の Google 連携が**独自のクレデンシャル**になっていること。既定の共有クライアント ID では上の 3 スコープを要求できない。
+（`analytics.readonly` は GA4 とともに 2026-09-17 に廃止。`src/lib/google/scopes.ts`）
+
+- サーチコンソールの対象サイトの選択は Clerk の `privateMetadata.googleLink`（`src/lib/google/search-console/settings.ts`）。
+- 前提として Clerk の Google 連携が**独自のクレデンシャル**になっていること。既定の共有クライアント ID では上の 2 スコープを要求できない。
 
 ---
 
@@ -178,13 +185,11 @@ flowchart LR
   end
   KWT["キーワード調査"] -->|"addKeywords()"| KW
   KW --> RANK["順位計測"]
-  RANK -->|"順位の履歴"| SR["サイトレポート"]
   PEX["プロンプト拡張"] -->|"PUT /api/geo/setup"| GEO["AI 検索モニタリング"]
   AIO["AIO 頻出トピック"] --> TP
   TP -->|"不足トピックをコピー"| PD["ページ診断"]
   TP -->|"不足トピックをコピー"| FAQT["FAQ 提案"]
   PRJ --> RANK
-  PRJ --> SR
   PRJ --> AIO
   FREEMEO["無料 MEO 診断 /meo"] -.->|"有料版へ案内"| MAPS["Google マップ（MEO）"]
 ```
@@ -265,18 +270,17 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 | キー | 止まるもの | 動き続けるもの |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | AIO 頻出トピック・HP 改修提案・プロンプト拡張・FAQ 提案・精密診断（Claude が必須） | 無料診断（FAQ だけ消える）・サイト診断（サマリーだけ消える）・キーワード調査（意図分類だけ消える）・maps（総評がルール生成に戻る） |
-| `SERPAPI_KEY` | 順位計測・AIO 頻出トピック（→ 履歴が止まるのでサイトレポートの順位も伸びない） | ページ診断は Claude の Web 検索による推定に切り替わる |
+| `SERPAPI_KEY` | 順位計測・AIO 頻出トピック（→ 順位の履歴が止まるので月次レポートの順位も伸びない） | ページ診断は Claude の Web 検索による推定に切り替わる |
 | `GOOGLE_PLACES_API_KEY` | 無料 MEO 診断・Google マップ（MEO）・毎週の一斉更新 | listings / replies は登録済みデータの閲覧のみ |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Google マップ（MEO）・口コミ支援・基本情報掲載・一斉更新 | それ以外すべて |
-| `GA4_PROPERTY_ID` + `GOOGLE_SERVICE_ACCOUNT_JSON` | 生成 AI 流入分析・サイトレポート（利用者が GA4 を連携していない場合） | 利用者が連携していれば②で動く |
 | `PAGESPEED_API_KEY` | 実ユーザーの速度（CrUX）と、ドメインパワーの「実ユーザーの規模」（配点 10）。PSI 自体は未設定でも低頻度なら取れる | ページ最適化レポート（速度以外の項目はそのまま）・精密診断（速度の節が空になるだけ） |
 | `AHREFS_API_KEY` | ドメインパワーの「外部からのリンクの評価」が Open PageRank に落ちる | それ以外すべて |
 | `OPENPAGERANK_API_KEY` | 上記も無ければ配点 25 点分が分母から外れる（合計点は残り 75 点分で出る） | それ以外すべて |
 | ~~`OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY`~~ | 使わない（2026-09-17 廃止） | — |
 | `CRON_SECRET` | 毎週の一斉更新（503 で自分から止まる） | 手動の登録・診断 |
 | `CLERK_SECRET_KEY` / `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | ログインと、ログインが要る全ツール | 無料診断 2 本・規約・アンケート `/r/<slug>` |
-| `STRIPE_*` | 購入と契約状態の同期 | `publicMetadata.plan` と `DEFAULT_PLAN` による手割り当て |
-| （キーではない）利用者の Google 連携が未接続 | 検索パフォーマンス、口コミ返信の全件取得・投稿、**数字の診断の 126 ルール**（D05 だけが「必須データ不足」として出る） | 生成 AI 流入・サイトレポートは①のサービスアカウントに落ちて動く。精密診断の報告書も従来どおり完成する |
+| `STRIPE_*` | 購入（`STRIPE_SECRET_KEY` + `STRIPE_PRICE_STANDARD` + `STRIPE_WEBHOOK_SECRET`）と契約状態の同期（Webhook は `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` だけで受け取る。2026-09-23） | `publicMetadata.plan` と `DEFAULT_PLAN` による手割り当て |
+| （キーではない）利用者の Google 連携が未接続 | Google サーチコンソール連携、口コミ返信の全件取得・投稿、投稿の送信 | 精密診断の報告書は従来どおり完成する（Google 連携は使わない。※7） |
 
 実費が出るキーには、キーとは別にガードがある。
 
@@ -295,7 +299,7 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 
 1. `/settings` の「外部連携」で設定済み / 未設定を見る（= `GET /api/integrations`）。
 2. 「設定済みなのに動かない」なら Vercel の環境変数を保存し直して **Redeploy**（環境変数は再デプロイまで反映されない）。
-3. Google の①②が絡む画面（生成 AI 流入・サイトレポート）は、**どちらの認証で読んだか**（`source: "user" | "env"`）で切り分ける。
+3. お客様の Google 連携が絡む画面（サーチコンソール連携・口コミの返信・投稿）は、その画面の「接続」の状態と権限（スコープ）を見る。
 4. MEO 系が全滅なら Supabase、口コミ返信だけなら `business.manage` の権限追加を見る。
 
 ---
@@ -333,22 +337,14 @@ POST /api/billing/webhook → Clerk の publicMetadata.stripe を更新
 
 | ツール | 前提 |
 |---|---|
-| **検索パフォーマンス（Search Console）** | **お客様が Search Console にそのドメインを登録し、所有確認を済ませていること。**済んでいれば連携を押すだけ。未登録なら DNS に TXT を 1 行（数分）。**GA4 より軽い** |
-| 精密診断の GSC / GA4 の部分 | 連携があると厚くなる。無くても診断自体は出る |
+| **Google サーチコンソール連携** | **お客様が Search Console にそのドメインを登録し、所有確認を済ませていること。**済んでいれば連携を押すだけ。未登録なら DNS に TXT を 1 行（数分） |
 
-## C. お客様のサイトに手を入れる必要がある（いちばん重い）
+## C. お客様のサイトに手を入れる必要がある
 
-| ツール | 必要なこと |
-|---|---|
-| **生成 AI 流入分析** | **GA4 の計測タグをサイトに設置**し、データが貯まるのを待つ |
-| **サイトレポート** | 同上。**さらに #96 の経路の問題があり、いまはお客様ごとの GA4 を読めない** |
-
-**GA4 タグの設置はこのツールからはできない**（お客様のサイトの HTML に書くもので、こちらに書き込み権限が無い）。
-できるのは「入っているかの判定」と「設置手順の提示」まで（#97 で提案中、未実装）。
+いまは無い（2026-09-17 に GA4 を使う生成 AI 流入分析・サイトレポートを廃止した。お客様側の作業が要る機能はそもそも置かない、が利用者の決定）。
 
 ## まとめ
 
 - **ツール内で完結するのは A の 16 機能。**これがサービスの本体で、**Google 連携が 1 つも無くても売り物になる**。
 - **GSC は「連携のみ」**。サイトには触らないので、お客様の負担は小さい。所有確認が済んでいれば数クリック。
-- **GA4 だけが本当に重い。**サイトにタグを入れて、データが貯まるまで待つ必要がある。
-- 立ち上げの案内は「**まず A を全部回す → GSC をつなぐ → GA4 は入っていれば繋ぐ、無ければ別途ご相談**」の順にすると、初日から価値が出る。
+- 立ち上げの案内は「**まず A を全部回す → GSC をつなぐ**」の順にすると、初日から価値が出る。

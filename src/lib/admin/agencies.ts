@@ -10,8 +10,9 @@
  */
 import { clerkClient } from "@clerk/nextjs/server";
 import { adminEmails, isAdminEmail } from "./config";
-import { listUsers, type ClerkUserLike } from "./clients";
-import { isAgencyMetadata, isUserId, pickAgencyInvitation, withAgencyRole } from "./roles";
+import { listUsers } from "./clients";
+import { displayName, hasVerifiedEmail, primaryEmail, verifiedEmails } from "./identity";
+import { agencyRolePatch, isAgencyMetadata, isUserId, pickAgencyInvitation, withAgencyRole } from "./roles";
 
 export interface AgencyRow {
   userId: string;
@@ -31,16 +32,6 @@ export type AddAgencyResult =
   | { kind: "promoted"; email: string; userId: string }
   | { kind: "invited"; email: string; url: string | null };
 
-function displayName(user: ClerkUserLike): string {
-  const full = [user.lastName, user.firstName].filter(Boolean).join(" ").trim();
-  return full || user.username || "";
-}
-
-function primaryEmail(user: ClerkUserLike): string {
-  const primary = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId);
-  return primary?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
-}
-
 /**
  * 管理アカウントの一覧（新しい順）。マスター画面の「管理アカウント」と、
  * 顧客一覧で「その行が管理アカウント本人か」を見分けるのに使う。
@@ -51,7 +42,7 @@ export async function loadAgencies(): Promise<AgencyRow[]> {
     .filter((u) => isAgencyMetadata(u.publicMetadata))
     .map((user) => ({
       userId: user.id,
-      email: primaryEmail(user),
+      email: primaryEmail(user) ?? "",
       name: displayName(user),
       createdAt: user.createdAt,
     }));
@@ -63,15 +54,15 @@ export async function loadAgencies(): Promise<AgencyRow[]> {
  * Clerk の `emailAddress` 絞り込みは**部分一致**なので、そのまま先頭の 1 件を採ると
  * 別人（`a@example.com` で探して `aa@example.com` が返る）を代理店にしてしまう。
  * 候補を多めに取って、こちらで完全一致だけを拾う。
+ *
+ * **確認済みのアドレスだけ**を突き合わせる（2026-09-23）。未確認のアドレスは誰でも自分のアカウントに
+ * 足せるので、それを許すと「これから管理アカウントにする人のアドレス」を先に足しておいた別人が
+ * 管理アカウントに上がってしまう。確認済みの持ち主が居なければ、招待（本人がメールで受け取る）に回る。
  */
 async function findUserByExactEmail(email: string) {
   const client = await clerkClient();
   const { data } = await client.users.getUserList({ emailAddress: [email], limit: 20 });
-  return (
-    data.find((u) =>
-      u.emailAddresses.some((e) => e.emailAddress.trim().toLowerCase() === email),
-    ) ?? null
-  );
+  return data.find((u) => hasVerifiedEmail(u, email)) ?? null;
 }
 
 /**
@@ -93,10 +84,8 @@ export async function addAgencyByEmail(email: string): Promise<AddAgencyResult> 
   const user = await findUserByExactEmail(email);
 
   if (user) {
-    const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-    await client.users.updateUserMetadata(user.id, {
-      publicMetadata: withAgencyRole(metadata, true),
-    });
+    // 変える role のキーだけを送る（updateUserMetadata は深いマージ。丸ごと送ると他の書き込みを巻き戻す）
+    await client.users.updateUserMetadata(user.id, { publicMetadata: agencyRolePatch(true) });
     return { kind: "promoted", email, userId: user.id };
   }
 
@@ -119,11 +108,9 @@ export async function addAgencyByEmail(email: string): Promise<AddAgencyResult> 
 export async function removeAgency(userId: string): Promise<void> {
   if (!isUserId(userId)) throw new Error("ユーザー ID の形が正しくありません。");
   const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: withAgencyRole(metadata, false),
-  });
+  // 存在しない相手なら getUser が投げる（知らない ID の metadata を作らない）
+  await client.users.getUser(userId);
+  await client.users.updateUserMetadata(userId, { publicMetadata: agencyRolePatch(false) });
 }
 
 /**
@@ -147,9 +134,7 @@ export async function claimAgencyInvitation(userId: string): Promise<boolean> {
   if (isAgencyMetadata(user.publicMetadata)) return true;
 
   const allowed = adminEmails();
-  const verified = user.emailAddresses
-    .filter((e) => e.verification?.status === "verified")
-    .map((e) => e.emailAddress)
+  const verified = verifiedEmails(user)
     // 運用者のアドレスは管理アカウントにしない（addAgencyByEmail と同じ線引き）
     .filter((e) => !isAdminEmail(e, allowed));
   if (verified.length === 0) return false;
@@ -165,8 +150,7 @@ export async function claimAgencyInvitation(userId: string): Promise<boolean> {
   ).find((inv) => inv !== null);
   if (!found) return false;
 
-  const metadata = (user.publicMetadata ?? {}) as Record<string, unknown>;
-  await client.users.updateUserMetadata(userId, { publicMetadata: withAgencyRole(metadata, true) });
+  await client.users.updateUserMetadata(userId, { publicMetadata: agencyRolePatch(true) });
   try {
     await client.invitations.revokeInvitation(found.id);
   } catch {

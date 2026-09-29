@@ -1,7 +1,7 @@
 /**
  * POST /api/admin/promo
  * 顧客の割引（スタンダード専用の 10 パターン）を設定・解除する。
- * 運用者（マスター）は全員に、管理アカウントは担当の登録者だけ（担当外は 404）。
+ * 運用者（マスター）・管理アカウントとも全登録者に（相手が管理アカウントなら 404）。
  * 本文: { userId, pattern: "off10" … | null }。応答: { promo: パターン名 | null }。
  *
  * 保存先は顧客の Clerk publicMetadata.promo。データベースは要らない。
@@ -9,7 +9,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { assignClientPromo } from "@/lib/admin/clients";
-import { requireClientAccess } from "@/lib/admin/guard";
+import { requireClientAccess, requireClientScope } from "@/lib/admin/guard";
 import { patternById } from "@/lib/billing/promo";
 import { NO_STORE } from "@/lib/api/headers";
 
@@ -22,12 +22,16 @@ const BodySchema = z.object({
 
 
 export async function POST(request: Request) {
+  // 本文より先に立場を見る（権限の無い人に 400 を返すと API の存在を教えてしまう。2026-09-23）
+  const scope = await requireClientScope();
+  if (scope instanceof Response) return scope;
+
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "入力が正しくありません。" }, { status: 400, headers: NO_STORE });
   const { userId, pattern } = parsed.data;
   if (pattern !== null && !patternById(pattern)) return Response.json({ error: "その割引はありません。" }, { status: 400, headers: NO_STORE });
 
-  const denied = await requireClientAccess(userId);
+  const denied = await requireClientAccess(userId, scope);
   if (denied) return denied;
 
   try {

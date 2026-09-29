@@ -147,12 +147,17 @@ export function assignedPatternFromMetadata(metadata: unknown): PromoPattern | n
 }
 
 /**
- * 割引を設定・解除した publicMetadata を作る（純粋）。null で解除。
- * 外すときはキーを消さず null を入れる（Clerk の updateUserMetadata は null を削除として扱う）。
+ * 割引を設定・解除するときに Clerk へ送る差分（純粋）。null で解除（Clerk の updateUserMetadata は null を削除として扱う）。
+ * updateUserMetadata は深いマージなので、変えるキーだけを送る（丸ごと送ると他の書き込みを巻き戻す。2026-09-23）。
  */
-export function withAssignedPromo(metadata: unknown, patternId: string | null, by: string, at = new Date().toISOString()): Record<string, unknown> {
+export function assignedPromoPatch(patternId: string | null, by: string, at = new Date().toISOString()): Record<string, unknown> {
   const pattern = patternId ? patternById(patternId) : null;
-  return { ...record(metadata), [PROMO_KEY]: pattern ? ({ pattern: pattern.id, by, at } satisfies AssignedPromo) : null };
+  return { [PROMO_KEY]: pattern ? ({ pattern: pattern.id, by, at } satisfies AssignedPromo) : null };
+}
+
+/** 割引を設定・解除した publicMetadata の全体（純粋） */
+export function withAssignedPromo(metadata: unknown, patternId: string | null, by: string, at = new Date().toISOString()): Record<string, unknown> {
+  return { ...record(metadata), ...assignedPromoPatch(patternId, by, at) };
 }
 
 /** 選択肢に出す短い名前（マスター画面・代理店画面の select 用） */

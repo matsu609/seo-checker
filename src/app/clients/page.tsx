@@ -29,7 +29,8 @@ import { freeRunLimit } from "@/lib/free/quota";
 
 export const metadata: Metadata = {
   title: "顧客管理",
-  description: "お客様の契約状況・ご利用状況の確認と、ご意見への返答・割引・機能の開放。",
+  // ご意見への返答は 2026-09-21 に /admin/feedback（運用者だけ）へ移した（r140）
+  description: "お客様の契約状況・ご利用状況の確認と、割引・機能の開放。",
   // 運用者と管理アカウントだけの画面なので、検索にもクローラにも出さない
   robots: { index: false, follow: false },
 };

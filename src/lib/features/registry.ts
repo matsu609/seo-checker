@@ -6,8 +6,20 @@
  * アイコンは文字列キーにして、実体は src/components/shell/icons.tsx が持つ
  * （このファイルをサーバー側でもそのまま import できるようにするため）。
  */
-import type { PlanId } from "@/lib/plans/catalog";
+import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
+import { LISTING_MEDIA_COUNT, PLANS, type PlanId } from "@/lib/plans/catalog";
+import { DEFAULT_MONTHLY_LIMIT as SEO_ANALYSIS_MONTHLY_LIMIT } from "@/lib/seo-analysis/limits";
 import type { IntegrationKey } from "./integrations";
+
+/**
+ * 説明文に入れる数字は、定義しているところから引く（2026-09-23。書き写すと片方だけ直ってずれる。
+ * 実際に「26 媒体」「3 つの状態」が残っていた）。どれも純粋なデータで、クライアントからも読める。
+ *   無料診断の回数 … src/lib/free/quota-rules.ts（環境変数 FREE_DIAGNOSIS_LIMIT で変えたときは既定値のまま）
+ *   精密診断の月の回数 … src/lib/seo-analysis/limits.ts（SEO_ANALYSIS_MONTHLY_LIMIT の既定値）
+ *   掲載先の媒体数 … catalog.ts の LISTING_MEDIA_COUNT（正本は src/lib/listings/media.ts。ずれはテストが止める）
+ */
+const FREE_RUNS = FREE_RUN_LIMIT_DEFAULT;
+const MEDIA_COUNT = LISTING_MEDIA_COUNT;
 
 /**
  * サイドバーの並び = お客様の仕事の順番（利用者の決定 2026-09-19）。
@@ -126,6 +138,13 @@ export interface Feature {
    */
   hidden?: boolean;
   /**
+   * この画面の中で、**別の機能 ID** でゲートしているもの（タブの PlanGate と、画面が呼ぶ API の requireAuth）。
+   * 2026-09-19 以降に旧機能を 1 画面にまとめたとき、ゲートは旧 ID のまま残した（プランの線を変えないため）。
+   * 顧客管理の「機能の個別開放」は画面の ID だけを付けていたので、例えばページ改善を開けても
+   * 画面は page-diagnosis で塞がったままだった（2026-09-23 に修正。gateIdsForScreen / overrideScreens）。
+   */
+  innerGates?: readonly string[];
+  /**
    * この機能を使うのに必要な料金プラン（src/lib/plans/catalog.ts）。
    * 読む・測る系は light（ライト）、AI が成果物を作る系は standard（スタンダード）。
    * この線が料金表の「ライトとスタンダードの差」そのものなので、動かすときは catalog.ts の文言も直す。
@@ -162,7 +181,7 @@ export const FREE_FEATURE: Feature = {
   label: "クイック診断（サイト・SEO / AIO）",
   shortLabel: "サイトを診断（SEO・AIO）",
   description:
-    "URL を入れるだけで、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として PDF 出力できます。アカウント登録（無料）のあと、メールアドレスごとに 2 回まで。実データを使った精密診断は有料プランで。",
+    `URL を入れるだけで、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として PDF 出力できます。アカウント登録（無料）のあと、メールアドレスごとに ${FREE_RUNS} 回まで。実データを使った精密診断は有料プランで。`,
   details: [
     "1 ページ、またはサイト全体の代表 10 ページ（sitemap と内部リンクから収集）を採点",
     "総合スコア・グレード・カテゴリ別スコア・改善提案を報告書形式で表示",
@@ -189,7 +208,7 @@ export const FREE_MEO_FEATURE: Feature = {
   label: "クイック診断（店舗・MEO）",
   shortLabel: "店舗を診断（MEO）",
   description:
-    "店名を入れるだけで、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として PDF 出力できます。アカウント登録（無料）のあと、メールアドレスごとに 2 回まで（サイト診断と合計）。",
+    `店名を入れるだけで、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として PDF 出力できます。アカウント登録（無料）のあと、メールアドレスごとに ${FREE_RUNS} 回まで（サイト診断と合計）。`,
   details: [
     "店名・地域で検索して店舗を 1 件選ぶ",
     "総合評価 A〜E と 4 カテゴリ・21 項目の判定、改善ヒント、総評（ルール生成）",
@@ -215,7 +234,7 @@ const DIAGNOSIS: readonly Feature[] = [
     details: [
       "クロール（48 ルール・サイトの構成・信頼。課題一覧・カテゴリ別件数・ページ一覧・CSV は報告書の「詳細」に）+ トップの採点 + 主要 6 ページの PageSpeed / CrUX + 対策キーワードの順位 + 外部からの評価（被リンク・インデックス数）+ llms.txt の有無と中身",
       "専門家のアドバイス: 事実 ID を引用しながら、現状・強みと弱み・改善案 5〜6 件（優先度 / 手間 / 期待できること / 書き換え案）・「この数字を見たからこそ言えること」（文章は AI が診断結果だけを根拠に書きます）",
-      "事実シートの付録、PDF、履歴。月 10 回まで",
+      `事実シートの付録、PDF、履歴。月 ${SEO_ANALYSIS_MONTHLY_LIMIT} 回まで`,
     ],
     featureIds: [],
     icon: "dashboard",
@@ -372,6 +391,8 @@ const DIAGNOSIS: readonly Feature[] = [
     // 2026-09-22 に**タブを外して 1 本の流れ**にした（利用者の指摘「競合と比べたら
     // 改善案はそのページで提示すればよくない？」）。比較の結果が改修案の根拠に渡る。
     // 入口はライトで開け、改修案だけ旧 ID（improvement）でプランを確かめる（画面が 402 を案内に変える）
+    // 画面の PlanGate と比較の API は page-diagnosis、改修案の API は improvement
+    innerGates: ["page-diagnosis", "improvement"],
     plan: "light",
   },
 ];
@@ -413,10 +434,10 @@ const FOUNDATION: readonly Feature[] = [
     label: "掲載（ウェブ上の掲載チェックと NAP 登録）",
     shortLabel: "掲載",
     description:
-      "「どこに載っているか調べる」と「載っていない先に登録する」を 1 画面にまとめました。店名・電話・住所で検索して掲載状況と食い違いを一覧にし、そのまま 30 の地図・検索・ディレクトリへ同じ内容で登録していけます。被リンクを増やす打ち手そのものです。",
+      `「どこに載っているか調べる」と「載っていない先に登録する」を 1 画面にまとめました。店名・電話・住所で検索して掲載状況と食い違いを一覧にし、そのまま ${MEDIA_COUNT} の地図・検索・ディレクトリへ同じ内容で登録していけます。被リンクを増やす打ち手そのものです。`,
     details: [
       "調べる: 店名・電話・住所で検索し、地図・ディレクトリ・口コミ・SNS・メディアの掲載状況と、電話番号や住所の食い違いを一覧に",
-      "登録する: 店名・住所・電話・営業時間・説明文を 1 か所で決め、30 の媒体に同じ内容で登録。掲載状況を店舗ごとに管理（旧「基本情報掲載」）",
+      `登録する: 店名・住所・電話・営業時間・説明文を 1 か所で決め、${MEDIA_COUNT} の媒体に同じ内容で登録。掲載状況を店舗ごとに管理（旧「基本情報掲載」）`,
       "未掲載の媒体はそのまま登録画面へ進める",
     ],
     featureIds: [],
@@ -425,6 +446,8 @@ const FOUNDATION: readonly Feature[] = [
     requires: ["dataforseo"],
     group: "diagnosis",
     category: "citation",
+    // 「登録する」タブは旧 ID（listings。スタンダード）でゲートしている
+    innerGates: ["listings"],
     // 読む・測る系なのでライト。1 回 = DataForSEO の検索 3 回（数円）
     plan: "light",
   },
@@ -434,7 +457,7 @@ const FOUNDATION: readonly Feature[] = [
     label: "基本情報掲載（NAP 一括登録）",
     shortLabel: "基本情報掲載",
     description:
-      "店名・住所・電話・営業時間・説明文を 1 か所で決め、Google / Apple / Bing / Yahoo! など 30 の地図・検索・ディレクトリに同じ内容で載せます。無料で自分で登録できる媒体は登録画面へ直接進み、掲載状況を店舗ごとに管理します。",
+      `店名・住所・電話・営業時間・説明文を 1 か所で決め、Google / Apple / Bing / Yahoo! など ${MEDIA_COUNT} の地図・検索・ディレクトリに同じ内容で載せます。無料で自分で登録できる媒体は登録画面へ直接進み、掲載状況を店舗ごとに管理します。`,
     details: [
       "MEO の自社店舗ごとに基本情報（NAP）を決め、Google マップの公開情報から取り込み・表記ゆれを確認",
       "無料で登録できる媒体（Google / Apple / Bing / Yahoo!プレイス / Foursquare / HERE / TomTom / Waze / OpenStreetMap ほか）の登録画面と手順、コピー用の基本情報",
@@ -504,6 +527,8 @@ const MEASURE: readonly Feature[] = [
     optional: ["dataforseo"],
     group: "measure",
     category: "seo",
+    // タブの API は旧 ID のまま（/api/search-estimate・/api/keywords）
+    innerGates: ["search-estimate", "keywords"],
     plan: "light",
   },
   {
@@ -595,6 +620,8 @@ const MEASURE: readonly Feature[] = [
     optional: ["anthropic", "places"],
     group: "improve",
     category: "meo",
+    // 「返す」タブと /api/replies/* は旧 ID（replies）でゲートしている
+    innerGates: ["replies"],
     plan: "standard",
   },
   {
@@ -801,7 +828,8 @@ const SETTINGS: readonly Feature[] = [
     label: "料金プラン",
     shortLabel: "料金プラン",
     description:
-      "未契約・スタンダード・プロの 3 つの状態と、それぞれで使えるツールの一覧です。現在のプランもここで確認できます。",
+      // プランの名前と数は catalog.ts から（2026-09-23 まで「未契約・スタンダード・プロの 3 つ」のまま残っていた）
+      `${PLANS.map((p) => p.label).join("・")}の ${PLANS.length} つの状態と、それぞれで使えるツールの一覧です。現在のプランもここで確認できます。`,
     details: [
       "プランごとに含まれるツールの比較",
       "現在のプランと、その決まり方の表示",
@@ -889,6 +917,51 @@ export function toolGroupsForDisplay(): readonly FeatureGroup[] {
   return FEATURE_GROUPS.filter((g) => g.id !== "free" && g.id !== "settings")
     .map((g) => ({ ...g, features: g.features.filter((f) => !f.hidden) }))
     .filter((g) => g.features.length > 0);
+}
+
+/**
+ * 顧客管理の「機能の個別開放」で、1 つのチェックがまとめて付け外しする機能 ID（画面の ID + 同じプランの innerGates）。
+ * 上のプランの innerGates（例: ページ改善の中の改修案 = スタンダード）は含めない。画面を開けただけで
+ * 上の段の機能まで開くと、チェックの横に出しているプラン名と中身が食い違うため（別のチェックにする。overrideScreens）。
+ * レジストリに無い ID は空。innerGates を持たない ID（hidden の旧機能など）はその ID だけ。
+ */
+export function gateIdsForScreen(id: string): string[] {
+  const feature = findFeatureById(id);
+  if (!feature) return [];
+  const same = (feature.innerGates ?? []).filter((g) => findFeatureById(g)?.plan === feature.plan);
+  return [feature.id, ...same];
+}
+
+export interface OverrideScreen {
+  /** 画面（サイドバーに出る機能） */
+  screen: Feature;
+  /** 画面の中の、上のプランの部分（別のチェックとして並べる） */
+  extras: readonly Feature[];
+}
+
+export interface OverrideScreenGroup {
+  id: FeatureGroupId;
+  label: string;
+  screens: readonly OverrideScreen[];
+}
+
+/**
+ * 顧客管理の「機能の個別開放」に並べる画面。サイドバーに出るツール（toolGroupsForDisplay）と、
+ * 設定の中のプランで塞いでいる画面（お客様カルテ。料金・設定は誰でも使えるので出さない）。
+ * 2026-09-23 まで hidden の旧 ID で塞いでいる画面（ページ改善・掲載・順位計測・口コミ）が開けられず、
+ * お客様カルテは一覧に出ていなかった。
+ */
+export function overrideScreens(): readonly OverrideScreenGroup[] {
+  const toScreen = (f: Feature): OverrideScreen => ({
+    screen: f,
+    extras: (f.innerGates ?? [])
+      .map((g) => findFeatureById(g))
+      .filter((g): g is Feature => g !== null && g.plan !== f.plan),
+  });
+  const tools = toolGroupsForDisplay().map((g) => ({ id: g.id, label: g.label, screens: g.features.map(toScreen) }));
+  const settings = FEATURE_GROUPS.find((g) => g.id === "settings");
+  const gated = (settings?.features ?? []).filter((f) => !f.hidden && f.plan !== "free");
+  return settings && gated.length > 0 ? [...tools, { id: settings.id, label: settings.label, screens: gated.map(toScreen) }] : tools;
 }
 
 function normalizePath(pathname: string): string {

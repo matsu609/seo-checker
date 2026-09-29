@@ -29,6 +29,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const denied = await requireAuth();
   if (denied) return denied;
+  // Clerk が無い開発環境には保存先（publicMetadata）が無い。auth() を呼ぶと例外で 500 になっていた（2026-09-23）
+  if (!isAuthEnabled()) return Response.json({ error: "ログインが設定されていない環境では保存できません" }, { status: 503, headers: NO_STORE });
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401 });
   let raw: unknown;

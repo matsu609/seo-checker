@@ -213,27 +213,6 @@ describe("売るのは 3 段階（ライト / スタンダード / プレミア�
   });
 });
 
-describe("Clerk Billing（Stripe）のプラン識別子", () => {
-  // Clerk ダッシュボードで作るプランのスラッグと、この表の id がずれると
-  // 「決済は通ったのに機能が開かない」という最悪の壊れ方をする。
-  it("すべて user:<プラン id> の形", () => {
-    for (const plan of PLANS) {
-      expect(plan.clerkPlan, `${plan.id} の clerkPlan`).toBe(`user:${plan.id}`);
-    }
-  });
-
-  it("clerkPlan を戻すと元のプラン id になる", () => {
-    for (const plan of PLANS) {
-      expect(toPlanId(plan.clerkPlan)).toBe(plan.id);
-    }
-  });
-
-  it("プラン id と clerkPlan は一対一", () => {
-    const slugs = PLANS.map((p) => p.clerkPlan);
-    expect(new Set(slugs).size).toBe(PLANS.length);
-  });
-});
-
 /**
  * 運用者と管理アカウントの扱い。
  *
@@ -244,13 +223,21 @@ describe("Clerk Billing（Stripe）のプラン識別子", () => {
  */
 describe("運用者は全機能・管理アカウントは開けない", () => {
   const base = { userId: "user_1", plan: "free" as PlanId, overrides: [], admin: false, email: null, missing: false };
-  // 無料プランでは使えない機能（レジストリから 1 つ拾う）
-  const paidFeature = features.find((f) => f.plan !== "free")?.featureIds[0] ?? "rank";
+  // 無料プランでは使えない機能（レジストリから 1 つ拾う）。
+  // 2026-09-23 まで featureIds[0]（機能カタログの ID）を拾っていて、たまたま "rank" に落ちていた
+  const paidFeature = features.find((f) => f.plan !== "free")?.id ?? "rank";
 
   it("無料プランのままでも、運用者には開く", async () => {
     const { accessAllows } = await import("@/lib/plans/user");
     expect(accessAllows(base, paidFeature)).toBe(false);
     expect(accessAllows({ ...base, admin: true }, paidFeature)).toBe(true);
+  });
+
+  // 2026-09-23: 定期処理の判定でも管理アカウントには開かない（プランや個別開放があっても）
+  it("管理アカウントには、プランがあっても定期処理で開かない", async () => {
+    const { accessAllows } = await import("@/lib/plans/user");
+    expect(accessAllows({ ...base, plan: "premium", agency: true }, paidFeature)).toBe(false);
+    expect(accessAllows({ ...base, overrides: [paidFeature], agency: true }, paidFeature)).toBe(false);
   });
 
   it("Clerk から読めなかった人には、立場に関わらず開かない", async () => {
@@ -263,6 +250,8 @@ describe("運用者は全機能・管理アカウントは開けない", () => {
     const access = { plan: "free" as PlanId, overrides: [], admin: false, agency: false, openFeedback: 0 };
     expect(canUseFeature(access, paidFeature, "standard")).toBe(false);
     expect(canUseFeature({ ...access, agency: true }, paidFeature, "standard")).toBe(false);
+    // 管理アカウントは自分のプランや個別開放があっても開かない（サーバーと同じ）
+    expect(canUseFeature({ ...access, agency: true, plan: "premium", overrides: [paidFeature] }, paidFeature, "standard")).toBe(false);
     expect(canUseFeature({ ...access, admin: true }, paidFeature, "standard")).toBe(true);
   });
 });

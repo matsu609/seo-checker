@@ -17,9 +17,10 @@ export const maxDuration = 15;
 export async function POST(request: Request) {
   const denied = await requireAuth();
   if (denied) return denied;
+  // 認証が無効な環境では先に断る（Clerk のミドルウェアが無いまま代理ログインの判定を呼ぶと 500 になるため）
+  if (!isAuthEnabled()) return Response.json({ error: "ログインが設定されていない環境では使えません" }, { status: 503, headers: NO_STORE });
   // 代理ログイン中は塞ぐ。運用者がお客様の代わりに申し込んだり解約したりする事故を作らない
   if (await isImpersonating()) return impersonationBlockedResponse();
-  if (!isAuthEnabled()) return Response.json({ error: "ログインが設定されていない環境では使えません" }, { status: 503, headers: NO_STORE });
   if (!isStripeConfigured()) return Response.json({ error: "決済が設定されていません", code: "not_configured" }, { status: 503, headers: NO_STORE });
   const userId = await currentUserId();
   if (!userId) return Response.json({ error: "ログインが必要です" }, { status: 401, headers: NO_STORE });

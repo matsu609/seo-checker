@@ -30,8 +30,19 @@ export function overridesFromMetadata(metadata: unknown): string[] {
 
 /** 1 件の追加・削除（保存する値を作る。純粋） */
 export function toggleOverride(current: readonly string[], featureId: string, enabled: boolean): string[] {
+  return toggleOverrides(current, [featureId], enabled);
+}
+
+/**
+ * まとめて追加・削除（保存する値を作る。純粋）。1 つの画面が複数の機能 ID でゲートしているとき
+ * （registry.ts の gateIdsForScreen）に、画面のチェック 1 つで全部を付け外しするために使う。
+ * 保存の形は今までどおり機能 ID の配列（古い値もそのまま読める）。
+ */
+export function toggleOverrides(current: readonly string[], featureIds: readonly string[], enabled: boolean): string[] {
   const next = new Set(current);
-  if (enabled) next.add(featureId);
-  else next.delete(featureId);
+  for (const id of featureIds) {
+    if (enabled) next.add(id);
+    else next.delete(id);
+  }
   return parseFeatureOverrides([...next]);
 }

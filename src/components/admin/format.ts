@@ -13,7 +13,6 @@ export const STATUS_TONE: Record<ContractStatus, string> = {
   ended: "text-muted border-line bg-surface",
   upcoming: "text-info border-info bg-info-soft",
   none: "text-muted border-line bg-surface",
-  unknown: "text-muted border-line bg-surface",
 };
 
 export function formatDate(ms: number | null): string {

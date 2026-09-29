@@ -1,5 +1,5 @@
 /**
- * 代理ログイン（運用者がお客様の画面をそのまま見る）。サーバー専用。
+ * 代理ログイン（運用者・管理アカウントがお客様の画面をそのまま見る）。サーバー専用。
  *
  * 仕組みは Clerk の Actor Token。運用者を actor、お客様を本人とする短命のチケットを作り、
  * その URL を開くとお客様としてログインした状態になる。セッションには「誰が代理でログインしたか」
@@ -10,13 +10,16 @@
  * `isImpersonating()` を決済の API で見て塞いでいる。
  *
  * 気をつけていること:
- * - 入れるのは運用者（ADMIN_EMAILS）だけ。requireAdmin() を通してから呼ぶこと
+ * - 入れるのは運用者（ADMIN_EMAILS）と管理アカウント。requireClientAccess()（admin/guard.ts）を通してから呼ぶこと
+ *   （2026-09-21 から管理アカウントも代理ログインできる。相手が管理アカウントなら requireClientAccess が 404 にする）
  * - **運用者どうしの代理ログインはできない**（権限の乗っ取りになるため）
  * - チケットは 5 分、セッションは 30 分で切れる。開きっぱなしにならないようにする
  * - お客様のデータがそのまま見える操作なので、いつ・誰が・誰に対して行ったかをログに残す
  */
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { isAuthEnabled } from "@/lib/auth/config";
 import { adminEmails, isAdminEmail } from "./config";
+import { primaryEmail, verifiedEmails } from "./identity";
 import { isUserId } from "./roles";
 
 /** チケットの有効期限（秒）。押してから開くまでの時間だけあればよい */
@@ -59,7 +62,7 @@ export function canImpersonate(input: CanImpersonateInput): CanImpersonate {
 }
 
 /**
- * 代理ログインの URL を作る。requireAdmin() を通してから呼ぶこと。
+ * 代理ログインの URL を作る。requireClientAccess() を通してから呼ぶこと。
  *
  * 返す URL は Clerk のチケットを受け取る入口。ブラウザをここへ送ると、
  * そのお客様としてログインした状態になり、アプリの `/start` へ着く。
@@ -72,9 +75,7 @@ export async function createImpersonationUrl(
 
   const client = await clerkClient();
   const target = await client.users.getUser(targetUserId);
-  const verified = target.emailAddresses
-    .filter((e) => e.verification?.status === "verified")
-    .map((e) => e.emailAddress);
+  const verified = verifiedEmails(target);
 
   const allowed = canImpersonate({
     masterUserId,
@@ -93,10 +94,7 @@ export async function createImpersonationUrl(
 
   if (!ticket.url) throw new Error("代理ログインの URL を取得できませんでした。");
 
-  const email =
-    target.emailAddresses.find((e) => e.id === target.primaryEmailAddressId)?.emailAddress ??
-    target.emailAddresses[0]?.emailAddress ??
-    targetUserId;
+  const email = primaryEmail(target) ?? targetUserId;
 
   // お客様のデータが見える操作なので、いつ・誰が・誰に対して行ったかを必ず残す
   console.info(
@@ -113,6 +111,9 @@ export async function createImpersonationUrl(
  * 決済など「お客様の代わりに実行してはいけない操作」を塞ぐのに使う。
  */
 export async function isImpersonating(): Promise<boolean> {
+  // 認証が無効な環境（開発・E2E）には代理ログインが無い。Clerk のミドルウェアが無いまま auth() を呼ぶと
+  // 例外になり、呼び出し側の API が 500 になっていた（2026-09-23）
+  if (!isAuthEnabled()) return false;
   const { actor } = await auth();
   return typeof actor?.sub === "string" && actor.sub.length > 0;
 }

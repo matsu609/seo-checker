@@ -6,6 +6,10 @@
  *
  * 設問はログイン中の本人の業種で決まる（業種が未設定なら共通の設問だけ）。
  * Supabase が未設定・テーブルが無いときは `available: false` を返し、画面が案内を出す。
+ *
+ * プランの確認は画面（/karte の PlanGate）と同じ機能 ID "karte"（ライト以上。2026-09-23 に追加。
+ * それまで API はログインだけを見ていたので、未契約でも URL を直接叩けば読み書きできた）。
+ * 設定画面の入口（KarteCard）は 402 のとき進み具合を出さないだけで、画面は止まらない。
  */
 import { currentUser } from "@clerk/nextjs/server";
 import { NO_STORE } from "@/lib/api/headers";
@@ -20,6 +24,9 @@ import { getKarte, saveKarte } from "@/lib/karte/store";
 import { KarteAnswersSchema, karteProgress, type KarteAnswers, type KarteProgress } from "@/lib/karte/types";
 
 export const runtime = "nodejs";
+
+/** お客様カルテの画面（/karte）と同じゲート（registry.ts の karte） */
+const FEATURE_ID = "karte";
 
 export interface KarteResponse {
   /** 保存先が使えるか（false なら画面は記入させない） */
@@ -43,7 +50,7 @@ async function lead(): Promise<LeadProfile | null> {
 }
 
 export async function GET() {
-  const userId = await requireUser();
+  const userId = await requireUser({ feature: FEATURE_ID });
   if (userId instanceof Response) return userId;
   const profile = await lead();
   const questions = [...questionsFor(profile?.storeType ?? null)];
@@ -83,7 +90,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const userId = await requireUser();
+  const userId = await requireUser({ feature: FEATURE_ID });
   if (userId instanceof Response) return userId;
   if (!isSupabaseConfigured()) {
     return Response.json({ error: "カルテの保存先が未設定です（運営者にお知らせください）" }, { status: 503, headers: NO_STORE });

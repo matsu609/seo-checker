@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isPublicPath } from "@/lib/auth/routes";
+import { LISTING_MEDIA } from "@/lib/listings/media";
 import { FREE_PATHS, PLANS_PATH, SIGN_UP_PATH, UPSELL, freeShareUrl } from "../upsell";
 
 describe("無料診断からの導線", () => {
@@ -28,5 +29,13 @@ describe("無料診断からの導線", () => {
     expect(freeShareUrl("https://app.example.com", "site")).toBe("https://app.example.com/");
     expect(freeShareUrl("https://app.example.com/", "site")).toBe("https://app.example.com/");
     expect(freeShareUrl("https://app.example.com/", "meo")).toBe("https://app.example.com/meo");
+  });
+
+  // 2026-09-23: 引退した旧称（LLMO モニタリング）と古い媒体数（26）が残っていた
+  it("機能の名前と媒体数は定義しているところと同じ", () => {
+    const text = [...UPSELL.site.points, ...UPSELL.meo.points].join("\n");
+    expect(text).toContain("AI 検索モニタリング");
+    expect(text).not.toContain("LLMO");
+    expect(text).toContain(LISTING_MEDIA.length + " 媒体");
   });
 });

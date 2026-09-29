@@ -12,6 +12,7 @@
  */
 import { currentUser } from "@clerk/nextjs/server";
 import { NO_STORE } from "@/lib/api/headers";
+import { displayName, primaryEmail } from "@/lib/admin/identity";
 import { isImpersonating } from "@/lib/admin/impersonate";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { requireUser } from "@/lib/auth/guard";
@@ -45,12 +46,11 @@ async function senderProfile(): Promise<{ email: string; name: string }> {
   try {
     const user = await currentUser();
     if (!user) return { email: "", name: "" };
-    const primary = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId) ?? user.emailAddresses[0];
     const lead = leadFromMetadata(user.publicMetadata, user.unsafeMetadata);
-    const fullName = [user.lastName, user.firstName].filter(Boolean).join(" ");
     return {
-      email: primary?.emailAddress ?? "",
-      name: lead?.company.trim() || lead?.contactName.trim() || fullName || user.username || "",
+      email: primaryEmail(user) ?? "",
+      // 会社名 → 担当者名 → 「姓 名」→ ユーザー名（最後の 2 つは admin/identity.ts の displayName）
+      name: lead?.company.trim() || lead?.contactName.trim() || displayName(user),
     };
   } catch {
     return { email: "", name: "" };
