@@ -12,6 +12,7 @@ import { useMemo, useRef, useState } from "react";
 import { AuditCategoryTable } from "@/components/site-audit/AuditCategoryTable";
 import { AuditIssues, type IssueRow } from "@/components/site-audit/AuditIssues";
 import { AuditPages } from "@/components/site-audit/AuditPages";
+import { AUDIT_RULE_COUNT } from "@/lib/audit/config";
 import type { AuditResult } from "@/lib/audit/types";
 import { DomainPowerCard } from "./DomainPowerCard";
 import { LlmsTxtCard } from "./LlmsTxtCard";
@@ -230,7 +231,7 @@ export function ReportView(props: ReportViewProps) {
 
         <Card
           title="詳細: サイト診断（クロールの全結果）"
-          description="精密診断の中で実行したクロールの結果です。48 ルールの課題一覧（CSV 出力可）、カテゴリ別の件数、サイトの構成、信頼の手がかり、診断したページの一覧。"
+          description={`精密診断の中で実行したクロールの結果です。${AUDIT_RULE_COUNT} ルールの課題一覧（CSV 出力可）、カテゴリ別の件数、サイトの構成、信頼の手がかり、診断したページの一覧。`}
           actions={
             audit ? (
               <Button variant="secondary" size="sm" className="no-print" onClick={() => setShowDetail((v) => !v)}>

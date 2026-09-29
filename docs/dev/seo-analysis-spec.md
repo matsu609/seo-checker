@@ -28,11 +28,11 @@
 
 ### 0.1 連携なしで取れる指標（URL だけから）
 
-「機械的な判定」（無料診断・サイト診断の 48 ルール）の上に、**サイトの構成**と**信頼**の指標を足す。これが有料の差別化になる。
+「機械的な判定」（無料診断・サイト診断の 50 ルール）の上に、**サイトの構成**と**信頼**の指標を足す。これが有料の差別化になる。
 
 | 領域 | 指標 | 取り方 | 費用 | 既存 |
 |---|---|---|---|---|
-| テクニカル | title / description / H1 / canonical / noindex / リンク切れ / 3xx〜5xx / alt / 構造化データ / 圧縮 / 表示速度 など 48 ルール | 自前クローラー | 0 | ○ `src/lib/audit/` |
+| テクニカル | title / description / H1 / canonical / noindex / リンク切れ / 3xx〜5xx / alt / 構造化データ / 圧縮 / 表示速度 など 50 ルール | 自前クローラー | 0 | ○ `src/lib/audit/` |
 | **サイトの構成（新規）** | ページごとの**被内部リンク数**と発リンク数、**クリック深度**の分布（トップから何回で着くか）、内部リンクで見た**重要度スコア**（PageRank 風。リンクの向きだけで計算）、**本文内リンクとナビ・フッターのリンクの区別**、アンカーテキストの分布（「こちら」「詳しく」の割合）、行き止まりページ（発リンク 0）、リンクの偏り（上位 10% のページに何割のリンクが集中しているか）、パンくずの有無、URL 階層の深さ、ページ種別の構成（トップ / 一覧 / 記事 / サービス / 会社情報 / 問い合わせ）、更新の鮮度（sitemap の lastmod・本文の日付）、似た title・H1 の**カニバリ候補**（MinHash は既存）、hreflang / Open Graph / nofollow | 自前クローラー（`AuditPage.internalLinks` は既にある。リンクの向きの集計と本文領域の判定を足す） | 0 | △ 材料はある |
 | **信頼（E-E-A-T の代理指標）** | 会社概要・代表者・所在地・電話・特商法・プライバシー・問い合わせ・実績 / 事例・著者情報・監修の有無、Organization / LocalBusiness の構造化データと本文の NAP の一致、外部リンク先の種類（公的機関・SNS） | クローラーのページ種別判定 + 既存の JSON-LD 解析 | 0 | △ 無料診断の「具体性」判定を流用 |
 | 速度（実ユーザー） | Origin と主要 URL の LCP / INP / CLS / FCP / TTFB（p75）と**過去 40 週の推移** | **CrUX API / CrUX History API**（公開データ。**サイトの所有権も連携も不要**。API キーだけ） | 0 | × |
@@ -51,7 +51,7 @@
       + 任意: 対策キーワード 5 つ / 業種 / 目的（問い合わせ・EC・採用・来店）/ 地域 / 競合 URL 2 つ
   ↓
 収集（30〜90 秒。進捗をストリーミング）
-  サイト全体クロール（SITE_MAX_PAGES）→ 48 ルール + 構成指標 + 信頼指標
+  サイト全体クロール（SITE_MAX_PAGES）→ 50 ルール + 構成指標 + 信頼指標
   無料診断の採点（既存の 5 カテゴリ）
   PSI（トップ + 被リンクの多い 5 ページ）/ CrUX Origin + History
   SerpApi（対策キーワード 5 つ + site: + ブランド名）/ サジェスト
@@ -237,7 +237,7 @@ GSC + GA4 + CrUX + PageSpeed + URL Inspection + 自前クローラー + Sitemap 
 | 2.5 CrUX API | PSI の応答に含まれる CrUX 値（`PsiResult.crux`、LCP / INP / CLS の 75 パーセンタイルと区分）を `/tools/page-report` で表示 | **CrUX API を直接叩くクライアント**（`chromeuxreport.googleapis.com/v1/records:queryRecord`。URL 単位 → 無ければ Origin 単位 → 無ければ「データ不足」）。PSI 経由だと 1 URL ごとに Lighthouse が走るので、監視用途には使えない |
 | 2.6 CrUX History API | 無し | **クライアント**（`records:queryHistoryRecord`。直近 40 期分の週次時系列）、推移グラフ（`src/components/charts/Sparkline` などの SVG 部品は流用可） |
 | 2.7 PageSpeed Insights | `src/lib/psi/`（取得・パース。カテゴリスコア、CrUX 値、ラボ値、Opportunities 上位 5）。`PAGESPEED_API_KEY` は本番に設定済み | Best Practices スコア・Diagnostics の取り込み、**CrUX の問題 URL からだけ PSI を起動する導線**、結果の保存 |
-| 4 自前クローラー | `src/lib/crawl/`（サイトマップ展開 + 内部リンク BFS、`SITE_MAX_PAGES`）と `src/lib/audit/`（**48 ルール・10 カテゴリ**。title / description / H1 / canonical / noindex / リンク切れ / 3xx / 4xx / 5xx / リダイレクトチェーン / alt / 孤立ページ / 構造化データ / サイトマップ有無 など §4 の検出項目はほぼ網羅）。`/tools/site-audit` で前回比と CSV | ページごとの **hreflang / Open Graph（`og:url` 以外）/ nofollow の抽出**、H2・H3 の一覧を結果に持つこと（内部では `headings` を持っているが結果 JSON には出していない）、**クロール結果の保存**（いまは localStorage の履歴と 1 MB 弱のサーバーキャッシュ）|
+| 4 自前クローラー | `src/lib/crawl/`（サイトマップ展開 + 内部リンク BFS、`SITE_MAX_PAGES`）と `src/lib/audit/`（**50 ルール・10 カテゴリ**。title / description / H1 / canonical / noindex / リンク切れ / 3xx / 4xx / 5xx / リダイレクトチェーン / alt / 孤立ページ / 構造化データ / サイトマップ有無 など §4 の検出項目はほぼ網羅）。`/tools/site-audit` で前回比と CSV | ページごとの **hreflang / Open Graph（`og:url` 以外）/ nofollow の抽出**、H2・H3 の一覧を結果に持つこと（内部では `headings` を持っているが結果 JSON には出していない）、**クロール結果の保存**（いまは localStorage の履歴と 1 MB 弱のサーバーキャッシュ）|
 | 5 robots.txt / sitemap.xml | `src/lib/analyzer/robots.ts`（`robots-parser`、Sitemap 行、Googlebot の許可判定）、サイトマップの展開、`ROBOTS_MISSING` / `ROBOTS_BLOCKED` / `SITEMAP_MISSING` ルール | 無し（そのまま使える） |
 | 6 URL 集合の比較 | Sitemap − Crawl は `ORPHAN_PAGE`（内部リンクが無いページ）で実質検出済み。`sitemapCount` / `linkCount` の集計あり | **Crawl − Sitemap**、**Crawl − GSC**、**Sitemap × URL Inspection** の 3 つ。GSC / Inspection の結果と付き合わせるため、URL の正規化（`src/lib/crawl/url.ts`）を共通で使う |
 | 7 Google Ads API | `/tools/keywords`（Google サジェスト + 意図分類。検索ボリュームは無し） | **Ads API 接続そのもの**（developer token、MCC アカウント、OAuth の `adwords` スコープ、`KeywordPlanIdeaService`）。利用者側の準備が大きいので後段に置く |

@@ -17,7 +17,7 @@ import { Button, Callout, DataTable, Field, Input, type Column } from "@/compone
 import { usePdfDownload } from "@/components/ui/usePdfDownload";
 import { apiErrorMessage, requestFailedMessage } from "@/lib/api/client";
 import { FREE_SUITE_LABEL } from "@/lib/features/registry";
-import { isExhausted, type FreeQuota } from "@/lib/free/quota-rules";
+import { FREE_RUN_LIMIT_DEFAULT, isExhausted, type FreeQuota } from "@/lib/free/quota-rules";
 import { SIGN_UP_PATH } from "@/lib/free/upsell";
 import { meoReportFileName } from "@/lib/maps/report";
 import type { PlaceSummary } from "@/lib/maps/types";
@@ -148,7 +148,7 @@ export function MeoChecker({ enabled, quota: initialQuota }: MeoCheckerProps) {
       <section className="no-print mb-6 rounded-sm border border-line bg-panel p-5">
         <h1 className="text-[20px] font-bold text-ink">{FREE_SUITE_LABEL}</h1>
         <p className="mt-1 text-[13px] leading-relaxed text-muted">
-          店名を入力すると、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として出力します。登録したメールアドレスごとに 2 回まで無料です（サイト診断と合計）。
+          店名を入力すると、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として出力します。登録したメールアドレスごとに {FREE_RUN_LIMIT_DEFAULT} 回まで無料です（サイト診断と合計）。
         </p>
         <FreeTargetSwitch current="meo" />
 

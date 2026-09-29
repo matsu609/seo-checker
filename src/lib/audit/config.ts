@@ -5,6 +5,14 @@
  * 数値をそのまま採ったものと、日本語ページ向けに変えたものが混ざっている）。
  * ルールはこのオブジェクトだけを参照し、数値をコードに直接書かない。
  */
+/**
+ * サイト診断のルール数（ルール ID の種類。`rules/page.ts`・`rules/cross.ts`・`run.ts` の `issue(...)` /
+ * `ruleId` に出てくる ID を重複を除いて数えたもの）。画面や資料の「N ルール」はここから引く。
+ * `__tests__/rule-count.test.ts` がソースを数えてこの値と突き合わせる（ルールを足したらここも直す）。
+ * 2026-09-23 に 48 → 50 に数え直した（以前の「48」は古い数）。
+ */
+export const AUDIT_RULE_COUNT = 50;
+
 export const AUDIT_THRESHOLDS = {
   /** title の全角換算文字数 */
   titleMinWidth: 10,

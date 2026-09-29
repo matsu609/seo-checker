@@ -8,6 +8,7 @@ import type { FormEvent } from "react";
 import { Button, Field, Input } from "@/components/ui";
 import { FREE_SUITE_LABEL } from "@/lib/features/registry";
 import { freeSiteMaxPages } from "@/lib/free/limits";
+import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { FreeTargetSwitch } from "./FreeTargetSwitch";
 import { ServiceGuideButton } from "./ServiceGuideButton";
 
@@ -50,7 +51,7 @@ export function DiagnosisForm({
     <section className="no-print mb-6 rounded-sm border border-line bg-panel p-5">
       <h1 className="text-[20px] font-bold text-ink">{FREE_SUITE_LABEL}</h1>
       <p className="mt-1 text-[13px] leading-relaxed text-muted">
-        URL を入力すると、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として出力します。登録したメールアドレスごとに 2 回まで無料です。
+        URL を入力すると、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として出力します。登録したメールアドレスごとに {FREE_RUN_LIMIT_DEFAULT} 回まで無料です。
       </p>
       <FreeTargetSwitch current="site" />
 
