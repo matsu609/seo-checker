@@ -6,8 +6,12 @@
  * （`actor.sub`）が残るので、画面側で常に代理中であることを出せる（ImpersonationBanner）。
  *
  * **画面を見るための機能で、お客様の代わりに操作するための機能ではない。**
- * 実費の出る操作や決済の操作は、代理中は動かさない（お金に関わる事故は取り返しがつかないため）。
- * `isImpersonating()` を決済の API で見て塞いでいる。
+ * 取り返しのつかない操作は、代理中は動かさない。`isImpersonating()` で塞いでいるのは:
+ *   - 決済（/api/billing/checkout・/api/billing/portal → impersonationBlockedResponse）
+ *   - Google への書き込み（口コミへの返信の投稿・削除、投稿の送信と予約、基本情報の Google への送信
+ *     → src/lib/google/write-guard.ts の blockGoogleWriteWhileImpersonating。2026-09-23）
+ *   - お客様のデータの保存（/api/store の PUT / DELETE）と、お客様の名前でのご意見の送信（/api/feedback）
+ * 下書き・読み取り・予約の取り消しは塞がない（見るための確認作業で使う）。
  *
  * 気をつけていること:
  * - 入れるのは運用者（ADMIN_EMAILS）と管理アカウント。requireClientAccess()（admin/guard.ts）を通してから呼ぶこと

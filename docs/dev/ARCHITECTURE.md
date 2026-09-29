@@ -120,7 +120,8 @@ src/
 - サーバーに DB は無い。ユーザーの登録情報（プロジェクト、競合、キーワード、プロンプト、計測履歴、診断履歴）は **ブラウザの localStorage** に保存する。`src/lib/store/` の `createStore(name, schema)` を通し、キーは `seo-checker:v1:<name>` で統一、zod で検証し、壊れていれば初期値に戻す。
 - 設定画面から JSON でエクスポート / インポートできるようにする。
 - Route Handler はステートレス。入力を受け取って結果を返すだけ（キャッシュは既存の `globalCache`）。
-- **アカウントの属性は Clerk の `publicMetadata`**（`plan` / `featureOverrides` / `stripe` / `role`）。ここでも DB は持たない。`publicMetadata` は Backend API からしか書けないので、お客様が自分で書き換えることはできない（クライアントから書ける `unsafeMetadata` は使わない）。更新は**丸ごと置き換え**になるので、必ず既存の値を読んで残すこと（`src/lib/admin/roles.ts` の純関数を通す）。
+- **アカウントの属性は Clerk の `publicMetadata`**（`plan` / `featureOverrides` / `stripe` / `role` / `promo` / `lead`）。ここでも DB は持たない。`publicMetadata` は Backend API からしか書けないので、お客様が自分で書き換えることはできない（クライアントから書ける `unsafeMetadata` は使わない）。
+- **metadata の書き込みは `users.updateUserMetadata()` で、変えるキーだけを送る**（2026-09-23 にそろえた。2026-09-29 に `@clerk/backend` 3.17.1 の実装で確認）。`updateUserMetadata` は `PATCH /users/{id}/metadata` で**深いマージ**（渡したキーだけが変わり、ネストした object も中でマージ、`null` を渡したキーは消える）。`updateUser({ publicMetadata })` は**丸ごと置き換え**で、metadata の更新用途は SDK が非推奨にしている（`replaceUserMetadata()` が置き換えの明示版）。読んでから丸ごと送り直すと、その間に入った別の書き込み（Stripe の Webhook・個別開放・無料診断の回数）を古い値で巻き戻すので、`updateUser` で metadata を書かない。配列（`featureOverrides`）はマージされず丸ごと置き換わるので、付け外しは `src/lib/plans/overrides.ts` の純関数で次の配列を作って送る。書いているのは `src/lib/billing/sync.ts`・`admin/clients.ts`・`admin/agencies.ts`・`free/quota.ts`・`api/account/lead`・`google/search-console/settings.ts` の 6 か所だけ。
 
 ## 誰が何を見られるか（マスター / 管理アカウント / 登録者）
 
@@ -134,7 +135,7 @@ src/
 - 線引きは「システムが見えるかどうか」だけ（利用者の指示 2026-09-20 / 2026-09-21）。版・外部連携・定期処理はマスターだけ、お客様の情報は両方が全件見る。管理アカウントは自分の画面だけでお問い合わせに答えきれる。
 - **担当の割り当て（`publicMetadata.agencyId`）は 2026-09-21 に廃止**（利用者の指示「担当とか関係ない」）。画面・API・純関数とも削除した。古い利用者の metadata に値が残っていても、どこからも読まないので害はない。
 - 顧客 1 人への操作は必ず `requireClientAccess()`（`src/lib/admin/guard.ts`）を通す。運用者・管理アカウントとも全登録者に触れるが、**相手が管理アカウントなら 404**（権限や金額を付け合えないようにする）。立場の判定は必ずログイン中のセッションから取る（`currentClientScope()`）。
-- ツールの開放は 3 か所が同じ判定でそろっている: `checkPlanForFeature`（ログイン中）・`canUseFeature`（画面の鍵表示）・`accessAllows`（定期処理）。**全機能が開くのは運用者だけ**（管理アカウントはツールを使わない立場。2026-09-21）。
+- ツールの開放の判定は **`decideFeatureAccess` / `featureAllowed`（`src/lib/plans/access.ts`）の 1 つ**（2026-09-23 に 1 本化。それまで 3 か所に別々に書かれていた）。`checkPlanForFeature`（ログイン中の API と `PlanGate`）・`canUseFeature`（画面の鍵表示。`/api/usage` の並べる機能も）・`accessAllows`（定期処理）は、その人の立場（プラン・個別開放・運用者か・管理アカウントか）を集めてこの関数を呼ぶだけ。順番は「運用者は全部 → 管理アカウントは free の画面だけ（API は 403 `manager_account`）→ プランで足りる → 個別開放」。**全機能が開くのは運用者だけ**（管理アカウントはツールを使わない立場。2026-09-21。API も断る 2026-09-23）。
 - 管理アカウントの画面の出し分けは `Sidebar`（ツール群と設定を描かない）と `AppShell`（`/tools/*`・`/settings`・`/plans` を開いたら `ManagerNotice` に差し替え）の 2 か所。判定は `/api/plan` の `agency`。
 - サイドバーの管理系タブは 2 つ（2026-09-21）。**管理者用**（顧客管理・デモ用の無料クイック診断。運用者と管理アカウント）と**マスターアカウント用**（マスター画面・管理アカウント・ご意見・不具合。運用者だけ）。
 - 顧客一覧（`loadClients`）は**運用者（`ADMIN_EMAILS`）と管理アカウントを除く**。お金を払って使う立場ではないため。
@@ -144,7 +145,12 @@ src/
 
 トラブル対応と表示の確認のために、運用者がお客様としてログインできる（`src/lib/admin/impersonate.ts`）。仕組みは Clerk の **Actor Token**。運用者を `actor`、お客様を本人とする短命のチケットを作り、その URL へ遷移させる。
 
-- **見るための機能で、代わりに操作するための機能ではない。**代理中（`auth().actor` が入っている）は決済 API（`/api/billing/checkout` / `/api/billing/portal`）を 403 で塞ぐ。お金に関わる事故は取り返しがつかないため。新しく「取り返しのつかない操作」を足すときは、ここに倣って `isImpersonating()` を見ること。
+- **見るための機能で、代わりに操作するための機能ではない。**代理中（`auth().actor` が入っている）は「取り返しのつかない操作」を 403（`code: "impersonating"`）で塞ぐ。塞いでいるのは次の 4 つ（2026-09-23 に決済以外も足した。それまで決済だけだった）:
+  - 決済: `/api/billing/checkout` / `/api/billing/portal`（`impersonationBlockedResponse()`。お金に関わる事故は取り返しがつかない）
+  - Google への書き込み: 口コミへの返信の投稿・削除（`/api/replies/reply`）、投稿の予約と送信（`/api/posts`・`/api/posts/[id]`・`/api/posts/[id]/publish`）、基本情報の Google への送信（`/api/listings/publish`）。`src/lib/google/write-guard.ts` の `blockGoogleWriteWhileImpersonating("<操作名>")`。Google 上でお客様の操作として公開され、取り消しても見た人の記憶や通知は戻らないため。下書き・読み取り・予約の取り消しは塞がない
+  - お客様のデータの保存: `/api/store` の PUT / DELETE（ブラウザ側ストアのサーバー保存）
+  - ご意見の送信: `/api/feedback` の POST（お客様の名前で記録が残るため）
+  新しく「取り返しのつかない操作」を足すときは、Google 向けなら `write-guard.ts`、それ以外は `isImpersonating()` を見て同じ形で断ること。認証が無効な環境では `isImpersonating()` は Clerk を呼ばずに false（呼ぶと 500 になっていた。2026-09-23）。
 - 運用者どうしの代理ログインはできない（`canImpersonate()`。操作の責任が追えなくなる）。自分自身も不可。
 - チケット 5 分・セッション 30 分で切れる。開始時に「誰が・誰に対して」をサーバーログへ出す。
 - 代理中は `isAdmin()` がお客様のアカウントで判定されるため、サイドバーの「マスター画面」は消える。**戻る入口は画面下の帯（`ImpersonationBanner`）だけ**なので、どのシェル（通常・クイック診断・アンケート）でも必ず描画する。
@@ -203,7 +209,11 @@ src/
 - Route Handler は入力を zod で検証し、エラーは `{ error: string }` と適切な HTTP ステータスで返す（既存の analyze/site と同じ形）。
 - クロールを伴う API（`/api/site`）は同時実行を制限する。1 回の呼び出しが対象サイトへ最大 60（サイトマップ）+ ページ数上限（クイック診断は `FREE_SITE_MAX_PAGES`＝既定 10）回のリクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になる。現状はプロセス内で「同時 2 本まで・同一クライアント（`x-forwarded-for` の先頭 IP）1 本まで」、超過は `429` と `{ code: "busy" }`（`src/app/api/site/route.ts`）。複数インスタンスで動かすときは共有ストアの制限に置き換える。
 - Cron の入口（`/api/cron/*`）はログインが無いので `src/lib/auth/routes.ts` の公開 API に 1 本ずつ完全一致で入れ、ハンドラは `CRON_SECRET` で守る。MEO の数字は利用者が取り直せない（Google に問い合わせるのは店舗の登録直後と週 1 回の一斉更新だけ。`src/lib/maps/refresh.ts`）。
-- **定期処理は日次の 1 本（`/api/cron/daily`）にまとめる（r127）。**Vercel の Hobby プランは Cron が 2 本まで・1 日 1 回なので、`src/lib/jobs/schedule.ts` が曜日・日付でジョブを振り分ける（月: マップ診断の一斉更新 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断）。ジョブを足すときは `JOB_IDS`・`JOB_SCHEDULE`・`registry.ts` の 3 か所。実行記録は `cron_runs`（マスター画面の「定期処理の状況」）。利用者ごとのプランは `src/lib/plans/user.ts` で引き、契約の無い人のために実費の出る処理を走らせない。
+- **定期処理は日次の 1 本（`/api/cron/daily`）にまとめる（r127）。**Vercel の Hobby プランは Cron が 2 本まで・1 日 1 回なので、`src/lib/jobs/schedule.ts` が曜日・日付でジョブを振り分ける（月: マップ診断の一斉更新 / 火: 順位計測 / 水: サイト監視 / 1 日: 月次レポート / 2 日: 掲載の再チェック / 毎日: 投稿の送信・自動再診断）。ジョブを足すときは `JOB_IDS`・`JOB_SCHEDULE`・`registry.ts` の 3 か所。利用者ごとのプランは `src/lib/plans/user.ts` で引き、契約の無い人のために実費の出る処理を走らせない。
+  - **実行順（`JOB_SCHEDULE` の並び）は「投稿の送信 → 月次レポート → 掲載の再チェック → 曜日の重いジョブ（マップ更新 / 順位 / 監視）→ 自動再診断」**（2026-09-23）。月次のジョブは曜日のジョブより**前**に置き、1 本あたり 90 秒（`maxBudgetMs`）で打ち切る。以前は後ろにあって、1 日・2 日が月〜水に当たると重いジョブが残り時間を使い切り、その月は丸ごと飛んでいた。
+  - 月次のジョブには**取り返しの日**がある（`MONTHLY_GRACE_DAYS` = 2。月次レポートは 1〜3 日、掲載の再チェックは 2〜4 日に「今月まだ最後まで終わっていなければ」動く。済んでいれば `cron_runs` の `ok` を見て飛ばす）。
+  - 実行記録は `cron_runs`（マスター画面の「定期処理の状況」）。日次のジョブに加えて、AI 検索モニタリングの `/api/cron/geo-run` も `job = "geo-run"` で残す（前回どこまで回れたかの再開位置に使う）。残り時間が足りず飛ばしたジョブも `status = "skipped"` と理由で残す（「動いていない」のか「飛ばされた」のかを画面で区別するため）。`status` は `ok` / `failed` / `aborted` / `skipped`。
+  - **`vercel.json` の `crons` はいま空**（利用者が 2026-09-24 に定期処理を 2 本とも止めた。r163。理由と再開の判断は OPERATIONS.md）。ハンドラ・ジョブ・`CRON_SECRET` はそのままなので、再開は `vercel.json` に 2 本を戻すだけ。止まっている間は自動の計測・監視・月次レポート・投稿の送信・自動再診断は動かない。
 - **利用者への知らせは `notifyUser()`（`src/lib/notifications/notify.ts`）だけを通す。**画面の「お知らせ」（`notifications` テーブル）に必ず残し、設定（`notificationSettings` ストア）とメール（Resend）がそろっているときだけメールも送る。送れなかったものを「送った」と見せない。
 - 来店客向けアンケート（`/r/<slug>`、`/api/r/<slug>/*`）はログインが無い。`src/lib/auth/routes.ts` の公開接頭辞（`/r/`、`/api/r/`。接頭辞そのものは公開しない）で通し、ハンドラは IP ごとの回数制限とアンケートごとの 1 日の上限で守る（`src/lib/free/ratelimit.ts`）。来店客側の更新（投稿ボタンの押下、お店に直接伝える）は回答時に発行した `edit_token` を持つ人だけ。店舗側の管理 API（`/api/reviews/*`）は `review_responses` に user_id が無いので、必ず `review_forms` の所有（user_id）を確かめてから form_id で触る（`src/lib/reviews/api.ts` の `ownedForm`）。来店客に返すのは `PublicReviewForm`（質問と店名だけ。トーン・キーワード・投稿 URL・所有者は返さない）。来店客の画面は `Accept-Language` / `?lang=` で 5 言語に切り替わる（`src/lib/reviews/i18n.ts`、質問文の訳は `translate.ts`。選択肢は表示だけ訳し、送る値は日本語の原文）。
 - サイト診断の結果はキャッシュ 1 件で 1 MB 近い。`globalCache` の `maxEntries` を小さく（10 件）し、`SiteCheckSummary.affected` はサーバー側で 50 件までに間引く（件数は `counts` が持つ）。
