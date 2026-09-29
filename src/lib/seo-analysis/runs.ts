@@ -7,8 +7,8 @@
  */
 import { z } from "zod";
 import type { AuditResult } from "@/lib/audit/types";
-import { DbError, supabaseRest } from "@/lib/db/supabase";
-import { eq, gte } from "@/lib/db/filters";
+import { DbError, selectAllPages, supabaseCount, supabaseRest } from "@/lib/db/supabase";
+import { eq, gte, lt, notInList } from "@/lib/db/filters";
 import { DEFAULT_MONTHLY_LIMIT, MAX_ANALYSES_PER_RUN } from "./limits";
 import type { AnalysisRecord } from "./ai/schema";
 import type { AnalysisInput, SeoFactSheet } from "./sheet/types";
@@ -93,16 +93,13 @@ export function monthStartJst(now = new Date()): string {
   return new Date(Date.UTC(y, m, 1, -9, 0, 0)).toISOString();
 }
 
-/** 今月に開始した回数（失敗した収集と、月 1 回の自動再診断は数えない） */
+/** 今月に開始した回数（失敗した収集は数えない） */
 export async function countThisMonth(userId: string, now = new Date()): Promise<number> {
-  const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=id,source:input->>source&user_id=${eq(userId)}&status=neq.failed&created_at=${gte(monthStartJst(now))}&limit=1000`,
-  );
   // 2026-09-21 利用者の決定: 毎月の自動再診断も月の回数に含める（それまでは手動だけを数えていた）。
-  // Claude Opus の実費は手動でも自動でも同じなので、原価の上限として数えるなら区別しない
-  const parsed = z.array(z.object({ id: z.string(), source: z.string().nullable().optional() })).safeParse(rows);
-  if (!parsed.success) return Array.isArray(rows) ? rows.length : 0;
-  return parsed.data.length;
+  // Claude Opus の実費は手動でも自動でも同じなので、原価の上限として数えるなら区別しない。
+  // 2026-09-29: 行を `limit=1000` で受け取って数えていたのを、データベースに数えさせる
+  // （Supabase は 1 回の応答を 1,000 行で切るので、それを超えると黙って 1,000 になっていた）
+  return supabaseCount(`${TABLE}?select=id&user_id=${eq(userId)}&status=neq.failed&created_at=${gte(monthStartJst(now))}`);
 }
 
 export interface CreateRunInput {
@@ -164,16 +161,19 @@ export async function listRuns(userId: string): Promise<RunSummary[]> {
 /** この診断の直前（同じサイト・収集できたもの）。差分の比較相手。無ければ null */
 export async function previousRun(userId: string, origin: string, before: string, excludeId: string): Promise<RunSummary | null> {
   const rows = await supabaseRest<unknown>(
-    `${TABLE}?select=${LIST_COLUMNS_WITH_SOURCE}&user_id=${eq(userId)}&origin=${eq(origin)}&status=neq.failed&created_at=lt.${encodeURIComponent(before)}&id=neq.${encodeURIComponent(excludeId)}&order=created_at.desc&limit=1`,
+    `${TABLE}?select=${LIST_COLUMNS_WITH_SOURCE}&user_id=${eq(userId)}&origin=${eq(origin)}&status=neq.failed&created_at=${lt(before)}&id=${notInList([excludeId])}&order=created_at.desc&limit=1`,
   );
   const parsed = z.array(SummaryRow).safeParse(rows);
   if (!parsed.success || !parsed.data[0]) return null;
   return toSummary(parsed.data[0]);
 }
 
-/** 自動再診断の候補: 利用者 × サイトごとの最新の行（全利用者）。定期処理だけが使う */
+/**
+ * 自動再診断の候補: 利用者 × サイトごとの最新の行（全利用者）。定期処理だけが使う。
+ * 2026-09-29: `limit=2000` を 1 回で頼んでいたが Supabase は 1,000 行で切るので、ページに分けて読む
+ */
 export async function listLatestRunsAllUsers(limit = 2000): Promise<{ userId: string; origin: string; status: RunStatus; createdAt: string; input: unknown }[]> {
-  const rows = await supabaseRest<unknown>(`${TABLE}?select=user_id,origin,status,created_at,input&order=created_at.desc&limit=${limit}`);
+  const rows = await selectAllPages(`${TABLE}?select=user_id,origin,status,created_at,input&order=created_at.desc,id.desc`, { max: limit });
   const parsed = z.array(z.object({ user_id: z.string(), origin: z.string(), status: z.enum(["collected", "analyzed", "failed"]), created_at: z.string(), input: z.unknown() })).safeParse(rows);
   if (!parsed.success) return [];
   return parsed.data.map((r) => ({ userId: r.user_id, origin: r.origin, status: r.status, createdAt: r.created_at, input: r.input }));

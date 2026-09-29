@@ -6,7 +6,7 @@
  * それ以外の行は必ず user_id で絞る（service_role は RLS を素通りするため）。
  */
 import { z } from "zod";
-import { supabaseRest } from "@/lib/db/supabase";
+import { selectAllPages, supabaseRest } from "@/lib/db/supabase";
 import { eq, gte } from "@/lib/db/filters";
 import { cacheKey } from "./normalize";
 import { MONTHLY_CREDITS, nextResetAt } from "./credits";
@@ -571,9 +571,14 @@ const LedgerRow = z.object({
   created_at: z.string(),
 });
 
+/** 1 期間の消費履歴の上限。ここまでページに分けて読む（Supabase は 1 回の応答を 1,000 行で切る） */
+const LEDGER_MAX_ROWS = 5000;
+
 export async function listLedger(userId: string, since: string): Promise<CreditLedgerEntry[]> {
-  const rows = await supabaseRest<unknown>(
-    `${T_LEDGER}?select=*&user_id=${eq(userId)}&created_at=${gte(since)}&order=created_at.desc&limit=5000`,
+  // 2026-09-29: `limit=5000` を 1 回で頼んでいたが 1,000 行で黙って切られ、消費の合計が少なく出ていた
+  const rows = await selectAllPages(
+    `${T_LEDGER}?select=*&user_id=${eq(userId)}&created_at=${gte(since)}&order=created_at.desc,id.desc`,
+    { max: LEDGER_MAX_ROWS },
   );
   const parsed = z.array(LedgerRow).safeParse(rows);
   return parsed.success
