@@ -8,7 +8,7 @@
  * すでに持っているので、ここでは触らない。
  */
 import { fetchAhrefsDr } from "./ahrefs";
-import { ageYearsFrom, registrableDomain } from "./domain";
+import { ageYearsFrom, registrableDomain, sharedPlatformOf } from "./domain";
 import { fetchOpenPageRank } from "./openpagerank";
 import { fetchRdapDomain, type RdapOutcome } from "./rdap";
 import { fetchJpRegisteredAt, isJpDomain } from "./whois-jp";
@@ -46,12 +46,24 @@ export async function fetchDomainFacts(
   const peerHosts = [...new Set(competitors.map(registrableDomain).filter((h) => h && h !== host))];
   const notes: string[] = [];
 
+  // サイト作成サービス・ブログなどの共有ドメインの上のサイトは、DR も Open PageRank も登録日も
+  // サービス全体のものしか返らない（x.jimdofree.com で jimdofree.com の DR 90 が出る）。
+  // お客様のサイトの数値として見せないよう、問い合わせずに「未取得」にする（2026-09-23）
+  const ownPlatform = sharedPlatformOf(host);
+  if (ownPlatform) {
+    notes.push(
+      `${host} は共有ドメイン（${ownPlatform}）の上のサイトのため、外部リンクの評価とドメインの登録日はサイト単体では測れません（${ownPlatform} 全体の数値になるため表示しません）`,
+    );
+  }
+  const measurable = (h: string) => sharedPlatformOf(h) === null;
+  const skipped = <T,>(value: T) => Promise.resolve(value);
+
   const [opr, dr, peerDr, rdap, peerRdap] = await Promise.all([
-    fetchOpenPageRank([host, ...peerHosts], options),
-    fetchAhrefsDr(host, options),
-    Promise.all(peerHosts.map((h) => fetchAhrefsDr(h, options))),
-    fetchRegistration(host, options),
-    Promise.all(peerHosts.map((h) => fetchRegistration(h, options))),
+    fetchOpenPageRank([host, ...peerHosts].filter(measurable), options),
+    measurable(host) ? fetchAhrefsDr(host, options) : skipped(SKIPPED_DR),
+    Promise.all(peerHosts.map((h) => (measurable(h) ? fetchAhrefsDr(h, options) : skipped(SKIPPED_DR)))),
+    measurable(host) ? fetchRegistration(host, options) : skipped(SKIPPED_RDAP),
+    Promise.all(peerHosts.map((h) => (measurable(h) ? fetchRegistration(h, options) : skipped(SKIPPED_RDAP)))),
   ]);
 
   if (dr.failure && dr.message) notes.push(dr.message);
@@ -82,6 +94,10 @@ export async function fetchDomainFacts(
     sources: { ahrefs: dr.result?.rating != null, rdap: rdap.result?.registeredAt != null, openPageRank: own.rank !== null },
   };
 }
+
+/** 共有ドメインのため問い合わせなかったときの結果（失敗ではないので notes にも出さない） */
+const SKIPPED_DR: Awaited<ReturnType<typeof fetchAhrefsDr>> = { result: null, failure: null, message: null };
+const SKIPPED_RDAP: RdapOutcome = { result: null, failure: null, message: null };
 
 /**
  * 登録日の取得。RDAP を先に見て、.jp で RDAP に無ければ JPRS の WHOIS で補う（2026-09-19）。

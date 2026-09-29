@@ -115,6 +115,13 @@ describe("連絡先（電話・住所・メール・構造化データ）", () =
     expect(pageFrom(html({ head: `<script type="application/ld+json">{"@type":"Article"}</script>` })).organization).toBeNull();
   });
 
+  it("記事の著者・商品のブランドの Organization は運営者として拾わない（2026-09-23）", () => {
+    const author = `<script type="application/ld+json">{"@type":"Article","author":{"@type":"Organization","name":"寄稿元","telephone":"03-1111-2222"}}</script>`;
+    expect(pageFrom(html({ head: author })).organization).toBeNull();
+    const publisher = `<script type="application/ld+json">{"@type":"Article","publisher":{"@type":"Dentist","name":"さくら歯科"}}</script>`;
+    expect(pageFrom(html({ head: publisher })).organization?.type).toBe("Dentist");
+  });
+
   it("normalizePhone は 10〜11 桁の 0 始まりだけを通す", () => {
     expect(normalizePhone("+81 90-1234-5678")).toBe("09012345678");
     expect(normalizePhone("1234-5678")).toBeNull();

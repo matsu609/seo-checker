@@ -17,6 +17,8 @@ export const MAX_BODY_CHARS = 6_000;
 export const MAX_HEADINGS = 40;
 /** 上位 10 件と比べた結果として載せる上限 */
 export const MAX_SERP_CHARS = 3_000;
+/** 機械的な判定の一覧として載せる上限 */
+export const MAX_FINDINGS_CHARS = 6_000;
 
 export const SYSTEM_PROMPT = [
   "あなたは日本語の Web サイトを改善する SEO / AIO の実務担当者です。",
@@ -122,9 +124,15 @@ export function buildImprovementPrompt(input: ImprovementPromptInput): string {
   if (failing.length === 0) {
     lines.push("機械的な判定では課題が見つかりませんでした。内容面の改善案を出してください。");
   } else {
-    for (const { section, row } of failing) {
-      lines.push(`- [${section}] ${row.item}: ${row.content}${row.note ? ` / ${row.note}` : ""}`);
-    }
+    // 判定の文には、ページから引用した値（meta robots の中身・@type 名・title など）が混ざる。
+    // 第三者が書いた値なので、判定の一覧ごと区切りブロックに入れる（2026-09-23）
+    lines.push("（判定の文にはページから引用した値が含まれるため、区切りの中に入れています）");
+    lines.push(
+      ...untrustedBlock(
+        failing.map(({ section, row }) => `- [${section}] ${row.item}: ${row.content}${row.note ? ` / ${row.note}` : ""}`).join("\n"),
+        MAX_FINDINGS_CHARS,
+      ),
+    );
   }
   lines.push("");
 
@@ -151,7 +159,8 @@ export function buildImprovementPrompt(input: ImprovementPromptInput): string {
   lines.push("");
 
   lines.push("《構造化データ（検出した @type）》");
-  lines.push(m.jsonLd.types.length > 0 ? m.jsonLd.types.join(", ") : "（ありません）");
+  // @type の名前もページに書かれた文字列なので囲む（2026-09-23）
+  lines.push(...(m.jsonLd.types.length > 0 ? untrustedBlock(m.jsonLd.types.join(", "), 1_000) : ["（ありません）"]));
   lines.push("");
 
   lines.push("《画像》");

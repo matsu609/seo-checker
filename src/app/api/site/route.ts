@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import { FetchError, type SiteAnalysisResult } from "@/lib/analyzer";
-import { assertPublicHost, normalizeUrl } from "@/lib/analyzer/fetch";
+import { publicUrlError, urlCacheKey } from "@/lib/analyzer/fetch-response";
 import { analyzeSite } from "@/lib/analyzer/site";
 import { globalCache } from "@/lib/cache";
 import { resolveMaxPages } from "@/lib/crawl/crawler";
+import { acquireCrawlSlot, crawlClientKey } from "@/lib/crawl/gate";
+import { ndjsonResponse, ndjsonSingle } from "@/lib/crawl/stream";
 import { freeSiteMaxPages } from "@/lib/free/limits";
-import { consumeFreeRun } from "@/lib/free/quota";
+import { consumeFreeRun, requireFreeUser } from "@/lib/free/quota";
 import type { SiteStreamEvent } from "@/lib/crawl/types";
 
 export const runtime = "nodejs";
@@ -14,74 +16,6 @@ export const maxDuration = 300;
 
 // 1 件あたりが大きいので保持数は少なくする（クイック診断は 10 ページまで）
 const cache = globalCache<SiteAnalysisResult>("site", 10 * 60 * 1000, 10);
-
-/**
- * 同時に走らせるクロールの上限。
- *
- * 1 回の POST が対象サイトへ最大 60（サイトマップ）+ maxPages（クイック診断は 10）回の
- * リクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になり、
- * メモリも同時実行数だけ積み上がる。上限を超えたら 429 で断る。
- */
-const MAX_CONCURRENT_CRAWLS = 2;
-/** 同じクライアント（IP）が同時に走らせられるクロール数 */
-const MAX_CONCURRENT_PER_CLIENT = 1;
-
-interface CrawlGate {
-  /** 実行中のクロール数 */
-  active: number;
-  /** クライアントごとの実行中クロール数 */
-  perClient: Map<string, number>;
-}
-
-/** dev のホットリロードで数えが飛ばないよう globalThis に置く */
-function crawlGate(): CrawlGate {
-  const g = globalThis as unknown as { __seo_checker_site_gate?: CrawlGate };
-  g.__seo_checker_site_gate ??= { active: 0, perClient: new Map() };
-  return g.__seo_checker_site_gate;
-}
-
-/** クライアントの識別子（プロキシ経由の元 IP → 直接接続の IP → 不明） */
-function clientKey(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const first = forwarded?.split(",")[0]?.trim();
-  return first || request.headers.get("x-real-ip") || "unknown";
-}
-
-/** 空きがあれば確保して解放関数を返す。空きが無ければ null */
-function acquireCrawlSlot(client: string): (() => void) | null {
-  const gate = crawlGate();
-  if (gate.active >= MAX_CONCURRENT_CRAWLS) return null;
-  if ((gate.perClient.get(client) ?? 0) >= MAX_CONCURRENT_PER_CLIENT) return null;
-  gate.active += 1;
-  gate.perClient.set(client, (gate.perClient.get(client) ?? 0) + 1);
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    gate.active = Math.max(0, gate.active - 1);
-    const left = (gate.perClient.get(client) ?? 1) - 1;
-    if (left > 0) gate.perClient.set(client, left);
-    else gate.perClient.delete(client);
-  };
-}
-
-const NDJSON_HEADERS = {
-  "Content-Type": "application/x-ndjson; charset=utf-8",
-  "Cache-Control": "no-cache, no-store, no-transform",
-  "X-Content-Type-Options": "nosniff",
-  // nginx 系のプロキシが応答を溜め込まないように
-  "X-Accel-Buffering": "no",
-} as const;
-
-const encoder = new TextEncoder();
-
-function serializeLine(event: SiteStreamEvent): string {
-  return JSON.stringify(event) + "\n";
-}
-
-function statusFor(err: FetchError): number {
-  return err.code === "invalid_url" || err.code === "blocked_host" ? 400 : 502;
-}
 
 /**
  * POST { url, maxPages? }
@@ -94,8 +28,16 @@ function statusFor(err: FetchError): number {
  *
  * 入力の不備（URL 形式・内部ネットワーク）はストリームを始める前に 400 で返す。
  * ストリーム開始後はステータスを変えられないため、クロール中のエラーは error 行で届く。
+ *
+ * 同時実行の上限（同時 2 本・同一クライアント 1 本）は crawl/gate.ts の "site" の枠。
+ * 1 回の POST が対象サイトへ最大 60（サイトマップ）+ maxPages（クイック診断は 10）回の
+ * リクエストを出すため、上限を超えたら 429 で断る。
  */
 export async function POST(request: NextRequest) {
+  // 無料診断は登録（ログイン）が要る。回数の消費は、本当にクロールするときだけ（下の consumeFreeRun）
+  const signedOut = await requireFreeUser();
+  if (signedOut) return signedOut;
+
   let body: { url?: unknown; maxPages?: unknown };
   try {
     body = await request.json();
@@ -109,35 +51,22 @@ export async function POST(request: NextRequest) {
   if (maxPages !== undefined && maxPages !== null && typeof maxPages !== "number") {
     return Response.json({ error: "maxPages は数値で指定してください" }, { status: 400 });
   }
-  // 無料診断は登録したメールアドレスごとに回数制限（利用者の決定 2026-09-18）。ストリームを始める前に止める
-  const denied = await consumeFreeRun();
-  if (denied) return denied;
 
-  // ストリームを始める前に、入力自体の問題は通常のエラー応答で返す
-  try {
-    const entry = normalizeUrl(url);
-    await assertPublicHost(entry);
-  } catch (err) {
-    if (err instanceof FetchError) {
-      return Response.json({ error: err.message, code: err.code }, { status: statusFor(err) });
-    }
-    throw err;
-  }
+  // ストリームを始める前に、入力自体の問題は通常のエラー応答で返す（回数は減らさない）
+  const invalid = await publicUrlError(url);
+  if (invalid) return invalid;
 
   // この API はログイン不要（クイック診断）なので、画面が送ってきた maxPages を信用せず
   // サーバー側で必ず上限をかけ直す。全ページの採点は精密診断（/tools/seo-analysis）の役目
   const requested = typeof maxPages === "number" ? Math.min(maxPages, freeSiteMaxPages()) : freeSiteMaxPages();
   const pages = resolveMaxPages(requested);
-  const key = `${url.trim().toLowerCase()}|${pages}`;
+  const key = `${urlCacheKey(url)}|${pages}`;
   const cached = cache.get(key);
-  if (cached) {
-    return new Response(serializeLine({ type: "result", result: cached, cached: true }), {
-      headers: NDJSON_HEADERS,
-    });
-  }
+  // キャッシュ命中は費用が出ないので回数を減らさない（free/quota.ts の consumeFreeRun の約束）
+  if (cached) return ndjsonSingle({ type: "result", result: cached, cached: true } satisfies SiteStreamEvent);
 
-  // 実行中のクロールが多すぎるときはストリームを始めずに 429（キャッシュ命中は上で返している）
-  const release = acquireCrawlSlot(clientKey(request));
+  // 実行中のクロールが多すぎるときはストリームを始めずに 429（回数は減らさない）
+  const release = acquireCrawlSlot("site", crawlClientKey(request.headers));
   if (!release) {
     return Response.json(
       { error: "サイト全体の診断が混み合っています。しばらく待ってからお試しください", code: "busy" },
@@ -145,57 +74,49 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 無料診断は登録したメールアドレスごとに回数制限（利用者の決定 2026-09-18）。
+  // 2026-09-23: 以前は URL の検査・キャッシュ・混雑の判定より前に消費していたため、
+  // 形式の誤り・キャッシュ命中・429 でも回数が減っていた
+  const denied = await consumeFreeRun();
+  if (denied) {
+    release();
+    return denied;
+  }
+
   // クライアントが切断したらクロールを止める（request.signal と stream の cancel の両方を見る）
   const abort = new AbortController();
   const onClientAbort = () => abort.abort();
   request.signal?.addEventListener("abort", onClientAbort, { once: true });
 
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      let closed = false;
-      const send = (event: SiteStreamEvent) => {
-        if (closed) return;
-        try {
-          controller.enqueue(encoder.encode(serializeLine(event)));
-        } catch {
-          // 既に閉じられている（クライアント切断）
-          closed = true;
-        }
-      };
-
+  return ndjsonResponse<SiteStreamEvent>(
+    async (sink) => {
       try {
         const result = await analyzeSite(url, {
           maxPages: pages,
           signal: abort.signal,
-          onProgress: (progress) => send({ type: "progress", ...progress }),
+          onProgress: (progress) => sink.send({ type: "progress", ...progress }),
         });
         if (!abort.signal.aborted) {
           cache.set(key, result);
-          send({ type: "result", result, cached: false });
+          sink.send({ type: "result", result, cached: false });
         }
       } catch (err) {
         if (err instanceof FetchError) {
-          send({ type: "error", error: err.message, code: err.code });
+          sink.send({ type: "error", error: err.message, code: err.code });
         } else {
           console.error("[site] unexpected error", err);
-          send({ type: "error", error: "診断中に予期しないエラーが発生しました" });
+          sink.send({ type: "error", error: "診断中に予期しないエラーが発生しました" });
         }
       } finally {
         release();
         request.signal?.removeEventListener("abort", onClientAbort);
-        closed = true;
-        try {
-          controller.close();
-        } catch {
-          /* 既に閉じている */
-        }
       }
     },
-    cancel() {
-      abort.abort();
-      release();
+    {
+      onCancel: () => {
+        abort.abort();
+        release();
+      },
     },
-  });
-
-  return new Response(stream, { headers: NDJSON_HEADERS });
+  );
 }

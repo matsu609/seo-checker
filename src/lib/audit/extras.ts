@@ -8,6 +8,7 @@
 import type * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { MetaInfo } from "@/lib/analyzer/meta";
+import { ORGANIZATION_TYPES, typeNamesOf, walkJsonLd, walkOperatorCandidates } from "@/lib/analyzer/jsonld-walk";
 import { canonicalizeUrl } from "@/lib/crawl/url";
 import type { AuditLink, OrganizationSchema } from "./types";
 
@@ -37,12 +38,13 @@ const SKIP_SCHEME = /^(?:mailto|tel|sms|javascript|data|ftp):/i;
 const NOFOLLOW_RELS = new Set(["nofollow", "ugc", "sponsored"]);
 /** アンカーテキストの保存上限（分析には先頭だけあればよい） */
 const MAX_ANCHOR_TEXT = 80;
-/** ページごとに残す電話番号の上限 */
-const MAX_PHONES = 5;
+/**
+ * ページごとに残す電話番号の上限。支店一覧のページで構造化データの番号との突き合わせ
+ * （seo-analysis/trust.ts）が取りこぼさないよう、表示の上限（5）より多く持つ（2026-09-23）。
+ * 異常なページで膨らまないよう上限は残す（AuditPage.phones は保存しない）
+ */
+const MAX_PHONES = 50;
 
-/** Organization / LocalBusiness 系とみなす @type（接頭辞は落として比較） */
-const ORG_TYPE_RE =
-  /^(?:Organization|Corporation|LocalBusiness|Store|Restaurant|MedicalBusiness|ProfessionalService|EducationalOrganization|GovernmentOrganization|NGO|Dentist|Physician|Hospital|Hotel|LodgingBusiness|FoodEstablishment|AutoDealer|RealEstateAgent|LegalService|Attorney|AccountingService|FinancialService|HealthAndBeautyBusiness|BeautySalon|HairSalon|DaySpa|SportsActivityLocation|HomeAndConstructionBusiness|TravelAgency|InsuranceAgency|AutomotiveBusiness|EntertainmentBusiness|ChildCare|Library|School|Church|ShoppingCenter|ClothingStore|ElectronicsStore|Florist|Bakery|CafeOrCoffeeShop|BarOrPub)$/;
 
 /** 日本の電話番号（0 始まりで 3 区切り、または +81）。日付や郵便番号は 3 区切りにならないので混ざらない */
 const PHONE_RE = /(?:\+81[-\s()]*\d{1,4}|0\d{1,4})[-\s()]+\d{1,4}[-\s()]+\d{3,4}(?!\d)/g;
@@ -222,8 +224,6 @@ interface JsonLdFacts {
   organization: OrganizationSchema | null;
 }
 
-type JsonObject = Record<string, unknown>;
-
 function readJsonLd($: cheerio.CheerioAPI): JsonLdFacts {
   const facts: JsonLdFacts = { datePublished: null, dateModified: null, hasAuthor: false, organization: null };
   $('script[type="application/ld+json"]').each((_, el) => {
@@ -235,29 +235,26 @@ function readJsonLd($: cheerio.CheerioAPI): JsonLdFacts {
     } catch {
       return;
     }
-    walk(data, (node) => {
+    walkJsonLd(data, (node) => {
       if (!facts.datePublished && typeof node.datePublished === "string") facts.datePublished = node.datePublished;
       if (!facts.dateModified && typeof node.dateModified === "string") facts.dateModified = node.dateModified;
       if (node.author) facts.hasAuthor = true;
-      if (!facts.organization) {
-        const type = typeNames(node["@type"]).find((t) => ORG_TYPE_RE.test(t));
-        if (type) {
-          facts.organization = {
-            type,
-            telephone: typeof node.telephone === "string" ? normalizePhone(node.telephone) : null,
-            hasAddress: hasValue(node.address),
-            sameAs: Array.isArray(node.sameAs) ? node.sameAs.length : typeof node.sameAs === "string" && node.sameAs ? 1 : 0,
-          };
-        }
-      }
+    });
+    // 運営者は最上位・@graph・publisher などのノードだけで探す（クイック診断の jsonld.ts と同じ。
+    // 記事の著者や商品のブランドの Organization を運営者として拾わない。2026-09-23）
+    walkOperatorCandidates(data, (node) => {
+      if (facts.organization) return;
+      const type = typeNamesOf(node["@type"]).find((t) => ORGANIZATION_TYPES.has(t));
+      if (!type) return;
+      facts.organization = {
+        type,
+        telephone: typeof node.telephone === "string" ? normalizePhone(node.telephone) : null,
+        hasAddress: hasValue(node.address),
+        sameAs: Array.isArray(node.sameAs) ? node.sameAs.length : typeof node.sameAs === "string" && node.sameAs ? 1 : 0,
+      };
     });
   });
   return facts;
-}
-
-function typeNames(t: unknown): string[] {
-  const list = Array.isArray(t) ? t : t ? [t] : [];
-  return list.filter((v): v is string => typeof v === "string").map((v) => v.split(/[/#:]/).pop() || v);
 }
 
 function hasValue(v: unknown): boolean {
@@ -266,16 +263,3 @@ function hasValue(v: unknown): boolean {
   return Boolean(v && typeof v === "object" && Object.keys(v as object).length > 0);
 }
 
-function walk(node: unknown, visit: (obj: JsonObject) => void): void {
-  if (Array.isArray(node)) {
-    for (const item of node) walk(item, visit);
-    return;
-  }
-  if (node && typeof node === "object") {
-    const obj = node as JsonObject;
-    visit(obj);
-    for (const value of Object.values(obj)) {
-      if (value && typeof value === "object") walk(value, visit);
-    }
-  }
-}

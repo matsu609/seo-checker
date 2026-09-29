@@ -153,13 +153,16 @@ export function validateLlmsTxt(text: string, options: ValidateOptions): Validat
         ? "リンクがないため評価できません。"
         : `${parsed.links.filter((l) => l.description).length} / ${parsed.links.length} 件に説明が付いています`,
     ),
+    // リンクが 0 件のときは「すべて絶対 URL」と合格にしない（リンクの説明と同じく評価できない。2026-09-23）
     check(
       "absolute",
       "絶対 URL",
-      parsed.links.every((l) => /^https?:\/\//i.test(l.url)) ? "pass" : "warn",
-      parsed.links.every((l) => /^https?:\/\//i.test(l.url))
-        ? "すべてのリンクが絶対 URL です"
-        : `相対 URL が ${parsed.links.filter((l) => !/^https?:\/\//i.test(l.url)).length} 件あります。llms.txt は単体で読まれるため、絶対 URL で書いてください。`,
+      parsed.links.length === 0 ? "warn" : parsed.links.every((l) => /^https?:\/\//i.test(l.url)) ? "pass" : "warn",
+      parsed.links.length === 0
+        ? "リンクがないため評価できません。"
+        : parsed.links.every((l) => /^https?:\/\//i.test(l.url))
+          ? "すべてのリンクが絶対 URL です"
+          : `相対 URL が ${parsed.links.filter((l) => !/^https?:\/\//i.test(l.url)).length} 件あります。llms.txt は単体で読まれるため、絶対 URL で書いてください。`,
     ),
   ];
 

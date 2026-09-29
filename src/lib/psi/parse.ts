@@ -102,7 +102,8 @@ export function parsePsi(raw: unknown, options: ParsePsiOptions): PsiResult {
     requestedUrl: str(lighthouse?.requestedUrl) || options.requestedUrl,
     finalUrl: str(lighthouse?.finalUrl) || str(lighthouse?.finalDisplayedUrl) || options.requestedUrl,
     strategy: options.strategy,
-    fetchedAt: options.fetchedAt ?? str(lighthouse?.fetchTime) ?? new Date().toISOString(),
+    // str() は空文字を返すので `??` では既定値に落ちない（2026-09-23: fetchTime が無いと "" になっていた）
+    fetchedAt: options.fetchedAt ?? (str(lighthouse?.fetchTime) || new Date().toISOString()),
     categories: {
       performance: categoryScore(obj(lighthouse?.categories), "performance"),
       accessibility: categoryScore(obj(lighthouse?.categories), "accessibility"),

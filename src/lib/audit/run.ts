@@ -10,6 +10,7 @@
 import robotsParser from "robots-parser";
 import { assertHtmlPage } from "@/lib/analyzer";
 import { FetchError, assertPublicHost, fetchText, normalizeUrl, type FetchedText } from "@/lib/analyzer/fetch";
+import { hasNoindexDirective } from "@/lib/analyzer/meta-tags";
 import {
   blockedAmong,
   fetchSiteFiles,
@@ -83,8 +84,18 @@ export async function runAudit(input: string, options: RunAuditOptions = {}): Pr
   const entryLoadMs = Date.now() - entryStarted;
   assertHtmlPage(entryPage);
 
-  const origin = new URL(entryPage.finalUrl).origin;
-  const entryUrl = canonicalizeUrl(entry.toString()) ?? entry.toString();
+  // オリジンと入力ページの URL は、どちらもリダイレクト後の URL から取る（analyzer/site.ts と同じ）。
+  // 2026-09-23: 以前は入力ページだけ転送前の URL のままだったため、裸のドメイン → www や
+  // http → https へ転送されるサイトでは crawlSite が入力ページを「別オリジン」として捨て、
+  // サイトマップが無いと 0 ページ、あっても深さとトップページの判定がずれていた
+  const finalEntry = new URL(entryPage.finalUrl);
+  const auditNotes: string[] = [];
+  if (finalEntry.origin !== entry.origin) {
+    await assertPublicHost(finalEntry);
+    auditNotes.push(`リダイレクト先 ${finalEntry.origin} を診断しました`);
+  }
+  const origin = finalEntry.origin;
+  const entryUrl = canonicalizeUrl(finalEntry.toString()) ?? finalEntry.toString();
   const siteFiles = await fetchSiteFiles(origin);
 
   // --- サイトマップの URL 一覧（クロールとの差分に使う） ---------------------
@@ -199,7 +210,8 @@ export async function runAudit(input: string, options: RunAuditOptions = {}): Pr
   }
 
   return buildResult({
-    startUrl: entry.toString(),
+    // 診断したトップページ（転送後）。collect.ts・事実シートがこの URL でトップの行を引く
+    startUrl: entryUrl,
     origin,
     crawledAt: new Date().toISOString(),
     pages,
@@ -219,7 +231,7 @@ export async function runAudit(input: string, options: RunAuditOptions = {}): Pr
       timed: pages.filter((p) => p.loadMs !== null).length,
     },
     failures: crawl.failures,
-    notes: [...crawl.notes, ...discovery.notes.filter((n) => !crawl.notes.includes(n))],
+    notes: [...auditNotes, ...crawl.notes, ...discovery.notes.filter((n) => !crawl.notes.includes(n))],
   });
 }
 
@@ -264,7 +276,7 @@ export function buildResult(input: BuildResultInput): AuditResult {
     inContentInlinks: structureByUrl.get(page.url)?.inContentInlinks ?? 0,
     importance: structureByUrl.get(page.url)?.importance ?? 0,
     canonical: resolveCanonical(page),
-    noindex: page.metaRobots.includes("noindex") || page.xRobotsTag.includes("noindex"),
+    noindex: hasNoindexDirective(page.metaRobots) || hasNoindexDirective(page.xRobotsTag),
     issues: perPage.get(page.url) ?? 0,
   }));
 

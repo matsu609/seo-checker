@@ -45,6 +45,22 @@ describe("構造化データ", () => {
     expect(audit.jsonLd.questions).toEqual(["駐車場はありますか？"]);
   });
 
+  it("hasPart の中の FAQPage と schema: 接頭辞もクイック診断と同じく見つける", () => {
+    // 2026-09-23 まで @graph / mainEntity / itemListElement しか降りず、接頭辞も外していなかった
+    const html = `<html><body><script type="application/ld+json">${JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      hasPart: {
+        "@type": "schema:FAQPage",
+        mainEntity: [{ "@type": "https://schema.org/Question", name: "駐車場はありますか？" }],
+      },
+    })}</script><p>駐車場はありますか？ はい、3 台あります。</p></body></html>`;
+    const audit = auditFaq(html);
+    expect(audit.jsonLd.present).toBe(true);
+    expect(audit.jsonLd.questions).toEqual(["駐車場はありますか？"]);
+    expect(status(html, "jsonld")).toBe("ok");
+  });
+
   it("無ければ「足りない」。壊れた JSON は書式の失格として数える", () => {
     const html = "<html><body><h2>サービス</h2><script type=\"application/ld+json\">{壊れている}</script></body></html>";
     expect(status(html, "jsonld")).toBe("fail");

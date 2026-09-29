@@ -7,6 +7,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { FetchError } from "@/lib/analyzer/fetch";
+import { fetchErrorResponse, publicUrlError } from "@/lib/analyzer/fetch-response";
 import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
@@ -75,6 +76,13 @@ export async function POST(request: NextRequest) {
     if (cached) return Response.json({ result: cached, cached: true });
   }
 
+  // 対象 URL が指定されていれば、回数を数える前に形式と内部ネットワークを検査する。
+  // 2026-09-23: 以前は回数を数えて検索（実費）まで進み、対象ページは「取得できなかった」の注記になっていた
+  if (url) {
+    const invalid = await publicUrlError(url);
+    if (invalid) return invalid;
+  }
+
   // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
   const over = await takeUsage("page-diagnosis", 1, { step: "diagnose" });
   if (over) return over;
@@ -96,10 +104,7 @@ export async function POST(request: NextRequest) {
       const status = err.code === "auth" ? 503 : err.code === "rate_limit" ? 429 : 502;
       return Response.json({ error: err.message }, { status });
     }
-    if (err instanceof FetchError) {
-      const status = err.code === "invalid_url" || err.code === "blocked_host" ? 400 : 502;
-      return Response.json({ error: err.message }, { status });
-    }
+    if (err instanceof FetchError) return fetchErrorResponse(err);
     const info = toApiError(err);
     if (info.status !== 500) {
       return Response.json({ error: info.message }, { status: info.status });

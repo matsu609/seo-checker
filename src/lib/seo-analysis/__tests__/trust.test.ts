@@ -35,6 +35,22 @@ describe("信頼の手がかり", () => {
     }
   });
 
+  // 2026-09-23 まではサイト全体で最初の 5 番号だけと突き合わせていた（ページごとにも 5 件で打ち切り）
+  it("支店の多いサイトでも、6 番目以降に載っている構造化データの番号を見つける", () => {
+    const branches = Array.from({ length: 8 }, (_, i) => `<li>第${i + 1}店 TEL 03-1111-${String(1000 + i)}</li>`).join("");
+    const org = `<script type="application/ld+json">{"@type":"Organization","name":"x","telephone":"03-1111-1007"}</script>`;
+    const pages = [
+      page("/", `<main><p>TEL 06-2222-0001</p></main>`, org),
+      page("/shops", `<main><h1>店舗一覧</h1><ul>${branches}</ul></main>`),
+    ];
+    const t = analyzeTrust(pages, `${ORIGIN}/`);
+    expect(t.nap.consistent).toBe(true);
+    expect(status(t.checks, "nap")).toBe("pass");
+    // 表示は最大 5 件で、見つかった構造化データの番号を先頭に出す
+    expect(t.nap.phones).toHaveLength(5);
+    expect(t.nap.phones[0]).toBe("0311111007");
+  });
+
   it("フォームがあるのにプライバシーポリシーが無ければ fail、電話の不一致も fail", () => {
     const org = `<script type="application/ld+json">{"@type":"Organization","name":"x","telephone":"03-9999-9999"}</script>`;
     const pages = [

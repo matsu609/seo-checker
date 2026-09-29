@@ -23,3 +23,31 @@ export function clip(text: string, max: number): string {
   const clean = normalizeText(text);
   return clean.length <= max ? clean : `${clean.slice(0, max)}…`;
 }
+
+/**
+ * 表示幅。日本語は 1 文字あたりの情報量が多いので、全角文字（U+2E80 以降）を 2 幅として数える。
+ * クイック診断（meta.ts）・サイト診断（audit/parse.ts）・ページ診断（page-report/extract.ts）で
+ * 同じ数え方をするため、ここに 1 つだけ置く（2026-09-23 に 3 か所の複製をまとめた）。
+ */
+export function displayWidth(text: string): number {
+  let width = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    width += code > 0x2e7f ? 2 : 1;
+  }
+  return width;
+}
+
+/** 全角換算の文字数（表示用）。displayWidth の半分を切り上げる */
+export function fullWidthCount(text: string): number {
+  return Math.ceil(displayWidth(text) / 2);
+}
+
+/** URL のオリジン。読めなければ空文字 */
+export function safeOrigin(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "";
+  }
+}

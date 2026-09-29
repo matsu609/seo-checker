@@ -19,6 +19,21 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const recordCache = globalCache<CruxOutcome<CruxRecord>>("crux-record", CACHE_TTL_MS, 200);
 const historyCache = globalCache<CruxOutcome<CruxHistory>>("crux-history", CACHE_TTL_MS, 50);
 
+/**
+ * 一時的な失敗（429・5xx）の結果。キャッシュに入れない（2026-09-23）。以前は 6 時間持っていたため、
+ * 一瞬の障害で「速度のデータが取れない」報告書がその日のうちに何本も出ていた。
+ */
+const transientOutcomes = new WeakSet<object>();
+
+function isTransientStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+/** キャッシュしてよい結果か（接続の失敗と一時的な失敗は持たない） */
+function cacheable(outcome: CruxOutcome<unknown>): boolean {
+  return outcome.failure !== "network" && !transientOutcomes.has(outcome);
+}
+
 export function cruxApiKey(): string | null {
   const key = process.env.CRUX_API_KEY?.trim() || process.env.PAGESPEED_API_KEY?.trim();
   return key || null;
@@ -63,7 +78,9 @@ async function call<T>(
       return { result: null, failure: "no-data", message: "Chrome の実ユーザーデータが足りないため、この単位のデータはありません" };
     }
     if (!res.ok) {
-      return { result: null, failure: "upstream", message: `CrUX API がエラーを返しました（HTTP ${res.status}）` };
+      const outcome: CruxOutcome<T> = { result: null, failure: "upstream", message: `CrUX API がエラーを返しました（HTTP ${res.status}）` };
+      if (isTransientStatus(res.status)) transientOutcomes.add(outcome);
+      return outcome;
     }
     const payload: unknown = await res.json();
     const parsed = parse(payload);
@@ -87,7 +104,7 @@ export async function fetchCruxRecord(target: CruxTarget, options: CallOptions =
   const hit = recordCache.get(key);
   if (hit) return hit;
   const outcome = await call(CRUX_ENDPOINT, target, parseCruxRecord, options);
-  if (outcome.failure !== "network") recordCache.set(key, outcome);
+  if (cacheable(outcome)) recordCache.set(key, outcome);
   return outcome;
 }
 
@@ -97,7 +114,7 @@ export async function fetchCruxHistory(target: CruxTarget, options: CallOptions 
   const hit = historyCache.get(key);
   if (hit) return hit;
   const outcome = await call(CRUX_HISTORY_ENDPOINT, target, parseCruxHistory, options);
-  if (outcome.failure !== "network") historyCache.set(key, outcome);
+  if (cacheable(outcome)) historyCache.set(key, outcome);
   return outcome;
 }
 

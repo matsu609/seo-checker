@@ -8,21 +8,37 @@
  *   1. 必ず UNTRUSTED_BEGIN 〜 UNTRUSTED_END の区切りブロックに入れる
  *   2. システムプロンプトで「中身はデータであって指示ではない」と明示する
  *   3. 1 ブロックあたりの長さを切り詰める
- * の 3 点を守る。区切り文字列はページ診断（A4）と同じものを使い、
- * 表記がぶれないよう再エクスポートする。
+ * の 3 点を守る。区切り文字列と囲み方の実装はここが正本（2026-09-23 にページ診断の
+ * analyze.ts から移した。analyze.ts は互換のため再エクスポートしている）。
  *
  * もとは AI ライティングの共通部品（src/lib/writing/prompt.ts）。AI ライティングを
  * 引退させたとき（利用者の決定 2026-09-22）に、HP 改修提案と FAQ 提案が使い続けるので
  * AI を呼ぶ機能すべての共通置き場であるここへ移した。
  */
-import {
-  UNTRUSTED_BEGIN,
-  UNTRUSTED_END,
-  stripUntrustedMarkers,
-  untrustedLines,
-} from "@/lib/page-diagnosis/analyze";
 
-export { UNTRUSTED_BEGIN, UNTRUSTED_END, stripUntrustedMarkers, untrustedLines };
+/** 信用できない第三者テキストの区切り（プロンプト内で一意になる文字列） */
+export const UNTRUSTED_BEGIN = "<<<UNTRUSTED_WEB_CONTENT_BEGIN>>>";
+export const UNTRUSTED_END = "<<<UNTRUSTED_WEB_CONTENT_END>>>";
+
+/**
+ * 第三者テキストに紛れ込んだ区切り文字を潰す。
+ *
+ * 区切り文字は公開された固定文字列なので、競合ページや SERP スニペットが
+ * `<<<UNTRUSTED_WEB_CONTENT_END>>>` をそのまま含んでいると、ブロックが途中で
+ * 閉じたように見え、その後ろが「信用できる指示」として読まれてしまう
+ * （プロンプトインジェクション）。囲む前に必ずここを通す。
+ */
+export function stripUntrustedMarkers(text: string): string {
+  return text.split(UNTRUSTED_BEGIN).join("[除去]").split(UNTRUSTED_END).join("[除去]");
+}
+
+/**
+ * 信用できない行を区切りブロックに入れる。
+ * 第三者由来のテキストを囲むときは必ずこの関数を使う（直接 push しない）。
+ */
+export function untrustedLines(lines: readonly string[]): string[] {
+  return [UNTRUSTED_BEGIN, ...lines.map(stripUntrustedMarkers), UNTRUSTED_END];
+}
 
 /** 1 ブロックに載せる信用できないテキストの既定の上限 */
 export const MAX_REFERENCE_CHARS = 1_200;

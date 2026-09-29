@@ -11,26 +11,16 @@ import { extractContent } from "@/lib/analyzer/content";
 import { extractHeadings, findLevelSkips } from "@/lib/analyzer/headings";
 import { extractJsonLd } from "@/lib/analyzer/jsonld";
 import { extractMeta } from "@/lib/analyzer/meta";
+import { hasMetaName, readMetaRobots } from "@/lib/analyzer/meta-tags";
+import { displayWidth } from "@/lib/analyzer/text";
 import { canonicalizeUrl, extractLinks } from "@/lib/crawl/url";
 import { DEPRECATED_TAGS } from "./config";
 import { extractExtras } from "./extras";
 import { contentFingerprint, minHashSignature } from "./similarity";
 import type { AuditPage, HeadingNode } from "./types";
 
-/** 日本語は 1 文字の情報量が多いので、全角を 2 幅として数える（analyzer/meta と同じ数え方） */
-export function displayWidth(text: string): number {
-  let width = 0;
-  for (const ch of text) {
-    const code = ch.codePointAt(0) ?? 0;
-    width += code > 0x2e7f ? 2 : 1;
-  }
-  return width;
-}
-
-/** 全角換算の文字数（表示用）。displayWidth の半分を切り上げる */
-export function fullWidthCount(text: string): number {
-  return Math.ceil(displayWidth(text) / 2);
-}
+/** 表示幅と全角換算の文字数は analyzer/text.ts の 1 つだけを使う（ルールはここから import している） */
+export { displayWidth, fullWidthCount } from "@/lib/analyzer/text";
 
 /** サブリソースの参照元になる属性 */
 const RESOURCE_SELECTORS = [
@@ -149,9 +139,10 @@ export function parseAuditPage(fetched: FetchedText, options: ParseOptions = {})
     canonicalCount: $('link[rel="canonical"]').length,
     ogUrl: $('meta[property="og:url"]').attr("content")?.trim() || null,
 
-    metaRobots: ($('meta[name="robots"]').attr("content") ?? "").toLowerCase(),
+    // robots と googlebot をすべて読む（name は大文字小文字を区別しない。meta-tags.ts）
+    metaRobots: readMetaRobots($),
     xRobotsTag: (fetched.headers.get("x-robots-tag") ?? "").toLowerCase(),
-    hasViewport: $('meta[name="viewport"]').length > 0,
+    hasViewport: hasMetaName($, "viewport"),
     hasFaviconLink: $('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').length > 0,
     metaRefresh: $('meta[http-equiv]')
       .filter((_, el) => ($(el).attr("http-equiv") ?? "").toLowerCase() === "refresh")

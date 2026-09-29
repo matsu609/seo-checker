@@ -435,7 +435,14 @@ describe("robots・llms", () => {
       fetched(idealHtml()),
       siteFiles({ robotsTxt: "User-agent: GPTBot\nDisallow: /\nUser-agent: CCBot\nDisallow: /\n" }),
     );
-    expect(rowOf(report, "robots", "学習用 AI クローラの扱い").status).toBe("良好");
+    // 2026-09-23 まで「良好」（0.6）で減点しており、備考の「減点ではありません」と食い違っていた
+    const row = rowOf(report, "robots", "学習用 AI クローラの扱い");
+    expect(row.status).toBe("適切");
+    expect(row.content).toContain("GPTBot");
+    const allowed = buildPageReport(fetched(idealHtml()), siteFiles());
+    const ratioOf = (r: PageReport) => r.sections.find((s) => s.id === "robots")?.ratio;
+    expect(ratioOf(report)).toBe(ratioOf(allowed));
+    expect(report.priorities.some((p) => p.title.includes("学習用"))).toBe(false);
   });
 });
 
@@ -534,6 +541,12 @@ describe("測れていない行を満点にしない", () => {
     const row = rowOf(report, "structuredData", "文法の正しさ");
     expect(row.content).toContain("検証していません");
     expect(row.status).not.toBe("適切");
+    // 備考が「減点していません」と実態に反することを言わない（2026-09-23）
+    expect(row.note).not.toContain("減点していません");
+    // 必須プロパティの行も「要件を満たしています」と言わない
+    const required = rowOf(report, "structuredData", "必須プロパティ");
+    expect(required.status).toBe("要改善");
+    expect(required.note).not.toContain("満たしています");
   });
 
   it("リンクが 1 本も無ければ「アンカーテキストの具体性」は満点にしない", () => {

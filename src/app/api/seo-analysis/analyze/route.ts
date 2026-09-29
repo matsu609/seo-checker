@@ -16,6 +16,7 @@ import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { generateAnalysis } from "@/lib/seo-analysis/ai/analyze";
 import { getRun, MAX_ANALYSES_PER_RUN, saveAnalysis } from "@/lib/seo-analysis/runs";
 import { requireUser } from "@/lib/auth/guard";
+import { ndjsonResponse } from "@/lib/crawl/stream";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -23,12 +24,6 @@ export const maxDuration = 300;
 /** 自分から打ち切る時間（Vercel の 300 秒より手前） */
 export const DEADLINE_MS = 270_000;
 const HEARTBEAT_MS = 2_000;
-
-const NDJSON_HEADERS = {
-  "Content-Type": "application/x-ndjson; charset=utf-8",
-  "Cache-Control": "no-cache, no-store, no-transform",
-  "X-Accel-Buffering": "no",
-};
 
 const BodySchema = z.object({ runId: z.string().uuid() });
 
@@ -60,58 +55,41 @@ export async function POST(request: NextRequest) {
   const runId = run.id;
   const nextCount = run.analysisCount + 1;
 
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      let closed = false;
-      const send = (obj: unknown) => {
-        if (closed) return;
-        try {
-          controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
-        } catch {
-          closed = true;
-        }
-      };
-      const started = Date.now();
-      let outputChars = 0;
-      let attempt = 1;
-      const progress = () => send({ type: "progress", elapsedMs: Date.now() - started, outputChars, attempt });
-      const heartbeat = setInterval(progress, HEARTBEAT_MS);
-      // 生成は画面が閉じても最後まで続けて保存する（request.signal には結ばない）。時間だけで打ち切る
-      const deadline = new AbortController();
-      const deadlineTimer = setTimeout(() => deadline.abort(), DEADLINE_MS);
-      progress();
-      try {
-        const record = await generateAnalysis(sheet, {
-          signal: deadline.signal,
-          onProgress: (p) => {
-            outputChars = p.outputChars;
-            attempt = p.attempt;
-            progress();
-          },
-        });
-        await saveAnalysis(userId, runId, record, nextCount);
-        send({ type: "result", analysis: record, analysisCount: nextCount });
-      } catch (err) {
-        if (deadline.signal.aborted) {
-          send({ type: "error", error: `アドバイスの作成が ${Math.round(DEADLINE_MS / 60_000)} 分以内に終わりませんでした。「アドバイスを作り直す」を押してください`, code: "timeout" });
-        } else if (err instanceof DbError) {
-          send({ type: "error", error: err.message, code: err.code });
-        } else {
-          const { message } = toApiError(err);
-          send({ type: "error", error: message });
-        }
-      } finally {
-        clearInterval(heartbeat);
-        clearTimeout(deadlineTimer);
-        closed = true;
-        try {
-          controller.close();
-        } catch {
-          /* 既に閉じている */
-        }
+  // 共通の NDJSON 応答（nosniff 付き・切断後は書かない。crawl/stream.ts）
+  return ndjsonResponse<unknown>(async (sink) => {
+    const send = (obj: unknown) => sink.send(obj);
+    const started = Date.now();
+    let outputChars = 0;
+    let attempt = 1;
+    const progress = () => send({ type: "progress", elapsedMs: Date.now() - started, outputChars, attempt });
+    const heartbeat = setInterval(progress, HEARTBEAT_MS);
+    // 生成は画面が閉じても最後まで続けて保存する（request.signal には結ばない）。時間だけで打ち切る
+    const deadline = new AbortController();
+    const deadlineTimer = setTimeout(() => deadline.abort(), DEADLINE_MS);
+    progress();
+    try {
+      const record = await generateAnalysis(sheet, {
+        signal: deadline.signal,
+        onProgress: (p) => {
+          outputChars = p.outputChars;
+          attempt = p.attempt;
+          progress();
+        },
+      });
+      await saveAnalysis(userId, runId, record, nextCount);
+      send({ type: "result", analysis: record, analysisCount: nextCount });
+    } catch (err) {
+      if (deadline.signal.aborted) {
+        send({ type: "error", error: `アドバイスの作成が ${Math.round(DEADLINE_MS / 60_000)} 分以内に終わりませんでした。「アドバイスを作り直す」を押してください`, code: "timeout" });
+      } else if (err instanceof DbError) {
+        send({ type: "error", error: err.message, code: err.code });
+      } else {
+        const { message } = toApiError(err);
+        send({ type: "error", error: message });
       }
-    },
+    } finally {
+      clearInterval(heartbeat);
+      clearTimeout(deadlineTimer);
+    }
   });
-  return new Response(stream, { headers: NDJSON_HEADERS });
 }

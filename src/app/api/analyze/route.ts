@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { analyze, FetchError, type AnalysisResult } from "@/lib/analyzer";
+import { fetchErrorResponse, publicUrlError, urlCacheKey } from "@/lib/analyzer/fetch-response";
 import { globalCache } from "@/lib/cache";
 import { consumeFreeRun, requireFreeUser } from "@/lib/free/quota";
 
@@ -23,7 +24,12 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "URLを入力してください" }, { status: 400 });
   }
 
-  const key = url.trim().toLowerCase();
+  // 形式の誤った URL・内部ネットワークは回数を減らさずに 400（2026-09-23: 以前は消費してから検査していた）
+  const invalid = await publicUrlError(url);
+  if (invalid) return invalid;
+
+  // スキームとホストだけを小文字にする（/About と /about を同じ結果にしない。2026-09-23）
+  const key = urlCacheKey(url);
   const cached = cache.get(key);
   if (cached) {
     return Response.json({ result: cached, cached: true });
@@ -37,10 +43,7 @@ export async function POST(request: NextRequest) {
     cache.set(key, result);
     return Response.json({ result, cached: false });
   } catch (err) {
-    if (err instanceof FetchError) {
-      const status = err.code === "invalid_url" || err.code === "blocked_host" ? 400 : 502;
-      return Response.json({ error: err.message, code: err.code }, { status });
-    }
+    if (err instanceof FetchError) return fetchErrorResponse(err);
     console.error("[analyze] unexpected error", err);
     return Response.json({ error: "診断中に予期しないエラーが発生しました" }, { status: 500 });
   }

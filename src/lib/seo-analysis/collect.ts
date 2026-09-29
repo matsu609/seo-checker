@@ -39,6 +39,25 @@ export interface CollectOptions {
   onProgress?: (p: CollectProgress) => void;
 }
 
+/**
+ * 収集が途中で止められた（自動再診断の時間切れ・画面を閉じた）。
+ *
+ * 2026-09-23: crawlSite は中断されても例外を出さずに途中までのページを返すため、
+ * 以前は「一部だけクロールした結果」が普通の診断として保存され、前回（全ページ）との
+ * 比較で悪化していない項目まで「悪化した点」としてお客様に知らせていた。
+ * 中断されたら事実シートを作らずにこの例外で止め、保存も通知もしない。
+ */
+export class CollectAbortedError extends Error {
+  constructor() {
+    super("収集が途中で止まりました");
+    this.name = "CollectAbortedError";
+  }
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new CollectAbortedError();
+}
+
 export interface CollectResult {
   sheet: SeoFactSheet;
   /** サイト診断の全結果（報告書の「詳細」に出す） */
@@ -55,6 +74,8 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     signal: options.signal,
     onProgress: (p) => emit("crawl", `クロール中（${p.fetched} ページ取得）`, p),
   });
+  // 途中までのクロールで検索（実費）や比較に進まない
+  throwIfAborted(options.signal);
   const entryUrl = canonicalizeUrl(audit.startUrl) ?? audit.startUrl;
   const homeRow = audit.pages.find((p) => p.url === entryUrl) ?? audit.pages[0];
 
@@ -75,6 +96,7 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
         competitors: input.competitors,
         brand: input.brand,
         homeTitle: homeRow?.title ?? null,
+        pageTitles: audit.pages.filter((p) => p !== homeRow).flatMap((p) => (p.title ? [p.title] : [])),
         region: input.region,
         signal: options.signal,
       });
@@ -91,6 +113,9 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     // 事実シートの「Google 連携」の層は空のまま、案内文だけを載せる
     (async () => unusedGoogleOutcome())(),
   ]);
+
+  // 速度・検索・外部評価のどれかが中断で欠けていれば、欠けたまま保存しない
+  throwIfAborted(options.signal);
 
   const domain = buildExternalEvaluation({
     host: domainFacts.host,

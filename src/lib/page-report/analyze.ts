@@ -7,6 +7,7 @@
  */
 import type { FetchedText } from "@/lib/analyzer/fetch";
 import { notForSearch } from "@/lib/analyzer/page-kind";
+import { safeOrigin } from "@/lib/analyzer/text";
 import type { SiteFiles } from "@/lib/analyzer/robots";
 import type { PsiResult } from "@/lib/psi/types";
 import { PAGE_REPORT_THRESHOLDS, SECTION_LABELS, type SectionId } from "./config";
@@ -234,10 +235,13 @@ function structuredDataRows(m: PageMeasurements): ReportRow[] {
           : missing.length === 0
             ? `${nodes.length} 件のタイプすべてで必須プロパティがそろっています`
             : missing.map((n) => `${n.type}: ${n.missing.join(" / ")} が不足`).join("、"),
+      // 2026-09-23: JSON-LD が無いページ（要改善）に「要件を満たしています」と出していた
       note:
-        missing.length === 0
-          ? "リッチリザルトの要件を満たしています。"
-          : "不足しているプロパティを補ってください。必須項目が欠けている構造化データは検索エンジンに無視されることがあります。",
+        nodes.length === 0
+          ? "構造化データを追加したら、必須プロパティがそろっているかをこの行で確認できます。"
+          : missing.length === 0
+            ? "リッチリザルトの要件を満たしています。"
+            : "不足しているプロパティを補ってください。必須項目が欠けている構造化データは検索エンジンに無視されることがあります。",
     },
     {
       item: "文法の正しさ",
@@ -251,9 +255,11 @@ function structuredDataRows(m: PageMeasurements): ReportRow[] {
           : parseErrors === 0
             ? "JSON として正しく読み取れます"
             : `${parseErrors} ブロックがパースできません`,
+      // 2026-09-23: JSON-LD が無いときに「この行では減点していません」と書いていたが、
+      // この行は上の方針どおり要改善（0 点）で数えているので、備考を実態に合わせた
       note:
         blocks === 0
-          ? "構造化データを追加したら、JSON として読める形式になっているかをこの行で確認できます（この行では減点していません）。"
+          ? "構造化データを追加したら、JSON として読める形式になっているかをこの行で確認できます（JSON-LD が無い間は、この行も要改善として数えます）。"
           : parseErrors === 0
             ? "末尾カンマや引用符の不一致はありません。"
             : "JSON として読めない構造化データは完全に無視されます。末尾カンマ・引用符・コメントの混入を確認してください。",
@@ -482,8 +488,11 @@ function robotsRows(
     },
     {
       item: "学習用 AI クローラの扱い",
-      // 学習を断るのは正当な選択なので、拒否していても「要改善」にはしない
-      status: trainingBlocked === 0 ? "適切" : "良好",
+      // 学習を断るのは正当な選択なので減点しない（クイック診断の ai-crawlers-training と同じ。
+      // scoring-reference §0 約束 0・§1）。2026-09-23: 以前は拒否すると「良好」（0.6）で
+      // 減点しており、備考の「減点ではありません」と食い違い、改善の優先順位に
+      // 「学習用クローラの拒否を外す」が出ることがあった
+      status: "適切",
       content:
         trainingBlocked === 0
           ? `${robots.total.training} 種すべて許可`
@@ -621,10 +630,3 @@ function buildPriorities(sections: readonly ReportSection[]): PageReport["priori
     });
 }
 
-function safeOrigin(url: string): string {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return "";
-  }
-}

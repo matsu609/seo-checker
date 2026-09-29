@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { assertHtmlPage } from "@/lib/analyzer";
 import { FetchError, assertPublicHost, fetchText, normalizeUrl } from "@/lib/analyzer/fetch";
+import { fetchErrorResponse, urlCacheKey } from "@/lib/analyzer/fetch-response";
 import { fetchSiteFiles } from "@/lib/analyzer/robots";
 import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
@@ -56,7 +57,8 @@ export async function POST(request: NextRequest) {
 
   const withPsi = psi !== false;
   const psiStrategy = strategy === "desktop" ? "desktop" : "mobile";
-  const key = `${url.trim().toLowerCase()}|${withPsi ? psiStrategy : "none"}`;
+  // スキームとホストだけを小文字にする（/About と /about を同じ結果にしない。2026-09-23）
+  const key = `${urlCacheKey(url)}|${withPsi ? psiStrategy : "none"}`;
   if (refresh !== true) {
     const cached = cache.get(key);
     if (cached) return Response.json({ report: cached, cached: true });
@@ -87,10 +89,7 @@ export async function POST(request: NextRequest) {
     cache.set(key, report);
     return Response.json({ report, cached: false });
   } catch (err) {
-    if (err instanceof FetchError) {
-      const status = err.code === "invalid_url" || err.code === "blocked_host" ? 400 : 502;
-      return Response.json({ error: err.message, code: err.code }, { status });
-    }
+    if (err instanceof FetchError) return fetchErrorResponse(err);
     console.error("[page-report] unexpected error", err);
     return Response.json({ error: "レポートの生成中にエラーが発生しました" }, { status: 500 });
   }

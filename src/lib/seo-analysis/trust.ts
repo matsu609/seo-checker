@@ -10,6 +10,7 @@ import type { AuditPage } from "@/lib/audit/types";
 import { classifyPage } from "./kinds";
 import type { PageKind, TrustCheck, TrustSignals } from "./types";
 
+/** 画面（TrustCard）と事実シートに並べる電話番号の数。突き合わせには全部を使う */
 const MAX_PHONES = 5;
 
 const PRIVACY_RE = /プライバシー|個人情報|privacy/i;
@@ -34,15 +35,20 @@ export function analyzeTrust(pages: readonly AuditPage[], entryUrl: string): Tru
 
   const home = pages.find((p) => p.url === entryUrl) ?? pages[0] ?? null;
 
-  const phones = new Set<string>();
-  for (const page of pages) for (const phone of page.phones) if (phones.size < MAX_PHONES) phones.add(phone);
+  // 2026-09-23: 以前はサイト全体で最初の 5 番号だけを集めてから構造化データの番号と突き合わせて
+  // いたため、支店の多いサイトでは載っている番号を「見つからない」としていた。
+  // 突き合わせはすべての番号で行い、上限は表示するものにだけ掛ける
+  const allPhones = new Set<string>();
+  for (const page of pages) for (const phone of page.phones) allPhones.add(phone);
 
   const orgPage = pages.find((p) => p.organization !== null) ?? null;
   const organization = orgPage?.organization
     ? { url: orgPage.url, ...orgPage.organization }
     : null;
   const schemaTelephone = organization?.telephone ?? null;
-  const consistent = schemaTelephone && phones.size > 0 ? phones.has(schemaTelephone) : null;
+  const consistent = schemaTelephone && allPhones.size > 0 ? allPhones.has(schemaTelephone) : null;
+  // 表示は構造化データの番号（見つかったとき）を先頭に、最大 MAX_PHONES 件
+  const phones = [...new Set([...(consistent && schemaTelephone ? [schemaTelephone] : []), ...allPhones])].slice(0, MAX_PHONES);
 
   const articles = pages.filter((p) => kinds.get(p.url) === "article");
   const withAuthor = articles.filter((p) => p.hasAuthor).length;
@@ -57,7 +63,7 @@ export function analyzeTrust(pages: readonly AuditPage[], entryUrl: string): Tru
     },
     organization,
     nap: {
-      phones: [...phones],
+      phones,
       schemaTelephone,
       consistent,
       pagesWithAddress: pages.filter((p) => p.hasPostalAddress).length,

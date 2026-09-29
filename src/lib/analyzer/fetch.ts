@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { isPrivateAddress } from "./ip";
 
 export const USER_AGENT =
   "Mozilla/5.0 (compatible; SEOChecker/0.1; +https://github.com/wolf-ookami/seo-checker)";
@@ -42,56 +43,61 @@ export function normalizeUrl(input: string): URL {
   return url;
 }
 
-function isPrivateIPv4(ip: string): boolean {
-  const [a, b] = ip.split(".").map(Number);
-  return (
-    a === 10 ||
-    a === 127 ||
-    a === 0 ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 100 && b >= 64 && b <= 127)
-  );
-}
+/** DNS の解決に待つ上限。getaddrinfo は止められないので、待つのをやめるだけ */
+const DNS_TIMEOUT_MS = 5_000;
 
-function isPrivateIPv6(ip: string): boolean {
-  const lower = ip.toLowerCase();
-  if (lower === "::1" || lower === "::") return true;
-  if (lower.startsWith("fe80:") || lower.startsWith("fc") || lower.startsWith("fd"))
-    return true;
-  // IPv4-mapped (::ffff:127.0.0.1)
-  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateIPv4(mapped[1]);
-  return false;
+/**
+ * ホスト名を解決する。タイムアウトと呼び出し側の中断（fetchText のタイムアウト）を効かせる。
+ * 2026-09-23: 以前は `lookup` を素で待っていたため、応答しない DNS で fetchText の
+ * タイムアウト（12 秒）が効かず、リクエストが Vercel の上限まで居座ることがあった。
+ */
+async function resolveHost(host: string, signal?: AbortSignal): Promise<string[]> {
+  if (signal?.aborted) throw new FetchError("ページの取得がタイムアウトしました", "timeout");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  try {
+    return await Promise.race([
+      lookup(host, { all: true }).then(
+        (results) => results.map((r) => r.address),
+        () => {
+          throw new FetchError("ホスト名を解決できませんでした", "network");
+        },
+      ),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new FetchError("ホスト名の解決がタイムアウトしました", "timeout")),
+          DNS_TIMEOUT_MS,
+        );
+        onAbort = () => reject(new FetchError("ページの取得がタイムアウトしました", "timeout"));
+        signal?.addEventListener("abort", onAbort, { once: true });
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 /**
  * SSRF 対策: localhost / プライベートアドレスへの到達を拒否する。
  * サーバー側でユーザー指定のURLを fetch するツールでは必須。
+ * 判定の中身（IPv6 の展開・埋め込み IPv4 の取り出し）は `ip.ts`。
+ *
+ * 残っている穴: ここで解決したアドレスと、直後の fetch が接続するアドレスは別の解決の結果
+ * （DNS rebinding）。接続先を固定するには undici の Agent（`connect.lookup`）が要るが、
+ * undici は直接の依存に入っていないため見送っている（2026-09-23）。
  */
-export async function assertPublicHost(url: URL): Promise<void> {
+export async function assertPublicHost(url: URL, signal?: AbortSignal): Promise<void> {
   // ローカル開発中に手元のサイト（localhost:3000 など）を診断したいときだけ許可する
   if (process.env.ALLOW_PRIVATE_HOSTS === "1") return;
-  const host = url.hostname.replace(/^\[|\]$/g, "");
+  // 末尾のドット（`localhost.`）も同じ名前として扱う
+  const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) {
     throw new FetchError("ローカルホストは診断できません", "blocked_host");
   }
-  const ipVersion = isIP(host);
-  const addresses: string[] = [];
-  if (ipVersion) {
-    addresses.push(host);
-  } else {
-    try {
-      const results = await lookup(host, { all: true });
-      addresses.push(...results.map((r) => r.address));
-    } catch {
-      throw new FetchError("ホスト名を解決できませんでした", "network");
-    }
-  }
+  const addresses = isIP(host) ? [host] : await resolveHost(host, signal);
   for (const address of addresses) {
-    const v = isIP(address);
-    if ((v === 4 && isPrivateIPv4(address)) || (v === 6 && isPrivateIPv6(address))) {
+    if (isPrivateAddress(address)) {
       throw new FetchError("内部ネットワークのアドレスは診断できません", "blocked_host");
     }
   }
@@ -150,7 +156,7 @@ async function fetchFollowingRedirects(
     if (target.protocol !== "http:" && target.protocol !== "https:") {
       throw new FetchError("http / https のURLのみ診断できます", "blocked_host");
     }
-    await assertPublicHost(target);
+    await assertPublicHost(target, init.signal ?? undefined);
 
     const res = await fetch(current, { ...init, redirect: "manual" });
     const location = res.headers.get("location");
@@ -249,8 +255,9 @@ export async function fetchText(
 }
 
 /** Content-Type / meta charset を見て文字コードを決めてデコードする */
-function decodeBody(bytes: Uint8Array, contentType: string): string {
-  const fromHeader = /charset=([\w-]+)/i.exec(contentType)?.[1];
+export function decodeBody(bytes: Uint8Array, contentType: string): string {
+  // `charset="Shift_JIS"` のように引用符で囲む書き方も読む（2026-09-23）
+  const fromHeader = /charset=["']?\s*([\w-]+)/i.exec(contentType)?.[1];
   let charset = fromHeader?.toLowerCase();
   if (!charset) {
     // 先頭 2KB を ASCII として読んで meta charset を探す
@@ -259,9 +266,14 @@ function decodeBody(bytes: Uint8Array, contentType: string): string {
       /<meta[^>]+charset=["']?\s*([\w-]+)/i.exec(head)?.[1]?.toLowerCase() ??
       "utf-8";
   }
-  try {
-    return new TextDecoder(charset).decode(bytes);
-  } catch {
-    return new TextDecoder("utf-8").decode(bytes);
+  // `euc_jp` のように下線で書いたラベルは WHATWG の一覧に無い（`shift_jis` はある）ので、
+  // そのままで読めなければハイフンに直して読み直す（2026-09-23）
+  for (const label of [charset, charset.replace(/_/g, "-")]) {
+    try {
+      return new TextDecoder(label).decode(bytes);
+    } catch {
+      // 次の候補へ
+    }
   }
+  return new TextDecoder("utf-8").decode(bytes);
 }

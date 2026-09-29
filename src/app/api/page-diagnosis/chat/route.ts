@@ -11,6 +11,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth/guard";
+import { ndjsonResponse } from "@/lib/crawl/stream";
 import { isAnthropicEnabled, toApiError } from "@/lib/llm/anthropic";
 import { streamChat } from "@/lib/page-diagnosis/chat";
 import { DiagnosisResultSchema } from "@/lib/page-diagnosis/store";
@@ -19,13 +20,6 @@ import { takeUsage } from "@/lib/usage/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
-
-const NDJSON_HEADERS = {
-  "Content-Type": "application/x-ndjson; charset=utf-8",
-  "Cache-Control": "no-cache, no-store, no-transform",
-  "X-Content-Type-Options": "nosniff",
-  "X-Accel-Buffering": "no",
-} as const;
 
 const BodySchema = z.object({
   /** 診断結果（ブラウザのストアに保存してあるもの） */
@@ -61,32 +55,26 @@ export async function POST(request: NextRequest) {
   // 月の回数上限（実費の出る呼び出しだけ数える。利用者の決定 2026-09-21）
   const over = await takeUsage("page-diagnosis", 1, { step: "chat" });
   if (over) return over;
-  const encoder = new TextEncoder();
   // zod スキーマは types.ts と同じ形。features / relatedQuestions は文字列の緩い型なので明示的に渡す
   const result = parsed.data.result as unknown as DiagnosisResult;
   const messages = parsed.data.messages;
 
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const write = (event: ChatStreamEvent) => {
-        controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
-      };
-      try {
-        for await (const event of streamChat({ result, messages, signal: request.signal })) {
-          write(event);
-        }
-      } catch (err) {
-        if (request.signal.aborted) {
-          // クライアントが中止した。何も書かずに閉じる
-        } else {
-          console.error("[page-diagnosis/chat] stream error", err);
-          write({ type: "error", error: toApiError(err).message });
-        }
-      } finally {
-        controller.close();
+  // 共通の NDJSON 応答（crawl/stream.ts）。2026-09-23: 以前はクライアントが切断したあとも
+  // enqueue して例外になり、閉じたストリームを close してさらに例外を出していた
+  return ndjsonResponse<ChatStreamEvent>(async (sink) => {
+    try {
+      for await (const event of streamChat({ result, messages, signal: request.signal })) {
+        // 読む人がいなくなったら生成を続けない（費用がかさむだけ）
+        if (sink.closed) break;
+        sink.send(event);
       }
-    },
+    } catch (err) {
+      if (request.signal.aborted) {
+        // クライアントが中止した。何も書かずに閉じる
+      } else {
+        console.error("[page-diagnosis/chat] stream error", err);
+        sink.send({ type: "error", error: toApiError(err).message });
+      }
+    }
   });
-
-  return new Response(stream, { headers: NDJSON_HEADERS });
 }

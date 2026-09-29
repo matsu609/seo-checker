@@ -55,6 +55,18 @@ describe("Ahrefs DR の取得", () => {
     expect(outcome.result?.rating).toBe(12.5);
   });
 
+  it("5xx はキャッシュせず、次の呼び出しで取り直す（2026-09-23 まで 24 時間持っていた）", async () => {
+    process.env[KEY] = "test-key";
+    let calls = 0;
+    const flaky = (async () => {
+      calls += 1;
+      return new Response("unavailable", { status: 502 });
+    }) as unknown as typeof fetch;
+    expect((await fetchAhrefsDr("ahrefs-transient.example", { fetchImpl: flaky })).failure).toBe("upstream");
+    await fetchAhrefsDr("ahrefs-transient.example", { fetchImpl: flaky });
+    expect(calls).toBe(2);
+  });
+
   it("ドメイン以外は投げずに invalid", async () => {
     process.env[KEY] = "test-key";
     const outcome = await fetchAhrefsDr("example.com/../secret", {

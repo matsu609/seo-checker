@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { check, optionalCheck } from "./check";
+import { ORGANIZATION_TYPES, typeNamesOf, walkJsonLd, walkOperatorCandidates } from "./jsonld-walk";
 import { isHomePage } from "./page-kind";
 import type { CheckResult } from "./types";
 
@@ -10,25 +11,21 @@ export interface JsonLdInfo {
   parseErrors: number;
   /** 出現したすべての @type（重複なし） */
   types: string[];
-  /** Organization 系に sameAs があるか */
+  /** 運営者（Organization / LocalBusiness 系・Person）の構造化データがあるか */
+  hasOrganization: boolean;
+  /** 運営者のノードに sameAs があるか */
   hasSameAs: boolean;
   /** WebSite に SearchAction（potentialAction）があるか */
   hasSearchAction: boolean;
 }
 
-const ORG_TYPES = new Set([
-  "Organization",
-  "LocalBusiness",
-  "Corporation",
-  "Person",
-  "Store",
-  "Restaurant",
-  "MedicalBusiness",
-  "ProfessionalService",
-  "EducationalOrganization",
-  "GovernmentOrganization",
-  "NGO",
-]);
+/**
+ * 運営者とみなす @type。サイト診断の信頼（audit/extras.ts）と同じ Organization / LocalBusiness 系の一覧に、
+ * 個人が運営するサイトの Person を足したもの（この項目の説明文が「Organization（または LocalBusiness / Person）」と
+ * 案内しているため）。2026-09-23: 以前は 11 種の固定の一覧で、Dentist + sameAs のページを
+ * 「運営者の構造化データがない」「sameAs が設定されていない」としていた。
+ */
+const OPERATOR_TYPES: ReadonlySet<string> = new Set([...ORGANIZATION_TYPES, "Person"]);
 
 const ARTICLE_TYPES = new Set(["Article", "NewsArticle", "BlogPosting", "TechArticle"]);
 
@@ -41,6 +38,7 @@ export function extractJsonLd($: cheerio.CheerioAPI): JsonLdInfo {
     blocks: 0,
     parseErrors: 0,
     types: [],
+    hasOrganization: false,
     hasSameAs: false,
     hasSearchAction: false,
   };
@@ -58,18 +56,18 @@ export function extractJsonLd($: cheerio.CheerioAPI): JsonLdInfo {
       info.parseErrors += 1;
       return;
     }
-    walk(data, (node) => {
-      const t = node["@type"];
-      const nodeTypes = Array.isArray(t) ? t : t ? [t] : [];
-      for (const name of nodeTypes) {
-        if (typeof name === "string") types.add(stripPrefix(name));
-      }
-      const localTypes = nodeTypes.map((n) => (typeof n === "string" ? stripPrefix(n) : ""));
-      if (localTypes.some((n) => ORG_TYPES.has(n)) && hasNonEmpty(node["sameAs"])) {
-        info.hasSameAs = true;
-      }
+    // 運営者は「最上位・@graph・publisher など」のノードだけで見る（記事の著者の Person や
+    // 商品のブランドの Organization を運営者に数えない。jsonld-walk.ts の walkOperatorCandidates）
+    walkOperatorCandidates(data, (node) => {
+      if (!typeNamesOf(node["@type"]).some((n) => OPERATOR_TYPES.has(n))) return;
+      info.hasOrganization = true;
+      if (hasNonEmpty(node["sameAs"])) info.hasSameAs = true;
+    });
+    walkJsonLd(data, (node) => {
+      const localTypes = typeNamesOf(node["@type"]);
+      for (const name of localTypes) types.add(name);
       if (localTypes.includes("WebSite") && node["potentialAction"]) {
-        walk(node["potentialAction"], (action) => {
+        walkJsonLd(node["potentialAction"], (action) => {
           const at = action["@type"];
           if (at === "SearchAction" || (Array.isArray(at) && at.includes("SearchAction"))) {
             info.hasSearchAction = true;
@@ -83,32 +81,12 @@ export function extractJsonLd($: cheerio.CheerioAPI): JsonLdInfo {
   return info;
 }
 
-/** schema:Organization のような接頭辞や URL 形式の @type を素の名前にする */
-function stripPrefix(name: string): string {
-  const last = name.split(/[/#:]/).pop();
-  return last || name;
-}
 
 function hasNonEmpty(v: unknown): boolean {
   if (Array.isArray(v)) return v.length > 0;
   return typeof v === "string" && v.length > 0;
 }
 
-type JsonObject = Record<string, unknown>;
-
-function walk(node: unknown, visit: (obj: JsonObject) => void): void {
-  if (Array.isArray(node)) {
-    for (const item of node) walk(item, visit);
-    return;
-  }
-  if (node && typeof node === "object") {
-    const obj = node as JsonObject;
-    visit(obj);
-    for (const value of Object.values(obj)) {
-      if (value && typeof value === "object") walk(value, visit);
-    }
-  }
-}
 
 /* ─────────────────────────────────────────────────────────────
    構造化データは「その画面に実在する内容」を記述するもの。
@@ -186,7 +164,7 @@ export function checkStructuredData($: cheerio.CheerioAPI, pageUrl: string): Che
     }),
   );
 
-  const hasOrg = [...ORG_TYPES].some((t) => info.types.includes(t));
+  const hasOrg = info.hasOrganization;
   results.push(
     check({
       id: "jsonld-organization",

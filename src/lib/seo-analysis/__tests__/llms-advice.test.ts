@@ -75,6 +75,22 @@ describe("llms.txt があるとき", () => {
     expect(titles.some((t) => t.includes("置き場所"))).toBe(false);
   });
 
+  it("リンクが 1 件も無いときは「リンクの記法」だけを直させ、説明・絶対 URL は重ねて出さない", () => {
+    const noLinks = {
+      ...present,
+      linkCount: 0,
+      describedLinks: 0,
+      checks: [
+        { id: "links", label: "リンクの記法", level: "fail" as const, detail: "リンクがありません" },
+        { id: "descriptions", label: "リンクの説明", level: "warn" as const, detail: "リンクがないため評価できません。" },
+        { id: "absolute", label: "絶対 URL", level: "warn" as const, detail: "リンクがないため評価できません。" },
+      ],
+    };
+    const titles = llmsAdvice(noLinks, site).map((i) => i.title);
+    expect(titles).toContain("リンクの記法を直す");
+    expect(titles.some((t) => t.includes("リンクの説明") || t.includes("絶対 URL"))).toBe(false);
+  });
+
   it("何も足りなければ空", () => {
     const full = { ...present, sections: ["サービス", "会社概要", "お問い合わせ"], checks: present.checks.filter((c) => c.level === "pass") };
     expect(llmsAdvice(full, site)).toEqual([]);

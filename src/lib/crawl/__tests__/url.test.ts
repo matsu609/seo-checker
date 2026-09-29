@@ -90,6 +90,12 @@ describe("extractSitemapEntries", () => {
     expect(r.urls).toEqual(["https://e.com/p?a=1&b=2"]);
     expect(r.sitemaps).toEqual([]);
   });
+  it("<loc> の中の CDATA も読む（2026-09-23 まで捨てていた）", () => {
+    const r = extractSitemapEntries(
+      `<urlset xmlns="x"><url><loc><![CDATA[https://e.com/p?a=1&b=2]]></loc></url><url><loc> <![CDATA[ https://e.com/q ]]> </loc></url><url><loc>https://e.com/r</loc></url></urlset>`,
+    );
+    expect(r.urls).toEqual(["https://e.com/p?a=1&b=2", "https://e.com/q", "https://e.com/r"]);
+  });
   it("タグが無ければ URL の見た目で分ける", () => {
     const r = extractSitemapEntries(
       `<loc>https://e.com/sitemap-posts.xml</loc><loc>https://e.com/page</loc>`,

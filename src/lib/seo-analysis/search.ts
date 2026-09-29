@@ -6,14 +6,24 @@
  * SERPAPI_KEY が無ければ何もせず notes に書く（ダミーは返さない）。
  * 1 回の分析でキーワード数 + 2 回の検索（実費は 1 回数円）。
  */
+import { guessSiteName } from "@/lib/analyzer/site-name";
 import { getSerpProvider, type SerpProvider, type SerpResult } from "@/lib/serp";
 import type { SheetKeywordResult, SheetSearch } from "./sheet/types";
 
 const MAX_KEYWORDS = 5;
 
+/**
+ * URL からホスト名（先頭の www. を落として小文字）を取る。
+ * スキームの無い `example.com` も受け付ける（2026-09-23）。プロジェクトの競合は
+ * `normalizeDomain` を通した裸のホスト名で保存されるため、以前は "" になって
+ * 競合の順位が常に空だった。
+ */
 export function hostOf(url: string): string {
+  const raw = url.trim();
+  if (!raw) return "";
   try {
-    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+    return new URL(withScheme).hostname.replace(/^www\./, "").toLowerCase();
   } catch {
     return "";
   }
@@ -40,17 +50,14 @@ export function topDomains(result: SerpResult, count = 3): string[] {
 }
 
 /**
- * ブランド名の推定。入力があればそれ、無ければトップページの title の
- * 「｜」「|」「-」区切りの最後の要素（サイト名が来ることが多い）。
+ * ブランド名の推定。入力があればそれ、無ければトップページの title から
+ * llms.txt のサイト名と同じルールで推測する（analyzer/site-name.ts。下層ページの title に
+ * 共通する要素 → 会社名らしい要素 → 最初の要素）。2026-09-23 まではここだけ最後の要素を採っていた。
  */
-export function guessBrand(input: string, homeTitle: string | null): string {
+export function guessBrand(input: string, homeTitle: string | null, otherTitles: readonly string[] = []): string {
   const given = input.trim();
   if (given) return given;
-  if (!homeTitle) return "";
-  const parts = homeTitle.split(/\s*[|｜\-–—:：]\s*/).map((s) => s.trim()).filter(Boolean);
-  if (parts.length === 0) return "";
-  const last = parts[parts.length - 1];
-  return last.length <= 30 ? last : "";
+  return guessSiteName(homeTitle, otherTitles);
 }
 
 export interface CollectSearchArgs {
@@ -59,6 +66,8 @@ export interface CollectSearchArgs {
   competitors: string[];
   brand: string;
   homeTitle: string | null;
+  /** 下層ページの title（ブランド名の推測に使う。サイト名はページをまたいで共通になる） */
+  pageTitles?: readonly string[];
   region?: string;
   provider?: SerpProvider | null;
   signal?: AbortSignal;
@@ -105,7 +114,7 @@ export async function collectSearch(args: CollectSearchArgs): Promise<{ search: 
   }
 
   let brand: SheetSearch["brand"] = null;
-  const brandName = guessBrand(args.brand, args.homeTitle);
+  const brandName = guessBrand(args.brand, args.homeTitle, args.pageTitles);
   if (brandName) {
     try {
       const result = await provider.search({ q: brandName, num: 20 });

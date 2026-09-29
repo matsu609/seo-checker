@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { FetchError } from "@/lib/analyzer/fetch";
+import { fetchErrorResponse, publicUrlError, urlCacheKey } from "@/lib/analyzer/fetch-response";
 import { requireAuth } from "@/lib/auth/guard";
 import { globalCache } from "@/lib/cache";
-import { HARD_MAX_PAGES } from "@/lib/crawl/crawler";
+import { resolveMaxPages } from "@/lib/crawl/crawler";
+import { acquireCrawlSlot, crawlClientKey } from "@/lib/crawl/gate";
 import { DEFAULT_SCAN_LIMIT, scanSite } from "@/lib/llms-txt/scan";
 import type { ScanResult } from "@/lib/llms-txt/types";
 
@@ -13,56 +15,13 @@ export const maxDuration = 300;
 const cache = globalCache<ScanResult>("llms-txt-scan", 10 * 60 * 1000, 20);
 
 /**
- * 同時に走らせるクロールの上限（/api/site・/api/site-audit と同じ考え方）。
- * 1 回の POST が対象サイトへ最大でサイトマップ + maxPages（既定 300）回の
- * リクエストを出すため、無制限に受け付けると他所のサイトを叩く踏み台になる。
- */
-const MAX_CONCURRENT_CRAWLS = 2;
-/** 同じクライアント（IP）が同時に走らせられるクロール数 */
-const MAX_CONCURRENT_PER_CLIENT = 1;
-
-interface CrawlGate {
-  active: number;
-  perClient: Map<string, number>;
-}
-
-/** dev のホットリロードで数えが飛ばないよう globalThis に置く */
-function crawlGate(): CrawlGate {
-  const g = globalThis as unknown as { __seo_checker_llms_scan_gate?: CrawlGate };
-  g.__seo_checker_llms_scan_gate ??= { active: 0, perClient: new Map() };
-  return g.__seo_checker_llms_scan_gate;
-}
-
-/** クライアントの識別子（プロキシ経由の元 IP → 直接接続の IP → 不明） */
-function clientKey(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const first = forwarded?.split(",")[0]?.trim();
-  return first || request.headers.get("x-real-ip") || "unknown";
-}
-
-/** 空きがあれば確保して解放関数を返す。空きが無ければ null */
-function acquireCrawlSlot(client: string): (() => void) | null {
-  const gate = crawlGate();
-  if (gate.active >= MAX_CONCURRENT_CRAWLS) return null;
-  if ((gate.perClient.get(client) ?? 0) >= MAX_CONCURRENT_PER_CLIENT) return null;
-  gate.active += 1;
-  gate.perClient.set(client, (gate.perClient.get(client) ?? 0) + 1);
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    gate.active = Math.max(0, gate.active - 1);
-    const left = (gate.perClient.get(client) ?? 1) - 1;
-    if (left > 0) gate.perClient.set(client, left);
-    else gate.perClient.delete(client);
-  };
-}
-
-/**
  * POST { url, includePaths?, excludePaths?, limit? }
  *
  * llms.txt に載せる候補ページを集める。外部連携は不要。
  * 入力の不備は 400、取得できないサイトは 502 で返す。
+ *
+ * 同時実行の上限は crawl/gate.ts の "llms-scan" の枠（/api/site・/api/site-audit と同じ考え方）。
+ * 1 回の POST が対象サイトへ最大でサイトマップ + maxPages（既定 300）回のリクエストを出すため。
  */
 export async function POST(request: NextRequest) {
   // ハンドラ内でも検証する（proxy.ts のマッチャ変更でカバーが外れても止める）
@@ -88,19 +47,22 @@ export async function POST(request: NextRequest) {
   if (limit !== undefined && (typeof limit !== "number" || !Number.isFinite(limit) || limit < 1)) {
     return Response.json({ error: "上限ページ数は 1 以上の数値で指定してください" }, { status: 422 });
   }
-  // 黙って丸めず、上限を超える指定は断る（運用側の上限は resolveMaxPages がさらに絞る）
-  if (typeof limit === "number" && limit > HARD_MAX_PAGES) {
-    return Response.json(
-      { error: `上限ページ数は ${HARD_MAX_PAGES} 以下で指定してください` },
-      { status: 422 },
-    );
+  // 黙って丸めず、上限を超える指定は断る。上限は運用側の上限（SITE_MAX_PAGES。既定 300）。
+  // 2026-09-23: 以前は HARD_MAX_PAGES（1000）と比べていたため、301〜1000 は断られずに
+  // 黙って 300 へ丸められていた（このコメントの約束と逆）
+  const cap = resolveMaxPages();
+  if (typeof limit === "number" && limit > cap) {
+    return Response.json({ error: `上限ページ数は ${cap} 以下で指定してください` }, { status: 422 });
   }
 
-  const key = [url.trim().toLowerCase(), includePaths ?? "", excludePaths ?? "", limit ?? DEFAULT_SCAN_LIMIT].join("|");
+  const invalid = await publicUrlError(url);
+  if (invalid) return invalid;
+
+  const key = [urlCacheKey(url), includePaths ?? "", excludePaths ?? "", limit ?? DEFAULT_SCAN_LIMIT].join("|");
   const cached = cache.get(key);
   if (cached) return Response.json({ scan: cached, cached: true });
 
-  const release = acquireCrawlSlot(clientKey(request));
+  const release = acquireCrawlSlot("llms-scan", crawlClientKey(request.headers));
   if (!release) {
     return Response.json(
       { error: "ページの収集が混み合っています。しばらく待ってからお試しください", code: "busy" },
@@ -118,10 +80,7 @@ export async function POST(request: NextRequest) {
     cache.set(key, scan);
     return Response.json({ scan, cached: false });
   } catch (err) {
-    if (err instanceof FetchError) {
-      const status = err.code === "invalid_url" || err.code === "blocked_host" ? 400 : 502;
-      return Response.json({ error: err.message, code: err.code }, { status });
-    }
+    if (err instanceof FetchError) return fetchErrorResponse(err);
     console.error("[llms-txt/scan] unexpected error", err);
     return Response.json({ error: "ページの収集中にエラーが発生しました" }, { status: 500 });
   } finally {

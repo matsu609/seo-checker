@@ -56,8 +56,13 @@ export async function reanalyzeSite(candidate: ReanalysisCandidate, options: { n
   const input = { ...normalizeInput(parsedInput.data), source: "auto" as const };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(10_000, options.deadline - Date.now() - COLLECT_RESERVE_MS));
-  options.signal?.addEventListener("abort", () => controller.abort(), { once: true });
+  // 既に止められているシグナルには abort が二度と来ないので、先に見る（2026-09-23）
+  const onAbort = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  else options.signal?.addEventListener("abort", onAbort, { once: true });
   try {
+    // 中断されたら collectFactSheet が CollectAbortedError を投げる。途中までのクロールを
+    // 普通の診断として保存し、前回との比較で偽の「悪化」を知らせないため（catch で失敗として記録）
     const { sheet, audit } = await collectFactSheet(input, { signal: controller.signal });
     const run = await createRun({ userId: candidate.userId, input, origin: sheet.site.origin, sheet, audit });
     const prev = await previousRun(candidate.userId, sheet.site.origin, run.createdAt, run.id);
@@ -79,6 +84,7 @@ export async function reanalyzeSite(candidate: ReanalysisCandidate, options: { n
     return { ok: false, diff: null, reason };
   } finally {
     clearTimeout(timer);
+    options.signal?.removeEventListener("abort", onAbort);
   }
 }
 
