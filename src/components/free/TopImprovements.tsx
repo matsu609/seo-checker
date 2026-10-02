@@ -1,8 +1,9 @@
 /**
  * 優先改善 TOP3 の表（design-spec §3.2-1 / §3.3-1）。
  * 独立したセクションではなく「1. 総合評価」の右列、講評の下に置く。
- * 列は # / 改善項目 / カテゴリ / 優先度 / 見込み効果（site はさらに 該当ページ）。
- * 優先度（急ぎで対応 / 要改善 / 一旦放置で OK）は src/lib/report/urgency.ts で決める。
+ * 列は # / 改善項目 / カテゴリ / 見込み効果（site はさらに 該当ページ）。
+ * 優先度（急ぎで対応 / 要改善 / 一旦放置で OK。src/lib/report/urgency.ts）は列を増やすと
+ * 項目名の幅が無くなるので、項目名の下にピルで出す。
  * 各項目の根拠と対応方法は「改善提案（詳細）」に出るため、ここでは並べない。
  */
 import { DataTable, type Column } from "@/components/ui";
@@ -24,7 +25,12 @@ export function TopImprovementsTable({ summary }: { summary: ReportSummary }) {
     {
       key: "label",
       header: "改善項目",
-      render: (r) => <span className="font-bold">{r.label}</span>,
+      render: (r) => (
+        <span className="flex flex-col items-start gap-1">
+          <span className="font-bold">{r.label}</span>
+          <UrgencyBadge urgency={r.urgency} />
+        </span>
+      ),
     },
     {
       key: "category",
@@ -32,13 +38,6 @@ export function TopImprovementsTable({ summary }: { summary: ReportSummary }) {
       width: "7rem",
       nowrap: true,
       render: (r) => <span className="text-[12px] text-muted">{r.categoryLabel}</span>,
-    },
-    {
-      key: "urgency",
-      header: "優先度",
-      width: "7rem",
-      nowrap: true,
-      render: (r) => <UrgencyBadge urgency={r.urgency} />,
     },
     {
       key: "gain",
@@ -75,7 +74,7 @@ export function TopImprovementsTable({ summary }: { summary: ReportSummary }) {
           rowKey={(r) => r.id}
           dense
           stickyHeader={false}
-          minWidth={isSite ? "32rem" : "26rem"}
+          minWidth={isSite ? "26rem" : "20rem"}
         />
       )}
     </>
