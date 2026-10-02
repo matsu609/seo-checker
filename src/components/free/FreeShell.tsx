@@ -5,29 +5,25 @@
  * 機能 ID を見せない（利用者の決定 2026-09-13）。出すのは「何のサービスか」「詳細診断の入口」
  * 「規約類」だけにして、迷わず申し込みへ進める形にする。
  *
- * ログイン状態の出し分けは FreeHeaderActions（Clerk のフックを使う）に閉じ込め、
- * Clerk のキーが無い環境（開発・E2E）ではヘッダーに申し込みボタンだけを出す。
+ * 2026-10-02 から無料診断は専用ログイン（/free/login。Clerk とは別）の人だけが使う（利用者の決定）。
+ * ヘッダー右側（FreeHeaderActions）は「料金プランを見る」と「診断を終える」だけ。
  */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { buttonClass } from "@/components/ui/Button";
 import { LogoMark } from "@/components/shell/icons";
-import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
-import { PLANS_PATH, SIGN_UP_PATH } from "@/lib/free/upsell";
+import { PLANS_PATH } from "@/lib/free/upsell";
 import { SERVICE_NAME } from "@/lib/legal/operator";
 import { FreeHeaderActions } from "./FreeHeaderActions";
 
 export interface FreeShellProps {
   children: ReactNode;
-  /** Clerk のキーが設定されているか。false ならログイン状態を見ない */
-  authEnabled: boolean;
-  /** 登録・ログイン画面: ヘッダーのボタンとフッターを出さない（フォームの中に同じ導線があるため。利用者の指示 2026-09-18） */
+  /** 登録・ログイン画面（専用ログインを含む）: ヘッダーのボタンとフッターを出さない（フォームの中に同じ導線があるため。利用者の指示 2026-09-18） */
   minimal?: boolean;
   /** ロゴの横の「クイック診断・無料」。ログイン画面では出さない（利用者の指示 2026-09-21） */
   badge?: boolean;
 }
 
-export function FreeShell({ children, authEnabled, minimal = false, badge = true }: FreeShellProps) {
+export function FreeShell({ children, minimal = false, badge = true }: FreeShellProps) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="no-print sticky top-0 z-10 flex h-12 items-center gap-3 border-b border-line bg-panel px-4 md:px-8">
@@ -38,15 +34,7 @@ export function FreeShell({ children, authEnabled, minimal = false, badge = true
             <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent">クイック診断・無料</span>
           )}
         </Link>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          {minimal ? null : authEnabled ? (
-            <FreeHeaderActions />
-          ) : (
-            <Link href={SIGN_UP_PATH} className={buttonClass("primary", "sm")}>
-              登録して無料診断
-            </Link>
-          )}
-        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">{minimal ? null : <FreeHeaderActions />}</div>
       </header>
 
       <div className="flex-1">{children}</div>
@@ -54,7 +42,7 @@ export function FreeShell({ children, authEnabled, minimal = false, badge = true
       {!minimal && (
       <footer className="no-print border-t border-line px-4 py-4 text-[11px] text-muted md:px-8">
         <p>
-          クイック診断は、公開されている情報だけをその場で採点するものです。アカウント登録のあと、メールアドレスごとに {FREE_RUN_LIMIT_DEFAULT} 回まで無料。毎週の計測・競合比較・AI の改修案は
+          クイック診断は、公開されている情報だけをその場で採点するものです。毎週の計測・競合比較・AI の改修案は
           <Link href={PLANS_PATH} className="mx-1 text-accent underline underline-offset-2">
             精密診断
           </Link>

@@ -7,7 +7,7 @@ import { resolveMaxPages } from "@/lib/crawl/crawler";
 import { acquireCrawlSlot, crawlClientKey } from "@/lib/crawl/gate";
 import { ndjsonResponse, ndjsonSingle } from "@/lib/crawl/stream";
 import { freeSiteMaxPages } from "@/lib/free/limits";
-import { consumeFreeRun, requireFreeUser } from "@/lib/free/quota";
+import { requireFreeAccess } from "@/lib/free/access";
 import type { SiteStreamEvent } from "@/lib/crawl/types";
 
 export const runtime = "nodejs";
@@ -34,8 +34,8 @@ const cache = globalCache<SiteAnalysisResult>("site", 10 * 60 * 1000, 10);
  * リクエストを出すため、上限を超えたら 429 で断る。
  */
 export async function POST(request: NextRequest) {
-  // 無料診断は登録（ログイン）が要る。回数の消費は、本当にクロールするときだけ（下の consumeFreeRun）
-  const signedOut = await requireFreeUser();
+  // 無料診断は専用ログイン（/free/login の Cookie）が要る（利用者の決定 2026-10-02。回数制限は無い）
+  const signedOut = await requireFreeAccess();
   if (signedOut) return signedOut;
 
   let body: { url?: unknown; maxPages?: unknown };
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "maxPages は数値で指定してください" }, { status: 400 });
   }
 
-  // ストリームを始める前に、入力自体の問題は通常のエラー応答で返す（回数は減らさない）
+  // ストリームを始める前に、入力自体の問題は通常のエラー応答で返す
   const invalid = await publicUrlError(url);
   if (invalid) return invalid;
 
@@ -62,25 +62,16 @@ export async function POST(request: NextRequest) {
   const pages = resolveMaxPages(requested);
   const key = `${urlCacheKey(url)}|${pages}`;
   const cached = cache.get(key);
-  // キャッシュ命中は費用が出ないので回数を減らさない（free/quota.ts の consumeFreeRun の約束）
+  // キャッシュ命中は費用が出ない
   if (cached) return ndjsonSingle({ type: "result", result: cached, cached: true } satisfies SiteStreamEvent);
 
-  // 実行中のクロールが多すぎるときはストリームを始めずに 429（回数は減らさない）
+  // 実行中のクロールが多すぎるときはストリームを始めずに 429
   const release = acquireCrawlSlot("site", crawlClientKey(request.headers));
   if (!release) {
     return Response.json(
       { error: "サイト全体の診断が混み合っています。しばらく待ってからお試しください", code: "busy" },
       { status: 429, headers: { "Retry-After": "60" } },
     );
-  }
-
-  // 無料診断は登録したメールアドレスごとに回数制限（利用者の決定 2026-09-18）。
-  // 2026-09-23: 以前は URL の検査・キャッシュ・混雑の判定より前に消費していたため、
-  // 形式の誤り・キャッシュ命中・429 でも回数が減っていた
-  const denied = await consumeFreeRun();
-  if (denied) {
-    release();
-    return denied;
   }
 
   // クライアントが切断したらクロールを止める（request.signal と stream の cancel の両方を見る）

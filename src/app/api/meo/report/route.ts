@@ -1,5 +1,5 @@
 /**
- * POST /api/meo/report（アカウント登録が要る。2026-09-18 から。無料診断の回数はメールアドレスごと）
+ * POST /api/meo/report（専用ログイン /free/login の Cookie が要る。利用者の決定 2026-10-02。回数制限は無い）
  * 無料 MEO 診断の報告書。自社 1 店舗ぶんの公開情報を採点して返す。
  *
  * 有料版（/api/maps/stores）との違い: 保存しない・競合なし・AI 総評なし・取り直し不可。
@@ -7,8 +7,8 @@
  * キャッシュに当たった分は上限を消費しない（Google に費用が出ないため）。
  * クライアント（IP）ごと 10 回 / 時、全体 500 回 / 日（FREE_MEO_DAILY_LIMIT）。
  *
- * 順番: 本人の残り回数を確かめる（消費しない）→ IP ごとの枠 → 全体の枠 → 本人の回数を消費 → Google。
- * 2026-09-23 まで本人の回数を最後に見ていたので、使い切った人が押すたびに全体の枠だけが減っていた。
+ * 順番: 専用ログインの確認 → キャッシュ → IP ごとの枠 → 全体の枠 → Google。
+ * ログインしていない人が押しても、全員で分け合う枠は減らない。
  */
 import { z } from "zod";
 import {
@@ -21,7 +21,7 @@ import {
   takeClientToken,
   takeDailyToken,
 } from "@/lib/free/ratelimit";
-import { checkFreeRun, consumeFreeRun, requireFreeUser } from "@/lib/free/quota";
+import { requireFreeAccess } from "@/lib/free/access";
 import { isPlacesConfigured, placesErrorResponse } from "@/lib/maps/client";
 import { getPlaceCached, peekPlaceCached } from "@/lib/maps/fetch";
 import { buildMeoReport, type MeoReport } from "@/lib/maps/report";
@@ -47,8 +47,8 @@ export async function POST(request: Request) {
   if (!isPlacesConfigured()) {
     return Response.json({ error: "店舗診断は現在準備中です。", code: "not_configured" }, { status: 503, headers: NO_STORE });
   }
-  // 無料診断は登録（ログイン）したメールアドレスごとに回数制限（利用者の決定 2026-09-18）
-  const denied = await requireFreeUser();
+  // 無料診断は専用ログイン（/free/login の Cookie）が要る（利用者の決定 2026-10-02。回数制限は無い）
+  const denied = await requireFreeAccess();
   if (denied) return denied;
   let raw: unknown;
   try {
@@ -62,15 +62,12 @@ export async function POST(request: Request) {
   }
   const { placeId } = parsed.data;
 
-  // キャッシュにあれば上限を消費せずに返す（Google への費用が出ない）
+  // キャッシュにあれば全体の枠を消費せずに返す（Google への費用が出ない）
   const hit = peekPlaceCached(placeId);
   if (hit) {
     const body: FreeMeoReportResponse = { report: buildMeoReport(hit, new Date(), null, FREE_SCORE), cached: true };
     return Response.json(body, { headers: NO_STORE });
   }
-  // 使い切った人に、全員で分け合う枠（IP ごと・1 日の全体）を減らさせない。ここでは消費しない
-  const quota = await checkFreeRun();
-  if (quota instanceof Response) return quota;
   if (!takeClientToken("meo-report", clientKeyOf(request), FREE_MEO_REPORT_PER_HOUR)) {
     return Response.json({ error: CLIENT_LIMIT_MESSAGE, code: "rate_limited" }, { status: 429, headers: NO_STORE });
   }
@@ -78,9 +75,6 @@ export async function POST(request: Request) {
     return Response.json({ error: FREE_LIMIT_MESSAGE, code: "daily_limit" }, { status: 429, headers: NO_STORE });
   }
 
-  // キャッシュに無い = Google に問い合わせるときだけ 1 回ぶん消費する（上で確かめた回数を使う）
-  const exhausted = await consumeFreeRun(quota);
-  if (exhausted) return exhausted;
   try {
     const { detail, cached } = await getPlaceCached(placeId);
     const body: FreeMeoReportResponse = { report: buildMeoReport(detail, new Date(), null, FREE_SCORE), cached };

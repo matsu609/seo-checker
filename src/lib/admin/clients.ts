@@ -22,8 +22,6 @@ import { isAgencyMetadata } from "./roles";
 
 import { assignedPromoFromMetadata, assignedPromoPatch, patternById } from "@/lib/billing/promo";
 import { leadFromMetadata, type LeadProfile } from "@/lib/free/lead";
-import { freeRunLimit } from "@/lib/free/quota";
-import { freeRunsFromMetadata } from "@/lib/free/quota-rules";
 
 /** 1 回に読む人数。Clerk の上限は 500 */
 export const PAGE_SIZE = 100;
@@ -49,8 +47,6 @@ export interface ClerkUserLike {
   publicMetadata: unknown;
   /** 登録フォームが載せた登録情報（lead）。古い行には無い */
   unsafeMetadata?: unknown;
-  /** 無料診断の回数（サーバーだけが書く）。古い行には無い */
-  privateMetadata?: unknown;
   createdAt: number;
   lastActiveAt: number | null;
 }
@@ -68,16 +64,12 @@ export interface ClientRow {
   overrides: string[];
   /** 登録フォームの情報（担当者名・会社名・電話・店舗の種類）。無ければ null */
   lead: LeadProfile | null;
-  /** 無料診断を使った回数 */
-  freeRuns: number;
   /** 設定済みの割引（パターン名。スタンダードの申し込みに付く）。無ければ null */
   promo: string | null;
 }
 
 export interface ClientList {
   rows: ClientRow[];
-  /** 無料診断の上限（回数の表示に使う） */
-  freeRunLimit: number;
   totalCount: number;
   /** 表示しきれていない人数 */
   truncated: number;
@@ -128,7 +120,6 @@ export function buildClientRows(users: ClerkUserLike[], envDefault: PlanId | nul
       billing,
       overrides,
       lead: leadFromMetadata(user.publicMetadata, user.unsafeMetadata ?? null),
-      freeRuns: freeRunsFromMetadata(user.privateMetadata ?? null),
       promo: assignedPromoFromMetadata(user.publicMetadata)?.pattern ?? null,
     };
   });
@@ -152,7 +143,7 @@ export async function loadClients(limit = PAGE_SIZE): Promise<ClientList> {
   // 総数からも外す。全体をなめていない（limit で切っている）ので、外した分だけ引く
   const total = Math.max(0, totalCount - (all.length - customers.length));
 
-  return { rows, freeRunLimit: freeRunLimit(), totalCount: total, truncated: Math.max(0, total - rows.length) };
+  return { rows, totalCount: total, truncated: Math.max(0, total - rows.length) };
 }
 
 /**

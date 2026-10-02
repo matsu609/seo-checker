@@ -1,21 +1,20 @@
 /**
- * 無料診断の回数を「本当に診断するときだけ」消費する（2026-09-23）。
+ * /api/site と /api/analyze の入口の順番。
  *
- * 以前は /api/site が URL の検査・キャッシュ・混雑（429）より前に consumeFreeRun を呼び、
- * /api/analyze も URL の検査より前に呼んでいたため、形式の誤り・キャッシュ命中・429 でも
- * 2 回しかない無料枠が減っていた（free/quota.ts は「キャッシュに当たった診断では呼ばない」約束）。
- * 回数の仕組みそのもの（Clerk のメタデータ）は差し替えて、呼ばれた回数だけを数える。
+ * 2026-10-02 から無料診断は専用ログイン（src/lib/free/access.ts）だけで守り、1 人あたりの回数制限は無い。
+ * ここでは「専用ログインの確認が必ず最初に来る（401 なら何もしない）」ことと、
+ * 通ったあとの URL の検査・キャッシュ・混雑（429）の振る舞いが変わっていないことを見る。
+ * 専用ログインの判定は差し替えて、呼ばれた回数だけを数える。
  */
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const quota = vi.hoisted(() => ({
-  consumeFreeRun: vi.fn(async () => null as Response | null),
-  requireFreeUser: vi.fn(async () => null as Response | null),
+const access = vi.hoisted(() => ({
+  requireFreeAccess: vi.fn(async () => null as Response | null),
 }));
-vi.mock("@/lib/free/quota", () => quota);
+vi.mock("@/lib/free/access", () => access);
 
 import { POST as analyzePost } from "@/app/api/analyze/route";
 import { POST as sitePost } from "@/app/api/site/route";
@@ -40,7 +39,8 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  quota.consumeFreeRun.mockClear();
+  access.requireFreeAccess.mockReset();
+  access.requireFreeAccess.mockResolvedValue(null);
 });
 
 const request = (path: string, body: unknown, headers: Record<string, string> = {}) =>
@@ -50,38 +50,49 @@ const request = (path: string, body: unknown, headers: Record<string, string> = 
     body: JSON.stringify(body),
   });
 
-describe("/api/site の回数の消費", () => {
-  it("形式の誤った URL では消費しない", async () => {
-    const res = await sitePost(request("/api/site", { url: "ftp://example.com" }));
-    expect(res.status).toBe(400);
-    expect(quota.consumeFreeRun).not.toHaveBeenCalled();
+describe("/api/site の入口", () => {
+  it("専用ログインが無ければ 401 で、本文も読まない", async () => {
+    access.requireFreeAccess.mockResolvedValue(Response.json({ code: "free_login" }, { status: 401 }));
+    const res = await sitePost(request("/api/site", { url: "not a url" }));
+    expect(res.status).toBe(401);
+    expect(access.requireFreeAccess).toHaveBeenCalledTimes(1);
   });
 
-  it("本当にクロールしたときだけ 1 回、キャッシュ命中では消費しない", async () => {
+  it("形式の誤った URL は 400", async () => {
+    const res = await sitePost(request("/api/site", { url: "ftp://example.com" }));
+    expect(res.status).toBe(400);
+    expect(access.requireFreeAccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("2 回目はキャッシュ命中（回数制限は無いので何度でも通る）", async () => {
     const first = await sitePost(request("/api/site", { url: `${origin}/cache-test`, maxPages: 2 }));
     expect(first.status).toBe(200);
     await first.text();
-    expect(quota.consumeFreeRun).toHaveBeenCalledTimes(1);
 
     const second = await sitePost(request("/api/site", { url: `${origin}/cache-test`, maxPages: 2 }));
     expect(await second.text()).toContain('"cached":true');
-    expect(quota.consumeFreeRun).toHaveBeenCalledTimes(1);
+    expect(access.requireFreeAccess).toHaveBeenCalledTimes(2);
   });
 
-  it("混雑（429）では消費しない", async () => {
+  it("混雑しているときは 429", async () => {
     const hold = acquireCrawlSlot("site", "busy-client");
     try {
       const res = await sitePost(request("/api/site", { url: `${origin}/busy`, maxPages: 2 }, { "x-forwarded-for": "busy-client" }));
       expect(res.status).toBe(429);
-      expect(quota.consumeFreeRun).not.toHaveBeenCalled();
     } finally {
       hold?.();
     }
   });
 });
 
-describe("/api/analyze の回数の消費", () => {
-  it("形式の誤った URL・内部ネットワークでは消費しない", async () => {
+describe("/api/analyze の入口", () => {
+  it("専用ログインが無ければ 401", async () => {
+    access.requireFreeAccess.mockResolvedValue(Response.json({ code: "free_login" }, { status: 401 }));
+    const res = await analyzePost(request("/api/analyze", { url: `${origin}/` }));
+    expect(res.status).toBe(401);
+  });
+
+  it("形式の誤った URL・内部ネットワークは 400", async () => {
     const bad = await analyzePost(request("/api/analyze", { url: "ftp://example.com" }));
     expect(bad.status).toBe(400);
     delete process.env.ALLOW_PRIVATE_HOSTS;
@@ -91,7 +102,6 @@ describe("/api/analyze の回数の消費", () => {
     } finally {
       process.env.ALLOW_PRIVATE_HOSTS = "1";
     }
-    expect(quota.consumeFreeRun).not.toHaveBeenCalled();
   });
 
   it("キャッシュのキーはパスの大文字小文字を区別する", async () => {
@@ -101,6 +111,5 @@ describe("/api/analyze の回数の消費", () => {
     const body = await lower.json();
     expect(body.cached).toBe(false);
     expect(body.result.page.finalUrl).toContain("/about");
-    expect(quota.consumeFreeRun).toHaveBeenCalledTimes(2);
   });
 });

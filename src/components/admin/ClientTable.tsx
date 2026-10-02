@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Card } from "@/components/ui/Card";
 import { gateIdsForScreen, overrideScreens, type Feature } from "@/lib/features/registry";
-import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { planLabel } from "@/lib/plans/catalog";
 import type { ClientRow } from "@/lib/admin/clients";
 import { formatDate, planSourceLabel, STATUS_TONE } from "./format";
@@ -43,8 +42,6 @@ function coverage(overrides: readonly string[], feature: Feature): "all" | "some
 
 export interface ClientTableProps {
   initial: ClientRow[];
-  /** 無料診断の上限（回数の表示に使う） */
-  freeRunLimit?: number;
   /** 顧客が 1 人も居ないときの案内（立場で文面が変わる） */
   emptyTitle?: string;
   emptyDescription?: string;
@@ -52,7 +49,6 @@ export interface ClientTableProps {
 
 export function ClientTable({
   initial,
-  freeRunLimit = FREE_RUN_LIMIT_DEFAULT,
   emptyTitle = "まだ顧客がいません",
   emptyDescription = "ログインしたアカウントがここに並びます。",
 }: ClientTableProps) {
@@ -220,8 +216,8 @@ export function ClientTable({
                 </div>
               </dl>
 
-              {/* 登録情報（無料診断の前に集める 4 項目）と無料診断の回数 */}
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-sm border border-line bg-surface p-3 @lg:grid-cols-5">
+              {/* 登録情報（登録フォームで集める 4 項目）。無料診断の回数は 2026-10-02 に廃止（専用ログインに一本化） */}
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-sm border border-line bg-surface p-3 @lg:grid-cols-4">
                 <div>
                   <dt className="text-[11px] text-muted">担当者名</dt>
                   <dd className="mt-1 text-sm text-ink">{row.lead?.contactName || "—"}</dd>
@@ -237,12 +233,6 @@ export function ClientTable({
                 <div>
                   <dt className="text-[11px] text-muted">店舗の種類</dt>
                   <dd className="mt-1 text-sm text-ink">{row.lead?.storeType || "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] text-muted">無料診断</dt>
-                  <dd className="mt-1 text-sm text-ink tabular-nums">
-                    残り {Math.max(0, freeRunLimit - row.freeRuns)} 回（{freeRunLimit} 回まで・{row.freeRuns} 回使用）{row.freeRuns >= freeRunLimit && row.plan === "free" && <span className="ml-1 text-[11px] text-warn">使い切り</span>}
-                  </dd>
                 </div>
               </dl>
 

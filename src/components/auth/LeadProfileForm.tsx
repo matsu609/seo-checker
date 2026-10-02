@@ -2,7 +2,7 @@
 
 /**
  * 登録情報の補完フォーム（担当者名・会社名・電話・店舗の種類）。
- * Google でログインして登録情報が無い人を無料診断の入口（src/lib/free/gate.ts）がここに送る。
+ * Google でログインして登録情報が無い人向け（設定画面などから開く。2026-10-02 までは無料診断の入口が送っていた）。
  * 保存は /api/account/lead（publicMetadata.lead）。保存後は元の画面（redirect_url）へ戻る。
  */
 import { useUser } from "@clerk/nextjs";
@@ -68,7 +68,7 @@ function LeadFields({ initial, reload }: { initial: Initial; reload: () => Promi
   return (
     <form onSubmit={submit} className="mx-auto w-full max-w-md rounded-sm border border-line bg-panel p-6" noValidate>
       <h1 className="text-[20px] font-bold text-ink">登録情報の入力</h1>
-      <p className="mt-1 text-[13px] leading-relaxed text-muted">無料診断をご利用いただく前に、次の 4 項目をお願いします。</p>
+      <p className="mt-1 text-[13px] leading-relaxed text-muted">ツールをお使いいただく前に、次の 4 項目をお願いします。</p>
       {error && (
         <Callout tone="fail" className="mt-4">
           {error}

@@ -13,21 +13,15 @@ import { usePdfDownload } from "@/components/ui/usePdfDownload";
 import type { AnalysisResult, SiteAnalysisResult, SiteProgress } from "@/lib/analyzer/types";
 import { requestSiteAnalysis, SiteRequestError } from "@/lib/crawl/client";
 import { freeSiteMaxPages, truncationNote } from "@/lib/free/limits";
-import { isExhausted, type FreeQuota } from "@/lib/free/quota-rules";
 import { reportFileName } from "@/lib/report";
 import { DiagnosisForm, type Mode } from "./DiagnosisForm";
-import { FreeQuotaNotice } from "./FreeQuotaNotice";
-import { useFreeQuota } from "./useFreeQuota";
+import { redirectIfFreeLoginRequired, redirectToFreeLogin } from "./freeLoginRedirect";
+import { FREE_LOGIN_CODE } from "@/lib/free/session-rules";
 import { Download, Printer } from "./Icons";
 import { PageReport } from "./PageReport";
 import { ProgressPanel } from "./ProgressPanel";
 import { SiteReport } from "./SiteReport";
 import { UpgradeCta } from "./UpgradeCta";
-
-export interface CheckerProps {
-  /** 無料診断の残り回数（サーバーが入口で判定して渡す。認証が無効なら null = 制限なし） */
-  quota: FreeQuota | null;
-}
 
 type State =
   | { phase: "idle" }
@@ -59,9 +53,7 @@ function messageOf(err: unknown): string {
   return "診断に失敗しました。しばらく待ってからもう一度お試しください。";
 }
 
-export function Checker({ quota: initialQuota }: CheckerProps) {
-  const { quota, refresh: refreshQuota } = useFreeQuota(initialQuota);
-  const exhausted = isExhausted(quota);
+export function Checker() {
   const [url, setUrl] = useState("");
   const [mode, setMode] = useState<Mode>("page");
   const [state, setState] = useState<State>({ phase: "idle" });
@@ -109,7 +101,6 @@ export function Checker({ quota: initialQuota }: CheckerProps) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (exhausted) return;
     const target = url.trim();
     if (!target) {
       setFormError("URL を入力してください。");
@@ -150,6 +141,7 @@ export function Checker({ quota: initialQuota }: CheckerProps) {
           body: JSON.stringify({ url: target }),
           signal: controller.signal,
         });
+        if (await redirectIfFreeLoginRequired(res)) return;
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "診断に失敗しました");
         if (controller.signal.aborted) return;
@@ -164,11 +156,14 @@ export function Checker({ quota: initialQuota }: CheckerProps) {
     } catch (err) {
       // 中止ボタン・画面離脱による中断はエラーとして扱わない
       if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
+      // 専用ログインの Cookie が切れていたらログイン画面へ（サイト全体の診断は SiteRequestError で届く）
+      if (err instanceof SiteRequestError && err.status === 401 && err.code === FREE_LOGIN_CODE) {
+        redirectToFreeLogin();
+        return;
+      }
       setState({ phase: "error", message: messageOf(err) });
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
-      // 1 回消費したので残り回数を取り直す（失敗した診断は消費されていないこともある）
-      void refreshQuota();
     }
   }
 
@@ -181,7 +176,6 @@ export function Checker({ quota: initialQuota }: CheckerProps) {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
-      <FreeQuotaNotice quota={quota} className="mb-3" />
       <DiagnosisForm
         url={url}
         onUrlChange={setUrl}
@@ -190,7 +184,6 @@ export function Checker({ quota: initialQuota }: CheckerProps) {
         onSubmit={onSubmit}
         busy={state.phase === "loading"}
         error={formError}
-        disabled={exhausted}
       />
 
       {state.phase === "loading" && (

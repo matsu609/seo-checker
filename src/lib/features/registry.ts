@@ -6,7 +6,6 @@
  * アイコンは文字列キーにして、実体は src/components/shell/icons.tsx が持つ
  * （このファイルをサーバー側でもそのまま import できるようにするため）。
  */
-import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { LISTING_MEDIA_COUNT, PLANS, type PlanId } from "@/lib/plans/catalog";
 import { DEFAULT_MONTHLY_LIMIT as SEO_ANALYSIS_MONTHLY_LIMIT } from "@/lib/seo-analysis/limits";
 import type { IntegrationKey } from "./integrations";
@@ -21,11 +20,9 @@ export { AUDIT_RULE_COUNT };
 /**
  * 説明文に入れる数字は、定義しているところから引く（2026-09-23。書き写すと片方だけ直ってずれる。
  * 実際に「26 媒体」「3 つの状態」が残っていた）。どれも純粋なデータで、クライアントからも読める。
- *   無料診断の回数 … src/lib/free/quota-rules.ts（環境変数 FREE_DIAGNOSIS_LIMIT で変えたときは既定値のまま）
  *   精密診断の月の回数 … src/lib/seo-analysis/limits.ts（SEO_ANALYSIS_MONTHLY_LIMIT の既定値）
  *   掲載先の媒体数 … catalog.ts の LISTING_MEDIA_COUNT（正本は src/lib/listings/media.ts。ずれはテストが止める）
  */
-const FREE_RUNS = FREE_RUN_LIMIT_DEFAULT;
 const MEDIA_COUNT = LISTING_MEDIA_COUNT;
 
 /**
@@ -188,7 +185,7 @@ export const FREE_FEATURE: Feature = {
   label: "クイック診断（サイト・SEO / AIO）",
   shortLabel: "サイトを診断（SEO・AIO）",
   description:
-    `URL を入れるだけで、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として PDF 出力できます。アカウント登録（無料）のあと、メールアドレスごとに ${FREE_RUNS} 回まで。実データを使った精密診断は有料プランで。`,
+    `URL を入れるだけで、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点し、報告書として PDF 出力できます。営業・デモ用の専用ログイン（/free/login）で使います。実データを使った精密診断は有料プランで。`,
   details: [
     "1 ページ、またはサイト全体の代表 10 ページ（sitemap と内部リンクから収集）を採点",
     "総合スコア・グレード・カテゴリ別スコア・改善提案を報告書形式で表示",
@@ -205,7 +202,7 @@ export const FREE_FEATURE: Feature = {
 };
 
 /**
- * クイック診断（店舗）。店名で探して 1 店舗の公開情報を採点する（ログイン不要）。
+ * クイック診断（店舗）。店名で探して 1 店舗の公開情報を採点する（専用ログインの人だけ）。
  * 有料の /tools/maps との違い: 保存しない・競合なし・毎週の更新なし・AI 総評なし。
  * 実費（Places）が出るので API 側で回数制限をかける（src/lib/free/ratelimit.ts）。
  */
@@ -215,7 +212,7 @@ export const FREE_MEO_FEATURE: Feature = {
   label: "クイック診断（店舗・MEO）",
   shortLabel: "店舗を診断（MEO）",
   description:
-    `店名を入れるだけで、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として PDF 出力できます。アカウント登録（無料）のあと、メールアドレスごとに ${FREE_RUNS} 回まで（サイト診断と合計）。`,
+    `店名を入れるだけで、Google マップ上の店舗情報（ビジネス プロフィール）を基本情報・投稿・写真・レビューの 4 カテゴリで採点し、報告書として PDF 出力できます。営業・デモ用の専用ログイン（/free/login）で使います。`,
   details: [
     "店名・地域で検索して店舗を 1 件選ぶ",
     "総合評価 A〜E と 4 カテゴリ・21 項目の判定、改善ヒント、総評（ルール生成）",

@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * アカウント登録フォーム（無料診断の前に 6 項目。利用者の決定 2026-09-18）。
+ * アカウント登録フォーム（6 項目。利用者の決定 2026-09-18）。登録が終わると /start → 料金プラン（カード登録）へ
+ * （利用者の決定 2026-10-02。無料診断はお客様のアカウントでは使わない）。
  *
  * Clerk の出来合いの <SignUp /> は会社名・電話・店舗の種類を出せないので、フォームはこちらで作り、
  * 裏で Clerk の useSignUp を使う（メール + パスワードで作成 → 追加項目は unsafeMetadata.lead →
@@ -15,7 +16,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
-import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { Callout } from "@/components/ui/Callout";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { COMPANY_MAX, CONTACT_NAME_MAX, LEAD_KEY, LeadProfileSchema, PHONE_MAX, STORE_TYPES } from "@/lib/free/lead";
@@ -126,7 +126,7 @@ export function RegisterForm() {
       const current = clerk.client?.signUp;
       const sessionId = current?.createdSessionId ?? signUp.createdSessionId ?? null;
       if (current?.status === "complete" && sessionId) {
-        // ログイン状態にする。/start が契約状況で振り分ける（登録直後は未契約なので無料診断へ）
+        // ログイン状態にする。/start が契約状況で振り分ける（登録直後は未契約なので料金プラン = カード登録へ）
         await clerk.setActive({ session: sessionId });
         router.push("/start");
         return;
@@ -163,7 +163,7 @@ export function RegisterForm() {
           <Input id="code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" maxLength={10} />
         </Field>
         <Button type="submit" size="lg" className="mt-4 w-full" loading={busy} disabled={!isLoaded || code.trim().length < 4}>
-          確認して無料診断へ進む
+          確認して次へ進む
         </Button>
         <button type="button" onClick={() => setStep("form")} className="mt-3 text-[12px] text-muted underline underline-offset-2">
           入力内容を直す
@@ -176,7 +176,7 @@ export function RegisterForm() {
     <form onSubmit={submit} className="mx-auto w-full max-w-md rounded-sm border border-line bg-panel p-6" noValidate>
       <h1 className="text-[20px] font-bold text-ink">アカウント登録（無料）</h1>
       <p className="mt-1 text-[13px] leading-relaxed text-muted">
-        登録すると、サイトと店舗の無料診断をメールアドレスごとに {FREE_RUN_LIMIT_DEFAULT} 回までご利用いただけます。カードの登録は不要です。
+        登録のあと、料金プランを選んでお支払い方法（カード）を登録すると、すぐにツールをお使いいただけます。
       </p>
       {error && (
         <Callout tone="fail" className="mt-4">
@@ -213,7 +213,7 @@ export function RegisterForm() {
       {/* Clerk のボット対策（Smart CAPTCHA）がここに描画される */}
       <div id="clerk-captcha" className="mt-3" />
       <Button type="submit" size="lg" className="mt-4 w-full" loading={busy} disabled={!isLoaded}>
-        登録して無料診断へ進む
+        登録して次へ進む
       </Button>
       <p className="mt-3 text-[11px] leading-relaxed text-muted">
         登録により

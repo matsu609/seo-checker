@@ -1,12 +1,11 @@
 /**
  * お客様に見える文言の「事実」（2026-09-23 に直したもの）がずれ戻らないように固定する。
- * 数字や名前は定義しているところ（catalog.ts・media.ts・quota-rules.ts・seo-analysis/limits.ts）から引いている。
+ * 数字や名前は定義しているところ（catalog.ts・media.ts・seo-analysis/limits.ts）から引いている。
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TOKUSHOHO_ROWS } from "@/components/legal/Tokushoho";
-import { FREE_RUN_LIMIT_DEFAULT } from "@/lib/free/quota-rules";
 import { LISTING_MEDIA } from "@/lib/listings/media";
 import { LISTING_MEDIA_COUNT, PLAN_BY_ID, PLANS } from "@/lib/plans/catalog";
 import { DEFAULT_MONTHLY_LIMIT } from "@/lib/seo-analysis/limits";
@@ -25,9 +24,15 @@ describe("文言の事実", () => {
     expect(LISTING_MEDIA_COUNT).toBe(LISTING_MEDIA.length);
   });
 
-  it("無料診断の回数・精密診断の月の回数・媒体数は定義から", () => {
-    expect(requireFeature("free").description).toContain(`${FREE_RUN_LIMIT_DEFAULT} 回まで`);
-    expect(requireFeature("free-meo").description).toContain(`${FREE_RUN_LIMIT_DEFAULT} 回まで`);
+  // 2026-10-02 から無料診断は専用ログイン（/free/login）だけ。「N 回まで」の文言が戻らないように
+  it("クイック診断の説明は専用ログインで、回数の文言は無い", () => {
+    for (const id of ["free", "free-meo"] as const) {
+      expect(requireFeature(id).description).toContain("/free/login");
+      expect(requireFeature(id).description).not.toContain("回まで");
+    }
+  });
+
+  it("精密診断の月の回数・媒体数は定義から", () => {
     expect(requireFeature("seo-analysis").details.join("\n")).toContain(`月 ${DEFAULT_MONTHLY_LIMIT} 回まで`);
     expect(requireFeature("citations").description).toContain(`${LISTING_MEDIA.length} の地図`);
     expect(requireFeature("listings").description).toContain(`${LISTING_MEDIA.length} の地図`);

@@ -88,7 +88,7 @@ export const A = {
   /** Places の SKU ごとの月間無料枠（回。2025-03 から: Enterprise 1,000 / Pro 5,000） */
   placesEnterpriseFree: 1_000,
   placesProFree: 5_000,
-  /** デモの無料クイック診断（店舗）月 50 回 = 検索 1 + 詳細 1 ずつ（店舗数に関係ない使用量） */
+  /** 営業・デモの無料クイック診断（店舗）の想定 月 50 回 = 検索 1 + 詳細 1 ずつ（店舗数に関係ない使用量。2026-10-02 から回数制限は無いので試算上の仮置き） */
   demoMeoRunsPerMonth: 50,
   /** DataForSEO: AI 検索モニタリングの標準構成（1 アカウント・月。仕様書 §2.1: 順位 800 / AIO 200 / LLM 1,500） */
   geoRankPerMonth: 800,

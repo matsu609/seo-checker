@@ -1,6 +1,6 @@
 /**
- * POST /api/meo/search（アカウント登録が要る。2026-09-18 から）
- * 無料 MEO 診断の店舗検索。/api/maps/search と同じだが、プランの代わりに回数制限で守る（検索は無料診断の回数を消費しない）。
+ * POST /api/meo/search（専用ログイン /free/login の Cookie が要る。利用者の決定 2026-10-02）
+ * 無料 MEO 診断の店舗検索。/api/maps/search と同じだが、プランの代わりに回数制限（IP ごと・全体）で守る。
  *
  * - 同じ語句は 1 時間キャッシュ（キャッシュに当たった分は上限を消費しない）
  * - クライアント（IP）ごと 30 回 / 時、全体 1,500 回 / 日（FREE_MEO_DAILY_SEARCH_LIMIT）
@@ -17,7 +17,7 @@ import {
   takeClientToken,
   takeDailyToken,
 } from "@/lib/free/ratelimit";
-import { requireFreeUser } from "@/lib/free/quota";
+import { requireFreeAccess } from "@/lib/free/access";
 import { isPlacesConfigured, placesErrorResponse, searchPlaces } from "@/lib/maps/client";
 import type { PlaceSummary } from "@/lib/maps/types";
 import { NO_STORE } from "@/lib/api/headers";
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "店舗診断は現在準備中です。", code: "not_configured" }, { status: 503, headers: NO_STORE });
   }
   // 無料診断は登録（ログイン）が要る（利用者の決定 2026-09-18）。店舗の検索は回数に数えない
-  const denied = await requireFreeUser();
+  const denied = await requireFreeAccess();
   if (denied) return denied;
   let raw: unknown;
   try {

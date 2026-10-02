@@ -1,44 +1,27 @@
 /**
  * 無料診断の画面（/ と /meo）の入口。サーバー専用。
  *
- * 利用者の決定（2026-09-18）: 無料診断はアカウント登録（担当者名・メール・会社名・電話・店舗の種類・パスワード）の
- * あとに、メールアドレスごとに 2 回まで。契約済みの人には見せない（2026-09-13 の決定のまま）。
+ * 利用者の決定（2026-10-02）: 無料診断はお客様のアカウントでは使わない。別リンク（/free/login）で
+ * 専用の ID / パスワードを入れた人（署名付き Cookie。src/lib/free/access.ts）だけが、回数制限なしで使う。
+ * 2026-09-18 からの「登録後にメールアドレスごとに 2 回」と、運用者・管理アカウントの「デモ用 月 50 回」は廃止。
  *
- *   未ログイン                → 登録フォームへ（ログイン済みの人はそこからログインへ）
- *   運用者・代理店            → 画面を出す（デモ用。月 50 回の枠。利用者の決定 2026-09-18）
- *   契約済み（free 以外）      → 最初のツールへ
- *   登録情報が無い（Google でログインした人など） → 補完フォームへ
- *   それ以外                  → 画面を出す（残り回数つき）
+ *   専用ログイン済み（Cookie あり）           → 画面を出す
+ *   Clerk でログイン中（お客様・運用者・管理） → /start へ（契約状況で料金プラン / ツール / 顧客管理に振り分く）
+ *   どちらでもない                            → ログイン画面（/sign-in）へ。無料診断の入口は営業・デモの人だけに渡す
  *
- * 認証が無効な環境（開発・E2E）では素通り（回数制限なし）。
+ * 認証も専用ログインも無い環境（開発・E2E）では素通り。
  */
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { currentAgencyId, isAdmin } from "@/lib/admin/guard";
 import { isAuthEnabled } from "@/lib/auth/config";
-import { FIRST_TOOL_PATH, LEAD_PROFILE_PATH, SIGN_UP_PATH } from "@/lib/auth/landing";
-import { getCurrentPlan } from "@/lib/plans/current";
-import { leadFromMetadata } from "./lead";
-import { getFreeQuota } from "./quota";
-import type { FreeQuota } from "./quota-rules";
+import { SIGN_IN_PATH, START_PATH } from "@/lib/auth/landing";
+import { hasFreeAccess } from "./access";
 
-export interface FreeGate {
-  /** 残り回数。認証が無効なら null（回数制限なし・表示もしない） */
-  quota: FreeQuota | null;
-}
-
-export async function gateFreePage(path: "/" | "/meo"): Promise<FreeGate> {
-  if (!isAuthEnabled()) return { quota: null };
-  const { userId } = await auth();
-  if (!userId) redirect(`${SIGN_UP_PATH}?redirect_url=${encodeURIComponent(path)}`);
-  const demo = (await isAdmin()) || (await currentAgencyId()) !== null;
-  if (!demo) {
-    const { plan } = await getCurrentPlan();
-    if (plan !== "free") redirect(FIRST_TOOL_PATH);
-    const user = await currentUser();
-    if (!leadFromMetadata(user?.publicMetadata, user?.unsafeMetadata)) {
-      redirect(`${LEAD_PROFILE_PATH}?redirect_url=${encodeURIComponent(path)}`);
-    }
+export async function gateFreePage(): Promise<void> {
+  if (await hasFreeAccess()) return;
+  if (isAuthEnabled()) {
+    const { userId } = await auth();
+    if (userId) redirect(START_PATH);
   }
-  return { quota: await getFreeQuota() };
+  redirect(SIGN_IN_PATH);
 }

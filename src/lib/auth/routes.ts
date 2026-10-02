@@ -2,10 +2,11 @@
  * どのパスがログイン不要かを決める。ここだけが公開範囲の定義。
  *
  * 方針:
- * - 無料診断の画面（/ と /meo）は見込み顧客に試してもらうための入口なので公開のまま
- *   （ページ側が未ログインを登録フォームへ送る）。その裏側の API（analyze / site / faq / meo）は
- *   2026-09-18 からログイン必須（下の PUBLIC_APIS の説明）。
- * - それ以外のツールと API は、外部 API の実費が出るのでログイン必須。
+ * - 無料診断の画面（/ と /meo）とその裏側の API（analyze / site / faq / meo）は、Clerk のログインではなく
+ *   **専用ログイン（/free/login）の署名付き Cookie** で守る（利用者の決定 2026-10-02。src/lib/free/access.ts）。
+ *   Clerk の判定ではこれらを「公開」として素通しし、ページ側（src/lib/free/gate.ts）と API ハンドラ側
+ *   （requireFreeAccess）が Cookie を見る。
+ * - それ以外のツールと API は、外部 API の実費が出るので Clerk のログイン必須。
  *
  * proxy.ts（Next.js 16 で middleware.ts から改名）と、各 API ハンドラの
  * requireAuth() の両方がこの判定を使う。Next.js のドキュメントが
@@ -14,14 +15,14 @@
  */
 
 /**
- * ログイン不要で開けるページ（無料診断 2 本と、登録前に読める利用規約・プライバシーポリシー）。
- * 無料診断の画面は公開だが、ページ側（src/lib/free/gate.ts）が未ログインを登録フォームへ送る。
+ * Clerk のログイン不要で開けるページ（無料診断 2 本とその専用ログイン、登録前に読める利用規約・プライバシーポリシー）。
+ * 無料診断の画面はページ側（src/lib/free/gate.ts）が専用ログインの Cookie を見て、無ければログイン画面へ送る。
  *
  * `/robots.txt` と `/sitemap.xml` はクローラ向けの生成ファイル。proxy.ts のマッチャが
  * 拡張子で除外してもいるが、**マッチャの書き換えで静かに保護対象に戻ると
  * サイトマップが取得できなくなる**ので、公開範囲の定義にも明示しておく。
  */
-const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy", "/legal/tokushoho", "/robots.txt", "/sitemap.xml"]);
+const PUBLIC_PAGES = new Set(["/", "/meo", "/free/login", "/terms", "/privacy", "/legal/tokushoho", "/robots.txt", "/sitemap.xml"]);
 
 /**
  * ログイン不要で開けるページの前方一致（末尾のスラッシュまで含めて比べる）。
@@ -31,19 +32,19 @@ const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy", "/legal/tokusho
 const PUBLIC_PAGE_PREFIXES = ["/r/"] as const;
 
 /**
- * ログイン不要で叩ける API。
- *
- * 前方一致ではなく完全一致で持つ。
- *
- * 無料診断の API（`/api/analyze` `/api/site` `/api/faq` `/api/meo/search` `/api/meo/report`）は
- * 2026-09-18 からログイン必須（登録したメールアドレスごとに回数制限。src/lib/free/quota.ts）。
- * 画面（`/` `/meo`）は公開のままにして、ページ側が未ログインを登録フォームへ送る
- * （Proxy に任せると Clerk のログイン画面へ飛び、見込み客が登録にたどり着かないため）。
- * `/api/cron/daily`（日次の定期処理）と `/api/cron/geo-run` は Vercel の Cron が叩く（ログインは無い）。
- * `/api/cron/maps-refresh` は旧パス（手動用に残す）。
- * ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
+ * 無料診断の API（専用ログインの Cookie で守る。src/lib/free/access.ts の requireFreeAccess を各ハンドラが呼ぶ）。
+ * `/api/site` は前方一致で `/api/site-audit`（有料・要ログイン）と取り違えやすいので、必ず完全一致で持つ。
  */
-const PUBLIC_APIS = new Set(["/api/cron/daily", "/api/cron/maps-refresh", "/api/cron/geo-run", "/api/billing/webhook"]);
+const FREE_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/free/login", "/api/free/logout"]);
+
+/**
+ * Clerk のログイン不要で叩ける API（完全一致）。
+ *
+ * `/api/cron/daily`（日次の定期処理）と `/api/cron/geo-run` は Vercel の Cron が叩く（ログインは無い）。
+ * `/api/cron/maps-refresh` は旧パス（手動用に残す）。ハンドラ側が CRON_SECRET で守り、未設定なら動かない。
+ * `/api/billing/webhook` は Stripe が叩く（署名で守る）。無料診断の API は上の FREE_APIS。
+ */
+const PUBLIC_APIS = new Set(["/api/cron/daily", "/api/cron/maps-refresh", "/api/cron/geo-run", "/api/billing/webhook", ...FREE_APIS]);
 
 /**
  * ログイン不要で叩ける API の前方一致。`/api/r/<slug>/...` は来店客のアンケート
@@ -65,7 +66,12 @@ export function normalizePath(pathname: string): string {
   return pathname;
 }
 
-/** ログイン不要で到達してよいパスか */
+/** 無料診断の API か（専用ログインの Cookie で守る側） */
+export function isFreeApiPath(pathname: string): boolean {
+  return FREE_APIS.has(normalizePath(pathname));
+}
+
+/** Clerk のログイン不要で到達してよいパスか（無料診断のパスは専用ログインの Cookie で別途守る） */
 export function isPublicPath(pathname: string): boolean {
   const path = normalizePath(pathname);
   if (PUBLIC_PAGES.has(path)) return true;
@@ -87,6 +93,7 @@ export const PUBLIC_PATHS = {
   pages: [...PUBLIC_PAGES],
   pagePrefixes: [...PUBLIC_PAGE_PREFIXES],
   apis: [...PUBLIC_APIS],
+  freeApis: [...FREE_APIS],
   apiPrefixes: [...PUBLIC_API_PREFIXES],
   authPrefixes: [...AUTH_PAGE_PREFIXES],
 } as const;

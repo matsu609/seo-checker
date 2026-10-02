@@ -3,7 +3,7 @@
  *
  * 運用者（マスター）と管理アカウントの両方が開く（利用者の決定 2026-09-20）。
  * お客様からお問い合わせ・クレームが来たときに見る場所:
- *   契約状況・月額・次回請求 → 登録情報と無料診断の回数 → 割引 → 機能の個別開放 →
+ *   契約状況・月額・次回請求 → 登録情報 → 割引 → 機能の個別開放 →
  *   その方の画面を見る（代理ログイン）
  *
  * ご意見・不具合の一覧と返答は 2026-09-21 に /admin/feedback へ移した（運用者だけが返答する）。
@@ -25,7 +25,6 @@ import { ClientTable } from "@/components/admin/ClientTable";
 import { Callout } from "@/components/ui/Callout";
 import { loadClients, type ClientRow } from "@/lib/admin/clients";
 import { currentClientScope } from "@/lib/admin/guard";
-import { freeRunLimit } from "@/lib/free/quota";
 
 export const metadata: Metadata = {
   title: "顧客管理",
@@ -56,14 +55,12 @@ export default async function Page() {
   let rows: ClientRow[];
   let totalCount = 0;
   let truncated = 0;
-  let limit = freeRunLimit();
   try {
     // 見えるお客様は立場によらず全員（管理アカウント自身は顧客ではないので含まれない）
     const clients = await loadClients();
     rows = clients.rows;
     totalCount = clients.totalCount;
     truncated = clients.truncated;
-    limit = clients.freeRunLimit;
   } catch {
     return (
       <div className="mx-auto w-full max-w-5xl @container">
@@ -103,7 +100,7 @@ export default async function Page() {
         {truncated > 0 && <span>（新しい順に {rows.length} 件を表示）</span>}
       </div>
 
-      <ClientTable initial={rows} freeRunLimit={limit} />
+      <ClientTable initial={rows} />
     </div>
   );
 }

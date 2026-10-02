@@ -2,13 +2,11 @@
  * POST /api/faq — クイック診断の「想定 FAQ」。ページ本文から FAQ を下書きする。
  *
  * 回数の上限（利用者の指示 2026-09-22「FAQ の生成に上限を設けてください」）:
- *   1. 登録（ログイン）が要る … requireFreeUser()
+ *   1. 専用ログイン（/free/login の Cookie）が要る … requireFreeAccess()
  *   2. 1 人 1 時間に 10 回 … FREE_FAQ_PER_HOUR（鍵はログイン中の利用者 ID。取れなければ IP）
  *   3. 全体で 1 日 300 回 … FREE_FAQ_DAILY_LIMIT
  *   4. 1 回に返す件数は MAX_FAQ_ITEMS 件まで
- * **キャッシュに当たった分（Claude を呼ばない分）は数えない。**無料診断の 2 回の枠
- * （consumeFreeRun）はここでは消費しない。診断そのもので消費済みで、FAQ を押すたびに
- * 診断の残り回数が減るのは筋が違うため。
+ * **キャッシュに当たった分（Claude を呼ばない分）は数えない。**
  */
 import { NextRequest } from "next/server";
 import { NO_STORE } from "@/lib/api/headers";
@@ -26,7 +24,7 @@ import {
   takeClientToken,
   takeDailyToken,
 } from "@/lib/free/ratelimit";
-import { requireFreeUser } from "@/lib/free/quota";
+import { requireFreeAccess } from "@/lib/free/access";
 import { MAX_FAQ_ITEMS, type FaqItem } from "@/lib/faq/schema";
 
 export const runtime = "nodejs";
@@ -41,7 +39,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   // 無料診断の一部（AI の費用が出る）。登録（ログイン）が要る
-  const denied = await requireFreeUser();
+  const denied = await requireFreeAccess();
   if (denied) return denied;
   if (!isFaqEnabled()) {
     return Response.json(

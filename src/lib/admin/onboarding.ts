@@ -13,12 +13,10 @@
  * 「ふつうに登録 → ログイン時に /start が招待を拾う」という作りなので（claimAgencyInvitation、r137）、
  * **招待したアドレスと同じアドレスで登録してもらう**ことが要になる。案内でもそこを太く書く。
  */
-import { FREE_HOME_PATH, MANAGER_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from "@/lib/auth/landing";
+import { MANAGER_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from "@/lib/auth/landing";
+import { FREE_LOGIN_PATH } from "@/lib/free/session-rules";
 import { OPERATOR, SERVICE_NAME } from "@/lib/legal/operator";
 import { PUBLIC_APP_ORIGIN } from "@/lib/site";
-
-/** 無料クイック診断（デモ用・別タブ）。サイドバーの「管理者用」に出る 2 本 */
-const FREE_STORE_PATH = "/meo";
 
 /** 追加したときの 2 つの入口。AddAgencyResult["kind"] と同じ言葉にそろえる */
 export type AgencyEntry = "invited" | "promoted";
@@ -179,14 +177,9 @@ export function agencyEntryPoints(): AgencyEntryPoint[] {
       url: null,
     },
     {
-      purpose: "デモで無料診断を見せる（サイト）",
-      where: "サイドバー「管理者用」→ 無料クイック診断（サイト）。別タブで開きます",
-      url: appUrl(FREE_HOME_PATH),
-    },
-    {
-      purpose: "デモで無料診断を見せる（店舗）",
-      where: "サイドバー「管理者用」→ 無料クイック診断（店舗）。別タブで開きます",
-      url: appUrl(FREE_STORE_PATH),
+      purpose: "デモで無料診断を見せる（サイト・店舗）",
+      where: "サイドバー「管理者用」→ 無料クイック診断（専用ログイン）。別タブで開きます。ID とパスワードは運用者から受け取ってください",
+      url: appUrl(FREE_LOGIN_PATH),
     },
   ];
 }

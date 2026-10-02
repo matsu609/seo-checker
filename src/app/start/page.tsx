@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { claimAgencyInvitation } from "@/lib/admin/agencies";
 import { currentAgencyId, isAdmin } from "@/lib/admin/guard";
-import { FIRST_TOOL_PATH, FREE_HOME_PATH, MANAGER_PATH } from "@/lib/auth/landing";
+import { FIRST_TOOL_PATH, MANAGER_PATH, PLANS_LANDING_PATH } from "@/lib/auth/landing";
 import { getCurrentPlan } from "@/lib/plans/current";
 
 /**
@@ -13,9 +13,9 @@ import { getCurrentPlan } from "@/lib/plans/current";
  * ここで料金プランへ送ると「払わないと何も見えない」画面に着いてしまう
  * （ツール自体は r132 から全部使える。利用者の決定 2026-09-20）。
  *
- * それ以外は、未契約（無料プラン）なら無料診断（`/`。登録したメールアドレスごとに 2 回まで。
- * 利用者の決定 2026-09-18）へ、契約済みならツールへ直行する。契約済みの人には無料診断を見せない
- * （利用者の決定 2026-09-13）。行き先の定数は src/lib/auth/landing.ts。
+ * それ以外は、未契約（無料プラン）なら料金プラン（`/plans`。ここでカード登録。利用者の決定 2026-10-02
+ * 「登録が終わったらすぐにカード登録」）へ、契約済みならツールへ直行する。無料診断はお客様のアカウントでは
+ * 使わない（専用ログイン /free/login の人だけ）。行き先の定数は src/lib/auth/landing.ts。
  *
  * ここで招待の取りこぼしも拾う（r137。利用者の報告 2026-09-21）。招待メールのリンクは Clerk の
  * 招待フロー（チケット）を通る前提だが、このアプリの登録フォームは自前でチケットを扱わないため、
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   await connection();
   if (await currentAgencyId()) redirect(MANAGER_PATH);
-  // 運用者はプランに関係なくツールへ（無料診断は回数制限なしで別途入れる）
+  // 運用者はプランに関係なくツールへ（無料診断は専用ログイン /free/login から別途入る）
   if (await isAdmin()) redirect(FIRST_TOOL_PATH);
 
   // まだ管理アカウントではない人だけ、自分あての招待が残っていないかを見る。
@@ -45,5 +45,5 @@ export default async function Page() {
   if (claimed) redirect(MANAGER_PATH);
 
   const { plan } = await getCurrentPlan();
-  redirect(plan === "free" ? FREE_HOME_PATH : FIRST_TOOL_PATH);
+  redirect(plan === "free" ? PLANS_LANDING_PATH : FIRST_TOOL_PATH);
 }

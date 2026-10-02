@@ -1,14 +1,14 @@
 import { Checker } from "@/components/free/Checker";
 import { gateFreePage } from "@/lib/free/gate";
 
-// 登録・契約の状態で振り分けるので、リクエストごとに判定する
+// 専用ログインの Cookie で振り分けるので、リクエストごとに判定する
 export const dynamic = "force-dynamic";
 
 /**
- * 無料診断（サイト）。アカウント登録のあと、メールアドレスごとに 2 回まで（利用者の決定 2026-09-18）。
- * 未ログイン → 登録フォーム、契約済み → ツール、登録情報が無い → 補完フォーム（src/lib/free/gate.ts）。
+ * 無料診断（サイト）。専用ログイン（/free/login）の人だけが使う（利用者の決定 2026-10-02）。
+ * 入れない人の行き先は src/lib/free/gate.ts。
  */
 export default async function Home() {
-  const { quota } = await gateFreePage("/");
-  return <Checker quota={quota} />;
+  await gateFreePage();
+  return <Checker />;
 }
