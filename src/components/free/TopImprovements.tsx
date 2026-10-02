@@ -1,12 +1,13 @@
 /**
  * 優先改善 TOP3 の表（design-spec §3.2-1 / §3.3-1）。
  * 独立したセクションではなく「1. 総合評価」の右列、講評の下に置く。
- * 列は # / 改善項目 / カテゴリ / 見込み効果（site はさらに 該当ページ）。
+ * 列は # / 改善項目 / カテゴリ / 優先度 / 見込み効果（site はさらに 該当ページ）。
+ * 優先度（急ぎで対応 / 要改善 / 一旦放置で OK）は src/lib/report/urgency.ts で決める。
  * 各項目の根拠と対応方法は「改善提案（詳細）」に出るため、ここでは並べない。
  */
 import { DataTable, type Column } from "@/components/ui";
 import { fmt, type Improvement, type ReportSummary } from "@/lib/report";
-import { EmptyLine, SubHeading } from "./report-parts";
+import { EmptyLine, SubHeading, UrgencyBadge } from "./report-parts";
 
 export function TopImprovementsTable({ summary }: { summary: ReportSummary }) {
   const isSite = summary.mode === "site";
@@ -31,6 +32,13 @@ export function TopImprovementsTable({ summary }: { summary: ReportSummary }) {
       width: "7rem",
       nowrap: true,
       render: (r) => <span className="text-[12px] text-muted">{r.categoryLabel}</span>,
+    },
+    {
+      key: "urgency",
+      header: "優先度",
+      width: "7rem",
+      nowrap: true,
+      render: (r) => <UrgencyBadge urgency={r.urgency} />,
     },
     {
       key: "gain",
@@ -67,7 +75,7 @@ export function TopImprovementsTable({ summary }: { summary: ReportSummary }) {
           rowKey={(r) => r.id}
           dense
           stickyHeader={false}
-          minWidth={isSite ? "26rem" : "20rem"}
+          minWidth={isSite ? "32rem" : "26rem"}
         />
       )}
     </>

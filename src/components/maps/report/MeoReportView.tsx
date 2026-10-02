@@ -5,9 +5,11 @@
  * カテゴリ別チェックリスト → 付録（採点方法と基準）。操作系のボタンは呼び出し側（no-print）に置く。
  */
 import { Donut, HBar, type HBarRow } from "@/components/charts";
+import { ActionPlanBlock } from "@/components/free/ActionPlan";
 import { EmptyLine, GradeScale, Num, ReportSection, SubHeading } from "@/components/free/report-parts";
 import { ReportSheet } from "@/components/free/ReportSheet";
 import { StatStrip } from "@/components/ui/StatCard";
+import { buildActionPlan } from "@/lib/report/action-plan";
 import { formatDateTime } from "@/lib/report/format";
 import type { MeoReport } from "@/lib/maps/report";
 import { buildImprovementPlan } from "@/lib/maps/improvements";
@@ -66,6 +68,12 @@ export function MeoReportView({ report, aiCommentary, insights = null, insightRe
   // 無料: 1 総合 / 2 総評 / 3 優先改善 / 4 口コミ / チェックリスト / 付録
   const checklistStart = paid ? 9 : 5;
   const plan = buildImprovementPlan(score);
+  const actionPlan = buildActionPlan({
+    items: plan.items,
+    overall: score.score,
+    grade: grade?.grade ?? null,
+    subject: "このプロフィール",
+  });
   const rated = detail.reviews.filter((r) => r.rating !== null);
   const dist = STARS.map((star) => ({ star, count: rated.filter((r) => Math.round(r.rating ?? 0) === star).length }));
   const age = latestReviewAgeDays(detail, new Date(report.generatedAt));
@@ -118,6 +126,7 @@ export function MeoReportView({ report, aiCommentary, insights = null, insightRe
       </header>
 
       <ReportSheet>
+        <ActionPlanBlock plan={actionPlan} className="mb-8" />
         <ReportSection number={1} title="総合評価">
           <div className="grid gap-6 @md:grid-cols-[11rem_1fr]">
             <div className="min-w-0">

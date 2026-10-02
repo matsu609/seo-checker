@@ -36,6 +36,17 @@ describe("優先改善リスト", () => {
     expect(plan.items[0].advice.length).toBeGreaterThan(0);
   });
 
+  it("対応の優先度が付く: 電話番号なしは急ぎ、口コミ件数は要改善、小さな項目は一旦放置で OK", () => {
+    const plan = buildImprovementPlan(scoreProfile(poor({ status: "CLOSED_TEMPORARILY" }), NOW, null, { extended: false }));
+    const byId = new Map(plan.items.map((i) => [i.id, i.urgency]));
+    expect(byId.get("status")).toBe("now");
+    expect(byId.get("phone")).toBe("now");
+    expect(byId.get("hours")).toBe("now");
+    expect(byId.get("reviewCount")).toBe("soon");
+    expect(byId.get("website")).toBe("soon");
+    for (const item of plan.items) expect(["now", "soon", "later"]).toContain(item.urgency);
+  });
+
   it("上位 3 件を直すと、いまより点数が上がる", () => {
     const plan = buildImprovementPlan(scoreProfile(poor(), NOW, null, { extended: false }));
     expect(plan.currentScore).not.toBeNull();

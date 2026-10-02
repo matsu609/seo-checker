@@ -6,7 +6,8 @@
  */
 import { Fragment, type ReactNode } from "react";
 import type { CheckStatus, SiteDiscovery } from "@/lib/analyzer/types";
-import type { CommentaryLine } from "@/lib/report";
+import { Badge } from "@/components/ui";
+import { URGENCY_LABELS, URGENCY_NOTES, URGENCY_TONES, type CommentaryLine, type Urgency } from "@/lib/report";
 import { GRADE_BANDS } from "@/lib/ui/grade";
 
 /** 「A 90〜」「B 80〜」… の各区分 */
@@ -156,5 +157,14 @@ export function KeyValue({ term, children }: { term: ReactNode; children: ReactN
       <dt className="text-[11px] text-muted">{term}</dt>
       <dd className="mt-0.5 text-[13px] leading-relaxed break-words text-ink">{children}</dd>
     </div>
+  );
+}
+
+/** 対応の優先度のピル（急ぎで対応 / 要改善 / 一旦放置で OK）。判定ピルと区別するためアイコン無し */
+export function UrgencyBadge({ urgency, className = "" }: { urgency: Urgency; className?: string }) {
+  return (
+    <Badge tone={URGENCY_TONES[urgency]} icon={false} className={className} title={URGENCY_NOTES[urgency]}>
+      {URGENCY_LABELS[urgency]}
+    </Badge>
   );
 }

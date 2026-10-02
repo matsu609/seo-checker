@@ -292,6 +292,25 @@ describe("buildPageSummary", () => {
     expect(buildPageSummary(pageWithOverall(overall)).grade.grade).toBe(grade);
   });
 
+  it("優先改善の各項目に対応の優先度が付く（noindex の未対応は急ぎ、llms.txt は一旦放置で OK）", () => {
+    const checks = [
+      mkCheck("noindex", "crawlers", "fail", 2),
+      mkCheck("search-crawlers-allowed", "crawlers", "pass", 3),
+      mkCheck("ai-crawlers-allowed", "crawlers", "pass", 3),
+      mkCheck("robots-txt", "crawlers", "pass", 1),
+      mkCheck("robots-sitemap", "crawlers", "pass", 1),
+      mkCheck("llms-txt", "crawlers", "fail", 1),
+      mkCheck("jsonld-exists", "structuredData", "fail", 3),
+      mkCheck("jsonld-organization", "structuredData", "pass", 2),
+    ];
+    const summary = buildPageSummary(mkPage(checks));
+    const byId = new Map(summary.improvements.map((i) => [i.id, i.urgency]));
+    expect(byId.get("noindex")).toBe("now");
+    expect(byId.get("jsonld-exists")).toBe("soon");
+    // 1 / 11 × 20 = 1.8 点 < 2 点 → 一旦放置で OK
+    expect(byId.get("llms-txt")).toBe("later");
+  });
+
   it("講評は 3 行で、数値は { num } のパートに分かれている", () => {
     const s = buildPageSummary(mixed);
     expect(s.commentary).toHaveLength(3);
@@ -517,6 +536,10 @@ describe("buildSiteSummary", () => {
     const uniform = s.priorities[0];
     expect(uniform.spread).toBe("uniform");
     expect(uniform.worst).toBe("fail");
+    // 優先度: noindex は急ぎ、改善余地 1 ページだけの jsonld-website は一旦放置で OK、参考だけの項目は付けない
+    expect(uniform.urgency).toBe("now");
+    expect(s.priorities.find((p) => p.id === "jsonld-website")?.urgency).toBe("later");
+    expect(s.priorities.find((p) => p.id === "jsonld-search-action")?.urgency).toBeNull();
     expect(uniform.affectedCount).toBe(4);
     expect(uniform.totalPages).toBe(4);
     expect(uniform.priority).toBe(8);

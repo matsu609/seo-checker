@@ -6,7 +6,7 @@
  * まとめて案内する（クイック診断では精密診断への導線を兼ねる）。
  */
 import Link from "next/link";
-import { Advice, EmptyLine, Num, ReportSection, SubHeading } from "@/components/free/report-parts";
+import { Advice, EmptyLine, Num, ReportSection, SubHeading, UrgencyBadge } from "@/components/free/report-parts";
 import { Badge } from "@/components/ui/Badge";
 import type { MeoImprovementPlan } from "@/lib/maps/improvements";
 
@@ -40,7 +40,8 @@ export function ImprovementSection({ plan, number, variant, limit = 8 }: Improve
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-[13px] font-bold text-accent tabular-nums">{i + 1}</span>
                   <span className="text-[14px] font-bold text-ink">{item.label}</span>
-                  <Badge tone={item.status === "fail" ? "fail" : "warn"}>{item.status === "fail" ? "要改善" : "注意"}</Badge>
+                  <Badge tone={item.status === "fail" ? "fail" : "warn"}>{item.status === "fail" ? "未対応" : "注意"}</Badge>
+                  <UrgencyBadge urgency={item.urgency} />
                   <span className="text-[12px] text-muted">{item.categoryLabel}</span>
                   <span className="ml-auto text-[13px] font-bold text-accent tabular-nums">{item.gainLabel}</span>
                 </div>
@@ -50,7 +51,10 @@ export function ImprovementSection({ plan, number, variant, limit = 8 }: Improve
             ))}
           </ol>
           {rest > 0 && <p className="mt-2 text-[12px] text-muted">ほかに {rest} 件あります（各カテゴリのチェックリストをご覧ください）。</p>}
-          <p className="mt-2 text-[11px] text-muted">※ 点数は配点からの試算です（合格 = 満点、注意 = 半分、要改善 = 0 点）。</p>
+          <p className="mt-2 text-[11px] text-muted">
+            ※ 点数は配点からの試算です（合格 = 満点、注意 = 半分、未対応 = 0 点）。優先度は「急ぎで対応」= 閉業表示・Google
+            の警告・店名のキーワード詰め込み・住所 / 電話 / 営業時間 / カテゴリの未設定、「一旦放置で OK」= 直しても 2 点未満しか動かない項目、残りが「要改善」です。
+          </p>
         </>
       )}
 

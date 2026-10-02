@@ -5,25 +5,29 @@
  */
 import { Badge } from "@/components/ui";
 import type { AnalysisResult } from "@/lib/analyzer/types";
-import { fmt, pathOf, type PriorityItem, type SiteReportSummary } from "@/lib/report";
+import { fmt, pathOf, type PageReportSummary, type PriorityItem, type SiteReportSummary } from "@/lib/report";
 import { TONE_LABELS } from "@/lib/ui/palette";
-import { Advice, EmptyLine, Evidence, Num, ReportSection, statusRank, SubHeading } from "./report-parts";
+import { Advice, EmptyLine, Evidence, Num, ReportSection, statusRank, SubHeading, UrgencyBadge } from "./report-parts";
 
 /** 該当ページの列挙はこの件数まで（PDF の 1 要素が長くなりすぎないように） */
 const MAX_AFFECTED = 8;
 
 export function PageDetailSection({
   result,
+  summary,
   number,
 }: {
   result: AnalysisResult;
+  /** 優先度（急ぎ / 要改善 / 一旦放置で OK）は summary.improvements から引く */
+  summary: PageReportSummary;
   number: number;
 }) {
+  const urgencyById = new Map(summary.improvements.map((i) => [i.id, i.urgency] as const));
   return (
     <ReportSection
       number={number}
       title="改善提案（詳細）"
-      lead="診断したすべての項目です。未対応・改善余地のある項目には、判定の根拠と対応方法を添えています。"
+      lead="診断したすべての項目です。未対応・改善余地のある項目には、優先度（急ぎで対応 / 要改善 / 一旦放置で OK）と判定の根拠、対応方法を添えています。"
     >
       {result.categories.map((category) => {
         const checks = [...category.checks].sort(
@@ -35,13 +39,18 @@ export function PageDetailSection({
               {category.label} — <span className="tabular-nums">{category.score}</span> 点
             </SubHeading>
             <ul>
-              {checks.map((check) => (
+              {checks.map((check) => {
+                const urgency = urgencyById.get(check.id);
+                return (
                 <li key={check.id} className="grid grid-cols-[5.5rem_1fr] gap-3 border-b border-line py-3">
                   <div>
                     <Badge tone={check.status}>{TONE_LABELS[check.status]}</Badge>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[14px] leading-snug text-ink">{check.label}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-[14px] leading-snug text-ink">{check.label}</p>
+                      {urgency && <UrgencyBadge urgency={urgency} />}
+                    </div>
                     {check.status !== "pass" && (
                       <>
                         {check.evidence && <Evidence>{check.evidence}</Evidence>}
@@ -62,7 +71,8 @@ export function PageDetailSection({
                     )}
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
         );
@@ -112,8 +122,11 @@ function PriorityList({ items, emptyText }: { items: PriorityItem[]; emptyText: 
               <Badge tone={item.worst}>{TONE_LABELS[item.worst]}</Badge>
             </div>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <p className="min-w-0 text-[14px] leading-snug text-ink">{item.label}</p>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="min-w-0 text-[14px] leading-snug text-ink">{item.label}</p>
+                  {item.urgency && <UrgencyBadge urgency={item.urgency} />}
+                </div>
                 <p className="shrink-0 text-[12px] text-muted tabular-nums">
                   {fmt(item.affectedCount)} / {fmt(item.totalPages)} ページ
                 </p>
