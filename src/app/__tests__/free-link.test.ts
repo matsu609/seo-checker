@@ -74,7 +74,8 @@ describe("専用リンク", () => {
     expect(await freeLinkPath()).toBe(`/free/${token}`);
     const res = await GET(get(`/free/${token}`), { params: Promise.resolve({ token }) });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("http://localhost/");
+    // 相対パス（絶対 URL だと本番で別のホストに飛び、Cookie が届かない。利用者の報告 2026-10-02）
+    expect(res.headers.get("location")).toBe("/");
     expect(adoptCookie(res)).toMatch(/^\d+\./);
     expect(res.headers.get("set-cookie")).toContain("HttpOnly");
     expect(await requireFreeAccess()).toBeNull();
@@ -109,10 +110,11 @@ describe("専用リンク", () => {
 
   it("運用者の入口 /free は Clerk の運用者だけ。お客様は 404", async () => {
     const { GET } = await import("@/app/free/route");
-    expect((await GET(get("/free"))).status).toBe(404);
+    expect((await GET()).status).toBe(404);
     admin.isAdmin.mockResolvedValue(true);
-    const res = await GET(get("/free"));
+    const res = await GET();
     expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/");
     expect(adoptCookie(res)).toMatch(/^\d+\./);
   });
 
