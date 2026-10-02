@@ -2,7 +2,7 @@
  * クイック診断から本サービス（精密診断）への導線に出す文言。純粋なデータだけを置く。
  *
  * クイック診断（`/` と `/meo`）は本サービスから切り離した営業・デモの入口（利用者の決定 2026-09-13。
- * 2026-10-02 からは専用ログイン /free/login の人だけが使い、お客様のアカウントでは使わない）。無料で完結させないために、
+ * 2026-10-02 からは専用リンク /free/<トークン> を開いた人だけが使い、お客様のアカウントでは使わない）。無料で完結させないために、
  * 結果の直後に「クイック診断で分かるのはここまで」「精密診断で分かること」を必ず出す。
  *
  * 呼び名は「浅い / 深い」で分ける。値段（無料 / 有料）を名前にすると比べる軸が値段になり、
@@ -15,7 +15,7 @@
 import { requireFeature } from "@/lib/features/registry";
 import { LISTING_MEDIA_COUNT } from "@/lib/plans/catalog";
 
-/** クイック診断の URL（専用ログイン /free/login の Cookie で守る。src/lib/auth/routes.ts の PUBLIC_PAGES と一致させる） */
+/** クイック診断の URL（専用リンク /free/<トークン> の Cookie で守る。src/lib/auth/routes.ts の PUBLIC_PAGES と一致させる） */
 export const FREE_PATHS = { site: "/", meo: "/meo" } as const;
 export type FreeKind = keyof typeof FREE_PATHS;
 

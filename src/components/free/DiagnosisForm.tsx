@@ -34,6 +34,7 @@ export function DiagnosisForm({
   onSubmit,
   busy,
   error,
+  disabled = false,
 }: {
   url: string;
   onUrlChange: (value: string) => void;
@@ -42,6 +43,8 @@ export function DiagnosisForm({
   onSubmit: (e: FormEvent) => void;
   busy: boolean;
   error?: string | null;
+  /** 今月の上限に達したとき（送信を止める） */
+  disabled?: boolean;
 }) {
   return (
     <section className="no-print mb-6 rounded-sm border border-line bg-panel p-5">
@@ -89,8 +92,8 @@ export function DiagnosisForm({
           })}
         </div>
 
-        <Button type="submit" size="lg" loading={busy} className="mt-3 w-full">
-          診断する
+        <Button type="submit" size="lg" loading={busy} disabled={disabled} className="mt-3 w-full">
+          {disabled ? "今月の無料診断は上限に達しました" : "診断する"}
         </Button>
       </form>
 

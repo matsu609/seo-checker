@@ -1,5 +1,5 @@
 /**
- * POST /api/meo/report（専用ログイン /free/login の Cookie が要る。利用者の決定 2026-10-02。回数制限は無い）
+ * POST /api/meo/report（専用リンク /free/<トークン> の Cookie が要る。利用者の決定 2026-10-02。月の上限は全体で数える）
  * 無料 MEO 診断の報告書。自社 1 店舗ぶんの公開情報を採点して返す。
  *
  * 有料版（/api/maps/stores）との違い: 保存しない・競合なし・AI 総評なし・取り直し不可。
@@ -7,8 +7,8 @@
  * キャッシュに当たった分は上限を消費しない（Google に費用が出ないため）。
  * クライアント（IP）ごと 10 回 / 時、全体 500 回 / 日（FREE_MEO_DAILY_LIMIT）。
  *
- * 順番: 専用ログインの確認 → キャッシュ → IP ごとの枠 → 全体の枠 → Google。
- * ログインしていない人が押しても、全員で分け合う枠は減らない。
+ * 順番: 専用リンクの確認 → キャッシュ → 月の上限 → IP ごとの枠 → 1 日の全体の枠 → Google → 1 回数える。
+ * 入れない人が押しても、全員で分け合う枠は減らない。
  */
 import { z } from "zod";
 import {
@@ -22,6 +22,7 @@ import {
   takeDailyToken,
 } from "@/lib/free/ratelimit";
 import { requireFreeAccess } from "@/lib/free/access";
+import { checkFreeRun, recordFreeRun } from "@/lib/free/monthly";
 import { isPlacesConfigured, placesErrorResponse } from "@/lib/maps/client";
 import { getPlaceCached, peekPlaceCached } from "@/lib/maps/fetch";
 import { buildMeoReport, type MeoReport } from "@/lib/maps/report";
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
   if (!isPlacesConfigured()) {
     return Response.json({ error: "店舗診断は現在準備中です。", code: "not_configured" }, { status: 503, headers: NO_STORE });
   }
-  // 無料診断は専用ログイン（/free/login の Cookie）が要る（利用者の決定 2026-10-02。回数制限は無い）
+  // 無料診断は専用リンク（/free/<トークン>）の Cookie が要る（利用者の決定 2026-10-02）
   const denied = await requireFreeAccess();
   if (denied) return denied;
   let raw: unknown;
@@ -68,6 +69,9 @@ export async function POST(request: Request) {
     const body: FreeMeoReportResponse = { report: buildMeoReport(hit, new Date(), null, FREE_SCORE), cached: true };
     return Response.json(body, { headers: NO_STORE });
   }
+  // 月の上限（全体）。使い切ったあとに押されても、IP ごと・1 日の全体の枠は減らさない
+  const over = await checkFreeRun();
+  if (over) return over;
   if (!takeClientToken("meo-report", clientKeyOf(request), FREE_MEO_REPORT_PER_HOUR)) {
     return Response.json({ error: CLIENT_LIMIT_MESSAGE, code: "rate_limited" }, { status: 429, headers: NO_STORE });
   }
@@ -77,6 +81,8 @@ export async function POST(request: Request) {
 
   try {
     const { detail, cached } = await getPlaceCached(placeId);
+    // Google に問い合わせた（= 実費が出た）ときだけ 1 回数える。店名で記録してマスター画面で読めるようにする
+    if (!cached) void recordFreeRun("free-meo", detail.name || placeId, clientKeyOf(request));
     const body: FreeMeoReportResponse = { report: buildMeoReport(detail, new Date(), null, FREE_SCORE), cached };
     return Response.json(body, { headers: NO_STORE });
   } catch (err) {

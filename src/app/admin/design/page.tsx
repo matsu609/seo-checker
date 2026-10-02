@@ -73,7 +73,7 @@ export default async function Page() {
         <ul className="mt-3 grid gap-2 text-[12px] leading-relaxed text-ink @xl:grid-cols-3">
           <li className="rounded-sm border border-line bg-surface p-3">
             <div className="text-[11px] font-bold text-muted">入口（見込み客）</div>
-            クイック診断（サイト・店舗）。営業・デモ用の専用ログイン（/free/login。ID とパスワードは環境変数）で回数制限なし。お客様のアカウントでは使わない（2026-10-02）
+            クイック診断（サイト・店舗）。営業・デモ用の専用リンク（マスター画面に表示。パスワード無し）で、全体で月 50 回まで。お客様のアカウントでは使わない（2026-10-02）
           </li>
           <li className="rounded-sm border border-line bg-surface p-3">
             <div className="text-[11px] font-bold text-muted">売り物</div>

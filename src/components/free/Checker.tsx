@@ -15,8 +15,9 @@ import { requestSiteAnalysis, SiteRequestError } from "@/lib/crawl/client";
 import { freeSiteMaxPages, truncationNote } from "@/lib/free/limits";
 import { reportFileName } from "@/lib/report";
 import { DiagnosisForm, type Mode } from "./DiagnosisForm";
-import { redirectIfFreeLoginRequired, redirectToFreeLogin } from "./freeLoginRedirect";
-import { FREE_LOGIN_CODE } from "@/lib/free/session-rules";
+import { isFreeExhausted, type FreeRuns } from "@/lib/free/monthly-rules";
+import { FreeRunsNotice } from "./FreeRunsNotice";
+import { useFreeRuns } from "./useFreeRuns";
 import { Download, Printer } from "./Icons";
 import { PageReport } from "./PageReport";
 import { ProgressPanel } from "./ProgressPanel";
@@ -53,7 +54,14 @@ function messageOf(err: unknown): string {
   return "診断に失敗しました。しばらく待ってからもう一度お試しください。";
 }
 
-export function Checker() {
+export interface CheckerProps {
+  /** 今月の診断回数（サーバーが入口で数えて渡す） */
+  runs: FreeRuns;
+}
+
+export function Checker({ runs: initialRuns }: CheckerProps) {
+  const { runs, refresh: refreshRuns } = useFreeRuns(initialRuns);
+  const exhausted = isFreeExhausted(runs);
   const [url, setUrl] = useState("");
   const [mode, setMode] = useState<Mode>("page");
   const [state, setState] = useState<State>({ phase: "idle" });
@@ -101,6 +109,7 @@ export function Checker() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (exhausted) return;
     const target = url.trim();
     if (!target) {
       setFormError("URL を入力してください。");
@@ -141,7 +150,6 @@ export function Checker() {
           body: JSON.stringify({ url: target }),
           signal: controller.signal,
         });
-        if (await redirectIfFreeLoginRequired(res)) return;
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "診断に失敗しました");
         if (controller.signal.aborted) return;
@@ -156,14 +164,11 @@ export function Checker() {
     } catch (err) {
       // 中止ボタン・画面離脱による中断はエラーとして扱わない
       if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
-      // 専用ログインの Cookie が切れていたらログイン画面へ（サイト全体の診断は SiteRequestError で届く）
-      if (err instanceof SiteRequestError && err.status === 401 && err.code === FREE_LOGIN_CODE) {
-        redirectToFreeLogin();
-        return;
-      }
       setState({ phase: "error", message: messageOf(err) });
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
+      // 1 回数えたので今月の回数を取り直す（キャッシュに当たった診断は数えていない）
+      void refreshRuns();
     }
   }
 
@@ -176,6 +181,7 @@ export function Checker() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
+      <FreeRunsNotice runs={runs} className="mb-3" />
       <DiagnosisForm
         url={url}
         onUrlChange={setUrl}
@@ -184,6 +190,7 @@ export function Checker() {
         onSubmit={onSubmit}
         busy={state.phase === "loading"}
         error={formError}
+        disabled={exhausted}
       />
 
       {state.phase === "loading" && (

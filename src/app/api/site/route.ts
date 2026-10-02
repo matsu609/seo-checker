@@ -8,6 +8,8 @@ import { acquireCrawlSlot, crawlClientKey } from "@/lib/crawl/gate";
 import { ndjsonResponse, ndjsonSingle } from "@/lib/crawl/stream";
 import { freeSiteMaxPages } from "@/lib/free/limits";
 import { requireFreeAccess } from "@/lib/free/access";
+import { checkFreeRun, recordFreeRun } from "@/lib/free/monthly";
+import { clientKeyOf } from "@/lib/free/ratelimit";
 import type { SiteStreamEvent } from "@/lib/crawl/types";
 
 export const runtime = "nodejs";
@@ -34,7 +36,7 @@ const cache = globalCache<SiteAnalysisResult>("site", 10 * 60 * 1000, 10);
  * リクエストを出すため、上限を超えたら 429 で断る。
  */
 export async function POST(request: NextRequest) {
-  // 無料診断は専用ログイン（/free/login の Cookie）が要る（利用者の決定 2026-10-02。回数制限は無い）
+  // 無料診断は専用リンク（/free/<トークン>）の Cookie が要る（利用者の決定 2026-10-02）
   const signedOut = await requireFreeAccess();
   if (signedOut) return signedOut;
 
@@ -73,6 +75,14 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: { "Retry-After": "60" } },
     );
   }
+
+  // 本当にクロールするときだけ月の上限（全体）を見る。混雑（429）やキャッシュ命中では数えない
+  const over = await checkFreeRun();
+  if (over) {
+    release();
+    return over;
+  }
+  void recordFreeRun("free-site", url, clientKeyOf(request));
 
   // クライアントが切断したらクロールを止める（request.signal と stream の cancel の両方を見る）
   const abort = new AbortController();

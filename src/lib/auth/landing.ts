@@ -6,7 +6,7 @@
  *   契約済み          → 最初のツール
  *
  * 無料診断（/ と /meo）はここでは行き先にしない。お客様のアカウントでは使わず、
- * 専用ログイン（/free/login。src/lib/free/access.ts）の人だけが使う。
+ * 専用リンク（/free/<トークン>。src/lib/free/access.ts）を開いた人だけが使う。
  */
 export const FIRST_TOOL_PATH = "/tools/seo-analysis";
 /** 顧客管理（運用者・管理アカウントが開く）。旧 /agency はここへ転送 */

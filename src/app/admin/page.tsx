@@ -2,7 +2,7 @@
  * マスター画面（運用者だけ）。
  *
  * ここに置くのは**システム・バックエンド側**のものだけ（利用者の指示 2026-09-20）。
- *   動いているコミットと版 / 外部連携（API キー）の設定状況 / 月額費用の試算 / 定期処理（Cron）の状況
+ *   動いているコミットと版 / 無料診断の専用リンクと今月の回数 / 外部連携（API キー）の設定状況 / 月額費用の試算 / 定期処理（Cron）の状況
  *   設計書（どのサービスをどの機能に使っているか）は /admin/design
  *
  * お客様の契約状況・ご利用状況は顧客管理（/clients。管理アカウントも開ける）、
@@ -14,6 +14,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import Link from "next/link";
 import { CostForecastCard } from "@/components/admin/CostForecastCard";
+import { FreeLinkCard } from "@/components/admin/FreeLinkCard";
 import { IntegrationsCard } from "@/components/admin/IntegrationsCard";
 import { JobsCard } from "@/components/admin/JobsCard";
 import { VersionCard } from "@/components/admin/VersionCard";
@@ -58,6 +59,11 @@ export default async function Page() {
       </p>
 
       <VersionCard />
+
+      {/* 営業・デモ用の無料診断の専用リンクと今月の回数（利用者の指示 2026-10-02）。版の直下に置く */}
+      <div className="mb-6">
+        <FreeLinkCard />
+      </div>
 
       <div className="mb-6">
         <IntegrationsCard />

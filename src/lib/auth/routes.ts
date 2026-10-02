@@ -3,7 +3,7 @@
  *
  * 方針:
  * - 無料診断の画面（/ と /meo）とその裏側の API（analyze / site / faq / meo）は、Clerk のログインではなく
- *   **専用ログイン（/free/login）の署名付き Cookie** で守る（利用者の決定 2026-10-02。src/lib/free/access.ts）。
+ *   **専用リンク（/free/<トークン>）の署名付き Cookie** で守る（利用者の決定 2026-10-02。src/lib/free/access.ts）。
  *   Clerk の判定ではこれらを「公開」として素通しし、ページ側（src/lib/free/gate.ts）と API ハンドラ側
  *   （requireFreeAccess）が Cookie を見る。
  * - それ以外のツールと API は、外部 API の実費が出るので Clerk のログイン必須。
@@ -15,27 +15,29 @@
  */
 
 /**
- * Clerk のログイン不要で開けるページ（無料診断 2 本とその専用ログイン、登録前に読める利用規約・プライバシーポリシー）。
- * 無料診断の画面はページ側（src/lib/free/gate.ts）が専用ログインの Cookie を見て、無ければログイン画面へ送る。
+ * Clerk のログイン不要で開けるページ（無料診断 2 本、登録前に読める利用規約・プライバシーポリシー）。
+ * 無料診断の画面はページ側（src/lib/free/gate.ts）が専用リンクの Cookie を見て、無ければログイン画面へ送る。
+ * 専用リンクそのもの（`/free/<トークン>`）は下の PUBLIC_PAGE_PREFIXES。`/free`（運用者の入口）は Clerk で守る。
  *
  * `/robots.txt` と `/sitemap.xml` はクローラ向けの生成ファイル。proxy.ts のマッチャが
  * 拡張子で除外してもいるが、**マッチャの書き換えで静かに保護対象に戻ると
  * サイトマップが取得できなくなる**ので、公開範囲の定義にも明示しておく。
  */
-const PUBLIC_PAGES = new Set(["/", "/meo", "/free/login", "/terms", "/privacy", "/legal/tokushoho", "/robots.txt", "/sitemap.xml"]);
+const PUBLIC_PAGES = new Set(["/", "/meo", "/terms", "/privacy", "/legal/tokushoho", "/robots.txt", "/sitemap.xml"]);
 
 /**
  * ログイン不要で開けるページの前方一致（末尾のスラッシュまで含めて比べる）。
  * `/r/<slug>` は来店客が店内の QR から開くアンケート（口コミ支援）。
+ * `/free/<トークン>` は無料診断の専用リンク（Route Handler がトークンを一定時間で照合する。2026-10-02）。
  * `/r` 単体や `/rank` のような別のパスに広がらないよう、必ず `/` で終わる接頭辞にする。
  */
-const PUBLIC_PAGE_PREFIXES = ["/r/"] as const;
+const PUBLIC_PAGE_PREFIXES = ["/r/", "/free/"] as const;
 
 /**
- * 無料診断の API（専用ログインの Cookie で守る。src/lib/free/access.ts の requireFreeAccess を各ハンドラが呼ぶ）。
+ * 無料診断の API（専用リンクの Cookie で守る。src/lib/free/access.ts の requireFreeAccess を各ハンドラが呼ぶ）。
  * `/api/site` は前方一致で `/api/site-audit`（有料・要ログイン）と取り違えやすいので、必ず完全一致で持つ。
  */
-const FREE_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/free/login", "/api/free/logout"]);
+const FREE_APIS = new Set(["/api/analyze", "/api/site", "/api/faq", "/api/meo/search", "/api/meo/report", "/api/free/quota", "/api/free/logout"]);
 
 /**
  * Clerk のログイン不要で叩ける API（完全一致）。
@@ -66,12 +68,12 @@ export function normalizePath(pathname: string): string {
   return pathname;
 }
 
-/** 無料診断の API か（専用ログインの Cookie で守る側） */
+/** 無料診断の API か（専用リンクの Cookie で守る側） */
 export function isFreeApiPath(pathname: string): boolean {
   return FREE_APIS.has(normalizePath(pathname));
 }
 
-/** Clerk のログイン不要で到達してよいパスか（無料診断のパスは専用ログインの Cookie で別途守る） */
+/** Clerk のログイン不要で到達してよいパスか（無料診断のパスは専用リンクの Cookie で別途守る） */
 export function isPublicPath(pathname: string): boolean {
   const path = normalizePath(pathname);
   if (PUBLIC_PAGES.has(path)) return true;

@@ -17,7 +17,7 @@ import { useStore } from "@/lib/store/hooks";
 import { sidebarTabStore } from "@/lib/store/sidebar";
 import { useIntegrations } from "@/lib/store/useIntegrations";
 import { canUseFeature, useAccess, type Access } from "@/lib/store/usePlan";
-import { FREE_LOGIN_PATH } from "@/lib/free/session-rules";
+import { FREE_STAFF_ENTRY_PATH } from "@/lib/free/session-rules";
 import { ChevronIcon, CloseIcon, FeatureIconSvg, LogoMark } from "./icons";
 
 export interface SidebarProps {
@@ -138,7 +138,7 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
   /**
    * 管理アカウントにはお客様向けのツールを出さない（利用者の指示 2026-09-21「紛らわしい」）。
    * 管理アカウントはサービスの利用者ではなく、お客様の対応をする立場なので、
-   * 出すのは「管理者用」（顧客管理・無料クイック診断の専用ログイン）だけにする。
+   * 出すのは「管理者用」（顧客管理・無料クイック診断）だけにする。
    * 運用者（マスター）は自分で動作を確かめるので、従来どおり全部出す。
    */
   const managerOnly = access?.agency === true && access.admin !== true;
@@ -255,13 +255,14 @@ export const Sidebar = forwardRef<HTMLButtonElement, SidebarProps>(function Side
               </Link>
             </li>
             {/*
-              無料クイック診断（営業・デモ用）。2026-10-02 から専用ログイン（/free/login。ID とパスワードは環境変数）に
-              一本化し、月 50 回のデモ枠は廃止（利用者の決定）。ログイン済みなら診断の画面へそのまま進む。
+              無料クイック診断（営業・デモ用）。2026-10-02 から専用リンク（/free/<トークン>。パスワード無し。
+              マスター画面でコピーして渡す）に一本化し、運用者ごとのデモ枠は廃止。回数は全体で月 50 回（利用者の決定）。
+              運用者は /free（Clerk でログイン中なら Cookie を置いて診断へ）から入れる。
               **必ず新しいタブで開く**（利用者の指示 2026-09-21）。いま開いている管理者用の画面が
               無料診断に置き換わってしまうと、お客様の対応の途中で戻る手間がかかるため。
               外部サイトではないが、新しいタブを開く以上 rel は付けておく。
             */}
-            {[{ href: FREE_LOGIN_PATH, label: "無料クイック診断（専用ログイン）" }].map((demo) => (
+            {[{ href: FREE_STAFF_ENTRY_PATH, label: "無料クイック診断（営業・デモ用）" }].map((demo) => (
               <li key={demo.href}>
                 <a
                   href={demo.href}

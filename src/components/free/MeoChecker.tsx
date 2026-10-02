@@ -22,7 +22,9 @@ import { meoReportFileName } from "@/lib/maps/report";
 import type { PlaceSummary } from "@/lib/maps/types";
 import { Download } from "./Icons";
 import { FreeTargetSwitch } from "./FreeTargetSwitch";
-import { redirectIfFreeLoginRequired } from "./freeLoginRedirect";
+import { isFreeExhausted, type FreeRuns } from "@/lib/free/monthly-rules";
+import { FreeRunsNotice } from "./FreeRunsNotice";
+import { useFreeRuns } from "./useFreeRuns";
 import { UpgradeCta } from "./UpgradeCta";
 
 type Search = { phase: "idle" } | { phase: "loading" } | { phase: "error"; message: string } | { phase: "done"; data: FreeMeoSearchResponse };
@@ -35,9 +37,13 @@ type Report =
 export interface MeoCheckerProps {
   /** Places API が設定されているか（サーバーで判定して渡す） */
   enabled: boolean;
+  /** 今月の診断回数（サーバーが入口で数えて渡す） */
+  runs: FreeRuns;
 }
 
-export function MeoChecker({ enabled }: MeoCheckerProps) {
+export function MeoChecker({ enabled, runs: initialRuns }: MeoCheckerProps) {
+  const { runs, refresh: refreshRuns } = useFreeRuns(initialRuns);
+  const exhausted = isFreeExhausted(runs);
   const [query, setQuery] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [search, setSearch] = useState<Search>({ phase: "idle" });
@@ -61,7 +67,6 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query: q }),
       });
-      if (await redirectIfFreeLoginRequired(res)) return;
       if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       setSearch({ phase: "done", data: (await res.json()) as FreeMeoSearchResponse });
     } catch (err) {
@@ -70,6 +75,7 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
   }
 
   async function onDiagnose(place: PlaceSummary) {
+    if (exhausted) return;
     resetPdf();
     setReport({ phase: "loading", placeId: place.id });
     try {
@@ -78,13 +84,14 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ placeId: place.id }),
       });
-      if (await redirectIfFreeLoginRequired(res)) return;
       if (!res.ok) throw new Error(await apiErrorMessage(res, requestFailedMessage));
       setReport({ phase: "done", data: (await res.json()) as FreeMeoReportResponse, placeId: place.id });
       // 報告書までスクロール（フォームは上に残す）
       setTimeout(() => reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     } catch (err) {
       setReport({ phase: "error", message: err instanceof Error ? err.message : "診断に失敗しました" });
+    } finally {
+      void refreshRuns();
     }
   }
 
@@ -126,7 +133,7 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
           size="sm"
           onClick={() => void onDiagnose(p)}
           loading={report.phase === "loading" && report.placeId === p.id}
-          disabled={report.phase === "loading"}
+          disabled={report.phase === "loading" || (exhausted && !(report.phase === "done" && report.placeId === p.id))}
           variant={report.phase === "done" && report.placeId === p.id ? "secondary" : "primary"}
         >
           {report.phase === "done" && report.placeId === p.id ? "表示中" : "この店舗を診断"}
@@ -137,6 +144,7 @@ export function MeoChecker({ enabled }: MeoCheckerProps) {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
+      <FreeRunsNotice runs={runs} className="mb-3" />
       <section className="no-print mb-6 rounded-sm border border-line bg-panel p-5">
         <h1 className="text-[20px] font-bold text-ink">{FREE_SUITE_LABEL}</h1>
         <p className="mt-1 text-[13px] leading-relaxed text-muted">

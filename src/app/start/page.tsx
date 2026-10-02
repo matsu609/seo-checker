@@ -15,7 +15,7 @@ import { getCurrentPlan } from "@/lib/plans/current";
  *
  * それ以外は、未契約（無料プラン）なら料金プラン（`/plans`。ここでカード登録。利用者の決定 2026-10-02
  * 「登録が終わったらすぐにカード登録」）へ、契約済みならツールへ直行する。無料診断はお客様のアカウントでは
- * 使わない（専用ログイン /free/login の人だけ）。行き先の定数は src/lib/auth/landing.ts。
+ * 使わない（専用リンク /free/<トークン> を開いた人だけ）。行き先の定数は src/lib/auth/landing.ts。
  *
  * ここで招待の取りこぼしも拾う（r137。利用者の報告 2026-09-21）。招待メールのリンクは Clerk の
  * 招待フロー（チケット）を通る前提だが、このアプリの登録フォームは自前でチケットを扱わないため、
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   await connection();
   if (await currentAgencyId()) redirect(MANAGER_PATH);
-  // 運用者はプランに関係なくツールへ（無料診断は専用ログイン /free/login から別途入る）
+  // 運用者はプランに関係なくツールへ（無料診断はサイドバーの /free から別途入る）
   if (await isAdmin()) redirect(FIRST_TOOL_PATH);
 
   // まだ管理アカウントではない人だけ、自分あての招待が残っていないかを見る。

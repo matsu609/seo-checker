@@ -27,8 +27,11 @@ describe("公開パス", () => {
     expect(isFreeApiPath("/api/analyze")).toBe(true);
     expect(isFreeApiPath("/api/site/")).toBe(true);
     expect(isFreeApiPath("/api/site-audit")).toBe(false);
-    expect(isPublicPath("/free/login")).toBe(true);
-    expect(isPublicPath("/api/free/login")).toBe(true);
+    // 専用リンク（/free/<トークン>）は公開、運用者の入口 /free は Clerk で守る
+    expect(isPublicPath("/free/abcDEF123456abcDEF123456")).toBe(true);
+    expect(isPublicPath("/free")).toBe(false);
+    expect(isPublicPath("/free/")).toBe(false);
+    expect(isPublicPath("/api/free/quota")).toBe(true);
     expect(isPublicPath("/api/free/logout")).toBe(true);
     // 利用規約とプライバシーポリシーは登録前に読めなければならない
     // （Google OAuth の審査と Clerk の設定でも URL を求められる）
@@ -143,7 +146,6 @@ describe("公開パスの一覧", () => {
     expect(PUBLIC_PATHS.pages).toEqual([
       "/",
       "/meo",
-      "/free/login",
       "/terms",
       "/privacy",
       "/legal/tokushoho",
@@ -160,7 +162,7 @@ describe("公開パスの一覧", () => {
       "/api/faq",
       "/api/meo/search",
       "/api/meo/report",
-      "/api/free/login",
+      "/api/free/quota",
       "/api/free/logout",
     ]);
     expect(PUBLIC_PATHS.apis).toEqual([
@@ -171,7 +173,7 @@ describe("公開パスの一覧", () => {
       ...PUBLIC_PATHS.freeApis,
     ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);
-    expect(PUBLIC_PATHS.pagePrefixes).toEqual(["/r/"]);
+    expect(PUBLIC_PATHS.pagePrefixes).toEqual(["/r/", "/free/"]);
     expect(PUBLIC_PATHS.apiPrefixes).toEqual(["/api/r/"]);
   });
 });

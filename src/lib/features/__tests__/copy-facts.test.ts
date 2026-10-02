@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TOKUSHOHO_ROWS } from "@/components/legal/Tokushoho";
+import { FREE_MONTHLY_LIMIT_DEFAULT } from "@/lib/free/monthly-rules";
 import { LISTING_MEDIA } from "@/lib/listings/media";
 import { LISTING_MEDIA_COUNT, PLAN_BY_ID, PLANS } from "@/lib/plans/catalog";
 import { DEFAULT_MONTHLY_LIMIT } from "@/lib/seo-analysis/limits";
@@ -24,11 +25,12 @@ describe("文言の事実", () => {
     expect(LISTING_MEDIA_COUNT).toBe(LISTING_MEDIA.length);
   });
 
-  // 2026-10-02 から無料診断は専用ログイン（/free/login）だけ。「N 回まで」の文言が戻らないように
-  it("クイック診断の説明は専用ログインで、回数の文言は無い", () => {
+  // 2026-10-02 から無料診断は専用リンク（/free/<トークン>）だけ。月の上限は定義（monthly-rules.ts）から
+  it("クイック診断の説明は専用リンクで、月の上限は定義から", () => {
     for (const id of ["free", "free-meo"] as const) {
-      expect(requireFeature(id).description).toContain("/free/login");
-      expect(requireFeature(id).description).not.toContain("回まで");
+      expect(requireFeature(id).description).toContain("/free/");
+      expect(requireFeature(id).description).toContain(`月 ${FREE_MONTHLY_LIMIT_DEFAULT} 回まで`);
+      expect(requireFeature(id).description).not.toContain("メールアドレスごと");
     }
   });
 

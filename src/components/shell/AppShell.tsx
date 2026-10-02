@@ -38,12 +38,11 @@ export function AppShell({ children, version, authEnabled }: AppShellProps) {
   const feature = findFeatureByPath(pathname);
   // クイック診断（/ と /meo）と、登録・ログイン画面は専用の公開シェルで出す（サイドバーもトップバーも出さない）。
   // 登録画面に有料ツールの一覧が並ぶと、見込み客がそこを押して Clerk のログイン画面に飛んでしまう（利用者の報告 2026-09-18）
-  // 無料診断の専用ログイン（/free/login）も同じ扱い（利用者の決定 2026-10-02）
-  const isAuthPage = /^\/(sign-in|sign-up|sso-callback|free\/login)(\/|$)/.test(pathname);
+  const isAuthPage = /^\/(sign-in|sign-up|sso-callback)(\/|$)/.test(pathname);
   // ログイン画面には「クイック診断・無料」のバッジを出さない（利用者の指示 2026-09-21）。
   // ログインしに来るのは既にお使いの方と、運用者・管理アカウント。そこに無料診断の宣伝が出ていると
   // 「自分の画面ではないのでは」と迷わせる。登録画面（/sign-up）は見込み客が来るので残す
-  const isSignInPage = /^\/(sign-in|sso-callback|free\/login)(\/|$)/.test(pathname);
+  const isSignInPage = /^\/(sign-in|sso-callback)(\/|$)/.test(pathname);
   const isFree = feature?.group === "free" || isAuthPage;
   // 来店客向けのアンケート（/r/<slug>）はサイドバーもトップバーも出さない（店舗の画面ではない）
   const isBare = pathname.startsWith("/r/");
