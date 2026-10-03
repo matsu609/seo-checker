@@ -9,7 +9,26 @@
  * 直しても点数が動かないため。代わりに ownerOnly として別に返し、
  * 「オーナーにしか分からない項目」としてまとめて案内する。
  */
+import { urgencyOf, type BlockingRules, type Urgency } from "@/lib/report/urgency";
 import { CATEGORY_LABELS, type CategoryId, type ProfileCheck, type ProfileScore } from "./score";
+
+/**
+ * MEO で「急ぎで対応」にする項目（お客様が店を見つけられない・連絡できない・
+ * プロフィールが止まる原因になるもの）。配点とは別に、性質で決める。
+ */
+export const MEO_BLOCKING: BlockingRules = {
+  // 閉業・臨時休業の表示（マップ上で「閉業」と出る）
+  status: ["fail"],
+  // Google の警告（不審な口コミ活動・ポリシー違反。放置すると停止の原因）
+  consumerAlert: ["fail"],
+  // キーワードの詰め込み（ガイドライン違反。停止の原因）
+  name: ["warn", "fail"],
+  // 住所・電話・営業時間・カテゴリが無いと、見つからない・来店できない
+  address: ["fail"],
+  phone: ["fail"],
+  hours: ["fail"],
+  category: ["fail"],
+};
 
 export interface MeoImprovement {
   id: string;
@@ -22,6 +41,8 @@ export interface MeoImprovement {
   gain: number;
   /** 画面に出す "+6 点" の形 */
   gainLabel: string;
+  /** 対応の優先度（急ぎ / 要改善 / 一旦放置で OK。src/lib/report/urgency.ts と同じ 3 段階） */
+  urgency: Urgency;
   /** 現状の測定値・理由 */
   detail: string;
   /** やること */
@@ -56,6 +77,8 @@ export function buildImprovementPlan(score: ProfileScore): MeoImprovementPlan {
     .filter((c): c is ProfileCheck & { status: "warn" | "fail" } => c.status === "warn" || c.status === "fail")
     .map((c) => {
       const gain = gainOf(c);
+      // 測れた配点に対する実点（0〜100 の目盛）。優先度の閾値もこの目盛で見る
+      const gainPoints = (gain / (measuredWeight || 1)) * 100;
       return {
         id: c.id,
         label: c.label,
@@ -63,8 +86,9 @@ export function buildImprovementPlan(score: ProfileScore): MeoImprovementPlan {
         categoryLabel: CATEGORY_LABELS[c.category],
         status: c.status,
         gain,
-        // 測れた配点に対する実点。小数になることがあるので四捨五入して出す
-        gainLabel: `+${Math.round((gain / (measuredWeight || 1)) * 100)} 点`,
+        // 小数になることがあるので四捨五入して出す
+        gainLabel: `+${Math.round(gainPoints)} 点`,
+        urgency: urgencyOf({ id: c.id, status: c.status, gain: gainPoints }, MEO_BLOCKING),
         detail: c.detail,
         advice: c.advice ?? "",
       };

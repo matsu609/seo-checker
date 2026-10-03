@@ -24,6 +24,7 @@ import {
 } from "@/lib/analyzer/types";
 import { GRADE_BANDS, gradeOf, toneOf, type Grade, type GradeInfo } from "@/lib/ui/grade";
 import { fmt, pathOf } from "./format";
+import { SEO_BLOCKING, urgencyOf } from "./urgency";
 import { CATEGORY_ORDER, categoryIndex, checkWeight } from "./weights";
 import type {
   CategoryRow,
@@ -184,6 +185,7 @@ function pageImprovements(categories: CategoryScore[]): Improvement[] {
         status: c.status,
         gain,
         gainLabel: gainLabelOf(gain),
+        urgency: urgencyOf({ id: c.id, status: c.status, gain }, SEO_BLOCKING),
         evidence: c.evidence,
         advice: c.advice,
       });
@@ -309,6 +311,7 @@ function siteImprovements(checks: SiteCheckSummary[], pageCount: number): Improv
       status,
       gain,
       gainLabel: gainLabelOf(gain),
+      urgency: urgencyOf({ id: c.id, status, gain }, SEO_BLOCKING),
       evidence: affected.find((a) => a.status === status)?.evidence,
       advice: c.advice,
       affectedPages: fail + warn,
@@ -329,7 +332,13 @@ function siteImprovements(checks: SiteCheckSummary[], pageCount: number): Improv
  * 1 本のリストにまとめる。画面側は spread で 2 群に分けて描く（design-spec §3.3-5）。
  * 全ページ合格の項目は除き、参考（info）だけの任意項目は worst = "info" で残す。
  */
-function sitePriorities(checks: SiteCheckSummary[], pageCount: number): PriorityItem[] {
+function sitePriorities(
+  checks: SiteCheckSummary[],
+  pageCount: number,
+  improvements: Improvement[],
+): PriorityItem[] {
+  // 優先度は見込み加点から決めるので、同じ項目の Improvement から引く
+  const urgencyById = new Map(improvements.map((i) => [i.id, i.urgency] as const));
   const list: PriorityItem[] = [];
   for (const c of checks) {
     const counts = c.counts ?? emptyStatusMap();
@@ -351,6 +360,7 @@ function sitePriorities(checks: SiteCheckSummary[], pageCount: number): Priority
       counts: normalized,
       spread: spreadOf(normalized, pageCount),
       worst,
+      urgency: urgencyById.get(c.id) ?? null,
       affectedCount: normalized.fail + normalized.warn + normalized.info,
       totalPages: pageCount,
       affected: (c.affected ?? [])
@@ -592,7 +602,7 @@ export function buildSiteSummary(result: SiteAnalysisResult): SiteReportSummary 
     averageFraction: bandFraction(overall, bands),
     uniformFailCount,
     rankedPages,
-    priorities: sitePriorities(checks, pageCount),
+    priorities: sitePriorities(checks, pageCount, improvements),
     excludedPages,
   };
 }

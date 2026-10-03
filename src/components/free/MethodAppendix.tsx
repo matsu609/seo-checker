@@ -9,10 +9,13 @@ import {
   CATEGORY_ORDER,
   CATEGORY_WEIGHTS,
   formatDateTimeSeconds,
+  LATER_BELOW_GAIN,
+  URGENCY_LABELS,
+  URGENCY_ORDER,
 } from "@/lib/report";
 import { GRADE_BANDS } from "@/lib/ui/grade";
 import { palette } from "@/lib/ui/palette";
-import { Num, ReportSection, SubHeading } from "./report-parts";
+import { Num, ReportSection, SubHeading, UrgencyBadge } from "./report-parts";
 import { ServiceGuideButton } from "./ServiceGuideButton";
 
 const TH = "border-b border-line px-2 py-2 text-left text-[12px] font-bold text-muted";
@@ -28,6 +31,23 @@ const SCORING_ROWS: { label: string; ratio: string; note: string }[] = [
     note: "根拠が確立していない項目・そのページに当てはまらない項目。状態は表示しますが加点も減点もしません",
   },
 ];
+
+/** 対応の優先度の決め方（src/lib/report/urgency.ts の規則を文章にしたもの） */
+const URGENCY_ROWS: Record<(typeof URGENCY_ORDER)[number], { rule: string; examples: string }> = {
+  now: {
+    rule: "検索や AI 検索に「載らない・読まれない」原因になる項目が未対応のとき。点数の大小は見ません",
+    examples:
+      "Googlebot / Bingbot の拒否、検索用 AI クローラの全拒否、noindex、robots.txt に HTML や 5xx が返る、本文が JavaScript 描画だけ、title が無い",
+  },
+  soon: {
+    rule: `上記以外で、直すと総合スコアが ${LATER_BELOW_GAIN} 点以上上がる項目`,
+    examples: "JSON-LD が無い、説明文が無い、h1 が無い・複数ある、本文に具体的な情報が少ない",
+  },
+  later: {
+    rule: `直しても総合スコアが ${LATER_BELOW_GAIN} 点未満しか動かない項目。サイト診断では該当ページが少ない項目もここに入ります`,
+    examples: "llms.txt が無い、robots.txt に Sitemap 行が無い、画像の alt が一部欠けている",
+  },
+};
 
 export function MethodAppendix({
   number,
@@ -118,6 +138,41 @@ export function MethodAppendix({
         もともと検索に載せないページ（サイト内検索の結果・買い物かご・ログイン後の画面・送信完了・印刷用）が
         noindex や robots.txt で検索から外されている場合、そのページは診断はしますが採点の対象外（参考）にします。
         サイト全体の平均点・項目の集計にも含めません。
+      </p>
+
+      <SubHeading>対応の優先度の決め方</SubHeading>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[26rem]">
+          <thead>
+            <tr>
+              <th scope="col" className={TH} style={{ width: "7.5rem" }}>
+                優先度
+              </th>
+              <th scope="col" className={TH}>
+                決め方
+              </th>
+              <th scope="col" className={TH}>
+                例
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {URGENCY_ORDER.map((u) => (
+              <tr key={u}>
+                <th scope="row" className={`${TD} whitespace-nowrap`}>
+                  <UrgencyBadge urgency={u} />
+                  <span className="sr-only">{URGENCY_LABELS[u]}</span>
+                </th>
+                <td className={`${TD} text-[12px] leading-relaxed`}>{URGENCY_ROWS[u].rule}</td>
+                <td className={`${TD} text-[12px] leading-relaxed text-muted`}>{URGENCY_ROWS[u].examples}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-[12px] leading-relaxed text-muted">
+        レポート先頭の「まず、これをしてください」は、急ぎで対応 → 要改善 → 一旦放置で OK の順に、同じ優先度なら見込み効果の大きい項目を
+        1 件だけ選んでいます。見込み効果（+N 点）は、その項目を合格にしたときの総合スコアの増分の試算です。
       </p>
 
       <SubHeading>グレードの閾値</SubHeading>

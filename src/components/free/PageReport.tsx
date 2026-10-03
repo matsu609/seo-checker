@@ -5,10 +5,11 @@
 import { useMemo } from "react";
 import { Callout } from "@/components/ui";
 import type { AnalysisResult } from "@/lib/analyzer/types";
-import { buildPageSummary, formatDuration, hostOf } from "@/lib/report";
+import { buildActionPlan, buildPageSummary, formatDuration, hostOf } from "@/lib/report";
 import { PageAppendix } from "./Appendix";
 import { PageBreakdownSection } from "./BreakdownSection";
 import { CategorySection } from "./CategorySection";
+import { ActionPlanBlock } from "./ActionPlan";
 import { PageDetailSection } from "./DetailSection";
 import { FaqSection } from "./FaqSection";
 import { MethodAppendix, NextSteps, ReportFooter } from "./MethodAppendix";
@@ -28,6 +29,16 @@ export function PageReport({
   elapsedMs: number;
 }) {
   const summary = useMemo(() => buildPageSummary(result), [result]);
+  const actionPlan = useMemo(
+    () =>
+      buildActionPlan({
+        items: summary.improvements,
+        overall: summary.overall,
+        grade: summary.grade.grade,
+        subject: "このページ",
+      }),
+    [summary],
+  );
   return (
     <>
       <ReportCover
@@ -50,10 +61,11 @@ export function PageReport({
             サイト全体の診断ではこのページを採点対象外として平均点に含めません。
           </Callout>
         )}
+        <ActionPlanBlock plan={actionPlan} className="mb-8" />
         <OverallSection summary={summary} number={1} />
         <CategorySection summary={summary} number={2} />
         <PageBreakdownSection summary={summary} number={3} />
-        <PageDetailSection result={result} number={4} />
+        <PageDetailSection result={result} summary={summary} number={4} />
         <FaqSection key={result.page.finalUrl} result={result} enabled={faqEnabled} number={5} />
         <PageAppendix result={result} number="付録 A" />
         <MethodAppendix number="付録 B" fetchedAt={result.page.fetchedAt} version={VERSION} />

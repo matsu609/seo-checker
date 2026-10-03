@@ -6,10 +6,11 @@
  */
 import { useMemo } from "react";
 import type { SiteAnalysisResult } from "@/lib/analyzer/types";
-import { buildSiteSummary, fmt, formatDuration, hostOf } from "@/lib/report";
+import { buildActionPlan, buildSiteSummary, fmt, formatDuration, hostOf } from "@/lib/report";
 import { SiteAppendix } from "./Appendix";
 import { SiteBreakdownSection } from "./BreakdownSection";
 import { CategorySection } from "./CategorySection";
+import { ActionPlanBlock } from "./ActionPlan";
 import { SiteDetailSection } from "./DetailSection";
 import { HeatTableSection } from "./HeatTable";
 import { MethodAppendix, NextSteps, ReportFooter } from "./MethodAppendix";
@@ -22,6 +23,16 @@ const VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0";
 
 export function SiteReport({ result, elapsedMs }: { result: SiteAnalysisResult; elapsedMs: number }) {
   const summary = useMemo(() => buildSiteSummary(result), [result]);
+  const actionPlan = useMemo(
+    () =>
+      buildActionPlan({
+        items: summary.improvements,
+        overall: summary.overall,
+        grade: summary.grade.grade,
+        subject: "このサイト",
+      }),
+    [summary],
+  );
   const entry = summary.rankedPages.find((p) => p.isEntry);
   const entryPage = result.pages.find((p) => p.url === entry?.url) ?? result.pages[0];
   const failed = result.failures.length;
@@ -45,6 +56,7 @@ export function SiteReport({ result, elapsedMs }: { result: SiteAnalysisResult; 
         grade={summary.grade}
       />
       <ReportSheet>
+        <ActionPlanBlock plan={actionPlan} className="mb-8" />
         <OverallSection summary={summary} number={1} />
         <CategorySection summary={summary} number={2} />
         <SiteBreakdownSection summary={summary} number={3} />

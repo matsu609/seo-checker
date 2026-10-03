@@ -10,6 +10,7 @@ import type {
   SiteCheckSummary,
 } from "@/lib/analyzer/types";
 import type { Grade, GradeInfo, ScoreTone } from "@/lib/ui/palette";
+import type { Urgency } from "./urgency";
 
 /** 講評の 1 行。数値は { num } で分け、画面側で tabular-nums の span に包む */
 export type CommentaryPart = string | { num: string };
@@ -53,6 +54,8 @@ export interface Improvement {
   gain: number;
   /** 「+3 点」「+1 点未満」 */
   gainLabel: string;
+  /** 対応の優先度（急ぎ / 要改善 / 一旦放置で OK。urgency.ts） */
+  urgency: Urgency;
   /** 判定根拠（site は該当ページの 1 件目） */
   evidence?: string;
   /** どう直すか（CheckResult.advice / SiteCheckSummary.advice） */
@@ -142,6 +145,8 @@ export interface PriorityItem {
   spread: "uniform" | "mixed";
   /** 最も悪い判定 */
   worst: CheckStatus;
+  /** 対応の優先度。参考（info）だけの項目は null（採点に入らないので優先度を付けない） */
+  urgency: Urgency | null;
   /** pass 以外のページ数 */
   affectedCount: number;
   totalPages: number;
