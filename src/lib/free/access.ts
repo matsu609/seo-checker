@@ -1,16 +1,12 @@
 /**
  * 無料診断（`/` と `/meo` とその裏の API）に入れるかどうか。サーバー専用。
  *
- * 利用者の決定（2026-10-02）: 無料診断はお客様のアカウントでは使わない。パスワードも置かない。
- * **推測できない専用リンク**（`/free/<トークン>`。マスター画面に表示）を開いた人に署名付き Cookie（30 日）を置き、
- * その Cookie がある人だけ通す。使いすぎは月の回数上限（monthly.ts）で止める。
- * 運用者は Clerk でログインしていれば `/free`（トークン無し）からも入れる（サイドバー）。
+ * 利用者の決定（2026-10-02 → 10-03）: 無料診断はお客様のアカウントでは使わない。パスワードもトークンも置かない。
+ * **固定リンク `/free`**（マスター画面にも表示）を開いた人に印の Cookie（30 日）を置き、その Cookie がある人だけ通す。
+ * 「ばれたら終わり」は承知のうえ（利用者）。守りは月の回数上限（monthly.ts）だけ。
  *
- * 秘密は FREE_LINK_SECRET（任意）。無ければ CLERK_SECRET_KEY から派生させる（追加の設定なしで動く。
- * 派生は一方向なので、リンクが漏れても Clerk の鍵は分からない）。秘密を変えるとリンクも配り済みの Cookie も無効になる。
- *
- *   秘密がある                 … Cookie がある人だけ通す
- *   秘密も Clerk も無い（開発・E2E） … 素通り
+ *   Clerk がある（本番相当）        … Cookie がある人だけ通す
+ *   Clerk が無い（開発・E2E）       … 素通り
  *
  * 画面（gate.ts）と API（requireFreeAccess）の両方がここを使う。proxy.ts は無料診断のパスを「公開」として
  * 素通しするので、API ハンドラ側で必ず requireFreeAccess() を呼ぶこと。
@@ -19,46 +15,16 @@ import { cookies } from "next/headers";
 import { isAuthEnabled } from "@/lib/auth/config";
 import { NO_STORE } from "@/lib/api/headers";
 import { PUBLIC_APP_ORIGIN } from "@/lib/site";
-import { constantTimeEqual, FREE_ACCESS_CODE, FREE_LINK_PREFIX, FREE_SESSION_COOKIE, freeLinkToken, freeSessionExpiry, freeSessionKey, signFreeSession, verifyFreeSession } from "./session-rules";
+import { FREE_ACCESS_CODE, FREE_ENTRY_PATH, FREE_SESSION_COOKIE, FREE_SESSION_VALUE, freeSessionExpiry, isFreeSessionValue } from "./session-rules";
 
-function envValue(name: string): string | null {
-  const v = process.env[name];
-  return typeof v === "string" && v.trim().length > 0 ? v.trim() : null;
-}
-
-/** リンクと Cookie の元になる秘密。値は外に出さない */
-function freeSecret(): string | null {
-  return envValue("FREE_LINK_SECRET") ?? envValue("CLERK_SECRET_KEY");
-}
-
-/** 専用リンクが作れる状態か（秘密があるか） */
-export function isFreeLinkConfigured(): boolean {
-  return freeSecret() !== null;
-}
-
-/** 無料診断を「誰でも」使える環境か（秘密も Clerk も無い開発・E2E） */
+/** 無料診断を「誰でも」使える環境か（Clerk が無い開発・E2E。Cookie も見ない） */
 export function isFreeOpenWithoutLogin(): boolean {
-  return !isFreeLinkConfigured() && !isAuthEnabled();
+  return !isAuthEnabled();
 }
 
-/** 専用リンクのパス（`/free/<トークン>`）。秘密が無ければ null */
-export async function freeLinkPath(): Promise<string | null> {
-  const secret = freeSecret();
-  if (!secret) return null;
-  return `${FREE_LINK_PREFIX}${await freeLinkToken(secret)}`;
-}
-
-/** 専用リンクの絶対 URL（マスター画面でコピーして渡す）。秘密が無ければ null */
-export async function freeLinkUrl(): Promise<string | null> {
-  const path = await freeLinkPath();
-  return path ? `${PUBLIC_APP_ORIGIN}${path}` : null;
-}
-
-/** URL のトークンが合っているか（一定時間で比べる） */
-export async function isValidFreeToken(token: string): Promise<boolean> {
-  const secret = freeSecret();
-  if (!secret || typeof token !== "string") return false;
-  return constantTimeEqual(token, await freeLinkToken(secret));
+/** 営業・代理店に渡す固定リンク（マスター画面に出す） */
+export function freeLinkUrl(): string {
+  return `${PUBLIC_APP_ORIGIN}${FREE_ENTRY_PATH}`;
 }
 
 export interface FreeSessionCookie {
@@ -67,31 +33,23 @@ export interface FreeSessionCookie {
   options: { httpOnly: true; sameSite: "lax"; secure: boolean; path: "/"; expires: Date };
 }
 
-/** 置く Cookie（Route Handler が NextResponse に載せる）。秘密が無ければ null */
-export async function freeSessionCookie(): Promise<FreeSessionCookie | null> {
-  const secret = freeSecret();
-  if (!secret) return null;
-  const expiresAt = freeSessionExpiry();
-  const value = await signFreeSession(expiresAt, await freeSessionKey(secret));
+/** 置く Cookie（Route Handler が NextResponse に載せる） */
+export function freeSessionCookie(now: number = Date.now()): FreeSessionCookie {
   return {
     name: FREE_SESSION_COOKIE,
-    value,
+    value: FREE_SESSION_VALUE,
     // Secure は本番だけ（開発の http://localhost でも動くように）
-    options: { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: new Date(expiresAt) },
+    options: { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: new Date(freeSessionExpiry(now)) },
   };
 }
 
-/** いまのリクエストの Cookie に有効なセッションがあるか */
+/** いまのリクエストの Cookie に印があるか */
 export async function hasFreeSession(): Promise<boolean> {
-  const secret = freeSecret();
-  if (!secret) return false;
   const jar = await cookies();
-  const value = jar.get(FREE_SESSION_COOKIE)?.value;
-  if (!value) return false;
-  return verifyFreeSession(value, await freeSessionKey(secret));
+  return isFreeSessionValue(jar.get(FREE_SESSION_COOKIE)?.value);
 }
 
-/** 無料診断に入れるか（専用リンクを開いた人、または誰でも使える環境） */
+/** 無料診断に入れるか（固定リンクを開いた人、または誰でも使える環境） */
 export async function hasFreeAccess(): Promise<boolean> {
   if (isFreeOpenWithoutLogin()) return true;
   return hasFreeSession();
@@ -106,7 +64,7 @@ export async function clearFreeSession(): Promise<void> {
 /** 入れないときの API の応答（Cookie が無い・30 日が過ぎた） */
 export function freeAccessDeniedResponse(): Response {
   return Response.json(
-    { error: "無料診断を使うには、運営者から受け取った専用リンクをもう一度開いてください。", code: FREE_ACCESS_CODE },
+    { error: `無料診断を使うには、無料診断のリンク（${FREE_ENTRY_PATH}）をもう一度開いてください。`, code: FREE_ACCESS_CODE },
     { status: 401, headers: NO_STORE },
   );
 }

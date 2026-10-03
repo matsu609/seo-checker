@@ -1,12 +1,14 @@
 /**
- * GET /free … 運用者（ADMIN_EMAILS）が Clerk でログイン中に開く無料診断の入口（サイドバー「管理者用」から）。
- * トークンを控えなくても、ログインしていれば Cookie を置いて `/` へ送る。運用者でなければ 404。
- * 営業・代理店に渡すのはこれではなく、マスター画面に出る専用リンク（`/free/<トークン>`）。
- * 転送先は相対パスで返す（理由は /free/[token]/route.ts と同じ）。
+ * GET /free … 無料診断の固定リンク（利用者の決定 2026-10-03「リンクも固定で。ばれたら終わりでいい」）。
+ * 誰が開いても印の Cookie（30 日）を置いて無料診断（`/`）へ送る。パスワードもトークンも無い。
+ * 守りは月の回数上限（src/lib/free/monthly.ts）だけ。
+ *
+ * 転送先は**相対パス**（`Location: /`）で返す。`new URL("/", request.url)` だと request.url のホストが
+ * 実際に開かれたホストではなくサーバー自身の名前になり、別のホストに飛ばされて置いたばかりの Cookie が届かない
+ * （利用者の報告 2026-10-02）。
  */
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/admin/guard";
-import { freeSessionCookie, isFreeOpenWithoutLogin } from "@/lib/free/access";
+import { freeSessionCookie } from "@/lib/free/access";
 import { FREE_PATHS } from "@/lib/free/upsell";
 
 export const runtime = "nodejs";
@@ -14,10 +16,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const res = new NextResponse(null, { status: 302, headers: { location: FREE_PATHS.site, "cache-control": "no-store" } });
-  if (isFreeOpenWithoutLogin()) return res;
-  if (!(await isAdmin())) return new Response("Not Found", { status: 404, headers: { "cache-control": "no-store" } });
-  const cookie = await freeSessionCookie();
-  if (!cookie) return new Response("Not Found", { status: 404, headers: { "cache-control": "no-store" } });
+  const cookie = freeSessionCookie();
   res.cookies.set(cookie.name, cookie.value, cookie.options);
   return res;
 }

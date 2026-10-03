@@ -2,7 +2,7 @@
  * POST /api/faq — クイック診断の「想定 FAQ」。ページ本文から FAQ を下書きする。
  *
  * 回数の上限（利用者の指示 2026-09-22「FAQ の生成に上限を設けてください」）:
- *   1. 専用リンク（/free/<トークン> の Cookie）が要る … requireFreeAccess()（FAQ は月の回数に数えない）
+ *   1. 固定リンク（/free の Cookie）が要る … requireFreeAccess()（FAQ は月の回数に数えない）
  *   2. 1 人 1 時間に 10 回 … FREE_FAQ_PER_HOUR（鍵はログイン中の利用者 ID。取れなければ IP）
  *   3. 全体で 1 日 300 回 … FREE_FAQ_DAILY_LIMIT
  *   4. 1 回に返す件数は MAX_FAQ_ITEMS 件まで

@@ -13,7 +13,7 @@ export const maxDuration = 60;
 const cache = globalCache<AnalysisResult>("analyze", 10 * 60 * 1000);
 
 export async function POST(request: NextRequest) {
-  // 無料診断は専用リンク（/free/<トークン>）の Cookie が要る（利用者の決定 2026-10-02）
+  // 無料診断は固定リンク（/free）の Cookie が要る（利用者の決定 2026-10-02）
   const denied = await requireFreeAccess();
   if (denied) return denied;
   let url: unknown;

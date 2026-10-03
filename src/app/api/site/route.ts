@@ -36,7 +36,7 @@ const cache = globalCache<SiteAnalysisResult>("site", 10 * 60 * 1000, 10);
  * リクエストを出すため、上限を超えたら 429 で断る。
  */
 export async function POST(request: NextRequest) {
-  // 無料診断は専用リンク（/free/<トークン>）の Cookie が要る（利用者の決定 2026-10-02）
+  // 無料診断は固定リンク（/free）の Cookie が要る（利用者の決定 2026-10-02）
   const signedOut = await requireFreeAccess();
   if (signedOut) return signedOut;
 

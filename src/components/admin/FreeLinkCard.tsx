@@ -1,7 +1,7 @@
 /**
- * マスター画面の「無料診断（専用リンク）」カード（利用者の指示 2026-10-02）。サーバーコンポーネント。
+ * マスター画面の「無料診断（固定リンク）」カード（利用者の指示 2026-10-02 → 10-03）。サーバーコンポーネント。
  *
- *   - 営業・代理店に渡す専用リンク（コピー）。パスワードは無く、リンクの共有に気をつける運用
+ *   - 営業・代理店に渡す固定リンク `/free`（コピー）。パスワードもトークンも無い（利用者「ばれたら終わりでいい」）
  *   - 今月の診断回数 / 上限と、どこで数えているか（Supabase か、メモリの控えか）
  *   - 今月の記録（いつ・何を・どこから）。不正利用と営業の活動が分かる
  */
@@ -14,7 +14,7 @@ import { FREE_RUN_KIND_LABEL, type FreeRunRecord, type FreeRuns } from "@/lib/fr
 import { formatDateTime } from "@/lib/report/format";
 
 export async function FreeLinkCard() {
-  const link = await freeLinkUrl();
+  const link = freeLinkUrl();
   let runs: FreeRuns | null = null;
   let records: FreeRunRecord[] = [];
   let error: string | null = null;
@@ -26,21 +26,15 @@ export async function FreeLinkCard() {
 
   return (
     <Card
-      title="無料診断（営業・デモ用の専用リンク）"
-      description="パスワードはありません。このリンクを開いた人が 30 日間、サイト・店舗の無料診断を使えます。リンクの共有にだけ気をつけてください。使いすぎは下の月の上限で止まります（環境変数 FREE_MONTHLY_LIMIT。0 で停止）。"
+      title="無料診断（営業・デモ用のリンク）"
+      description="パスワードはありません。このリンクを開いた人が 30 日間、サイト・店舗の無料診断を使えます。リンクは固定なので、広まったら月の上限（環境変数 FREE_MONTHLY_LIMIT。既定 50。0 で停止）だけが守りです。"
     >
-      {link ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-sm border border-line bg-surface p-3">
-          <code className="min-w-0 flex-1 break-all text-[12px] text-ink">{link}</code>
-          <CopyButton text={link} label="リンクをコピー" />
-        </div>
-      ) : (
-        <Callout tone="warn" title="専用リンクを作れません">
-          Clerk の秘密キー（CLERK_SECRET_KEY）か FREE_LINK_SECRET のどちらかが要ります（この環境ではどちらも無いので、無料診断は誰でも開けます）。
-        </Callout>
-      )}
+      <div className="flex flex-wrap items-center gap-2 rounded-sm border border-line bg-surface p-3">
+        <code className="min-w-0 flex-1 break-all text-[12px] text-ink">{link}</code>
+        <CopyButton text={link} label="リンクをコピー" />
+      </div>
       <p className="mt-2 text-[11px] text-muted">
-        リンクを変えたいとき（漏れた・渡した相手との関係が終わった）は、Vercel の環境変数 <code>FREE_LINK_SECRET</code> に新しいランダムな文字列を入れて Redeploy。配り済みのリンクとログイン状態は全部無効になります。
+        使いすぎが見えたら、Vercel の環境変数 <code>FREE_MONTHLY_LIMIT</code> を小さくするか 0 にして Redeploy（0 で無料診断を停止）。
       </p>
 
       {error ? (

@@ -77,7 +77,7 @@ describe("ログイン後の入口", () => {
     expect(rows.some((r) => r.where.includes("この方の画面を見る"))).toBe(true);
   });
 
-  it("デモの無料診断は運用者の入口（/free）の絶対 URL で出す（2026-10-02 から 1 本）", () => {
+  it("デモの無料診断は固定リンク（/free）の絶対 URL で出す（2026-10-03 から 1 本）", () => {
     const demo = agencyEntryPoints().filter((r) => r.purpose.startsWith("デモ"));
     expect(demo).toHaveLength(1);
     expect(demo[0].url).toBe(`${PUBLIC_APP_ORIGIN}/free`);

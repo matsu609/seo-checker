@@ -1,5 +1,5 @@
 /**
- * GET /api/free/quota … 今月の無料診断の回数（画面が診断のあとに取り直す）。専用リンクの Cookie が要る。
+ * GET /api/free/quota … 今月の無料診断の回数（画面が診断のあとに取り直す）。固定リンクの Cookie が要る。
  */
 import { NO_STORE } from "@/lib/api/headers";
 import { requireFreeAccess } from "@/lib/free/access";

@@ -27,10 +27,10 @@ describe("公開パス", () => {
     expect(isFreeApiPath("/api/analyze")).toBe(true);
     expect(isFreeApiPath("/api/site/")).toBe(true);
     expect(isFreeApiPath("/api/site-audit")).toBe(false);
-    // 専用リンク（/free/<トークン>）は公開、運用者の入口 /free は Clerk で守る
-    expect(isPublicPath("/free/abcDEF123456abcDEF123456")).toBe(true);
-    expect(isPublicPath("/free")).toBe(false);
-    expect(isPublicPath("/free/")).toBe(false);
+    // 固定リンク /free は公開（2026-10-03）。その下のパスは何も無い
+    expect(isPublicPath("/free")).toBe(true);
+    expect(isPublicPath("/free/")).toBe(true);
+    expect(isPublicPath("/free/anything")).toBe(false);
     expect(isPublicPath("/api/free/quota")).toBe(true);
     expect(isPublicPath("/api/free/logout")).toBe(true);
     // 利用規約とプライバシーポリシーは登録前に読めなければならない
@@ -146,6 +146,7 @@ describe("公開パスの一覧", () => {
     expect(PUBLIC_PATHS.pages).toEqual([
       "/",
       "/meo",
+      "/free",
       "/terms",
       "/privacy",
       "/legal/tokushoho",
@@ -173,7 +174,7 @@ describe("公開パスの一覧", () => {
       ...PUBLIC_PATHS.freeApis,
     ]);
     expect(PUBLIC_PATHS.authPrefixes).toEqual(["/sign-in", "/sign-up", "/sso-callback"]);
-    expect(PUBLIC_PATHS.pagePrefixes).toEqual(["/r/", "/free/"]);
+    expect(PUBLIC_PATHS.pagePrefixes).toEqual(["/r/"]);
     expect(PUBLIC_PATHS.apiPrefixes).toEqual(["/api/r/"]);
   });
 });

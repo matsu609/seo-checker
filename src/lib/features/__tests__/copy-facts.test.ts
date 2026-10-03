@@ -25,10 +25,10 @@ describe("文言の事実", () => {
     expect(LISTING_MEDIA_COUNT).toBe(LISTING_MEDIA.length);
   });
 
-  // 2026-10-02 から無料診断は専用リンク（/free/<トークン>）だけ。月の上限は定義（monthly-rules.ts）から
-  it("クイック診断の説明は専用リンクで、月の上限は定義から", () => {
+  // 2026-10-03 から無料診断は固定リンク（/free）だけ。月の上限は定義（monthly-rules.ts）から
+  it("クイック診断の説明は固定リンクで、月の上限は定義から", () => {
     for (const id of ["free", "free-meo"] as const) {
-      expect(requireFeature(id).description).toContain("/free/");
+      expect(requireFeature(id).description).toContain("/free");
       expect(requireFeature(id).description).toContain(`月 ${FREE_MONTHLY_LIMIT_DEFAULT} 回まで`);
       expect(requireFeature(id).description).not.toContain("メールアドレスごと");
     }

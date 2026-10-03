@@ -14,7 +14,7 @@
  * **招待したアドレスと同じアドレスで登録してもらう**ことが要になる。案内でもそこを太く書く。
  */
 import { MANAGER_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from "@/lib/auth/landing";
-import { FREE_STAFF_ENTRY_PATH } from "@/lib/free/session-rules";
+import { FREE_ENTRY_PATH } from "@/lib/free/session-rules";
 import { OPERATOR, SERVICE_NAME } from "@/lib/legal/operator";
 import { PUBLIC_APP_ORIGIN } from "@/lib/site";
 
@@ -178,8 +178,8 @@ export function agencyEntryPoints(): AgencyEntryPoint[] {
     },
     {
       purpose: "デモで無料診断を見せる（サイト・店舗）",
-      where: "サイドバー「管理者用」→ 無料クイック診断（営業・デモ用）。別タブで開きます。ログインしていない人には、マスター画面に出る専用リンクを渡してください",
-      url: appUrl(FREE_STAFF_ENTRY_PATH),
+      where: "サイドバー「管理者用」→ 無料クイック診断（営業・デモ用）。別タブで開きます。この URL をそのまま営業・代理店に渡せます（ログイン不要）",
+      url: appUrl(FREE_ENTRY_PATH),
     },
   ];
 }

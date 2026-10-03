@@ -1,5 +1,5 @@
 /**
- * POST /api/meo/report（専用リンク /free/<トークン> の Cookie が要る。利用者の決定 2026-10-02。月の上限は全体で数える）
+ * POST /api/meo/report（固定リンク /free の Cookie が要る。利用者の決定 2026-10-02。月の上限は全体で数える）
  * 無料 MEO 診断の報告書。自社 1 店舗ぶんの公開情報を採点して返す。
  *
  * 有料版（/api/maps/stores）との違い: 保存しない・競合なし・AI 総評なし・取り直し不可。
@@ -7,7 +7,7 @@
  * キャッシュに当たった分は上限を消費しない（Google に費用が出ないため）。
  * クライアント（IP）ごと 10 回 / 時、全体 500 回 / 日（FREE_MEO_DAILY_LIMIT）。
  *
- * 順番: 専用リンクの確認 → キャッシュ → 月の上限 → IP ごとの枠 → 1 日の全体の枠 → Google → 1 回数える。
+ * 順番: 固定リンクの確認 → キャッシュ → 月の上限 → IP ごとの枠 → 1 日の全体の枠 → Google → 1 回数える。
  * 入れない人が押しても、全員で分け合う枠は減らない。
  */
 import { z } from "zod";
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   if (!isPlacesConfigured()) {
     return Response.json({ error: "店舗診断は現在準備中です。", code: "not_configured" }, { status: 503, headers: NO_STORE });
   }
-  // 無料診断は専用リンク（/free/<トークン>）の Cookie が要る（利用者の決定 2026-10-02）
+  // 無料診断は固定リンク（/free）の Cookie が要る（利用者の決定 2026-10-02）
   const denied = await requireFreeAccess();
   if (denied) return denied;
   let raw: unknown;
