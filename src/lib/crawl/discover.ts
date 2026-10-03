@@ -84,9 +84,21 @@ export async function discoverSitemapUrls(
   let fileCapHit = false;
   let urlCapHit = false;
   let depthCapHit = false;
+  /** ホスト名が診断したサイトと違うため捨てた URL の数と、その 1 例 */
+  let otherHost = 0;
+  let otherHostExample = "";
+
+  const align = (raw: string): string | null => {
+    const aligned = alignToOrigin(raw.trim(), origin);
+    if (!aligned && /^https?:\/\//i.test(raw.trim())) {
+      otherHost += 1;
+      if (!otherHostExample) otherHostExample = raw.trim();
+    }
+    return aligned;
+  };
 
   const enqueueSitemap = (raw: string, depth: number) => {
-    const aligned = alignToOrigin(raw.trim(), origin);
+    const aligned = align(raw);
     if (!aligned) return;
     // サイトマップの URL はクエリ付き（?page=2 など）があり得るので canonicalize しない
     const key = aligned.replace(/#.*$/, "");
@@ -113,7 +125,7 @@ export async function discoverSitemapUrls(
       urlCapHit = true;
       return;
     }
-    const aligned = alignToOrigin(raw.trim(), origin);
+    const aligned = align(raw);
     if (!aligned) return;
     const canonical = canonicalizeUrl(aligned);
     if (!canonical || !looksLikeHtmlUrl(canonical)) return;
@@ -193,6 +205,20 @@ export async function discoverSitemapUrls(
   if (gzSkipped > 0) {
     notes.add(
       `圧縮サイトマップ（.gz）${gzSkipped} 件は未対応のため読み飛ばしました。内部リンクから補います`,
+    );
+  }
+  if (otherHost > 0) {
+    // 黙って捨てると「サイトマップを置いたのに 0 件」の理由がサイト側から分からない
+    // URL が壊れていれば、そのままの文字列を出す
+    const hostOf = (u: string) => {
+      try {
+        return new URL(u).host;
+      } catch {
+        return u;
+      }
+    };
+    notes.add(
+      `サイトマップの URL ${otherHost.toLocaleString("ja-JP")} 件は、診断したサイト（${hostOf(origin)}）とホスト名が違う（例: ${hostOf(otherHostExample)}）ため対象外にしました`,
     );
   }
   if (fileCapHit) {

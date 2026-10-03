@@ -50,8 +50,27 @@ describe("looksLikeHtmlUrl / alignToOrigin", () => {
     expect(alignToOrigin("http://example.com/sitemap.xml", "https://example.com")).toBe(
       "https://example.com/sitemap.xml",
     );
-    expect(alignToOrigin("https://www.example.com/", "https://example.com")).toBeNull();
+    expect(alignToOrigin("https://sub.example.com/", "https://example.com")).toBeNull();
+    expect(alignToOrigin("https://example.com:8080/", "https://example.com")).toBeNull();
     expect(alignToOrigin("ftp://example.com/x", "https://example.com")).toBeNull();
+  });
+});
+
+describe("alignToOrigin: www の有無", () => {
+  it("www の有無だけが違うホストは、origin のホストに揃える", () => {
+    expect(alignToOrigin("https://www.example.com/a", "https://example.com")).toBe(
+      "https://example.com/a",
+    );
+    expect(alignToOrigin("http://example.com/a", "https://www.example.com")).toBe(
+      "https://www.example.com/a",
+    );
+    expect(alignToOrigin("https://WWW.Example.com/a", "https://example.com")).toBe(
+      "https://example.com/a",
+    );
+  });
+  it("www 以外のサブドメインや、www を含む別ドメインは別サイト", () => {
+    expect(alignToOrigin("https://www2.example.com/", "https://example.com")).toBeNull();
+    expect(alignToOrigin("https://www.example.com.evil.test/", "https://example.com")).toBeNull();
   });
 });
 

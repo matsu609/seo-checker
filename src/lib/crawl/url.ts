@@ -102,11 +102,21 @@ export function looksLikeHtmlUrl(url: string): boolean {
   }
 }
 
+/** 先頭の "www." を外したホスト名 */
+function withoutWww(hostname: string): string {
+  return hostname.replace(/^www\./i, "");
+}
+
 /**
- * origin と同じサイトの URL なら、origin のスキームに揃えて返す。
+ * origin と同じサイトの URL なら、origin のスキームとホストに揃えて返す。
  * robots.txt の Sitemap 行や sitemap.xml の <loc> が http:// のまま残っている
  * サイトは多く、https の origin と単純比較すると全部落ちてしまうため。
- * ホスト（ポート含む）が違えば null。
+ *
+ * "www." の有無だけが違うホストも同じサイトとみなす（2026-10-03）。
+ * `www.example.com` を診断したのにサイトマップが `example.com` で書かれている
+ * （またはその逆の）サイトは多く、以前はサイトマップの URL がすべて捨てられて
+ * 「sitemap 由来 0 件」になっていた。
+ * それ以外のホスト違い（サブドメイン・別ドメイン）とポート違いは null。
  */
 export function alignToOrigin(url: string, origin: string): string | null {
   let target: URL;
@@ -118,7 +128,13 @@ export function alignToOrigin(url: string, origin: string): string | null {
     return null;
   }
   if (target.protocol !== "http:" && target.protocol !== "https:") return null;
-  if (target.host !== base.host) return null;
+  if (target.host !== base.host) {
+    const sameSite =
+      target.port === base.port &&
+      withoutWww(target.hostname.toLowerCase()) === withoutWww(base.hostname.toLowerCase());
+    if (!sameSite) return null;
+    target.host = base.host;
+  }
   if (target.protocol !== base.protocol) target.protocol = base.protocol;
   return target.toString();
 }

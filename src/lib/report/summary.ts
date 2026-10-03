@@ -258,11 +258,22 @@ export function buildPageSummary(result: AnalysisResult): PageReportSummary {
  * 「全ページ共通（テンプレートを 1 箇所直せば全ページ直る）」と言えるのは、
  * 判定が 1 種類しか無く、かつ全ページで評価された項目だけ。
  * （JSON-LD の文法エラーのように、一部のページにしか現れない項目がある）
+ *
+ * 判定が同じでも、ページごとの根拠（evidence）が違えば共通とは言わない（2026-10-03）。
+ * 画面は共通の項目を 1 行にまとめ、先頭ページの根拠を「該当ページはすべて同じ状態です」
+ * として出すため、「本文 約 333 文字 / 14 文」のようにトップページの数字が
+ * 全ページの値として表示されていた。根拠は実例として最大 MAX_AFFECTED_SAMPLES 件まで
+ * しか持たないので、その範囲で比べる。
  */
-function spreadOf(counts: Record<CheckStatus, number>, pageCount: number): "uniform" | "mixed" {
+function spreadOf(
+  counts: Record<CheckStatus, number>,
+  pageCount: number,
+  affected: readonly { evidence?: string }[] = [],
+): "uniform" | "mixed" {
   const present = STATUS_SEVERITY.filter((s) => safeCount(counts[s]) > 0);
   const total = STATUS_SEVERITY.reduce((sum, s) => sum + safeCount(counts[s]), 0);
   if (present.length > 1) return "mixed";
+  if (new Set(affected.map((a) => a.evidence ?? "")).size > 1) return "mixed";
   return pageCount === 0 || total >= pageCount ? "uniform" : "mixed";
 }
 
@@ -321,7 +332,7 @@ function siteImprovements(checks: SiteCheckSummary[], pageCount: number): Improv
         .sort((a, b) => severityIndex(a.status) - severityIndex(b.status) || a.url.localeCompare(b.url))
         .map((a) => a.url),
       totalPages: pageCount,
-      spread: spreadOf(counts, pageCount),
+      spread: spreadOf(counts, pageCount, affected),
     });
   }
   return list.sort(compareImprovements);
@@ -358,7 +369,7 @@ function sitePriorities(
       categoryLabel: CATEGORY_LABELS[c.category] ?? c.category,
       weight,
       counts: normalized,
-      spread: spreadOf(normalized, pageCount),
+      spread: spreadOf(normalized, pageCount, c.affected),
       worst,
       urgency: urgencyById.get(c.id) ?? null,
       affectedCount: normalized.fail + normalized.warn + normalized.info,
@@ -546,7 +557,7 @@ export function buildSiteSummary(result: SiteAnalysisResult): SiteReportSummary 
   const modeBand = bands.reduce((a, b) => (b.count > a.count ? b : a), bands[0]);
   const uniformFailCount = checks.filter((c) => {
     const counts2 = c.counts ?? emptyStatusMap();
-    return safeCount(counts2.fail) > 0 && spreadOf(counts2, pageCount) === "uniform";
+    return safeCount(counts2.fail) > 0 && spreadOf(counts2, pageCount, c.affected) === "uniform";
   }).length;
 
   // 最高点・最低点のページ（入力 URL の先頭固定とは無関係。同点は取得順の先）

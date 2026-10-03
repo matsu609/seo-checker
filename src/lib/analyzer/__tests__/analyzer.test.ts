@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import * as cheerio from "cheerio";
 import { describe, expect, it } from "vitest";
 import { checkContent, extractContent, shouldUseFallback } from "../content";
@@ -539,6 +541,35 @@ describe("content", () => {
   });
 });
 
+describe("本文抽出: セクションが並ぶページ", () => {
+  // 会社サイトのように <section> が兄弟で並ぶページ。Readability は最初の 1 セクションだけを
+  // 本文に選びがちで、2 セクション目以降に書いた事実を読まずに採点していた（2026-10-03）
+  const abstract = "私たちは業務に組み込むシステムを作り、現場で使われるまで運用と改善を続けます。".repeat(3);
+
+  it("2 セクション目以降の事実も本文として数える（実際のページ）", () => {
+    // 7 セクションの会社サイト。修正前は 1 セクション目の 322 文字・14 文・事実 0 だった
+    const html = readFileSync(
+      fileURLToPath(new URL("./fixtures/multi-section-corporate.html", import.meta.url)),
+      "utf8",
+    );
+    const info = extractContent(html, "https://example.com/development", cheerio.load(html));
+    expect(info.mainText).toContain("100社超");
+    expect(info.mainText).toContain("2営業日以内");
+    expect(info.totalSentences).toBeGreaterThan(14);
+    expect(info.concreteSentences).toBeGreaterThan(0);
+  });
+
+  it("リンクの羅列が多いだけのページではフォールバックしない", () => {
+    const links = Array.from({ length: 80 }, (_, i) => `<li><a href="/a${i}">関連記事のタイトルその${i}について詳しく解説します</a></li>`).join("");
+    const html = `<html><head><title>t</title></head><body>
+      <article><h1>記事</h1><p>${abstract.repeat(4)}</p></article>
+      <section><h2>関連記事</h2><ul>${links}</ul></section></body></html>`;
+    const info = extractContent(html, "https://example.com/", cheerio.load(html));
+    expect(info.readable).toBe(true);
+    expect(info.mainText).not.toContain("関連記事のタイトル");
+  });
+});
+
 describe("shouldUseFallback", () => {
   it("抽出結果が 300 文字未満ならフォールバック", () => {
     expect(shouldUseFallback(0)).toBe(true);
@@ -548,6 +579,12 @@ describe("shouldUseFallback", () => {
   it("300 文字以上あればフォールバックしない", () => {
     expect(shouldUseFallback(300)).toBe(false);
     expect(shouldUseFallback(2000)).toBe(false);
+  });
+
+  it("リンク以外の本文の半分に満たなければフォールバック", () => {
+    expect(shouldUseFallback(400, 1000)).toBe(true);
+    expect(shouldUseFallback(500, 1000)).toBe(false);
+    expect(shouldUseFallback(900, 1000)).toBe(false);
   });
 });
 

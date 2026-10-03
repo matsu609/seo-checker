@@ -558,6 +558,22 @@ describe("buildSiteSummary", () => {
     expect(s.uniformFailCount).toBe(1);
   });
 
+  // 判定が全ページで同じでも、根拠の数字がページごとに違う項目は「全ページ共通」にしない。
+  // 画面が先頭ページの根拠を全ページの値として出してしまうため（2026-10-03）
+  it("根拠がページごとに違う項目は、判定が同じでも全ページ共通にしない", () => {
+    const withEvidence = (ev: (i: number) => string) =>
+      mkSite(pages, [
+        ...checks,
+        mkSiteCheck("content-length", "content", { info: 4 }, {
+          affected: pages.map((p, i) => ({ url: p.url, status: "info" as const, evidence: ev(i) })),
+        }),
+      ]);
+    const differ = buildSiteSummary(withEvidence((i) => `本文 約${300 + i * 100} 文字`));
+    expect(differ.priorities.find((p) => p.id === "content-length")?.spread).toBe("mixed");
+    const same = buildSiteSummary(withEvidence(() => "本文 約300 文字"));
+    expect(same.priorities.find((p) => p.id === "content-length")?.spread).toBe("uniform");
+  });
+
   it("ページ一覧は入力 URL を先頭に固定し、残りは総合の低い順", () => {
     const s = buildSiteSummary(site);
     expect(s.rankedPages.map((p) => p.path)).toEqual(["/（トップ）", "/a", "/c", "/b"]);

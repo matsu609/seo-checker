@@ -136,6 +136,39 @@ describe("discoverSitemapUrls", () => {
     expect(capped.notes.some((n) => n.includes("上限"))).toBe(true);
   });
 
+  // www.example.jp を診断したのに、robots.txt とサイトマップが www なしで書かれているサイト。
+  // 以前は全部捨てて「sitemap 由来 0 件」になっていた（2026-10-03）
+  it("www の有無だけが違うサイトマップの URL は、診断したホストに揃えて使う", async () => {
+    const fetched: string[] = [];
+    const r = await discoverSitemapUrls(
+      "https://www.example.jp",
+      { ...files(["https://example.jp/sitemap.xml"]), origin: "https://www.example.jp" },
+      {
+        fetch: async (url) => {
+          fetched.push(url);
+          return {
+            ok: true,
+            status: 200,
+            finalUrl: url,
+            contentType: "application/xml",
+            headers: new Headers(),
+            body: urlset([
+              "https://example.jp/",
+              "https://example.jp/about.html",
+              "https://shop.example.jp/item",
+              "https://other.example/x",
+            ]),
+          };
+        },
+      },
+    );
+    expect(fetched).toEqual(["https://www.example.jp/sitemap.xml"]);
+    expect(r.source).toBe("robots");
+    expect(r.urls).toEqual(["https://www.example.jp/", "https://www.example.jp/about.html"]);
+    // 別のホスト（サブドメイン・別ドメイン）は対象外のまま。捨てた理由を notes に残す
+    expect(r.notes.some((n) => n.includes("2 件") && n.includes("ホスト名が違う"))).toBe(true);
+  });
+
   it("何も見つからなければ source は none", async () => {
     const r = await discoverSitemapUrls(origin, files([`${origin}/html404.xml`, `${origin}/nope.xml`]));
     // robots の候補が両方ダメ → 定番の場所 → /sitemap_index.xml が拾われる

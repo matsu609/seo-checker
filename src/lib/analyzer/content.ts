@@ -40,24 +40,34 @@ export interface ContentInfo {
 const MIN_MAIN_TEXT_CHARS = 300;
 
 /**
+ * Readability の抽出結果が、リンク以外の本文に対してこれ未満の割合しか無ければ、
+ * 本文の一部しか拾えていないとみなしてフォールバックする
+ */
+const MIN_MAIN_TEXT_COVERAGE = 0.5;
+
+/**
  * Readability の抽出結果を捨てて、ナビ等を除いた body 全体（フォールバック）を使うか。
  *
- * 以前はここに「フォールバックの 30% 未満しか残っていなければ本文を取り逃している」
- * という相対条件も書かれていたが、`Math.min(300, fallback.length * 0.3)` という
- * 書き方のせいで閾値が 300 文字で頭打ちになり、実際には一度も発動していなかった。
+ * 1. 抽出結果が絶対量として短すぎる（300 文字未満）
+ * 2. 抽出結果が、フォールバックのうち**リンク以外の本文**の半分に満たない
  *
- * 相対条件を有効にすべきか実際の HTML で確かめたところ、有効にしない方が正しい:
- *   - 会社概要のような table / dl 中心のページでは、Readability は本文をほぼ
- *     取りこぼさない（抽出結果はフォールバックの 88〜100%）。相対条件の出番がない。
- *   - 相対条件が効くのは「本文が短く、関連記事リストなどが大量にあるページ」で、
- *     そこで拾えるのはリンクの羅列＝ボイラープレート。フォールバックに切り替えると
- *     本文量を水増しして評価してしまう。しかもその手のページは抽出結果自体が
- *     300 文字未満になるため、下の絶対条件で既に拾えている。
+ * 2 は 2026-10-03 に足した。会社サイトのように `<section>` が兄弟で並ぶページでは、
+ * Readability が最初の 1 セクションだけを本文に選び、残りを捨てる
+ * （実例: 7 セクションのページで 1 セクション目の 322 文字・14 文だけを採点し、
+ * 2 セクション目以降に書いた件数・期限などの事実を一度も読んでいなかった）。
+ * 300 文字を超えていたので 1 の条件では拾えなかった。
  *
- * よって判定は「抽出結果が絶対量として短すぎるか」だけにする。
+ * 以前は「フォールバック全体の 30% 未満なら」という相対条件を検討して見送った。
+ * その条件が効くのは「本文が短く、関連記事リストなどが大量にあるページ」で、
+ * フォールバックに切り替えるとリンクの羅列で本文量を水増ししてしまうため。
+ * 2 はリンクの文字を除いた量（`fallbackProseLength`）と比べるので、
+ * 関連記事リスト・カテゴリ一覧のようなリンクの羅列では発動しない。
+ * table / dl 中心の会社概要のようなページは、Readability が本文をほぼ取りこぼさない
+ * （抽出結果がフォールバックの 88〜100%）ので、こちらも発動しない。
  */
-export function shouldUseFallback(mainTextLength: number): boolean {
-  return mainTextLength < MIN_MAIN_TEXT_CHARS;
+export function shouldUseFallback(mainTextLength: number, fallbackProseLength = 0): boolean {
+  if (mainTextLength < MIN_MAIN_TEXT_CHARS) return true;
+  return mainTextLength < fallbackProseLength * MIN_MAIN_TEXT_COVERAGE;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -170,8 +180,12 @@ export function extractContent(html: string, url: string, $: cheerio.CheerioAPI)
   const $clone = cheerio.load(spaced);
   $clone("script, style, noscript, template, svg, nav, header, footer, aside, form").remove();
   const fallback = normalizeText($clone("body").text());
+  // リンクの文字を除いた本文量。リンクの羅列で「取りこぼし」と誤判定しないため（shouldUseFallback）
+  const $prose = cheerio.load($clone.html());
+  $prose("a").remove();
+  const fallbackProseLength = normalizeText($prose("body").text()).length;
 
-  if (!readable || shouldUseFallback(mainText.length) || !mainHtml) {
+  if (!readable || shouldUseFallback(mainText.length, fallbackProseLength) || !mainHtml) {
     mainText = fallback;
     mainHtml = "";
     readable = false;
