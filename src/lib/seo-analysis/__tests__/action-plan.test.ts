@@ -9,7 +9,7 @@ function rec(priority: number, title: string): Recommendation {
 const issue: Issue = { ruleId: "TITLE_MISSING", category: "タイトルタグ", severity: "error", url: "https://example.test/", detail: "<title> がない", suggestion: "title を書く" };
 
 describe("精密診断の「まず、これをしてください」", () => {
-  it("AI の優先度 1 / 2 / 3 を 急ぎ / 要改善 / 放置 OK に読み替える（範囲外は丸める）", () => {
+  it("AI の優先度 1 / 2 / 3 を 今すぐ / 要改善 / 放置 OK に読み替える（範囲外は丸める）", () => {
     expect(recommendationUrgency(1)).toBe("now");
     expect(recommendationUrgency(2)).toBe("soon");
     expect(recommendationUrgency(3)).toBe("later");
@@ -26,7 +26,7 @@ describe("精密診断の「まず、これをしてください」", () => {
       issues: [issue],
     });
     expect(plan).not.toBeNull();
-    expect(plan!.verdict).toBe("20 ページを診断し、専門家のアドバイスは 3 件です。トップページの総合 72 点は平均的な水準です。急ぎで直す項目が 1 件あります。ほかの 2 件より先に、まず下の 1 件から手をつけてください。");
+    expect(plan!.verdict).toBe("20 ページを診断し、専門家のアドバイスは 3 件です。トップページの総合 72 点は平均的な水準です。今すぐ直す項目が 1 件あります。ほかの 2 件より先に、まず下の 1 件から手をつけてください。");
     expect(plan!.first?.label).toBe("トップの title に地域名を入れる");
     expect(plan!.first?.advice).toBe("トップの title に地域名を入れるをこう変える");
     expect(plan!.first?.gainLabel).toBe("問い合わせが増える見込み");

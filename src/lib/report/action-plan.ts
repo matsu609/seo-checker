@@ -3,9 +3,9 @@
  *
  * 点数と改善点の一覧だけでは「高いのか低いのか」「何から手をつけるのか」が
  * 分からない（利用者の指摘 2026-10-02）。レポートの先頭に、
- *   1. いまの点数の水準（高い / 平均的 / 低い）と、急ぎの件数を伝える 1 文
+ *   1. いまの点数の水準（高い / 平均的 / 低い）と、今すぐの件数を伝える 1 文
  *   2. 最初にやること 1 件（項目名 + 具体的な対応方法を一言で）
- *   3. 優先度ごとの件数（急ぎ / 要改善 / 後回しで OK）
+ *   3. 優先度ごとの件数（今すぐ / 要改善 / 後回しで OK）
  * を出す。サイト・ページ（src/lib/report）と MEO（src/lib/maps）で同じ関数を使う。
  */
 import type { Grade } from "@/lib/ui/palette";
@@ -39,11 +39,11 @@ export interface ActionTier {
 }
 
 export interface ActionPlan {
-  /** いまの水準と急ぎの件数を伝える 1 文 */
+  /** いまの水準と今すぐの件数を伝える 1 文 */
   verdict: string;
   /** 最初にやること。改善点が無ければ null */
   first: ActionItem | null;
-  /** 優先度ごとの件数（急ぎ → 要改善 → 放置 OK の順） */
+  /** 優先度ごとの件数（今すぐ → 要改善 → 放置 OK の順） */
   tiers: ActionTier[];
   /** 改善点の総数（warn + fail） */
   total: number;
@@ -60,7 +60,7 @@ export const LEVEL_LABELS: Record<Grade, string> = {
   E: "低い水準",
 };
 
-/** 最初にやる 1 件: 急ぎ → 要改善 → 放置 OK の順、同じ段なら元の並び（見込み効果の降順）を保つ */
+/** 最初にやる 1 件: 今すぐ → 要改善 → 放置 OK の順、同じ段なら元の並び（見込み効果の降順）を保つ */
 export function firstActionOf<T extends ActionItem>(items: readonly T[]): T | null {
   let best: T | null = null;
   for (const item of items) {
@@ -107,13 +107,13 @@ export function buildActionPlan(input: ActionPlanInput): ActionPlan {
   if (total === 0) {
     status = "主要項目はすべて満たしています。いま急いで直すものはありません。";
   } else if (now > 0) {
-    status = `急ぎで直す項目が ${now} 件あります。ほかの ${total - now} 件より先に、まず下の 1 件から手をつけてください。`;
+    status = `今すぐ直す項目が ${now} 件あります。ほかの ${total - now} 件より先に、まず下の 1 件から手をつけてください。`;
   } else if (soon > 0) {
-    status = `急ぎで直す項目はありません。要改善 ${soon} 件を効果の大きい順に進めれば十分です${
+    status = `今すぐ直す項目はありません。要改善 ${soon} 件を効果の大きい順に進めれば十分です${
       later > 0 ? `（残り ${later} 件は後回しで問題ありません）` : ""
     }。`;
   } else {
-    status = `急ぎで直す項目はありません。残る ${later} 件は点数への影響が小さく、後回しで問題ありません。`;
+    status = `今すぐ直す項目はありません。残る ${later} 件は点数への影響が小さく、後回しで問題ありません。`;
   }
 
   return {

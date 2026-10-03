@@ -48,7 +48,7 @@ type Phase = "idle" | "running" | "error" | "done";
 
 /** 「まず、これをしてください」の注記（サイト診断には付録が無いので決め方をここに書く） */
 const AUDIT_PLAN_NOTE =
-  "※ 優先度は診断結果から機械的に決めています（生成 AI は使用していません）。急ぎで対応 = 載らない・読まれない原因になるルール（エラーページ・robots.txt の拒否・noindex・canonical の破損・title 無し）、後回しで OK = 重要度「情報」、残りが要改善です。";
+  "※ 優先度は診断結果から機械的に決めています（生成 AI は使用していません）。今すぐ対応 = 載らない・読まれない原因になるルール（エラーページ・robots.txt の拒否・noindex・canonical の破損・title 無し）、後回しで OK = 重要度「情報」、残りが要改善です。";
 
 export function SiteAuditView() {
   const [form, setForm] = useStore(auditFormStore);

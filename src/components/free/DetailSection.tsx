@@ -18,7 +18,7 @@ export function PageDetailSection({
   number,
 }: {
   result: AnalysisResult;
-  /** 優先度（急ぎ / 要改善 / 後回しで OK）は summary.improvements から引く */
+  /** 優先度（今すぐ / 要改善 / 後回しで OK）は summary.improvements から引く */
   summary: PageReportSummary;
   number: number;
 }) {
@@ -27,7 +27,7 @@ export function PageDetailSection({
     <ReportSection
       number={number}
       title="改善提案（詳細）"
-      lead="診断したすべての項目です。未対応・改善余地のある項目には、優先度（急ぎで対応 / 要改善 / 後回しで OK）と判定の根拠、対応方法を添えています。"
+      lead="診断したすべての項目です。未対応・改善余地のある項目には、優先度（今すぐ対応 / 要改善 / 後回しで OK）と判定の根拠、対応方法を添えています。"
     >
       {result.categories.map((category) => {
         const checks = [...category.checks].sort(

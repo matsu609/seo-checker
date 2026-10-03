@@ -13,7 +13,7 @@ import { urgencyOf, type BlockingRules, type Urgency } from "@/lib/report/urgenc
 import { CATEGORY_LABELS, type CategoryId, type ProfileCheck, type ProfileScore } from "./score";
 
 /**
- * MEO で「急ぎで対応」にする項目（お客様が店を見つけられない・連絡できない・
+ * MEO で「今すぐ対応」にする項目（お客様が店を見つけられない・連絡できない・
  * プロフィールが止まる原因になるもの）。配点とは別に、性質で決める。
  */
 export const MEO_BLOCKING: BlockingRules = {
@@ -41,7 +41,7 @@ export interface MeoImprovement {
   gain: number;
   /** 画面に出す "+6 点" の形 */
   gainLabel: string;
-  /** 対応の優先度（急ぎ / 要改善 / 後回しで OK。src/lib/report/urgency.ts と同じ 3 段階） */
+  /** 対応の優先度（今すぐ / 要改善 / 後回しで OK。src/lib/report/urgency.ts と同じ 3 段階） */
   urgency: Urgency;
   /** 現状の測定値・理由 */
   detail: string;

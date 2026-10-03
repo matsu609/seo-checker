@@ -2,7 +2,7 @@
  * サイト診断（50 ルール）の「対応の優先度」と「まず、これをしてください」。純関数。
  *
  * 無料診断（src/lib/report/urgency.ts）と同じ 3 段階を、点数の無いサイト診断に当てはめる:
- * - now   … 急ぎで対応: 検索や AI 検索に「載らない・読まれない」原因になるルール
+ * - now   … 今すぐ対応: 検索や AI 検索に「載らない・読まれない」原因になるルール
  *           （AUDIT_BLOCKING）。意図した除外（severity = info）は除く
  * - later … 後回しで OK: 重要度 info（把握しておけばよい）
  * - soon  … 要改善: 残り（重要度 error / warning）
@@ -13,7 +13,7 @@ import { buildActionPlan, type ActionItem, type ActionPlan } from "@/lib/report/
 import { urgencyIndex, type Urgency } from "@/lib/report/urgency";
 import { SEVERITY_LABELS, type Issue, type Severity } from "./types";
 
-/** 「載らない・読まれない」原因になるルール（意図した除外 = info のときは急ぎにしない） */
+/** 「載らない・読まれない」原因になるルール（意図した除外 = info のときは今すぐにしない） */
 export const AUDIT_BLOCKING: ReadonlySet<string> = new Set([
   // たどり着けない
   "STATUS_5XX",
@@ -46,7 +46,7 @@ export interface AuditActionItem extends ActionItem {
 
 /**
  * ルールごとに 1 件の改善項目にまとめる。
- * 並びは 急ぎ → 要改善 → 放置 OK、同じ段なら重要度（重大 → 警告 → 情報）→ 件数の多い順 → ルール ID。
+ * 並びは 今すぐ → 要改善 → 放置 OK、同じ段なら重要度（重大 → 警告 → 情報）→ 件数の多い順 → ルール ID。
  * 項目名と対応方法は、そのルールの最初の課題の文（detail / suggestion）をそのまま使う。
  */
 export function buildAuditActionItems(issues: readonly Issue[]): AuditActionItem[] {

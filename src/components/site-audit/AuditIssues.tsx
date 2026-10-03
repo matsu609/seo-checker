@@ -34,7 +34,7 @@ interface RuleGroup {
   ruleId: string;
   category: AuditCategory;
   severity: Severity;
-  /** 対応の優先度（急ぎで対応 / 要改善 / 後回しで OK。src/lib/audit/urgency.ts） */
+  /** 対応の優先度（今すぐ対応 / 要改善 / 後回しで OK。src/lib/audit/urgency.ts） */
   urgency: Urgency;
   rows: IssueRow[];
 }
@@ -86,7 +86,7 @@ export function AuditIssues({
   return (
     <Card
       title="検出された課題"
-      description="ルールごとにまとめています。優先度（急ぎで対応 / 要改善 / 後回しで OK）は、載らない・読まれない原因になるルールを急ぎ、重要度「情報」を放置 OK、残りを要改善にしています。行を開くと該当ページの一覧と改善提案が出ます。"
+      description="ルールごとにまとめています。優先度（今すぐ対応 / 要改善 / 後回しで OK）は、載らない・読まれない原因になるルールを今すぐ、重要度「情報」を放置 OK、残りを要改善にしています。行を開くと該当ページの一覧と改善提案が出ます。"
       actions={
         <Button
           variant="secondary"

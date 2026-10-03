@@ -21,7 +21,7 @@ describe("ActionPlanBlock の描画", () => {
     expect(html).toContain("noindex が付いている");
     expect(html).toContain("noindex を外す");
     expect(html).toContain("見込み効果 +3 点");
-    expect(html).toContain("急ぎで対応");
+    expect(html).toContain("今すぐ対応");
     expect(html).toContain("後回しで OK");
     expect(html).toContain("注記のテスト");
   });

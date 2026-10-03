@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { LATER_BELOW_GAIN, SEO_BLOCKING, URGENCY_LABELS, URGENCY_ORDER, urgencyIndex, urgencyOf } from "../urgency";
 
 describe("対応の優先度（urgencyOf）", () => {
-  it("載らない・読まれない原因の項目は、点数が小さくても「急ぎで対応」", () => {
+  it("載らない・読まれない原因の項目は、点数が小さくても「今すぐ対応」", () => {
     expect(urgencyOf({ id: "noindex", status: "fail", gain: 0.3 }, SEO_BLOCKING)).toBe("now");
     expect(urgencyOf({ id: "robots-txt", status: "fail", gain: 1.6 }, SEO_BLOCKING)).toBe("now");
     expect(urgencyOf({ id: "js-rendering", status: "fail", gain: 7.5 }, SEO_BLOCKING)).toBe("now");
@@ -10,11 +10,11 @@ describe("対応の優先度（urgencyOf）", () => {
     expect(urgencyOf({ id: "ai-crawlers-allowed", status: "fail", gain: 5 }, SEO_BLOCKING)).toBe("now");
   });
 
-  it("Googlebot / Bingbot は片方だけの拒否（warn）でも急ぎ", () => {
+  it("Googlebot / Bingbot は片方だけの拒否（warn）でも今すぐ", () => {
     expect(urgencyOf({ id: "search-crawlers-allowed", status: "warn", gain: 2.5 }, SEO_BLOCKING)).toBe("now");
   });
 
-  it("急ぎの項目でも、判定が一覧に無い状態なら点数で決まる（title の長さ warn は要改善）", () => {
+  it("今すぐの項目でも、判定が一覧に無い状態なら点数で決まる（title の長さ warn は要改善）", () => {
     expect(urgencyOf({ id: "title", status: "warn", gain: 3 }, SEO_BLOCKING)).toBe("soon");
     expect(urgencyOf({ id: "robots-txt", status: "warn", gain: 0.8 }, SEO_BLOCKING)).toBe("later");
   });
@@ -31,7 +31,7 @@ describe("対応の優先度（urgencyOf）", () => {
     expect(urgencyOf({ id: "unknown", status: "fail", gain: 10 }, {})).toBe("soon");
   });
 
-  it("表示順は 急ぎ → 要改善 → 放置 OK で、全部にラベルがある", () => {
+  it("表示順は 今すぐ → 要改善 → 放置 OK で、全部にラベルがある", () => {
     expect(URGENCY_ORDER).toEqual(["now", "soon", "later"]);
     expect(URGENCY_ORDER.map(urgencyIndex)).toEqual([0, 1, 2]);
     for (const u of URGENCY_ORDER) expect(URGENCY_LABELS[u].length).toBeGreaterThan(0);

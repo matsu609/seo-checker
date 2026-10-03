@@ -4,7 +4,7 @@
  * 改善点を並べるだけでは「急いで直すべきか、あとでいいのか」が分からない
  * （利用者の指摘 2026-10-02）。見込み効果（点数）と項目の性質から 3 段階に分ける。
  *
- * - now   … 急ぎで対応: 検索や AI 検索に「載らない・読まれない」原因になる項目。
+ * - now   … 今すぐ対応: 検索や AI 検索に「載らない・読まれない」原因になる項目。
  *           点数の大小にかかわらず最優先（BLOCKING の一覧に載っている項目 × 判定）
  * - soon  … 要改善: 直すと総合スコアが動く項目（見込み効果 LATER_BELOW_GAIN 点以上）
  * - later … 後回しで OK: 直しても総合スコアがほとんど動かない項目
@@ -12,23 +12,23 @@
  *
  * サイト診断（ページ横断）でも同じ規則を使う。見込み効果はページ数で平均されるので、
  * 一部のページだけの軽い問題は自然と「後回しで OK」に落ちる。
- * ただし BLOCKING の項目は 1 ページでも該当すれば「急ぎで対応」にする
+ * ただし BLOCKING の項目は 1 ページでも該当すれば「今すぐ対応」にする
  * （noindex が 1 ページに付いていれば、そのページは検索に出ない）。
  */
 import type { StatusTone } from "@/lib/ui/palette";
 
 export type Urgency = "now" | "soon" | "later";
 
-/** 表示順（急ぎ → 要改善 → 放置 OK） */
+/** 表示順（今すぐ → 要改善 → 放置 OK） */
 export const URGENCY_ORDER: readonly Urgency[] = ["now", "soon", "later"];
 
 export const URGENCY_LABELS: Record<Urgency, string> = {
-  now: "急ぎで対応",
+  now: "今すぐ対応",
   soon: "要改善",
   later: "後回しで OK",
 };
 
-/** ピルの色（判定色を流用。急ぎ = 未対応の赤、要改善 = 黄、放置 OK = 参考の青） */
+/** ピルの色（判定色を流用。今すぐ = 未対応の赤、要改善 = 黄、放置 OK = 参考の青） */
 export const URGENCY_TONES: Record<Urgency, StatusTone> = {
   now: "fail",
   soon: "warn",
@@ -45,10 +45,10 @@ export const URGENCY_NOTES: Record<Urgency, string> = {
 /** これより見込み効果（総合スコアの増分）が小さい項目は「後回しで OK」 */
 export const LATER_BELOW_GAIN = 2;
 
-/** 判定（warn / fail）のうち、どれを「急ぎ」にするか */
+/** 判定（warn / fail）のうち、どれを「今すぐ」にするか */
 export type BlockingRule = readonly ("warn" | "fail")[];
 
-/** 項目 ID → 急ぎ扱いにする判定 */
+/** 項目 ID → 今すぐ扱いにする判定 */
 export type BlockingRules = Readonly<Record<string, BlockingRule>>;
 
 /**

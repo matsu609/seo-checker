@@ -19,7 +19,7 @@ describe("課題一覧の優先度", () => {
       ["META_DESC_SHORT", "soon"],
     ]);
     const html = renderToStaticMarkup(createElement(AuditIssues, { issues, origin: "https://example.test", hasPrevious: false }));
-    expect(html).toContain("急ぎで対応");
+    expect(html).toContain("今すぐ対応");
     expect(html).toContain("要改善");
     expect(html).toContain('id="audit-filter-urgency"');
   });

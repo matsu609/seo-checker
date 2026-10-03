@@ -4,7 +4,7 @@
  * 専門家のアドバイス（AI の改善案。priority 1〜3）があればそれを元にし、
  * 無ければ（アドバイス作成中・失敗・古い保存分）サイト診断の 50 ルールから組み立てる。
  * 優先度の 3 段階は無料診断（src/lib/report/urgency.ts）と同じ言葉に合わせる:
- *   priority 1（今すぐ・効果が大きい）= 急ぎで対応 / 2 = 要改善 / 3 = 後回しで OK
+ *   priority 1（今すぐ・効果が大きい）= 今すぐ対応 / 2 = 要改善 / 3 = 後回しで OK
  *
  * 利用者の指示 2026-10-03「精密診断にも同じ仕組み・同じデザインで」。
  */
@@ -22,7 +22,7 @@ export function recommendationUrgency(priority: number): Urgency {
 
 const EFFORT_LABELS: Record<Recommendation["effort"], string> = { low: "小", medium: "中", high: "大" };
 
-/** AI の改善案 → 共通の改善項目。並びは priority の昇順（= 急ぎ → 要改善 → 放置 OK）を保つ */
+/** AI の改善案 → 共通の改善項目。並びは priority の昇順（= 今すぐ → 要改善 → 放置 OK）を保つ */
 export function recommendationItems(recommendations: readonly Recommendation[]): ActionItem[] {
   return [...recommendations]
     .map((r, i) => ({ r, i }))

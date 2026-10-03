@@ -52,7 +52,7 @@ export function ImprovementSection({ plan, number, variant, limit = 8 }: Improve
           </ol>
           {rest > 0 && <p className="mt-2 text-[12px] text-muted">ほかに {rest} 件あります（各カテゴリのチェックリストをご覧ください）。</p>}
           <p className="mt-2 text-[11px] text-muted">
-            ※ 点数は配点からの試算です（合格 = 満点、注意 = 半分、未対応 = 0 点）。優先度は「急ぎで対応」= 閉業表示・Google
+            ※ 点数は配点からの試算です（合格 = 満点、注意 = 半分、未対応 = 0 点）。優先度は「今すぐ対応」= 閉業表示・Google
             の警告・店名のキーワード詰め込み・住所 / 電話 / 営業時間 / カテゴリの未設定、「後回しで OK」= 直しても 2 点未満しか動かない項目、残りが「要改善」です。
           </p>
         </>
