@@ -3,14 +3,26 @@
  *
  * 点数の水準と急ぎの件数を 1 文で、最初にやること 1 件を具体的な対応方法つきで、
  * 優先度ごとの件数を帯（SegmentBar）で出す。導出は src/lib/report/action-plan.ts。
- * サイト・ページ・MEO の 3 つのレポートで同じ部品を使う。
+ * サイト・ページ・MEO の 3 つのレポートと、精密診断（報告書・サイト診断）で同じ部品を使う。
  */
 import { SegmentBar } from "@/components/charts";
 import { fmt, URGENCY_TONES, type ActionPlan } from "@/lib/report";
 import { palette } from "@/lib/ui/palette";
 import { Advice, Num, UrgencyBadge } from "./report-parts";
 
-export function ActionPlanBlock({ plan, className = "" }: { plan: ActionPlan; className?: string }) {
+const DEFAULT_NOTE =
+  "※ 優先度と文章は診断結果から機械的に決めています（生成 AI は使用していません）。決め方は付録「診断方法と採点基準」をご覧ください。";
+
+export function ActionPlanBlock({
+  plan,
+  className = "",
+  note = DEFAULT_NOTE,
+}: {
+  plan: ActionPlan;
+  className?: string;
+  /** 末尾の注記。精密診断など付録の無い画面では差し替える */
+  note?: string;
+}) {
   const first = plan.first;
   const isSite = first?.affectedPages !== undefined && first?.totalPages !== undefined;
   return (
@@ -33,7 +45,9 @@ export function ActionPlanBlock({ plan, className = "" }: { plan: ActionPlan; cl
                 {fmt(first.affectedPages ?? 0)} / {fmt(first.totalPages ?? 0)} ページ
               </span>
             )}
-            <span className="ml-auto text-[13px] font-bold text-accent tabular-nums">見込み効果 {first.gainLabel}</span>
+            <span className="ml-auto text-[13px] font-bold text-accent tabular-nums">
+              {plan.effectHeading} {first.gainLabel}
+            </span>
           </div>
           <Advice>{first.advice ?? "対応方法は「改善提案（詳細）」の該当項目をご覧ください。"}</Advice>
         </div>
@@ -63,9 +77,7 @@ export function ActionPlanBlock({ plan, className = "" }: { plan: ActionPlan; cl
           </ul>
         </div>
       )}
-      <p className="mt-3 text-[11px] text-muted">
-        ※ 優先度と文章は診断結果から機械的に決めています（生成 AI は使用していません）。決め方は付録「診断方法と採点基準」をご覧ください。
-      </p>
+      <p className="mt-3 text-[11px] text-muted">{note}</p>
     </section>
   );
 }

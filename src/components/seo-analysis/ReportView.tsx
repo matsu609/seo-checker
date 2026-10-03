@@ -12,6 +12,9 @@ import { useMemo, useRef, useState } from "react";
 import { AuditCategoryTable } from "@/components/site-audit/AuditCategoryTable";
 import { AuditIssues, type IssueRow } from "@/components/site-audit/AuditIssues";
 import { AuditPages } from "@/components/site-audit/AuditPages";
+import { ActionPlanBlock } from "@/components/free/ActionPlan";
+import { UrgencyBadge } from "@/components/free/report-parts";
+import { buildAnalysisActionPlan, recommendationUrgency } from "@/lib/seo-analysis/action-plan";
 import { AUDIT_RULE_COUNT } from "@/lib/audit/config";
 import type { AuditResult } from "@/lib/audit/types";
 import { DomainPowerCard } from "./DomainPowerCard";
@@ -31,6 +34,10 @@ import { FactChips, FactsAppendix } from "./FactsAppendix";
 
 const EFFORT_LABELS = { low: "小", medium: "中", high: "大" } as const;
 const PRIORITY_TONE = { 1: "fail", 2: "warn", 3: "info" } as const;
+
+/** 「まず、これをしてください」の注記（報告書には付録 B が無いので決め方をここに書く） */
+const PLAN_NOTE =
+  "※ 専門家のアドバイスがあるときは、その優先度（1 = 急ぎで対応 / 2 = 要改善 / 3 = 一旦放置で OK）から機械的に選んでいます。無いときはサイト診断の 50 ルールから決めます（急ぎ = 載らない・読まれない原因になるルール、放置 OK = 重要度「情報」、残りが要改善）。";
 
 export interface ReportViewProps {
   sheet: SeoFactSheet;
@@ -60,6 +67,16 @@ export function ReportView(props: ReportViewProps) {
   const rankedKeywords = sheet.search.keywords.filter((k) => k.rank !== null).length;
   const domain = sheet.domain ?? null;
   const llms = sheet.llms ?? null;
+  const actionPlan = useMemo(
+    () =>
+      buildAnalysisActionPlan({
+        analyzedPages: audit?.crawl.analyzed ?? site.crawl.analyzed,
+        quickScore: site.quick?.score ?? null,
+        recommendations: a?.recommendations ?? null,
+        issues: audit?.issues ?? null,
+      }),
+    [a, audit, site],
+  );
 
   async function toPdf() {
     if (!sheetRef.current) return;
@@ -91,6 +108,7 @@ export function ReportView(props: ReportViewProps) {
       </div>
 
       <div ref={sheetRef} className="space-y-6">
+        {actionPlan && <ActionPlanBlock plan={actionPlan} note={PLAN_NOTE} />}
         <SummaryCard sheet={sheet} headline={a?.headline ?? null} analyzing={props.analyzing} />
 
         <div className="grid gap-3 @2xl:grid-cols-4">
@@ -142,7 +160,7 @@ export function ReportView(props: ReportViewProps) {
               </p>
             </Card>
 
-            <Card title="専門家のアドバイス: 改善案（優先順）" description="優先度 1 = 今すぐ・効果が大きい。手間は担当者の作業量の目安。ID は付録の事実シートの行です。" printCard>
+            <Card title="専門家のアドバイス: 改善案（優先順）" description="優先度 1 = 急ぎで対応（今すぐ・効果が大きい）/ 2 = 要改善 / 3 = 一旦放置で OK。手間は担当者の作業量の目安。ID は付録の事実シートの行です。" printCard>
               <ol className="space-y-4">
                 {[...a.recommendations]
                   .sort((x, y) => x.priority - y.priority)
@@ -152,6 +170,7 @@ export function ReportView(props: ReportViewProps) {
                         <Badge tone={PRIORITY_TONE[r.priority as 1 | 2 | 3]} icon={false}>
                           優先度 {r.priority}
                         </Badge>
+                        <UrgencyBadge urgency={recommendationUrgency(r.priority)} />
                         <Badge tone="neutral" icon={false}>
                           手間 {EFFORT_LABELS[r.effort]}
                         </Badge>

@@ -24,7 +24,8 @@ import { PageTargetField, SiteTargetNotice, useRegisteredSite } from "@/componen
 import { Badge, Button, Callout, Card, EmptyState, Field, InlineDiff, Input, Select } from "@/components/ui";
 import type { BadgeTone } from "@/components/ui/Badge";
 import type { ImprovementResult } from "@/lib/improvement/generate";
-import { AREA_LABELS, EFFORT_LABELS, PRIORITY_LABELS, type Proposal } from "@/lib/improvement/schema";
+import { UrgencyBadge } from "@/components/free/report-parts";
+import { AREA_LABELS, EFFORT_LABELS, PRIORITY_LABELS, PRIORITY_URGENCY, type Proposal } from "@/lib/improvement/schema";
 import {
   findDiagnosis,
   pageDiagnosesStore,
@@ -453,6 +454,7 @@ function ProposalsCard({
           <li key={i} className="rounded-sm border border-line p-4">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={PRIORITY_TONE[p.priority]}>優先度 {PRIORITY_LABELS[p.priority]}</Badge>
+              <UrgencyBadge urgency={PRIORITY_URGENCY[p.priority]} />
               <Badge>{AREA_LABELS[p.area]}</Badge>
               <Badge>手間 {EFFORT_LABELS[p.effort]}</Badge>
               <span className="text-[14px] font-bold text-ink">{p.headline}</span>

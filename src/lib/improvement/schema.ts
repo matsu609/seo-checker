@@ -5,6 +5,7 @@
  * では運用者が結局書く仕事が残るので、after には完成した文字列を入れさせる。
  */
 import { z } from "zod";
+import type { Urgency } from "@/lib/report/urgency";
 
 /** 直す場所 */
 export const IMPROVEMENT_AREAS = [
@@ -30,6 +31,8 @@ export const AREA_LABELS: Record<ImprovementArea, string> = {
 };
 
 export const PRIORITY_LABELS = { high: "高", medium: "中", low: "低" } as const;
+/** 無料診断・精密診断と同じ 3 段階の言葉に合わせる（高 = 急ぎで対応 / 中 = 要改善 / 低 = 一旦放置で OK） */
+export const PRIORITY_URGENCY: Record<keyof typeof PRIORITY_LABELS, Urgency> = { high: "now", medium: "soon", low: "later" };
 export const EFFORT_LABELS = { small: "小", medium: "中", large: "大" } as const;
 
 export const ProposalSchema = z.object({

@@ -6,7 +6,10 @@
  * 該当 URL を折りたたみで並べる。表示中の内容をそのまま CSV に出せる。
  */
 import { useMemo, useState } from "react";
+import { UrgencyBadge } from "@/components/free/report-parts";
 import { Badge, Button, Card, EmptyState, Field, Input, Select } from "@/components/ui";
+import { auditUrgency } from "@/lib/audit/urgency";
+import { URGENCY_LABELS, URGENCY_ORDER, type Urgency } from "@/lib/report/urgency";
 import type { IssueChange } from "@/lib/audit/diff";
 import { CHANGE_LABELS } from "@/lib/audit/diff";
 import type { AuditCategory, Issue, Severity } from "@/lib/audit/types";
@@ -31,12 +34,15 @@ interface RuleGroup {
   ruleId: string;
   category: AuditCategory;
   severity: Severity;
+  /** 対応の優先度（急ぎで対応 / 要改善 / 一旦放置で OK。src/lib/audit/urgency.ts） */
+  urgency: Urgency;
   rows: IssueRow[];
 }
 
 const CSV_COLUMNS: CsvColumn<IssueRow>[] = [
   { header: "カテゴリ", value: (r) => r.category },
   { header: "重要度", value: (r) => SEVERITY_LABELS[r.severity] },
+  { header: "優先度", value: (r) => URGENCY_LABELS[auditUrgency(r.ruleId, r.severity)] },
   { header: "ルールID", value: (r) => r.ruleId },
   { header: "URL", value: (r) => r.url },
   { header: "内容", value: (r) => r.detail },
@@ -55,6 +61,7 @@ export function AuditIssues({
 }) {
   const [category, setCategory] = useState<AuditCategory | "">("");
   const [severity, setSeverity] = useState<Severity | "">("");
+  const [urgency, setUrgency] = useState<Urgency | "">("");
   const [change, setChange] = useState<IssueChange | "">("");
   const [keyword, setKeyword] = useState("");
 
@@ -63,6 +70,7 @@ export function AuditIssues({
     return issues.filter((issue) => {
       if (category && issue.category !== category) return false;
       if (severity && issue.severity !== severity) return false;
+      if (urgency && auditUrgency(issue.ruleId, issue.severity) !== urgency) return false;
       if (change && issue.change !== change) return false;
       if (!needle) return true;
       return (
@@ -71,14 +79,14 @@ export function AuditIssues({
         issue.detail.toLowerCase().includes(needle)
       );
     });
-  }, [issues, category, severity, change, keyword]);
+  }, [issues, category, severity, urgency, change, keyword]);
 
   const groups = useMemo(() => groupByRule(filtered), [filtered]);
 
   return (
     <Card
       title="検出された課題"
-      description="ルールごとにまとめています。行を開くと該当ページの一覧と改善提案が出ます。"
+      description="ルールごとにまとめています。優先度（急ぎで対応 / 要改善 / 一旦放置で OK）は、載らない・読まれない原因になるルールを急ぎ、重要度「情報」を放置 OK、残りを要改善にしています。行を開くと該当ページの一覧と改善提案が出ます。"
       actions={
         <Button
           variant="secondary"
@@ -92,7 +100,17 @@ export function AuditIssues({
         </Button>
       }
     >
-      <div className="mb-4 grid gap-3 @2xl:grid-cols-4">
+      <div className="mb-4 grid gap-3 @2xl:grid-cols-5">
+        <Field label="優先度" htmlFor="audit-filter-urgency">
+          <Select id="audit-filter-urgency" value={urgency} onChange={(e) => setUrgency(e.target.value as Urgency | "")}>
+            <option value="">すべて</option>
+            {URGENCY_ORDER.map((u) => (
+              <option key={u} value={u}>
+                {URGENCY_LABELS[u]}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Field label="カテゴリ" htmlFor="audit-filter-category">
           <Select
             id="audit-filter-category"
@@ -163,6 +181,7 @@ export function AuditIssues({
             <li key={group.ruleId}>
               <details className="group">
                 <summary className="flex cursor-pointer flex-wrap items-center gap-2 py-3 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                  <UrgencyBadge urgency={group.urgency} />
                   <Badge tone={SEVERITY_TONE[group.severity]}>{SEVERITY_LABELS[group.severity]}</Badge>
                   <Badge tone="id">{group.ruleId}</Badge>
                   <span className="order-last min-w-0 basis-full text-[13px] text-ink @lg:order-none @lg:basis-0 @lg:flex-1">{group.rows[0].detail}</span>
@@ -222,12 +241,19 @@ export function groupByRule(issues: readonly IssueRow[]): RuleGroup[] {
   const map = new Map<string, RuleGroup>();
   for (const issue of issues) {
     const found = map.get(issue.ruleId);
-    if (found) found.rows.push(issue);
-    else
+    if (found) {
+      found.rows.push(issue);
+      // 同じルールで重要度が混ざる（意図した除外 = 情報と、そうでないもの）ときは重いほうで代表させる
+      if (SEVERITY_ORDER.indexOf(issue.severity) < SEVERITY_ORDER.indexOf(found.severity)) {
+        found.severity = issue.severity;
+        found.urgency = auditUrgency(issue.ruleId, issue.severity);
+      }
+    } else
       map.set(issue.ruleId, {
         ruleId: issue.ruleId,
         category: issue.category,
         severity: issue.severity,
+        urgency: auditUrgency(issue.ruleId, issue.severity),
         rows: [issue],
       });
   }

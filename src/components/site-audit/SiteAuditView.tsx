@@ -38,11 +38,17 @@ import { AuditIssues, type IssueRow } from "./AuditIssues";
 import { AuditPages } from "./AuditPages";
 import { AuditProgress } from "./AuditProgress";
 import { AuditSummaryCard } from "./AuditSummaryCard";
+import { ActionPlanBlock } from "@/components/free/ActionPlan";
+import { buildAuditActionPlan } from "@/lib/audit/urgency";
 import { AuditRequestError, requestAudit, requestAuditSummary } from "./client";
 
 const PAGE_LIMITS = [20, 50, 100, 200, 300];
 
 type Phase = "idle" | "running" | "error" | "done";
+
+/** 「まず、これをしてください」の注記（サイト診断には付録が無いので決め方をここに書く） */
+const AUDIT_PLAN_NOTE =
+  "※ 優先度は診断結果から機械的に決めています（生成 AI は使用していません）。急ぎで対応 = 載らない・読まれない原因になるルール（エラーページ・robots.txt の拒否・noindex・canonical の破損・title 無し）、一旦放置で OK = 重要度「情報」、残りが要改善です。";
 
 export function SiteAuditView() {
   const [form, setForm] = useStore(auditFormStore);
@@ -324,6 +330,11 @@ export function SiteAuditView() {
               サイト全体を見るには上限を上げて実行してください。
             </Callout>
           )}
+
+          <ActionPlanBlock
+            plan={buildAuditActionPlan({ issues: result.issues, analyzedPages: result.crawl.analyzed })}
+            note={AUDIT_PLAN_NOTE}
+          />
 
           {summary && (
             <AuditSummaryCard

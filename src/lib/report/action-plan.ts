@@ -47,6 +47,8 @@ export interface ActionPlan {
   tiers: ActionTier[];
   /** 改善点の総数（warn + fail） */
   total: number;
+  /** 最初にやる 1 件に添える効果の見出し（既定「見込み効果」。サイト診断は「該当」など） */
+  effectHeading: string;
 }
 
 /** グレード → 水準の言い方。「危険」「致命的」などの断定語は使わない（design-spec §3.4） */
@@ -83,6 +85,10 @@ export interface ActionPlanInput {
   grade: Grade | null;
   /** 主語。「このページ」「このサイト」「このプロフィール」 */
   subject: string;
+  /** 水準の文の前に置く 1 文（例「10 ページを診断し、課題 12 件を見つけました。」）。点数が無い診断で使う */
+  intro?: string;
+  /** 最初の 1 件の効果の見出し。既定「見込み効果」 */
+  effectHeading?: string;
 }
 
 export function buildActionPlan(input: ActionPlanInput): ActionPlan {
@@ -111,9 +117,10 @@ export function buildActionPlan(input: ActionPlanInput): ActionPlan {
   }
 
   return {
-    verdict: level ? `${level}${status}` : status,
+    verdict: `${input.intro ?? ""}${level}${status}`,
     first: firstActionOf(input.items),
     tiers,
     total,
+    effectHeading: input.effectHeading ?? "見込み効果",
   };
 }

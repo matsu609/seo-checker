@@ -61,6 +61,13 @@ describe("まず、これをしてください（buildActionPlan）", () => {
     }
   });
 
+  it("intro は水準の文の前に付き、effectHeading は既定「見込み効果」で差し替えられる", () => {
+    const plan = buildActionPlan({ items: [item("x", "soon")], overall: null, grade: null, subject: "このサイト", intro: "10 ページを診断しました。", effectHeading: "該当" });
+    expect(plan.verdict.startsWith("10 ページを診断しました。急ぎで直す項目はありません。")).toBe(true);
+    expect(plan.effectHeading).toBe("該当");
+    expect(buildActionPlan({ items: [], overall: 90, grade: "A", subject: "このページ" }).effectHeading).toBe("見込み効果");
+  });
+
   it("firstActionOf は空なら null", () => {
     expect(firstActionOf([])).toBeNull();
   });
