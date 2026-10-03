@@ -19,7 +19,7 @@ describe("対応の優先度（urgencyOf）", () => {
     expect(urgencyOf({ id: "robots-txt", status: "warn", gain: 0.8 }, SEO_BLOCKING)).toBe("later");
   });
 
-  it(`それ以外は見込み効果が ${LATER_BELOW_GAIN} 点以上なら要改善、未満なら一旦放置で OK（境界値は要改善）`, () => {
+  it(`それ以外は見込み効果が ${LATER_BELOW_GAIN} 点以上なら要改善、未満なら後回しで OK（境界値は要改善）`, () => {
     expect(urgencyOf({ id: "jsonld-exists", status: "fail", gain: 6.25 }, SEO_BLOCKING)).toBe("soon");
     expect(urgencyOf({ id: "ogp", status: "warn", gain: LATER_BELOW_GAIN }, SEO_BLOCKING)).toBe("soon");
     expect(urgencyOf({ id: "llms-txt", status: "fail", gain: 1.67 }, SEO_BLOCKING)).toBe("later");

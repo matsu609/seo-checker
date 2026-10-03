@@ -54,7 +54,7 @@ export interface Improvement {
   gain: number;
   /** 「+3 点」「+1 点未満」 */
   gainLabel: string;
-  /** 対応の優先度（急ぎ / 要改善 / 一旦放置で OK。urgency.ts） */
+  /** 対応の優先度（急ぎ / 要改善 / 後回しで OK。urgency.ts） */
   urgency: Urgency;
   /** 判定根拠（site は該当ページの 1 件目） */
   evidence?: string;

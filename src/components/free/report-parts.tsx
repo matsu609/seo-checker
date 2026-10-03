@@ -160,7 +160,7 @@ export function KeyValue({ term, children }: { term: ReactNode; children: ReactN
   );
 }
 
-/** 対応の優先度のピル（急ぎで対応 / 要改善 / 一旦放置で OK）。判定ピルと区別するためアイコン無し */
+/** 対応の優先度のピル（急ぎで対応 / 要改善 / 後回しで OK）。判定ピルと区別するためアイコン無し */
 export function UrgencyBadge({ urgency, className = "" }: { urgency: Urgency; className?: string }) {
   return (
     <Badge tone={URGENCY_TONES[urgency]} icon={false} className={className} title={URGENCY_NOTES[urgency]}>

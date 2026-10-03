@@ -36,7 +36,7 @@ describe("優先改善リスト", () => {
     expect(plan.items[0].advice.length).toBeGreaterThan(0);
   });
 
-  it("対応の優先度が付く: 電話番号なしは急ぎ、口コミ件数は要改善、小さな項目は一旦放置で OK", () => {
+  it("対応の優先度が付く: 電話番号なしは急ぎ、口コミ件数は要改善、小さな項目は後回しで OK", () => {
     const plan = buildImprovementPlan(scoreProfile(poor({ status: "CLOSED_TEMPORARILY" }), NOW, null, { extended: false }));
     const byId = new Map(plan.items.map((i) => [i.id, i.urgency]));
     expect(byId.get("status")).toBe("now");

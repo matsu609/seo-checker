@@ -37,7 +37,7 @@ const PRIORITY_TONE = { 1: "fail", 2: "warn", 3: "info" } as const;
 
 /** 「まず、これをしてください」の注記（報告書には付録 B が無いので決め方をここに書く） */
 const PLAN_NOTE =
-  "※ 専門家のアドバイスがあるときは、その優先度（1 = 急ぎで対応 / 2 = 要改善 / 3 = 一旦放置で OK）から機械的に選んでいます。無いときはサイト診断の 50 ルールから決めます（急ぎ = 載らない・読まれない原因になるルール、放置 OK = 重要度「情報」、残りが要改善）。";
+  "※ 専門家のアドバイスがあるときは、その優先度（1 = 急ぎで対応 / 2 = 要改善 / 3 = 後回しで OK）から機械的に選んでいます。無いときはサイト診断の 50 ルールから決めます（急ぎ = 載らない・読まれない原因になるルール、放置 OK = 重要度「情報」、残りが要改善）。";
 
 export interface ReportViewProps {
   sheet: SeoFactSheet;
@@ -160,7 +160,7 @@ export function ReportView(props: ReportViewProps) {
               </p>
             </Card>
 
-            <Card title="専門家のアドバイス: 改善案（優先順）" description="優先度 1 = 急ぎで対応（今すぐ・効果が大きい）/ 2 = 要改善 / 3 = 一旦放置で OK。手間は担当者の作業量の目安。ID は付録の事実シートの行です。" printCard>
+            <Card title="専門家のアドバイス: 改善案（優先順）" description="優先度 1 = 急ぎで対応（今すぐ・効果が大きい）/ 2 = 要改善 / 3 = 後回しで OK。手間は担当者の作業量の目安。ID は付録の事実シートの行です。" printCard>
               <ol className="space-y-4">
                 {[...a.recommendations]
                   .sort((x, y) => x.priority - y.priority)

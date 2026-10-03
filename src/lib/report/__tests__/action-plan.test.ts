@@ -32,14 +32,14 @@ describe("まず、これをしてください（buildActionPlan）", () => {
       subject: "このサイト",
     });
     expect(plan.verdict).toContain("良い水準");
-    expect(plan.verdict).toContain("急ぎで直す項目はありません。要改善 2 件を効果の大きい順に進めれば十分です（残り 1 件は一旦放置で問題ありません）。");
+    expect(plan.verdict).toContain("急ぎで直す項目はありません。要改善 2 件を効果の大きい順に進めれば十分です（残り 1 件は後回しで問題ありません）。");
     // 同じ優先度なら元の並び（見込み効果の降順）の先頭
     expect(plan.first?.id).toBe("description");
   });
 
   it("放置 OK だけなら、そう言い切る", () => {
     const plan = buildActionPlan({ items: [item("llms-txt", "later", 1)], overall: 95, grade: "A", subject: "このページ" });
-    expect(plan.verdict).toBe("このページの総合 95 点は高い水準です。急ぎで直す項目はありません。残る 1 件は点数への影響が小さく、一旦放置で問題ありません。");
+    expect(plan.verdict).toBe("このページの総合 95 点は高い水準です。急ぎで直す項目はありません。残る 1 件は点数への影響が小さく、後回しで問題ありません。");
     expect(plan.first?.id).toBe("llms-txt");
   });
 

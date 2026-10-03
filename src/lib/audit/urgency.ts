@@ -4,7 +4,7 @@
  * 無料診断（src/lib/report/urgency.ts）と同じ 3 段階を、点数の無いサイト診断に当てはめる:
  * - now   … 急ぎで対応: 検索や AI 検索に「載らない・読まれない」原因になるルール
  *           （AUDIT_BLOCKING）。意図した除外（severity = info）は除く
- * - later … 一旦放置で OK: 重要度 info（把握しておけばよい）
+ * - later … 後回しで OK: 重要度 info（把握しておけばよい）
  * - soon  … 要改善: 残り（重要度 error / warning）
  *
  * 利用者の指示 2026-10-03「精密診断にも同じ仕組みを入れてください」。

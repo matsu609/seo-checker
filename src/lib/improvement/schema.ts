@@ -31,7 +31,7 @@ export const AREA_LABELS: Record<ImprovementArea, string> = {
 };
 
 export const PRIORITY_LABELS = { high: "高", medium: "中", low: "低" } as const;
-/** 無料診断・精密診断と同じ 3 段階の言葉に合わせる（高 = 急ぎで対応 / 中 = 要改善 / 低 = 一旦放置で OK） */
+/** 無料診断・精密診断と同じ 3 段階の言葉に合わせる（高 = 急ぎで対応 / 中 = 要改善 / 低 = 後回しで OK） */
 export const PRIORITY_URGENCY: Record<keyof typeof PRIORITY_LABELS, Urgency> = { high: "now", medium: "soon", low: "later" };
 export const EFFORT_LABELS = { small: "小", medium: "中", large: "大" } as const;
 

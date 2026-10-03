@@ -41,7 +41,7 @@ export interface MeoImprovement {
   gain: number;
   /** 画面に出す "+6 点" の形 */
   gainLabel: string;
-  /** 対応の優先度（急ぎ / 要改善 / 一旦放置で OK。src/lib/report/urgency.ts と同じ 3 段階） */
+  /** 対応の優先度（急ぎ / 要改善 / 後回しで OK。src/lib/report/urgency.ts と同じ 3 段階） */
   urgency: Urgency;
   /** 現状の測定値・理由 */
   detail: string;

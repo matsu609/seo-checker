@@ -292,7 +292,7 @@ describe("buildPageSummary", () => {
     expect(buildPageSummary(pageWithOverall(overall)).grade.grade).toBe(grade);
   });
 
-  it("優先改善の各項目に対応の優先度が付く（noindex の未対応は急ぎ、llms.txt は一旦放置で OK）", () => {
+  it("優先改善の各項目に対応の優先度が付く（noindex の未対応は急ぎ、llms.txt は後回しで OK）", () => {
     const checks = [
       mkCheck("noindex", "crawlers", "fail", 2),
       mkCheck("search-crawlers-allowed", "crawlers", "pass", 3),
@@ -307,7 +307,7 @@ describe("buildPageSummary", () => {
     const byId = new Map(summary.improvements.map((i) => [i.id, i.urgency]));
     expect(byId.get("noindex")).toBe("now");
     expect(byId.get("jsonld-exists")).toBe("soon");
-    // 1 / 11 × 20 = 1.8 点 < 2 点 → 一旦放置で OK
+    // 1 / 11 × 20 = 1.8 点 < 2 点 → 後回しで OK
     expect(byId.get("llms-txt")).toBe("later");
   });
 
@@ -536,7 +536,7 @@ describe("buildSiteSummary", () => {
     const uniform = s.priorities[0];
     expect(uniform.spread).toBe("uniform");
     expect(uniform.worst).toBe("fail");
-    // 優先度: noindex は急ぎ、改善余地 1 ページだけの jsonld-website は一旦放置で OK、参考だけの項目は付けない
+    // 優先度: noindex は急ぎ、改善余地 1 ページだけの jsonld-website は後回しで OK、参考だけの項目は付けない
     expect(uniform.urgency).toBe("now");
     expect(s.priorities.find((p) => p.id === "jsonld-website")?.urgency).toBe("later");
     expect(s.priorities.find((p) => p.id === "jsonld-search-action")?.urgency).toBeNull();
