@@ -57,7 +57,7 @@
   SerpApi（対策キーワード 5 つ + site: + ブランド名）/ サジェスト
   外部からの評価（Ahrefs の DR + Open PageRank。インデックス数。自社と競合 2 件。2026-09-19 に総合点を廃止）
   llms.txt / llms-full.txt の有無と中身
-  （連携済みなら）GSC の上位クエリ・ページ、GA4 の自然検索 × ランディングページ
+  ※ Google Search Console / GA4 のデータは使わない（利用者の決定 2026-09-17。2026-10-03 に事実シートの「Google 連携」の層も型ごと削除。検索の実測は SEO の「Google サーチコンソール連携」の別画面）
   ↓
 事実シート（SeoFactSheet、JSON、指標に ID を振る）
   ↓
@@ -88,7 +88,7 @@ AI 分析（Claude。段階ごとに構造化出力、各主張は指標 ID を�
 | D′ | SerpApi の組み込み（`search.ts`。対策キーワード 5 つの順位・上位ドメイン・SERP の特徴・AI Overviews の引用・競合の順位、`site:` 件数、ブランド名検索） | **実装済み（2026-09-14）** |
 | F′ | ドメインパワー（`src/lib/domain-power/`。`ahrefs.ts` = DR 0〜100、`openpagerank.ts` = OPR 0〜10、`rdap.ts` = 登録日、`score.ts` = 8 指標の配点、`collect.ts` = 自社と競合の取得）。報告書の KPI とカード、事実シートの領域 `domain`（ID は `D-01`〜） | **実装済み（2026-09-15）** |
 | G′ | llms.txt の評価（`src/lib/seo-analysis/llms.ts`。有無 + 中身の判定は `lib/llms-txt/validate.ts` を再利用）。報告書の「llms.txt」カード、事実シートの領域 `llms`（ID は `L-01`〜） | **実装済み（2026-09-16）** |
-| E′ | 任意の層（`google.ts`。連携済みなら Search Console の 28 日の合計・前期間・上位クエリ / ページ、GA4 の自然検索の流入・キーイベント・ランディングページ）。URL Inspection は未実装（連携先が分析対象と一致するときだけ使う） | **GSC / GA4 は実装済み（2026-09-14）。URL Inspection は未** |
+| E′ | ~~任意の層（`google.ts`。連携済みなら Search Console / GA4）~~ | **取り下げ。** 2026-09-17 に取得実装を削除、**2026-10-03 に `google.ts`・`SheetGoogle`・事実シートの領域 `google` も削除**（利用者の指示「GA4 と Search Console は精密診断から切り離す」）。精密診断は Google 連携を一切使わない。Search Console の実測は `/tools/search-console`（r161）で別に見る
 
 **設計原則（利用者の指示 2026-09-13）**: 精密診断の報告書だけでなく、**個々の分析結果（サイト診断・検索パフォーマンス・CWV など、各ツールの画面）ごとに AI の分析を見られるようにする**。B′ で作る「事実シート → AI 分析」の仕組みは、画面ごとの部分的な事実シートでも動くように分ける（報告書 = 各画面の分析の合成）。
 

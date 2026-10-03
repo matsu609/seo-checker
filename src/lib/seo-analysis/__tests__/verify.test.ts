@@ -5,7 +5,7 @@ import type { Fact } from "../sheet/types";
 const facts: Fact[] = [
   { id: "S-01", area: "structure", label: "内部リンクの延べ本数", value: "1,240 本", note: "1 ページあたり平均 12.4 本" },
   { id: "P-01", area: "speed", label: "LCP", value: "2.8 秒（改善が必要）" },
-  { id: "G-01", area: "google", label: "CTR", value: "CTR 3%" },
+  { id: "R-02", area: "search", label: "CTR", value: "CTR 3%" },
 ];
 
 describe("数値の照合", () => {

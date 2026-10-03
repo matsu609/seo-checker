@@ -17,7 +17,6 @@ describe("ステージ", () => {
     expect(stageOfStep("search")).toBe("signals");
     expect(stageOfStep("domain")).toBe("signals");
     expect(stageOfStep("llms")).toBe("signals");
-    expect(stageOfStep("google")).toBe("signals");
     expect(stageOfStep("sheet")).toBe("sheet");
   });
 

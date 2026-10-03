@@ -2,7 +2,7 @@
  * 精密診断の「収集」。サーバー専用。
  *
  * サイト診断（クロール + ルール判定（数は audit/config.ts の AUDIT_RULE_COUNT）+ 構成 + 信頼）→ クイック診断（トップ）→
- * 主要ページの PageSpeed / CrUX、検索順位（SerpApi）、Google 連携（任意）を
+ * 主要ページの PageSpeed / CrUX、検索順位（SerpApi）、外部からの評価、llms.txt を
  * 集めて事実シートにする。AI はここでは呼ばない（別リクエスト。Vercel の
  * 実行時間の上限に収めるため）。ネットワークに出る経路は既存のクライアントだけ。
  */
@@ -18,7 +18,6 @@ type CruxCoverage = "url" | "origin" | "none" | "unknown";
 import { buildExternalEvaluation, fetchDomainFacts } from "@/lib/domain-power";
 import { fetchPsi } from "@/lib/psi/client";
 import { collectLlmsTxt } from "./llms";
-import { unusedGoogleOutcome } from "./google";
 import { collectSearch } from "./search";
 import { buildFactSheet, pickKeyPages } from "./sheet/build";
 import type { AnalysisInput, SeoFactSheet, SheetSite, SheetSpeed } from "./sheet/types";
@@ -26,7 +25,7 @@ import type { AnalysisInput, SeoFactSheet, SheetSite, SheetSpeed } from "./sheet
 /** PSI / CrUX を掛けるページ数（トップ + 5。利用者の決定 2026-09-13） */
 export const KEY_PAGES = 6;
 
-export type CollectStep = "crawl" | "quick" | "speed" | "search" | "domain" | "llms" | "google" | "sheet";
+export type CollectStep = "crawl" | "quick" | "speed" | "search" | "domain" | "llms" | "sheet";
 
 export interface CollectProgress {
   step: CollectStep;
@@ -83,10 +82,10 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
   emit("quick", "トップページを採点しています");
   const quick = await quickScore(audit);
 
-  // 3〜5. 速度・検索・Google 連携は並行
+  // 3〜5. 速度・検索・外部からの評価・llms.txt は並行（Search Console / GA4 は使わない。利用者の決定 2026-09-17、層ごと削除 2026-10-03）
   const keyPages = pickKeyPages(audit.pages, entryUrl, KEY_PAGES);
   emit("speed", `主要 ${keyPages.length} ページの速度を取得しています`);
-  const [speed, searchOutcome, domainFacts, llms, googleOutcome] = await Promise.all([
+  const [speed, searchOutcome, domainFacts, llms] = await Promise.all([
     collectSpeed(audit.origin, keyPages, options.signal),
     (async () => {
       emit("search", "検索結果を取得しています");
@@ -109,9 +108,6 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
       emit("llms", "llms.txt（AI 向けの案内ファイル）を確認しています");
       return collectLlmsTxt(audit.origin, { signal: options.signal });
     })(),
-    // Google 連携（Search Console / GA4）は使わない（利用者の決定 2026-09-17）。
-    // 事実シートの「Google 連携」の層は空のまま、案内文だけを載せる
-    (async () => unusedGoogleOutcome())(),
   ]);
 
   // 速度・検索・外部評価のどれかが中断で欠けていれば、欠けたまま保存しない
@@ -139,7 +135,6 @@ export async function collectFactSheet(input: AnalysisInput, options: CollectOpt
     search: searchOutcome.search,
     domain,
     llms,
-    google: googleOutcome.google,
     coverage: {
       psi: speed.psi,
       crux: speed.crux,

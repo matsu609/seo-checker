@@ -48,7 +48,7 @@ export const GOAL_LABELS: Record<AnalysisGoal, string> = {
   other: "その他",
 };
 
-export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "llms" | "google";
+export type FactArea = "input" | "crawl" | "structure" | "trust" | "speed" | "search" | "domain" | "llms";
 
 export const FACT_AREA_LABELS: Record<FactArea, string> = {
   input: "入力",
@@ -59,7 +59,6 @@ export const FACT_AREA_LABELS: Record<FactArea, string> = {
   search: "検索での見え方",
   domain: "外部からの評価",
   llms: "llms.txt（AI 向けの案内ファイル）",
-  google: "Google 連携（使わない。案内のみ）",
 };
 
 /** AI が引用する 1 行の事実 */
@@ -167,25 +166,6 @@ export interface SheetLlmsTxt {
   full: { present: boolean; length: number };
 }
 
-export interface SheetGoogle {
-  searchConsole: {
-    siteUrl: string;
-    range: { startDate: string; endDate: string };
-    totals: { clicks: number; impressions: number; ctr: number; position: number };
-    previousTotals: { clicks: number; impressions: number; ctr: number; position: number };
-    queries: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
-    pages: { page: string; clicks: number; impressions: number; ctr: number; position: number }[];
-  } | null;
-  ga4: {
-    propertyId: string;
-    range: { startDate: string; endDate: string };
-    organic: { sessions: number; users: number; engagementRate: number; keyEvents: number };
-    all: { sessions: number; keyEvents: number };
-    landing: { page: string; sessions: number; keyEvents: number }[];
-  } | null;
-  notes: string[];
-}
-
 export interface SeoFactSheet {
   version: number;
   generatedAt: string;
@@ -197,10 +177,10 @@ export interface SeoFactSheet {
   domain?: SheetDomain | null;
   /** llms.txt の有無と中身の評価。古い保存分には無い */
   llms?: SheetLlmsTxt | null;
-  google: SheetGoogle;
   /**
    * どの取得が動いたか（キー未設定などで飛ばしたものは false）。
-   * 古い保存分には searchConsole / ga4 / diagnosis のキーもあるが、2026-09-17 以降は読まない
+   * 古い保存分には searchConsole / ga4 / diagnosis のキーもあるが、2026-09-17 以降は読まない。
+   * 同じく古い保存分にある `google`（Search Console / GA4 の層。空の案内だけ）も 2026-10-03 に型ごと外した
    */
   coverage: { psi: boolean; crux: boolean; serp: boolean; domainPower?: boolean };
   facts: Fact[];

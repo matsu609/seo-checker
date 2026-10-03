@@ -35,7 +35,6 @@ function sheet(over: Partial<{ quick: number | null; error: number; warning: num
     search: { keywords: s.ranks.map(([keyword, rank]) => ({ keyword, rank, url: null, topDomains: [], features: [], aiOverview: false, ownCited: null, competitors: [] })), siteCount: null, brand: null, notes: [] },
     domain: s.dr === null ? null : ({ ahrefsDr: s.dr } as never),
     llms: s.llms === null ? null : ({ present: s.llms } as never),
-    google: { searchConsole: null, ga4: null, notes: [] },
     coverage: { psi: true, crux: false, serp: true },
     facts: [],
   };

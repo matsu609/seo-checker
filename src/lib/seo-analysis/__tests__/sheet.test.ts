@@ -4,7 +4,7 @@ import { applyDepths, buildResult } from "@/lib/audit/run";
 import type { AuditResult } from "@/lib/audit/types";
 import { buildExternalEvaluation } from "@/lib/domain-power";
 import { buildFactSheet, factsFromAudit, factsToLines, pickKeyPages } from "../sheet/build";
-import type { AnalysisInput, SheetGoogle, SheetSearch, SheetSpeed } from "../sheet/types";
+import type { AnalysisInput, SheetSearch, SheetSpeed } from "../sheet/types";
 
 function audit(): AuditResult {
   const pages = [
@@ -43,7 +43,6 @@ const speed: SheetSpeed = {
   notes: [],
 };
 const search: SheetSearch = { keywords: [{ keyword: "ウェブ制作 世田谷", rank: 12, url: `${ORIGIN}/service`, topDomains: ["a.jp", "b.jp", "c.jp"], features: ["ai_overview", "local_pack"], aiOverview: true, ownCited: false, competitors: [] }], siteCount: 38, brand: { query: "サンプル工房", rank: 1, url: `${ORIGIN}/` }, notes: [] };
-const google: SheetGoogle = { searchConsole: null, ga4: null, notes: ["Search Console は連携していません"] };
 const domain = buildExternalEvaluation({
   host: "example.com",
   ahrefsDr: 18,
@@ -75,7 +74,7 @@ describe("事実シート", () => {
         { id: "links", label: "リンクの記法", level: "pass", detail: "3 件のリンクを検出しました" },
       ],
       full: { present: false, length: 0 },
-    }, google, coverage: { psi: true, crux: true, serp: true, domainPower: true }, generatedAt: "2026-09-14T00:00:00.000Z" });
+    }, coverage: { psi: true, crux: true, serp: true, domainPower: true }, generatedAt: "2026-09-14T00:00:00.000Z" });
 
   it("領域ごとに ID を振り、値と補足を持つ", () => {
     const ids = sheet.facts.map((f) => f.id);
@@ -102,7 +101,6 @@ describe("事実シート", () => {
     expect(lines.some((l) => l.includes("会社・店舗情報のページ: 未対応"))).toBe(true);
     expect(lines.some((l) => l.includes("クイック診断の総合スコア") && l.includes("72 点"))).toBe(true);
     expect(lines.some((l) => l.includes("URL 単位のデータ不足"))).toBe(true);
-    expect(lines.some((l) => l.includes("注記: Search Console は連携していません"))).toBe(true);
   });
 
   it("llms.txt の有無を事実にする", () => {

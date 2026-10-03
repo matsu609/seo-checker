@@ -22,7 +22,6 @@ import {
   type FactArea,
   type SeoFactSheet,
   type SheetDomain,
-  type SheetGoogle,
   type SheetLlmsTxt,
   type SheetSearch,
   type SheetSite,
@@ -44,7 +43,6 @@ export interface BuildSheetInput {
   search: SheetSearch;
   domain: SheetDomain | null;
   llms: SheetLlmsTxt | null;
-  google: SheetGoogle;
   coverage: SeoFactSheet["coverage"];
   generatedAt?: string;
 }
@@ -60,7 +58,6 @@ export function buildFactSheet(args: BuildSheetInput): SeoFactSheet {
     search: args.search,
     domain: args.domain,
     llms: args.llms,
-    google: args.google,
     coverage: args.coverage,
   };
   return { ...partial, facts: buildFacts(partial) };
@@ -117,7 +114,6 @@ const AREA_PREFIX: Record<FactArea, string> = {
   search: "R",
   domain: "D",
   llms: "L",
-  google: "G",
 };
 
 class FactList {
@@ -145,7 +141,7 @@ function path(url: string): string {
 
 export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
   const f = new FactList();
-  const { input, site, speed, search, google } = sheet;
+  const { input, site, speed, search } = sheet;
   const domain = sheet.domain ?? null;
   const llms = sheet.llms ?? null;
 
@@ -324,29 +320,6 @@ export function buildFacts(sheet: Omit<SeoFactSheet, "facts">): Fact[] {
     });
   }
 
-  // --- Google 連携 ------------------------------------------------------------
-  if (google.searchConsole) {
-    const g = google.searchConsole;
-    f.add("google", "検索パフォーマンス（直近 28 日）", `クリック ${g.totals.clicks.toLocaleString("ja-JP")} / 表示 ${g.totals.impressions.toLocaleString("ja-JP")} / CTR ${pct(g.totals.ctr)} / 平均掲載順位 ${g.totals.position.toFixed(1)}`, {
-      note: `前の 28 日: クリック ${g.previousTotals.clicks.toLocaleString("ja-JP")} / 表示 ${g.previousTotals.impressions.toLocaleString("ja-JP")} / CTR ${pct(g.previousTotals.ctr)} / 順位 ${g.previousTotals.position.toFixed(1)}（${g.range.startDate} 〜 ${g.range.endDate}）`,
-    });
-    for (const q of g.queries.slice(0, LIST_LIMIT)) {
-      f.add("google", `検索クエリ「${q.query}」`, `クリック ${q.clicks} / 表示 ${q.impressions} / CTR ${pct(q.ctr)} / 順位 ${q.position.toFixed(1)}`);
-    }
-    for (const p of g.pages.slice(0, LIST_LIMIT)) {
-      f.add("google", `検索流入の多いページ ${path(p.page)}`, `クリック ${p.clicks} / 表示 ${p.impressions} / CTR ${pct(p.ctr)} / 順位 ${p.position.toFixed(1)}`, { url: p.page });
-    }
-  }
-  if (google.ga4) {
-    const a = google.ga4;
-    f.add("google", "自然検索の流入（直近 28 日）", `セッション ${a.organic.sessions.toLocaleString("ja-JP")} / ユーザー ${a.organic.users.toLocaleString("ja-JP")} / エンゲージメント率 ${pct(a.organic.engagementRate)} / キーイベント ${a.organic.keyEvents.toLocaleString("ja-JP")}`, {
-      note: `全チャネル: セッション ${a.all.sessions.toLocaleString("ja-JP")} / キーイベント ${a.all.keyEvents.toLocaleString("ja-JP")}（${a.range.startDate} 〜 ${a.range.endDate}）`,
-    });
-    for (const l of a.landing.slice(0, LIST_LIMIT)) {
-      f.add("google", `自然検索のランディングページ ${l.page}`, `セッション ${l.sessions} / キーイベント ${l.keyEvents}`);
-    }
-  }
-  for (const n of google.notes) f.add("google", "注記", n);
 
 
   return f.facts;
@@ -378,7 +351,6 @@ export function factsFromAudit(audit: AuditResult): Fact[] {
     search: { keywords: [], siteCount: null, brand: null, notes: [] },
     domain: null,
     llms: null,
-    google: { searchConsole: null, ga4: null, notes: [] },
     coverage: { psi: false, crux: false, serp: false, domainPower: false },
   };
   return buildFacts(partial).filter((x) => x.area !== "input" || x.label === "対象サイト");

@@ -18,7 +18,7 @@ export const maxDuration = 120;
 
 const FactSchema = z.object({
   id: z.string().max(12),
-  area: z.enum(["input", "crawl", "structure", "trust", "speed", "search", "google"]),
+  area: z.enum(["input", "crawl", "structure", "trust", "speed", "search"]),
   label: z.string().max(200),
   value: z.string().max(600),
   note: z.string().max(1000).optional(),
