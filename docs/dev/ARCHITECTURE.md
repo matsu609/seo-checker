@@ -13,7 +13,7 @@
 
 | グループ | パス | ラベル | 機能 ID | 外部依存 |
 |---|---|---|---|---|
-| クイック診断 | `/` | クイック診断（サイト・SEO / AIO。**営業・デモ用の固定リンク `/free`（パスワードもトークンも無し。印の Cookie 30 日）を開いた人だけ。全体で月 50 回（`FREE_MONTHLY_LIMIT`）**（2026-10-02。入口は `src/lib/free/gate.ts`、判定は `src/lib/free/access.ts`、回数は `src/lib/free/monthly.ts` → Supabase `usage_events`）。サイト全体は代表 10 ページ） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
+| クイック診断 | `/` | クイック診断（サイト・SEO / AIO。**営業・デモ用の固定リンク `/free`（パスワードもトークンも無し。印の Cookie 30 日）を開いた人だけ。全体で月 50 回（`FREE_MONTHLY_LIMIT`）**（2026-10-02。入口は `src/lib/free/gate.ts`、判定は `src/lib/free/access.ts`、回数は `src/lib/free/monthly.ts` → Clerk の運用者アカウントの privateMetadata.freeRuns）。サイト全体は代表 10 ページ） | （元ツール） | なし（FAQ 生成のみ Anthropic） |
 | クイック診断 | `/meo` | クイック診断（店舗・MEO。店舗 1 件、固定リンク `/free` の Cookie が要る、月・IP ごと・1 日の回数制限つき） | — | Places API (New) |
 | 診断 | `/tools/seo-analysis` | 精密診断（事実シート + AI の現状分析と改善案。ドメインパワーを含む） | — | Supabase + Anthropic（PSI / SerpApi / OpenAI / CrUX / Ahrefs DR / Open PageRank は任意） |
 | 診断 | `/tools/site-audit` | （精密診断に統合。転送のみ。`hidden: true`） | A1 | — |

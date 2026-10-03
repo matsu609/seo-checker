@@ -82,7 +82,7 @@ export async function POST(request: Request) {
   try {
     const { detail, cached } = await getPlaceCached(placeId);
     // Google に問い合わせた（= 実費が出た）ときだけ 1 回数える。店名で記録してマスター画面で読めるようにする
-    if (!cached) void recordFreeRun("free-meo", detail.name || placeId, clientKeyOf(request));
+    if (!cached) await recordFreeRun("free-meo", detail.name || placeId, clientKeyOf(request));
     const body: FreeMeoReportResponse = { report: buildMeoReport(detail, new Date(), null, FREE_SCORE), cached };
     return Response.json(body, { headers: NO_STORE });
   } catch (err) {

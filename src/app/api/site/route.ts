@@ -82,7 +82,8 @@ export async function POST(request: NextRequest) {
     release();
     return over;
   }
-  void recordFreeRun("free-site", url, clientKeyOf(request));
+  // ストリームを始める前に記録まで待つ（投げっぱなしだと Vercel が関数を止めて消える。2026-10-03）
+  await recordFreeRun("free-site", url, clientKeyOf(request));
 
   // クライアントが切断したらクロールを止める（request.signal と stream の cancel の両方を見る）
   const abort = new AbortController();

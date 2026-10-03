@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
   try {
     const result = await analyze(url);
     cache.set(key, result);
-    void recordFreeRun("free-page", url, clientKeyOf(request));
+    // Vercel は応答を返すと関数を止めるので、投げっぱなしにせず待つ（2026-10-03: 投げっぱなしで回数が残らなかった）
+    await recordFreeRun("free-page", url, clientKeyOf(request));
     return Response.json({ result, cached: false });
   } catch (err) {
     if (err instanceof FetchError) return fetchErrorResponse(err);

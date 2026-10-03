@@ -2,9 +2,27 @@
  * 無料診断の固定リンク（GET /free・requireFreeAccess）と月の回数（利用者の決定 2026-10-02 → 10-03）。
  *
  * next/headers の cookies() を差し替えて、リンクで置いた Cookie がそのまま判定に通ることを見る。
- * Supabase は未設定にして、月の回数はメモリの控えで数える。
+ * 月の回数は Clerk（運用者の privateMetadata）を差し替えて数える。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const clerk = vi.hoisted(() => {
+  const state: { privateMetadata: Record<string, unknown> } = { privateMetadata: {} };
+  const operator = { id: "user_op", emailAddresses: [{ id: "e", emailAddress: "op@example.com", verification: { status: "verified" } }], primaryEmailAddressId: "e" };
+  return {
+    state,
+    clerkClient: async () => ({
+      users: {
+        getUserList: async () => ({ data: [operator], totalCount: 1 }),
+        getUser: async () => ({ ...operator, privateMetadata: state.privateMetadata }),
+        updateUserMetadata: async (_id: string, patch: { privateMetadata: Record<string, unknown> }) => {
+          state.privateMetadata = { ...state.privateMetadata, ...patch.privateMetadata };
+        },
+      },
+    }),
+  };
+});
+vi.mock("@clerk/nextjs/server", () => ({ clerkClient: clerk.clerkClient }));
 
 const jar = vi.hoisted(() => {
   const store = new Map<string, string>();
@@ -34,11 +52,11 @@ function adoptCookie(res: Response) {
 
 beforeEach(() => {
   jar.store.clear();
+  clerk.state.privateMetadata = {};
   resetFreeRunsMemory();
   vi.stubEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "pk_test_x");
   vi.stubEnv("CLERK_SECRET_KEY", "sk_test_x");
-  vi.stubEnv("SUPABASE_URL", "");
-  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+  vi.stubEnv("ADMIN_EMAILS", "op@example.com");
   vi.stubEnv("FREE_MONTHLY_LIMIT", "");
 });
 afterEach(() => {
@@ -84,12 +102,12 @@ describe("固定リンク", () => {
   });
 });
 
-describe("月の回数（Supabase が無いのでメモリで数える）", () => {
+describe("月の回数（Clerk の運用者の privateMetadata に残す）", () => {
   it("既定は 50 回。数えた分だけ減り、上限で 429。翌月に戻る", async () => {
     const { checkFreeRun, recordFreeRun, freeRunsThisMonth, recentFreeRuns } = await import("@/lib/free/monthly");
     const now = new Date("2026-10-15T03:00:00Z");
     let runs = await freeRunsThisMonth(now);
-    expect(runs).toMatchObject({ month: "2026-10", used: 0, limit: 50, remaining: 50, resetsOn: "2026-11-01", source: "memory" });
+    expect(runs).toMatchObject({ month: "2026-10", used: 0, limit: 50, remaining: 50, resetsOn: "2026-11-01", source: "clerk" });
 
     await recordFreeRun("free-page", "https://example.com/", "1.1.1.1", now);
     await recordFreeRun("free-meo", "〇〇歯科", null, now);
@@ -97,6 +115,8 @@ describe("月の回数（Supabase が無いのでメモリで数える）", () =
     expect(runs.used).toBe(2);
     expect(runs.remaining).toBe(48);
     expect(await checkFreeRun(now)).toBeNull();
+    // Clerk 側に残っている（別のインスタンスから読んでも同じ数になる）
+    expect((clerk.state.privateMetadata.freeRuns as { used: number }).used).toBe(2);
 
     const recent = await recentFreeRuns(10, now);
     expect(recent.records.map((r) => r.target)).toEqual(["〇〇歯科", "https://example.com/"]);
@@ -111,6 +131,25 @@ describe("月の回数（Supabase が無いのでメモリで数える）", () =
 
     // 翌月は 0 から
     expect((await freeRunsThisMonth(new Date("2026-11-02T00:00:00Z"))).used).toBe(0);
+  });
+
+  it("記録は最新 20 件だけ残し、回数は全部数える", async () => {
+    const { recordFreeRun, recentFreeRuns, RECORDS_KEEP } = await import("@/lib/free/monthly");
+    const now = new Date("2026-10-15T03:00:00Z");
+    for (let i = 0; i < 25; i++) await recordFreeRun("free-page", `https://example.com/${i}`, null, now);
+    const { runs, records } = await recentFreeRuns(100, now);
+    expect(runs.used).toBe(25);
+    expect(records).toHaveLength(RECORDS_KEEP);
+    expect(records[0].target).toBe("https://example.com/24");
+  });
+
+  it("運用者が Clerk に居なければメモリで数える（記録先 memory）", async () => {
+    vi.stubEnv("ADMIN_EMAILS", "nobody@example.com");
+    const { freeRunsThisMonth, recordFreeRun } = await import("@/lib/free/monthly");
+    const now = new Date("2026-10-15T03:00:00Z");
+    await recordFreeRun("free-page", "https://example.com/", null, now);
+    const runs = await freeRunsThisMonth(now);
+    expect(runs).toMatchObject({ used: 1, source: "memory" });
   });
 
   it("GET /api/free/quota は固定リンクの Cookie が要る", async () => {

@@ -27,8 +27,8 @@ export interface FreeRuns {
   remaining: number;
   /** 翌月 1 日（YYYY-MM-DD）。いつ戻るか */
   resetsOn: string;
-  /** 数えている場所。memory = Supabase が無い（デプロイで 0 に戻る・インスタンスごと） */
-  source: "supabase" | "memory";
+  /** 数えている場所。clerk = 運用者のアカウントの privateMetadata（本番）。memory = Clerk が無い開発・E2E（デプロイで 0 に戻る） */
+  source: "clerk" | "memory";
 }
 
 export interface FreeRunRecord {
