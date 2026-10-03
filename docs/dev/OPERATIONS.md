@@ -89,7 +89,7 @@
 
 | サービス | 状態 | 備考 |
 |---|---|---|
-| GitHub `matsu609/seo-checker` | main = r148（事業者向けアンケート。09-21） | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
+| GitHub `matsu609/seo-checker` | main = r175（採点ツールの本文の取りこぼし等の修正。10-03） | main に push すると Vercel が自動デプロイ。紹介サイトのソース `marketing/` も同居（09-10 に統合） |
 | Vercel `matsumatsu452-6233/seo-checker` | 本番 `app.seo-checker.tokyo` 稼働中 | Hobby プラン |
 | Cloudflare | `seo-checker.tokyo` ゾーンを管理。Worker `seo-checker-hp` が紹介サイト（apex）を配信 | `app.` は Vercel へ CNAME（DNS のみ）。**Workers Builds の接続先を旧 `matsu609/seo-checker-HP` からこのリポジトリ（Root directory `marketing`）へ切り替えるのが #29** |
 | GitHub `matsu609/seo-checker-HP`（旧・紹介サイト） | 中身は `marketing/` に移設済み。#29 が終わったら役目を終える | 切り替え前にここを消すと紹介サイトが更新できなくなるので、#29 の完了までは残す |
@@ -5743,3 +5743,9 @@ FAQ を作る入口は 2 つあり、**片方に上限が無かった**。
 - 利用者「『急ぎで対応』は『今すぐ対応』にしてください」→ **r173**。ピル・先頭ブロックの文（「今すぐ直す項目が N 件あります」「今すぐ直す項目はありません」）・付録 B・課題一覧のフィルタ・採点リファレンスを一括で置き換え（定義は `src/lib/report/urgency.ts` の `URGENCY_LABELS`、文章は `action-plan.ts`）。内部の値 `now` は変えていない。3 段階の言葉はこれで **今すぐ対応 / 要改善 / 後回しで OK**。**lint / tsc / test / build 通過。**
 - 利用者「無料診断と精密診断の違いは？ GA4 と Google サーチコンソールの機能は精密診断から切り離してほしい。実装されていなければ問題ない」→ 調べた結果: **精密診断は 2026-09-17 以降どちらも使っていない**（`collect.ts` は `unusedGoogleOutcome()` で空の層と案内文を入れていただけ）。残骸を **r174** で削除: `src/lib/seo-analysis/google.ts`、`SheetGoogle` と `SeoFactSheet.google`、`FactArea` の `google`（付録の「Google 連携（使わない。案内のみ）」が消える）、`CollectStep` の `google`、`/api/seo-analysis/comment` の `area` 候補、AI のプロンプトの例示文。テストの固定データからも外した。seo-analysis-spec の §0.2 と E′ の行を「取り下げ」に。**lint / tsc / test / build 通過。**
 - 違いの答え（registry の説明と seo-analysis-spec §0.2 から）: 無料診断 = URL だけでできる 1 ページ / サイト（代表 10 ページ）のルール採点（5 カテゴリ・100 点）+ 想定 FAQ + 店舗（Google マップの公開情報）。精密診断（スタンダード以上・月 10 回）= 設定に登録したサイトをまるごとクロール（50 ルール・構成・信頼）+ トップの採点 + 主要 6 ページの速度（PageSpeed / CrUX）+ 対策キーワードの順位（SerpApi）+ 外部からの評価（被リンク・インデックス数）+ llms.txt の中身 → 事実シート → **AI の「専門家のアドバイス」**（現状・強み弱み・改善案 5〜6 件）+ PDF + 履歴 + 30 日ごとの自動再診断。
+- 利用者が自社サイト（moment-tokyo.jp）を無料診断で測り直したレポートを見て「ツールの問題か、サイトの改善点か」→ 調べると**ツール側の不具合が 3 つ**。利用者「3 つとも修正してください」→ **r175**。
+  - **① 本文の取りこぼし**（`analyzer/content.ts` の `shouldUseFallback`）: `<section>` が兄弟で並ぶ会社サイトで、Readability が最初の 1 セクションだけを本文に選び、残りを捨てていた（/development で 322 文字・14 文・事実 0。2 セクション目以降の「100社超」「2営業日以内」を一度も読んでいなかった）。300 文字以上あったので既存のフォールバック条件に掛からなかった。**「抽出結果が、フォールバックのうちリンク以外の本文の半分に満たない」ときも body 全体に切り替える**条件を追加。以前に見送った相対条件の懸念（関連記事リストで水増し）は、リンクの文字を除いて比べることで避けた。実ページを `__tests__/fixtures/multi-section-corporate.html` に置いてテスト（修正前は落ちることを確認済み）。moment のトップも 333 文字 → 1,404 文字読まれるようになる。
+  - **② サイトマップ 0 件**（`crawl/url.ts` の `alignToOrigin`、`crawl/discover.ts`）: `www.` の有無だけが違うホストを別サイトとして捨てていた（www で診断・サイトマップは www なし → 9 件すべて捨てて「sitemap 由来 0 件」）。**www の有無だけが違うホストは診断したホストに揃えて使う**。それ以外のホスト違い（サブドメイン・別ドメイン・ポート違い）は従来どおり対象外だが、**捨てた件数と例を notes に出す**（黙って捨てると理由が分からないため）。
+  - **③ 「該当ページはすべて同じ状態です」の数字**（`report/summary.ts` の `spreadOf`）: 判定が全ページ同じ（例: 本文の分量 = 全ページ参考）だと「全ページ共通」にまとめ、先頭ページ（トップ）の根拠「本文 約333 文字 / 14 文」を全ページの値として出していた。**根拠（evidence）がページごとに違えば「ページによって差がある項目」に入れる**（実例の上限 MAX_AFFECTED_SAMPLES の範囲で比べる）。design-spec §3.3-5 の表に追記。
+  - **lint / tsc / test 2,435 件 / build 通過。**
+  - 見つけたが直していないこと: 具体性の単位に「営業日」「工程」が無い（「2営業日以内」は事実として数えない。`sentences.ts` の CONCRETE_PATTERNS）。足すかは利用者の判断待ち。
